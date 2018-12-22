@@ -1,0 +1,1 @@
+﻿$num=0;ls -Recurse -Force |foreach{$num++; if ($_.Name.EndsWith('.torrent')){"clean : $($_.FullName)";del -Force -path $_.FullName}} ; "fileCounts:$num";pause
