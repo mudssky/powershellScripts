@@ -1,2 +1,2 @@
-﻿# 解决mv报错问题，因为路径名中包含的[]方括号会被PowerShell解析，路径操作时加上-LiteralPath可以解决这一问题
+﻿# 解决mv报错问题，因为路径名中包含的[]方括号会被PowerShell解析，路径操作时加上-LiteralPath可以解决这一问题（即按字符串原意处理）
 ls -Recurse -Force | foreach{ if($_.name.EndsWith('.wav')){ffmpeg -i $_.FullName -b:a 256k $_.FullName.Replace('.wav','.aac');rm -LiteralPath $_.FullName "convert and deleted: $($_.Fullname)"}}
