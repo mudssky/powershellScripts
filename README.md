@@ -10,3 +10,6 @@
 
 allWavToFlac则是将所有wav文件用flac编码。
 flac是无损压缩，压缩率接近50%，所以一般来说还是flac更实用一些
+
+## functions
+存放一些实用的函数
