@@ -1,0 +1,1 @@
+﻿ls -Recurse *.mkv,*.mp4 | foreach{ ffmpeg.exe -i  $_.FullName  ($_.FullName.Substring(0,$_.FullName.Length-3)+'ass')}
