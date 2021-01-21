@@ -1,0 +1,1 @@
+Get-Clipboard | gcharset.exe -i - | Set-Clipboard 
