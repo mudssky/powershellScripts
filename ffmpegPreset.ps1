@@ -16,7 +16,7 @@ param(
 
 #[string]$ffmpegStr='-vcodec libx264 -acodec copy -crf 23 -r 30 -preset veryfast',
 $presetTable=@{'veryslow'='-vcodec libx264 -acodec copy -crf 23 -r 30 -preset veryslow';
-    ''=$ffmpegStr;
+    ''='-vcodec libx264 -acodec copy -crf 23  -preset veryfast';
     'x265'='-vcodec libx265 -acodec copy -crf 23  -preset fast';
     'hevc'='-vcodec libx265 -acodec copy -crf 28  -preset fast';
     '720p'='-vcodec libx264 -acodec copy -crf 23  -preset veryfast -r 30 -s 1280*720';
