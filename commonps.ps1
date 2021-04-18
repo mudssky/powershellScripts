@@ -1,12 +1,12 @@
 ##############################################################################
 #.SYNOPSIS
-# get a formated length of file , µ±ÊıÖµ³¬¹ı1024»á²ÉÓÃ¸ü´óµÄµ¥Î»£¬Ö±µ½GB
+# get a formated length of file , å½“æ•°å€¼è¶…è¿‡1024ä¼šé‡‡ç”¨æ›´å¤§çš„å•ä½ï¼Œç›´åˆ°GB
 #
 #.DESCRIPTION
-# »ñµÃ¸ñÊ½»¯µÄÎÄ¼ş´óĞ¡×Ö·û´®
+# è·å¾—æ ¼å¼åŒ–çš„æ–‡ä»¶å¤§å°å­—ç¬¦ä¸²
 #
 #.PARAMETER TypeName
-# ÊıÖµÀàĞÍ
+# æ•°å€¼ç±»å‹
 #
 #.PARAMETER ComObject
 # 
@@ -37,17 +37,17 @@ function Get-FormatLength($length){
 # get needed digits to represent a decimal number
 #
 #.DESCRIPTION
-# »ñµÃÒ»¸öÊı×ÖĞèÒª¶àÉÙ¶ş½øÖÆÎ»À´±íÊ¾
+# è·å¾—ä¸€ä¸ªæ•°å­—éœ€è¦å¤šå°‘äºŒè¿›åˆ¶ä½æ¥è¡¨ç¤º
 #
 #.PARAMETER number
-#ÊäÈëµÄÊı×Ö
+#è¾“å…¥çš„æ•°å­—
 #
 #.EXAMPLE
 #  
 ##############################################################################
 function Get-NeedBinaryDigits($number){
-# ÓÉÓÚpowershellÖĞ×î´óµÄÊı×Ö¾ÍÊÇint64,2×óÒÆ62Î»µÄÊ±ºò¾ÍÒç³öÁË£¬ËùÒÔ×î´ó±È½Ïµ½2×óÒÆ61Î»¡£Ò²¾ÍÊÇ2µÄ62´Î·½£¬2µÄ63´Î·½¾Í»áÒç³öint64
-# int64 ÓĞ64Î»£¬ÆäÖĞÒ»Î»ÊÇ·ûºÅÎ»£¬ ËùÒÔ±í´ïµÄ×î´óÊı¾ÍÊÇ 2µÄ63´Î·½-1£¨×î¸ßÎ»ÏÂ±êÊÇ63£©
+# ç”±äºpowershellä¸­æœ€å¤§çš„æ•°å­—å°±æ˜¯int64,2å·¦ç§»62ä½çš„æ—¶å€™å°±æº¢å‡ºäº†ï¼Œæ‰€ä»¥æœ€å¤§æ¯”è¾ƒåˆ°2å·¦ç§»61ä½ã€‚ä¹Ÿå°±æ˜¯2çš„62æ¬¡æ–¹ï¼Œ2çš„63æ¬¡æ–¹å°±ä¼šæº¢å‡ºint64
+# int64 æœ‰64ä½ï¼Œå…¶ä¸­ä¸€ä½æ˜¯ç¬¦å·ä½ï¼Œ æ‰€ä»¥è¡¨è¾¾çš„æœ€å¤§æ•°å°±æ˜¯ 2çš„63æ¬¡æ–¹-1ï¼ˆæœ€é«˜ä½ä¸‹æ ‡æ˜¯63ï¼‰
     if ($number -gt ([int64]::MaxValue)){
         Write-Host -ForegroundColor Red "the number is exceed the area of int64"
     }else{
@@ -57,6 +57,32 @@ function Get-NeedBinaryDigits($number){
             }
         }
     }
+}
+
+<#
+.SYNOPSIS
+    è·å–ä¸€ä¸ªå’Œè¾“å…¥å“ˆå¸Œè¡¨keyå’Œvalueè°ƒæ¢ä½ç½®çš„å“ˆå¸Œè¡¨
+.DESCRIPTION
+    Long description
+.EXAMPLE
+    PS C:\> Get-ReversedMap -inputMap $xxxMap
+    Explanation of what the example does
+.INPUTS
+    Inputs (if any)
+.OUTPUTS
+    Output (if any)
+.NOTES
+    General notes
+#>
+function Get-ReversedMap() {
+    param (
+        $inputMap
+    )
+    $reversedMap = @{}
+    foreach ($key in $inputMap.Keys) {
+        $reversedMap[$inputMap[$key]]=$key
+    }
+    return $reversedMap
 }
 
 
