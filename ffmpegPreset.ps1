@@ -4,7 +4,10 @@
 .example
 ffmpegPreset.ps1 -path 'input.flv'
 
+常见使用方式
 ls *.flv|%{ffmpegPreset.ps1 -path $_.Name}
+ls *.flv|%{ffmpegPreset.ps1 -preset '720p28' -path $_.Name}
+ls *.flv|%{ffmpegPreset.ps1 -preset '720p' -path $_.Name}
 #>
 param(
     [string]$path,
