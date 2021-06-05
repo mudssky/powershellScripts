@@ -27,16 +27,17 @@ $regexPresetMap = @{
   mp4 = '[\s\S]+\.mp4$';
 }
 $ffmpegPresetMap = @{
-  copy     = '-c copy';
-  ''       = '-vcodec libx264 -acodec copy -crf 23  -preset veryfast';
-  'crf23'  = '-vcodec libx264 -acodec copy -crf 23  -preset veryfast';
-  'crf28'  = '-vcodec libx264 -acodec copy -crf 28  -preset veryfast';
-  'x265'   = '-vcodec libx265 -acodec copy -crf 23  -preset fast';
-  'hevc'   = '-vcodec libx265 -acodec copy -crf 28  -preset fast';
-  '720p'   = '-vcodec libx264 -acodec copy -crf 23  -preset veryfast -r 30 -s 1280*720';
-  '720paac'   = '-vcodec libx264  -crf 23  -preset veryfast -r 30 -s 1280*720';
-  '720p28' = '-vcodec libx264 -acodec copy -crf 28  -preset veryfast -r 30 -s 1280*720';
-  '480p'   = '-vcodec libx264 -acodec copy -crf 23  -preset veryfast -r 30 -s 854*480';
+  copy      = '-c copy';
+  ''        = '-vcodec libx264 -acodec copy -crf 23  -preset veryfast';
+  'crf23'   = '-vcodec libx264 -acodec copy -crf 23  -preset veryfast';
+  'crf28'   = '-vcodec libx264 -acodec copy -crf 28  -preset veryfast';
+  'x265'    = '-vcodec libx265 -acodec copy -crf 23  -preset fast';
+  'hevc'    = '-vcodec libx265 -acodec copy -crf 28  -preset fast';
+  '720p'    = '-vcodec libx264 -acodec copy -crf 23  -preset veryfast -r 30 -s 1280*720';
+  '720paac' = '-vcodec libx264  -crf 23  -preset veryfast -r 30 -s 1280*720';
+  '720p28'  = '-vcodec libx264 -acodec copy -crf 28  -preset veryfast -r 30 -s 1280*720';
+  '480p'    = '-vcodec libx264 -acodec copy -crf 23  -preset veryfast -r 30 -s 854*480';
+  #'m4a'   = ' -acodec copy -vn ';
 
 }
 
@@ -91,19 +92,19 @@ if ($filenameList.Count -ne 1) {
   # $concatStr = 'concat:' + $concatStr
   # $concatCommand = 'ffmpeg.exe -i "{0}"  {1} "{2}"' -f $concatStr, $ffmpegStr, $outputFilename
   # 生成concat文件列表
-  $filenameList | ForEach-Object{ "file '{0}'" -f $_ } > filelist.txt
+  $filenameList | ForEach-Object { "file '{0}'" -f $_ } > filelist.txt
   $concatCommand = 'ffmpeg.exe -f concat -safe 0  -i filelist.txt   {0} "{1}"' -f $ffmpegStr, $outputFilename
-  Write-Host -ForegroundColor Green  ('执行的ffmpeg命令为： {0}' -f  $concatCommand)
+  Write-Host -ForegroundColor Green  ('执行的ffmpeg命令为： {0}' -f $concatCommand)
   Invoke-Expression -Command $concatCommand
 
   Write-Host -ForegroundColor Green  '执行完成，删除filelist.txt 文件...'
-  # Remove-Item -Force 'filelist.txt'
+  Remove-Item -Force 'filelist.txt'
   # ffmpeg -f concat -safe 0 -i "$tempPath/file.txt" -c copy output.mp4 
 } 
 else {
   # 只有一个文件的时候就直接执行转码部分
   $concatCommand = 'ffmpeg.exe -i "{0}"  {1} "{2}"' -f $fileList[0].Name, $ffmpegStr, $outputFilename
-  Write-Host -ForegroundColor Green  ('执行的ffmpeg命令为： {0}' -f  $concatCommand)
+  Write-Host -ForegroundColor Green  ('执行的ffmpeg命令为： {0}' -f $concatCommand)
   Invoke-Expression -Command $concatCommand
 }
 
