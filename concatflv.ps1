@@ -109,7 +109,7 @@ else {
 }
 
 if ($deleteSource) {
-  $fileList | ForEach-Object { Remove-Item -Force $_ }
+  $fileList | ForEach-Object { Remove-Item -LiteralPath -Force $_.Name }
 }
 else {
   $answerStr = Read-Host  '输入yes或y删除用于拼接的源文件'
