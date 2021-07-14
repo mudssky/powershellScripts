@@ -1,7 +1,7 @@
 
 param(
     # [string]$path
-    [string]$wildPath,
+    [string]$wildcard,
     [string]$outPath,
     [switch]$delete,
     [switch]$whatif
@@ -10,7 +10,7 @@ param(
 trap {
     "error found"
 }
-$xmlList = Get-ChildItem $wildPath | ? { $_.Extension -eq '.xml' } 
+$xmlList = Get-ChildItem $wildcard | ? { $_.Extension -eq '.xml' } 
 
 if ($whatif) {
     Write-Host -ForegroundColor Green 'there are files to be concat'
