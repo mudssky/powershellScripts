@@ -13,6 +13,7 @@ param(
     [string]$path,
     [string]$ffmpegStr = '-vcodec libx264 -acodec copy -crf 23  -preset veryfast',
     [string]$outpath,
+    [string]$outExt = '.mp4',
     [string]$preset = ''
 	
 )
@@ -33,7 +34,7 @@ $ffmpegStr = $presetTable[$preset]
 
 #$extLenth=$path.Length-$path.LastIndexOf('.')
 if (-not $outpath) {
-    $outpath = $path.Substring(0, $path.LastIndexOf('.')) + '.mp4'
+    $outpath = $path.Substring(0, $path.LastIndexOf('.')) + $outExt
 }
 
 $commandStr = ("ffmpeg.exe -i  '{0}'  {1}  '{2}' " -f $path, $ffmpegStr, $outpath)
