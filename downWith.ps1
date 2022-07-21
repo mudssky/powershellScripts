@@ -2,14 +2,14 @@
 .example
 downWithYoutubedl.ps1 -startNum 0 -paramStr '-i' -tool you-get
 
-当使用you-get的时候，典型的使用方法是：downWith.ps1 -endNum 3 -paramStr '--playlist' -tool you-get
+锟斤拷使锟斤拷you-get锟斤拷时锟津，碉拷锟酵碉拷使锟矫凤拷锟斤拷锟角ｏ拷downWith.ps1 -endNum 3 -paramStr '--playlist' -tool you-get
 
 #>
 param(
 [int]$startNum = 0,
 [int]$endNum=-1,
 [string]$paramStr = '',
-[string]$tool = 'youtube-dl',
+[string]$tool = 'yt-dlp',
 [string]$url=''
 )
 $str =''
@@ -20,7 +20,7 @@ $str = Get-Clipboard;
 }
 
 $linkList = $str -split '\n'
-# endNum的默认值是-1，也就是不启用，此时endNum为默认值就是列表长度
+# endNum锟斤拷默锟斤拷值锟斤拷-1锟斤拷也锟斤拷锟角诧拷锟斤拷锟矫ｏ拷锟斤拷时endNum为默锟斤拷值锟斤拷锟斤拷锟叫憋拷锟斤拷锟斤拷
 if ($endNum -eq -1){
     $endNum = $linkList.Length
 }
