@@ -62,6 +62,7 @@ function Test-Font() {
 
 $chocoInstallList = @(
 	'starship'
+	# 'twinkle-tray' 一个调节屏幕亮度的软件，win10的亮度调节可太垃圾了。
 )
 
 $scoopInstallList = @(
