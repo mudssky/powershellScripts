@@ -36,6 +36,28 @@ function Test-EXEProgram() {
 	return ($null -ne (Get-Command -Name $Name  -CommandType Application  -ErrorAction SilentlyContinue ))
 }
 
+
+<#
+.Synopsis
+	检测win10字体文件夹中是否存在字体
+.DESCRIPTION
+   详细描述
+#>
+function Test-Font() {
+	Param
+	(	
+		[Parameter(Mandatory = $true, 
+		 ValueFromPipeline = $true,
+		 Position = 0 )]
+		[ValidateNotNull()]
+		[ValidateNotNullOrEmpty()]
+		[string]
+		$Name
+	)
+	$win10systemRoot = (Get-ChildItem Env:SystemRoot).Value
+	return ($null -ne ((Get-ChildItem ( $win10systemRoot + '\Fonts') -Filter "*$Name*")) )
+}
+
 # $PSDefaultParameterValues["Write-Host:ForegroundColor"] = "Green"
 
 $chocoInstallList = @(
@@ -46,7 +68,8 @@ $scoopInstallList = @(
 	'go',
 	'python',
 	'aria2',
-	'nvm'
+	'nvm',
+	'git'
 )
 
 function chocoInstallApps() {
@@ -86,7 +109,11 @@ function installApps() {
 			[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
 		}
 	}
-
+	if ( -not (Test-Font fira)) {
+		if ($PSCmdlet.ShouldProcess('是否安装', '未检测到firacode')) {
+			choco install firacodenf
+		}
+	}
 	if ( -not (Test-EXEProgram scoop)) {
 		# Write-Host -ForegroundColor Green  '未安装choco，是否安装'
 		if ($PSCmdlet.ShouldProcess('是否安装', '未检测到scoop')) {

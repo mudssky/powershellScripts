@@ -24,7 +24,6 @@ else {
 	Write-Host -ForegroundColor Green  '未安装startship（一款开源提示符美化），可以运行以下命令进行安装 
 	1.choco install starship 
 	2.Invoke-Expression (&starship init powershell)'
-
 }
 
 
