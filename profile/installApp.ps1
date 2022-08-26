@@ -55,24 +55,32 @@ function Test-Font() {
 		$Name
 	)
 	$win10systemRoot = (Get-ChildItem Env:SystemRoot).Value
-	return ($null -ne ((Get-ChildItem ( $win10systemRoot + '\Fonts') -Filter "*$Name*")) )
+	$win10FontsPath = $win10systemRoot + '\Fonts'
+	return ($null -ne ((Get-ChildItem $win10FontsPath -Filter "*$Name*")) )
 }
 
 # $PSDefaultParameterValues["Write-Host:ForegroundColor"] = "Green"
 
-$chocoInstallList = @(
-	'starship'
-	# 'twinkle-tray' 一个调节屏幕亮度的软件，win10的亮度调节可太垃圾了。
-)
 
-$scoopInstallList = @(
-	'go',
-	'python',
-	'aria2',
-	'nvm',
-	'git'
-)
 
+
+$installListMap = @{
+	choco  = @(
+		'starship' # 跨平台终端提示符美化工具
+		# 'twinkle-tray' 	# 一个调节屏幕亮度的软件，win10的亮度调节可太垃圾了。
+		# 'eartrumpet' # 替代win10的音量调节
+	);
+	scoop  = @(
+		'go',
+		'python',
+		'aria2',
+		'nvm',
+		'git'
+	)
+	winget = @(
+		'eartrumpet'
+	)
+}
 function chocoInstallApps() {
 	[CmdletBinding(SupportsShouldProcess)]
 	param(
@@ -104,6 +112,15 @@ function scoopInstallApps() {
 function installApps() {
 	[CmdletBinding(SupportsShouldProcess)]
 	param()
+	if ( -not (Test-EXEProgram scoop)) {
+		if ($PSCmdlet.ShouldProcess('是否安装', '未检测到scoop')) {
+			Write-Host '由于scoop禁止管理员权限安装,请先在非管理员环境安装后,再继续执行
+			执行下面的语句安装
+			Invoke-WebRequest -useb get.scoop.sh | Invoke-Expression
+			'
+			return
+		}
+	}
 	if ( -not (Test-EXEProgram choco)) {
 		# Write-Host -ForegroundColor Green  '未安装choco，是否安装'
 		if ($PSCmdlet.ShouldProcess('是否安装', '未检测到choco')) {
@@ -112,17 +129,14 @@ function installApps() {
 	}
 	if ( -not (Test-Font fira)) {
 		if ($PSCmdlet.ShouldProcess('是否安装', '未检测到firacode')) {
-			choco install firacodenf
+			$win10systemRoot = (Get-ChildItem Env:SystemRoot).Value
+			$win10FontsPath = $win10systemRoot + '\Fonts'
+			Expand-Archive -Path './fonts/FiraCode Windows Compatible.zip' -DestinationPath $win10FontsPath
 		}
 	}
-	if ( -not (Test-EXEProgram scoop)) {
-		# Write-Host -ForegroundColor Green  '未安装choco，是否安装'
-		if ($PSCmdlet.ShouldProcess('是否安装', '未检测到scoop')) {
-			Invoke-WebRequest -useb get.scoop.sh | Invoke-Expression
-		}
-	}
-	chocoInstallApps -installList $chocoInstallList
-	scoopInstallApps -installList $scoopInstallList
+
+	chocoInstallApps -installList $installListMap.choco
+	scoopInstallApps -installList $scoopInstallList.scoop
 
 	if ( -not (Test-EXEProgram node)) {
 		# Write-Host -ForegroundColor Green  '未安装choco，是否安装'
