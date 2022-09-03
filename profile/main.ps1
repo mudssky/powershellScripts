@@ -10,7 +10,8 @@ Set-Alias -Name ipython -Value Start-Ipython
 # cmdlets 的默认参数
 $PSDefaultParameterValues["Out-File:Encoding"] = "UTF8"
 
-
+# 开启基于历史命令的命令补全
+Set-PSReadLineOption -PredictionSource History
 
 # 提示符
 # 开源的自定义提示符starship
