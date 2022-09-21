@@ -10,7 +10,12 @@ Set-Alias -Name ipython -Value Start-Ipython
 # cmdlets 的默认参数
 $PSDefaultParameterValues["Out-File:Encoding"] = "UTF8"
 
+# 开启基于历史命令的命令补全
+Set-PSReadLineOption -PredictionSource History
 
+
+# 配置git,解决中文文件名不能正常显示的问题
+# git config --global core.quotepath false
 
 # 提示符
 # 开源的自定义提示符starship
