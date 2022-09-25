@@ -62,6 +62,9 @@ function Test-Font() {
 # $PSDefaultParameterValues["Write-Host:ForegroundColor"] = "Green"
 
 
+# cargo install hyperfine
+# cargo install gping #带图的ping
+
 
 
 $installListMap = @{
@@ -69,6 +72,14 @@ $installListMap = @{
 		'starship' # 跨平台终端提示符美化工具
 		# 'twinkle-tray' 	# 一个调节屏幕亮度的软件，win10的亮度调节可太垃圾了。
 		# 'eartrumpet' # 替代win10的音量调节
+		'bat'
+		#可以代替linux下的cat
+		'fd'
+		#搜索用的命令行工具
+		'lsd'
+		# 代替linux的ls命令
+		'hexyl'
+		# 终端查看16进制
 	);
 	scoop  = @(
 		'go',
