@@ -87,9 +87,12 @@ function Test-EXEProgram() {
 Set-Alias -Name ise -Value powershell_ise
 Set-Alias -Name ipython -Value Start-Ipython
 
+# powershell控制台编码设为utf8
+$OutputEncoding = [console]::InputEncoding = [console]::OutputEncoding = New-Object System.Text.UTF8Encoding
 
 # cmdlets 的默认参数
 $PSDefaultParameterValues["Out-File:Encoding"] = "UTF8"
+
 
 # 开启基于历史命令的命令补全
 Set-PSReadLineOption -PredictionSource History
