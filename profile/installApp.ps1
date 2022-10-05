@@ -92,6 +92,7 @@ $installListMap = @{
 		'eartrumpet'
 	)
 	cargo  = @(
+		# 可以用于在不同的工作空间中共享已经构建好的依赖包,提升构建速度
 		'sccache'
 	)
 }
