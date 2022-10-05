@@ -91,6 +91,9 @@ $installListMap = @{
 	winget = @(
 		'eartrumpet'
 	)
+	cargo  = @(
+		'sccache'
+	)
 }
 function chocoInstallApps() {
 	[CmdletBinding(SupportsShouldProcess)]
@@ -156,7 +159,9 @@ function installApps() {
 			nvm install lts
 		}
 	}
-	
+	if ( -not (Test-EXEProgram sccache)) {
+		Write-Host -ForegroundColor Yellow '请安装sccache,用于rust编译缓存,提升新安装包的编译速度,cargo install sccache,'
+	}
 }
 
 installApps -Confirm
