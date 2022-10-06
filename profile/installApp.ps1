@@ -80,6 +80,9 @@ $installListMap = @{
 		# 代替linux的ls命令
 		'hexyl'
 		# 终端查看16进制
+
+		'ripgrep'
+		#  文件搜索
 	);
 	scoop  = @(
 		'go',
@@ -94,6 +97,30 @@ $installListMap = @{
 	cargo  = @(
 		# 可以用于在不同的工作空间中共享已经构建好的依赖包,提升构建速度
 		'sccache'
+		# linux sed命令行的rust实现，执行速度快2倍以上
+		'sd'
+		# 查看磁盘占用情况
+		'dust'
+		# 统计各种语言的代码行数
+		'tokei'
+		# 命令行跑分工具
+		'hyperfine'
+		# rust 版本的top，任务管理器
+		'bottom'
+		# rust版本tldr 太长不看帮助文档
+		'tealdeer'
+		# 根据用户输入生成正则表达式
+		'grex'
+		# 更智能的cd
+		'zoxide'
+		# 命令行任务管理工具，它可以管理你的长时间运行的命令，支持顺序或并行执行。简单来说，它可以管理一个命令队列。
+		'pueue'
+		# 监听到文件变动后执行命令
+		'watchexec-cli'
+		# 监听变动执行cargo操作，和watchexec是同一个开发者
+		'cargo-watch'
+		# 文件目录管理
+		'broot'
 	)
 }
 function chocoInstallApps() {
