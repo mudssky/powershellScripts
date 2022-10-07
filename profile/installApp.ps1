@@ -78,11 +78,6 @@ $installListMap = @{
 		#搜索用的命令行工具
 		'lsd'
 		# 代替linux的ls命令
-		'hexyl'
-		# 终端查看16进制
-
-		'ripgrep'
-		#  文件搜索
 	);
 	scoop  = @(
 		'go',
@@ -100,15 +95,15 @@ $installListMap = @{
 		# linux sed命令行的rust实现，执行速度快2倍以上
 		'sd'
 		# 查看磁盘占用情况
-		'dust'
+		'dust' 
 		# 统计各种语言的代码行数
 		'tokei'
 		# 命令行跑分工具
 		'hyperfine'
-		# rust 版本的top，任务管理器
-		'bottom'
+		# rust 版本的top，任务管理器bottom
+		'btm'
 		# rust版本tldr 太长不看帮助文档
-		'tealdeer'
+		'tldr'
 		# 根据用户输入生成正则表达式
 		'grex'
 		# 更智能的cd
@@ -116,11 +111,16 @@ $installListMap = @{
 		# 命令行任务管理工具，它可以管理你的长时间运行的命令，支持顺序或并行执行。简单来说，它可以管理一个命令队列。
 		'pueue'
 		# 监听到文件变动后执行命令
-		'watchexec-cli'
+		'watchexec'
 		# 监听变动执行cargo操作，和watchexec是同一个开发者
 		'cargo-watch'
 		# 文件目录管理
 		'broot'
+		# 终端查看16进制
+		'hexyl'
+		#  文件搜索
+		'rg'
+		
 	)
 }
 function chocoInstallApps() {
@@ -132,7 +132,7 @@ function chocoInstallApps() {
 	foreach ($appName in $installList) {
 		if ( -not (Test-EXEProgram $appName)) {
 			if ($PSCmdlet.ShouldProcess( '是否安装', "未检测到$appName")) {
-				choco install $appName
+				choco install $appName -y
 			}
 		}
 	}
@@ -147,6 +147,50 @@ function scoopInstallApps() {
 		if ( -not (Test-EXEProgram $appName)) {
 			if ($PSCmdlet.ShouldProcess( '是否安装', "未检测到$appName")) {
 				scoop install $appName 
+			}
+		}
+	}
+}
+
+
+function cargoInstallApps() {
+	[CmdletBinding(SupportsShouldProcess)]
+	param(
+		[string[]]
+		$installList
+	)
+
+	$specialdict = @{
+		'dust'      = @{
+			# 'bin'='dust'
+			'command' = 'cargo install du-dust';
+		};
+		'pueue'     = @{
+			'command' = 'cargo install --locked pueue';
+		};
+		'tldr'      = @{
+			'command' = 'cargo install  tealdeer';
+		};
+		'watchexec' = @{
+			'command' = 'cargo install  watchexec-cli';
+		};
+		'rg'        = @{
+			'command' = 'cargo install  ripgrep';
+		};
+		'btm'       = @{
+			'command' = 'cargo install  bottom';
+		};
+	}
+
+	foreach ($appName in $installList) {
+		if ( -not (Test-EXEProgram $appName)) {
+			if ($PSCmdlet.ShouldProcess( '是否安装', "未检测到$appName")) {
+				if ($appName -in $specialdict.Keys) {
+					Invoke-Expression $specialdict[$appName].command
+				}
+				else {				
+					cargo install $appName 
+				}
 			}
 		}
 	}
@@ -179,6 +223,7 @@ function installApps() {
 
 	chocoInstallApps -installList $installListMap.choco
 	scoopInstallApps -installList $scoopInstallList.scoop
+	cargoInstallApps -installList $installListMap.cargo
 
 	if ( -not (Test-EXEProgram node)) {
 		# Write-Host -ForegroundColor Green  '未安装choco，是否安装'
