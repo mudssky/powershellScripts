@@ -3,6 +3,7 @@ param(
     #default cut filter for huawei m6 10.8
     #'2032:1440:264:0' pc  2560*1440 fullscreen cut
     [string]$cropstr = 'default',
+    [int]$ThrottleLimit = 5,
     [switch]$lossless = $false,
     [switch]$Recurse = $false
 )
@@ -18,7 +19,9 @@ $cropdict = @{
 $paramStr = $cropdict[$cropstr]
 Write-Output $paramStr
 
-Get-ChildItem -Recurse:$Recurse  *.png, *.jpg | ForEach-Object { webpCompress.ps1 -paramStr $paramStr -targetPath $_.FullName -lossless:$lossless -limitSize 0 }
+Get-ChildItem -Recurse:$Recurse  *.png, *.jpg |  ForEach-Object -ThrottleLimit:$ThrottleLimit -Parallel {
+    #Action that will run in Parallel. Reference the current object via $PSItem and bring in outside variables with $USING:varname
+    webpCompress.ps1 -paramStr $USING:paramStr -targetPath $_.FullName -lossless:$USING:lossless -limitSize 0 }
 
 
 Remove-Item *.jpg, *.png
