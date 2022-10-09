@@ -2,8 +2,8 @@
 
 # $Env:http_proxy = "http://127.0.0.1:7890"; $Env:https_proxy = "http://127.0.0.1:7890";
 
-# 设置sccache用于rust编译缓存,提高新启动项目的编译速度
-$Env:RUSTC_WRAPPER = 'sccache';
+
+
 
 # powershell ise 的别名
 Set-Alias -Name ise -Value powershell_ise
@@ -37,4 +37,7 @@ else {
 	2.Invoke-Expression (&starship init powershell)'
 }
 
-
+if (Test-EXEProgram -Name sccache) {
+	# 设置sccache用于rust编译缓存,提高新启动项目的编译速度
+	$Env:RUSTC_WRAPPER = 'sccache';
+}
