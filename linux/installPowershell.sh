@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+
+if command -v git >/dev/null 2>&1; then 
+  echo 'powershell 已安装' 
+
+fi
+
 powershellUrl='https://github.com/PowerShell/PowerShell/releases/download/v7.2.6/powershell-7.2.6-linux-arm64.tar.gz'
 
 myfolder='/etc/mudssky/tools'
