@@ -85,6 +85,8 @@ $installListMap = @{
 		'aria2',
 		'nvm',
 		'git'
+		# win提权
+		'gsudo'
 	)
 	winget = @(
 		'eartrumpet'
