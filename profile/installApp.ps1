@@ -102,6 +102,8 @@ $installListMap = @{
 		'tokei'
 		# 命令行跑分工具
 		'hyperfine'
+		# git仓库统计信息
+		'onefetch'
 		# rust 版本的top，任务管理器bottom
 		'btm'
 		# rust版本tldr 太长不看帮助文档
@@ -122,6 +124,7 @@ $installListMap = @{
 		'hexyl'
 		#  文件搜索
 		'rg'
+
 		
 	)
 }
