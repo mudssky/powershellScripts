@@ -124,7 +124,8 @@ $installListMap = @{
 		'hexyl'
 		#  文件搜索
 		'rg'
-
+		# 统计代码行数
+		'cloc'
 		
 	)
 }
