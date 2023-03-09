@@ -78,6 +78,9 @@ $installListMap = @{
 		#搜索用的命令行工具
 		'lsd'
 		# 代替linux的ls命令
+
+		# 命令行跑分工具
+		'hyperfine'
 	);
 	scoop  = @(
 		'go',
@@ -100,10 +103,8 @@ $installListMap = @{
 		'dust' 
 		# 统计各种语言的代码行数
 		'tokei'
-		# 命令行跑分工具
-		'hyperfine'
 		# git仓库统计信息
-		'onefetch'
+		# 'onefetch'
 		# rust 版本的top，任务管理器bottom
 		'btm'
 		# rust版本tldr 太长不看帮助文档
@@ -178,7 +179,7 @@ function cargoInstallApps() {
 			'command' = 'cargo install  tealdeer';
 		};
 		'watchexec' = @{
-			'command' = 'cargo install  watchexec-cli';
+			'command' = 'cargo install --locked watchexec-cli';
 		};
 		'rg'        = @{
 			'command' = 'cargo install  ripgrep';
