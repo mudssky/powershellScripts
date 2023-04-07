@@ -80,6 +80,10 @@ function Test-EXEProgram() {
 	return ($null -ne (Get-Command -Name $Name  -CommandType Application  -ErrorAction SilentlyContinue ))
 }
 
+function Add-CondaEnv() {
+	& "$env:HOMEPATH\anaconda3\shell\condabin\conda-hook.ps1"
+}
+
 
 # $Env:http_proxy = "http://127.0.0.1:7890"; $Env:https_proxy = "http://127.0.0.1:7890";
 
@@ -100,6 +104,10 @@ $PSDefaultParameterValues["Out-File:Encoding"] = "UTF8"
 # 开启基于历史命令的命令补全
 Set-PSReadLineOption -PredictionSource History
 
+# 载入conda环境
+if (-not (Test-EXEProgram -Name conda)) {
+	Add-CondaEnv
+}
 
 # 配置git,解决中文文件名不能正常显示的问题
 # git config --global core.quotepath false
@@ -122,3 +130,4 @@ if (Test-EXEProgram -Name sccache) {
 	# 设置sccache用于rust编译缓存,提高新启动项目的编译速度
 	$Env:RUSTC_WRAPPER = 'sccache';
 }
+
