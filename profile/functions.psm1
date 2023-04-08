@@ -81,5 +81,5 @@ function Test-EXEProgram() {
 }
 
 function Add-CondaEnv() {
-	& "$env:HOMEPATH\anaconda3\shell\condabin\conda-hook.ps1"
+	& "$env:USERPROFILE\anaconda3\shell\condabin\conda-hook.ps1"
 }
