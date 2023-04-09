@@ -79,3 +79,7 @@ function Test-EXEProgram() {
 	# get-command  return $null  when cant find command and  SilentlyContinue flag on 
 	return ($null -ne (Get-Command -Name $Name  -CommandType Application  -ErrorAction SilentlyContinue ))
 }
+
+function Add-CondaEnv() {
+	& "$env:USERPROFILE\anaconda3\shell\condabin\conda-hook.ps1"
+}

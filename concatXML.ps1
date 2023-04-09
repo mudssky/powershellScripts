@@ -10,7 +10,7 @@ param(
 trap {
     "error found"
 }
-$xmlList = Get-ChildItem $wildcard | ? { $_.Extension -eq '.xml' } 
+$xmlList = Get-ChildItem $wildcard | Where-Object { $_.Extension -eq '.xml' } 
 
 if ($whatif) {
     Write-Host -ForegroundColor Green 'there are files to be concat'
@@ -35,7 +35,7 @@ if ($xmlList.Length -gt 1) {
     $firstXmlStr += '</i>'
     Out-File -InputObject $firstXmlStr -FilePath $outPath
     if ($delete) {
-        $xmlList | % { rm $_ }
+        $xmlList | ForEach-Object { Remove-Item $_ }
     }
 }
 else {

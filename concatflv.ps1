@@ -2,6 +2,9 @@
 .DESCRIPTION
 使用通配符或者正则来匹配文件名，对匹配的视频进行拼接，默认按照文件创建时间顺序来拼接，拼接过程按照给定的ffmpeg参数进行转码
 #>
+
+
+
 param(
 
   #  脚本执行的目标路径，默认是当前目录
@@ -37,7 +40,7 @@ $ffmpegPresetMap = @{
   '720paac' = '-vcodec libx264  -crf 23  -preset veryfast -r 30 -s 1280*720';
   '720p28'  = '-vcodec libx264 -acodec copy -crf 28  -preset veryfast -r 30 -s 1280*720';
   '480p'    = '-vcodec libx264 -acodec copy -crf 23  -preset veryfast -r 30 -s 854*480';
-  #'m4a'   = ' -acodec copy -vn ';
+  'm4a'     = ' -acodec copy -vn ';
 
 }
 
@@ -64,6 +67,7 @@ if (-not $ffmpegStr ) {
 }
 
 
+
 $fileList = Get-FileList -targetPath $targetPath -regexStr $regexStr -wildcard $wildcard  | Sort-Object -Property $sortMethod
 
 # 如果文件列表找到的文件数目为0，说明文件名匹配不到，应该报错并且退出
@@ -77,7 +81,12 @@ $filenameList = $fileList | ForEach-Object { $_.Name }
 
 # 判断是否给定输出的文件名，如果没有给定输出的文件名，就命名为文件名列表的第一个文件名，并且后缀改成mp4
 if (-not $outputFilename) {
-  $outputFilename = $fileList[0].Name.Replace('.flv', '.mp4') 
+  if ($ffmpegPreset -eq 'm4a') {
+    $outputFilename = $fileList[0].Name.Replace('.flv', '.m4a') 
+  }
+  else {
+    $outputFilename = $fileList[0].Name.Replace('.flv', '.mp4') 
+  }
 }
 # whatif 输出会执行的操作和各个参数，用于检查匹配是否成功，防止出现意外
 if ($WhatIf) {
@@ -100,6 +109,7 @@ if ($filenameList.Count -ne 1) {
   Write-Host -ForegroundColor Green  '执行完成，删除filelist.txt 文件...'
   Remove-Item -Force 'filelist.txt'
   # ffmpeg -f concat -safe 0 -i "$tempPath/file.txt" -c copy output.mp4 
+  concatXML -wildcard $wildcard
 } 
 else {
   # 只有一个文件的时候就直接执行转码部分

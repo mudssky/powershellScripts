@@ -19,6 +19,10 @@ $PSDefaultParameterValues["Out-File:Encoding"] = "UTF8"
 # 开启基于历史命令的命令补全
 Set-PSReadLineOption -PredictionSource History
 
+# 载入conda环境,环境变量中没有conda命令时执行
+if (-not (Test-EXEProgram -Name conda)) {
+	Add-CondaEnv
+}
 
 # 配置git,解决中文文件名不能正常显示的问题
 # git config --global core.quotepath false
@@ -41,3 +45,4 @@ if (Test-EXEProgram -Name sccache) {
 	# 设置sccache用于rust编译缓存,提高新启动项目的编译速度
 	$Env:RUSTC_WRAPPER = 'sccache';
 }
+
