@@ -13,10 +13,25 @@ function Get-ScriptFolder() {
 }
 
 
+# 获取脚本文件的路径
+# function Get-ScriptPath() {
+# 当前脚本运行的路径
+#  $PSScriptRoot
+# 这个变量包含运行脚本模块的完全路径,包括文件名
+# 所以会获取当前这个psm1文件的路径
+# $PSCommandPath
+# }
+
+
+
+
 # 重新加载环境变量中的path，这样你在对应目录中新增一个exe就可以不用重启终端就能直接在终端运行了。
 function Import-Envpath() {
 	$env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
 }
+
+
+
 
 # 判断数组是否为非空
 function Test-ArrayNotNull() {
@@ -80,6 +95,7 @@ function Test-EXEProgram() {
 	return ($null -ne (Get-Command -Name $Name  -CommandType Application  -ErrorAction SilentlyContinue ))
 }
 
-function Add-CondaEnv() {
-	& "$env:USERPROFILE\anaconda3\shell\condabin\conda-hook.ps1"
-}
+
+
+
+# Export-ModuleMember -Function *
