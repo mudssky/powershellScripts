@@ -1,0 +1,75 @@
+
+#=============================================================================
+# dark_powered.toml --- dark powered configuration example for SpaceVim
+# Copyright (c) 2016-2022 Wang Shidong & Contributors
+# Author: Wang Shidong < wsdjeg@outlook.com >
+# URL: https://spacevim.org
+# License: GPLv3
+#=============================================================================
+
+# All SpaceVim option below [option] section
+[options]
+# 配置开启自动更新
+automatic_update = true
+
+### vim兼容相关选项
+# 开启vim兼容模式
+# vimcompatible = true
+# 默认情况下窗口操作前缀键
+# windows_leader = 's'
+# 重复搜索快捷键,
+enable_language_specific_leader = false
+# 窗口只能关闭功能取消，原来是q占用vim的宏录制
+# windows_smartclose = ''
+
+
+### 外观相关配置
+
+# 使用fira code字体,终端下该配置无效，比如windows teminal
+guifont = "FiraCode NF Retina"
+
+### 文件树相关配置
+# 默认会开启文件树
+# enable_vimfiler_welcome = false
+
+
+# set spacevim theme. by default colorscheme layer is not loaded,
+# if you want to use more colorscheme, please load the colorscheme
+# layer
+colorscheme = "gruvbox"
+colorscheme_bg = "dark"
+# Disable guicolors in basic mode, many terminal do not support 24bit
+# true colors
+enable_guicolors = true
+
+
+### 状态栏相关配置
+# Disable statusline separator, if you want to use other value, please
+# install nerd fonts
+statusline_separator = "arrow"
+statusline_iseparator = "arrow"
+buffer_index_type = 4
+enable_tabline_filetype_icon = true
+enable_statusline_mode = false
+
+### 启动函数配置
+bootstrap_before = "myspacevim#before"
+
+# Enable autocomplete layer
+[[layers]]
+name = 'autocomplete'
+auto_completion_return_key_behavior = "complete"
+auto_completion_tab_key_behavior = "smart"
+
+[[layers]]
+name = 'shell'
+default_position = 'bottom'
+default_height = 30
+
+### 插件配置
+# 开启更多主题
+[[layers]]
+name = "colorscheme"
+# 提供模糊搜索
+[[layers]]
+name = "fzf"
