@@ -2,7 +2,7 @@ param(
 	[switch]$LoadStartup
 )
 
-Import-Module -Name ./functions.psm1 -Verbose -Force
+Import-Module -Name $PSScriptRoot\functions.psm1 -Verbose -Force
 
 # 开机执行的脚本
 # 启动stable-diffusion-webui
