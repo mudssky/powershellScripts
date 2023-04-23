@@ -96,6 +96,31 @@ function Test-EXEProgram() {
 }
 
 
+function New-Shortcut {
+	[CmdletBinding()]
+	param (
+		# 需要创建快捷方式的目标路径
+		[Parameter(Mandatory = $true, Position = 0)]
+		[string]$Path,
+		[Parameter(Mandatory = $true, Position = 1)]
+		[string]$Destination 
+	)
+	
+	begin {
+	
+	}
+	
+	process {
+		$shell = New-Object -ComObject "WScript.Shell"
+		$link = $shell.CreateShortcut($Destination)
+		$link.TargetPath = $Path
+		$link.Save()
+	}
+	
+	end {
+		
+	}
+}
 
 
 # Export-ModuleMember -Function *

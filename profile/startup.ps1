@@ -18,16 +18,17 @@ function Start-SdWebUI() {
 	Write-Host '运行启动bat'
 	& "$webuiPath\webui-user.ps1"
 }
-
-Start-SdWebUI
-
+if (-not $LoadStartup) {
+	Start-SdWebUI
+}
 $startupPath = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup"
 
 if ($LoadStartup) {
 	
 	$filename = Split-Path -Path $PSCommandPath  -Leaf
-	$newpath = Join-Path -Path $startupPath -ChildPath $filename.Replace('.ps1', '.ink')
+	$newpath = Join-Path -Path $startupPath -ChildPath $filename.Replace('.ps1', '.lnk')
 	New-Item -Path $newpath -ItemType SymbolicLink -Value $PSCommandPath
+	# New-Shortcut -Path $PSCommandPath -Destination $newpath
 
 }
 
