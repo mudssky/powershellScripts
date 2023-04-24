@@ -27,8 +27,8 @@ if ($LoadStartup) {
 	
 	$filename = Split-Path -Path $PSCommandPath  -Leaf
 	$newpath = Join-Path -Path $startupPath -ChildPath $filename.Replace('.ps1', '.lnk')
-	New-Item -Path $newpath -ItemType SymbolicLink -Value $PSCommandPath
-	# New-Shortcut -Path $PSCommandPath -Destination $newpath
+	# New-Item -Path $newpath -ItemType SymbolicLink -Value $PSCommandPath
+	New-Shortcut -Path $PSCommandPath -Destination $newpath
 
 }
 
