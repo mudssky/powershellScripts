@@ -84,7 +84,7 @@ $installListMap = @{
 	scoop  = @(
 		'go',
 		'python',
-		'aria2',
+		# 'aria2',
 		'nvm',
 		'git'
 		# win提权
@@ -227,9 +227,9 @@ function installApps() {
 			Expand-Archive -Path './fonts/FiraCode Windows Compatible.zip' -DestinationPath $win10FontsPath
 		}
 	}
-
+	# echo hello 
 	chocoInstallApps -installList $installListMap.choco
-	scoopInstallApps -installList $scoopInstallList.scoop
+	scoopInstallApps -installList $installListMap.scoop
 	cargoInstallApps -installList $installListMap.cargo
 
 	if ( -not (Test-EXEProgram node)) {
