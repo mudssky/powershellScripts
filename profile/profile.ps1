@@ -4,7 +4,10 @@
 param(
 	[switch]$loadProfile
 )
-# $Env:http_proxy = "http://127.0.0.1:7890"; $Env:https_proxy = "http://127.0.0.1:7890";
+
+if (Test-Path -Path "$PSScriptRoot\enableProxy") {
+	$Env:http_proxy = "http://127.0.0.1:7890"; $Env:https_proxy = "http://127.0.0.1:7890";
+}
 
 # 使用绝对路径导入,这样无论脚本在哪执行,PSScriptRoot都是脚本所在的位置
 # Import-Module -Name "$PSScriptRoot\functions.psm1" -Verbose 
