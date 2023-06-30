@@ -1,0 +1,254 @@
+library: D:/MusicLibrary/musiclibrary.db
+directory: D:/MusicLibrary
+import:
+    write: yes
+    copy: yes
+    move: no
+    link: no
+    hardlink: no
+    delete: no
+    resume: ask
+    incremental: no
+    incremental_skip_later: no
+    from_scratch: no
+    quiet_fallback: skip
+    none_rec_action: ask
+    timid: no
+    # 决定日志文件的文件名，默认不生成日志文件
+    log: musiclibrary.log
+    # 取消默认标签，因为很多歌数据库搜不到都是自己加的标签，如果是平台下载的歌标签都加好了
+    autotag: no
+    quiet: no
+    # 设置为默认添加单曲，因为没有专辑听歌的习惯，单曲用的比较多
+    singletons: yes
+    default_action: apply
+    # 喜好的语言，会决定标签的选择 有en jp es cn？等选项
+    languages: []
+    # 导入时显示详细信息
+    detail: yes
+    flat: no
+    group_albums: no
+    pretend: no
+    search_ids: []
+    duplicate_action: ask
+    bell: no
+    set_fields: {}
+
+# 需要清理的垃圾项，需要忽略的项目设置等。
+clutter: [Thumbs.DB, .DS_Store]
+ignore:
+- .*
+- '*~'
+- System Volume Information
+- lost+found
+ignore_hidden: yes
+
+# 非法文件名替换
+replace:
+    '[\\/]': _
+    ^\.: _
+    '[\x00-\x1f]': _
+    '[<>:"\?\*\|]': _
+    \.$: _
+    \s+$: ''
+    ^\s+: ''
+    ^-: _
+path_sep_replace: _
+asciify_paths: no
+art_filename: cover
+max_filename_length: 0
+
+aunique:
+    keys: albumartist album
+    disambiguators: albumtype year label catalognum albumdisambig releasegroupdisambig
+    bracket: '[]'
+
+overwrite_null:
+    album: []
+    track: []
+
+# 添加插件
+plugins: [chroma,convert,fetchart,inline,web]
+# 不需要那些获取歌曲元信息的插件了，因为国外的平台国内不太好用。国外那些免费的不如国内音乐服务
+#plugins: [chroma,convert,fetchart,fromfilename,inline,lastgenre,lyrics,web]
+#plugins: [fetchart,lyrics,lastgenre,fromfilename,web,chroma,bpm]
+pluginpath: []
+threaded: yes
+timeout: 5.0
+per_disc_numbering: no
+verbose: 0
+terminal_encoding:
+original_date: no
+artist_credit: no
+id3v23: no
+va_name: Various Artists
+
+# 插件具体配置
+
+#歌词插件
+lyrics:
+#关闭导入时自动查找: 平时很多时候都是从音乐平台下歌，歌词本来就有，所以把导入时自动查找关了，需要时再开
+    auto: no
+chroma:
+    #默认自动启动声纹匹配，使用声纹匹配会消耗较多的计算资源，所以不需要时可以关掉
+    auto: yes
+# 使用acoustid提交自己音乐文件的指纹信息，帮助 Acoustid database 收集信息
+acoustid:
+    apikey: LWu4LZ7tLQ
+
+# 转码插件配置,这部份python代码会把命令装码gbk交给cmd执行，因此会有编码错误，所以不启用转码功能。
+convert:
+    dest: none
+    #no_convert: format:AAC, format:WMA,format:M4A,format:OGG,format:MP3
+    format: aac
+    formats:
+        aac:
+            command: qaac64  --rate keep -v320 -q2 --copy-artwork -o $dest  $source
+            extension: m4a
+        wav: ffmpeg -i $source -y -acodec pcm_s16le $dest
+        
+    never_convert_lossy_files: yes
+    # 其他默认配置
+    auto: no
+    tmpdir: none
+    copy_album_art: no
+    #album_art_maxwidth:
+    embed: yes
+    id3v23: inherit
+    #max_bitrate:
+#     quiet: false
+    
+    
+        
+ui:
+    terminal_width: 80
+    length_diff_thresh: 10.0
+    color: yes
+    colors:
+        text_success: green
+        text_warning: yellow
+        text_error: red
+        text_highlight: red
+        text_highlight_minor: lightgray
+        action_default: turquoise
+        action: blue
+
+format_item: $artist - $album - $title
+format_album: $albumartist - $album
+time_format: '%Y-%m-%d %H:%M:%S'
+format_raw_length: no
+
+sort_album: albumartist+ album+
+sort_item: artist+ album+ disc+ track+
+sort_case_insensitive: yes
+
+# 文档
+# 模板函数%if的使用，目前只能用于判断空和0，不能添加逻辑
+#%if{condition,text} or %if{condition,truetext,falsetext}: 
+#If condition is nonempty (or nonzero, if it’s a number), then returns the second argument. 
+#Otherwise, returns the third argument if specified (or nothing if falsetext is left off)
+
+
+# inline 插件配置，单曲相关字段
+item_fields:
+#    is_official_album: 1 if (album != 'b站投稿')
+#                        else 0
+
+#   用来判断b站和其他视频网站的投稿的年份设置为8位数字作为日期，区分普通专辑的音乐
+    has_date: 1 if len(str(year))==6
+                else 0
+
+# 路径格式
+paths:
+    #default: $album%aunique{}/$title%aunique{}
+    #singleton: Non-Album/$artist/$title
+    #comp: Compilations/$album%aunique{}/$track $title
+    # 单曲目录用于录入歌单时作为临时存放单曲的目录
+    # 按照播放列表作为目录来管理，每次加入新歌曲的时候，先放到临时目录，然后再给他们赋予playlist字段
+    playlist:AnimeSongs: AnimeSongs/$title%if{$artist, - $artist,}
+    playlist:GalgameSongs: GalgameSongs/$title%if{$artist, - $artist,}
+    
+    # 伴奏类的文件
+    playlist:Instrumental: Instrumental/$title%if{$artist, - $artist,}
+    
+    # 不同类型的bgm
+    playlist:AnimeBgm: AnimeBgm/$title
+    playlist:GalgameBgm: GalgameBgm/$title
+    playlist:VocaloidBgm: VocaloidBgm/$title
+    
+    # 按语言分类的歌单
+    #playlist:ChineseSongs: ChineseSongs/$title%aunique{,artist languages,}
+    playlist:ChineseSongs: ChineseSongs/$title%if{$artist, - $artist,}
+    playlist:EnglishSongs: EnglishSongs/$title%if{$artist, - $artist,}
+    playlist:JapaneseSongs: JapaneseSongs/$title%if{$artist, - $artist,}
+    playlist:KoreanSongs: KoreanSongs/$title%if{$artist, - $artist,}
+    
+    #Vocaloid歌曲
+    playlist:VocaloidCN: VocaloidCN/$title%if{$artist, - $artist,}
+    playlist:VocaloidJP: VocaloidJP/$title%if{$artist, - $artist,}
+    
+    # 纯音乐
+    playlist:AbsoluteMusic: AbsoluteMusic/$title%if{$artist, - $artist,}
+    
+    #k歌
+    playlist:Karaoke: Karaoke/$title - $length
+    
+    #Vtuber相关，有很多翻唱投在b站和youtube
+    playlist:Vtuber: Vtuber/$vtubername/$album/$title%if{$has_date,[$year],}
+    #按歌手或者制作团队分类的歌单
+    playlist:singer: Singer/$singername/$album/$title
+    
+    # lovelive歌单，按照组合名分类
+    playlist:LoveLive: LoveLive/$llgroupname/$album/$title
+    
+    #default只有没有查询匹配成功时才会使用
+    default: Album/$album%aunique{}/$track $title
+    singleton: singleton/$title
+    comp: Compilations/$album%aunique{}/$track $title
+
+statefile: state.pickle
+
+musicbrainz:
+    host: musicbrainz.org
+    ratelimit: 1
+    ratelimit_interval: 1.0
+    searchlimit: 5
+
+match:
+    strong_rec_thresh: 0.04
+    medium_rec_thresh: 0.25
+    rec_gap_thresh: 0.25
+    max_rec:
+        missing_tracks: medium
+        unmatched_tracks: medium
+    distance_weights:
+        source: 2.0
+        artist: 3.0
+        album: 3.0
+        media: 1.0
+        mediums: 1.0
+        year: 1.0
+        country: 0.5
+        label: 0.5
+        catalognum: 0.5
+        albumdisambig: 0.5
+        album_id: 5.0
+        tracks: 2.0
+        missing_tracks: 0.9
+        unmatched_tracks: 0.6
+        track_title: 3.0
+        track_artist: 2.0
+        track_index: 1.0
+        track_length: 2.0
+        track_id: 5.0
+    preferred:
+        countries: []
+        media: []
+        original_year: no
+    ignored: []
+    required: []
+    ignored_media: []
+    ignore_data_tracks: yes
+    ignore_video_tracks: yes
+    track_length_grace: 10
+    track_length_max: 30
