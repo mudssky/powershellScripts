@@ -1,0 +1,14 @@
+parsers:
+  - url: https://example.com/profile.yaml
+    yaml:
+      append-rules:
+      # prepend-rules:
+        # new bing对应的域名
+        - DOMAIN-SUFFIX,sydney.bing.com,newbing
+        - DOMAIN-SUFFIX,www.bing.com,newbing
+      append-proxy-groups:
+        - name: newbing
+          type: select
+          proxies:
+            - 🚀 手动切换
+            - DIRECT
