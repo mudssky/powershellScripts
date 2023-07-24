@@ -20,6 +20,11 @@
     "allow_different_nesting": true
     // "siblings_only": true
   },
+  // MD025 - Multiple top-level headings in the same document,顶级标题只能有一个，也会检查frontmatter中的内容
+  "single-h1": {
+    // 取消frontmatter的检查
+    "front_matter_title": ""
+  },
   //   有序列表需要按照顺序
   "ol-prefix": true,
   // 隔离的代码块需要被空行包围
