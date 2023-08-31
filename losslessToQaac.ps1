@@ -56,7 +56,7 @@ $losslessFiles | ForEach-Object  -ThrottleLimit $ThrottleLimit -Parallel {
             Write-Host -BackgroundColor Yellow -ForegroundColor Green 'no-delete flag is open'
         }
         else {
-            Write-Host -Verbose -ForegroundColor   Cyan 'convert finshed, deleting source audio file...'
+            Write-Host -Verbose -ForegroundColor   Cyan ('convert finshed, deleting source audio file: {0}' -f $losslessFile)
             Remove-Item -Force -LiteralPath  $audiofilePath
         }
     }
