@@ -1,0 +1,12 @@
+mixin:
+  # dns:
+  #   enable: true
+  #   listen: :53
+  #   nameserver:
+  #     - 8.8.8.8
+  bypass: 
+  - mudssky.lan
+  - ser6pro.lan
+  - pveadmin.lan
+  - openwrt.lan
+  

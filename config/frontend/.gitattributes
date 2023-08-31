@@ -1,0 +1,5 @@
+* text=auto eol=lf
+
+# 不跟踪行尾转换，不进行diff比较，不进行合并操作
+*.zip -crlf -diff -merge
+*.ttf -crlf -diff -merge
