@@ -21,20 +21,21 @@ $origin = @{index = 0 }
 $sync = [System.Collections.Hashtable]::Synchronized($origin)
 
 $losslessFiles | ForEach-Object  -ThrottleLimit $ThrottleLimit -Parallel {
+    
     $losslessFile = $_
-    $fileCounts = $using:fileCounts
-  
-  ($using:sync).index += 1
-    Write-Host "`n"
-    $progeressPercent = [int](($using:sync).index / $fileCounts * 100)
-    $restCounts = $fileCounts - ($using:sync).index
-    Write-Host  -BackgroundColor Gray -ForegroundColor Black ('converting {0} audio file ,progressing {1}% , {2} rest files' -f ($using:sync).index, $progeressPercent, $restCounts )
+    $fileCountsCopy = $using:fileCounts
+    # 引用拷贝，方便后续使用
+    $syncCopy = $using:sync
+
+    Write-Host -ForegroundColor Green ('audio path:' + $audiofilePath)
+    
+    $progeressPercent = [int](($syncCopy).index / $fileCountsCopy * 100)
+    $restCounts = $fileCountsCopy - ($syncCopy).index
+   
 
     $audiofilePath = $losslessFile.FullName
     $audiofileExt = $losslessFile.Extension
     $newfilepath = $audiofilePath.SubString(0, $audiofilePath.Length - $audiofileExt.Length) + '.m4a'
-    Write-Host -ForegroundColor Green ('audio path:' + $audiofilePath)
-
     # 安装了flac解码的模块以后，qaac就可以直接接受flac文件了，所以不用通过cmd转码了和wav是一样的操作
     #  cmd /c 'ffmpeg  -i $($a) qaac64.exe   --verbose --rate keep -v320 -q2 -loglevel quiet '
     #cmd /c ('ffmpeg -loglevel quiet -i "'+$audiofilePath +'" -f wav - | qaac64.exe '+$qaacParam+'  - -o "'+$newfilepath+'"')
@@ -47,9 +48,11 @@ $losslessFiles | ForEach-Object  -ThrottleLimit $ThrottleLimit -Parallel {
         Invoke-Expression $commandStr  
     }
     else {
-        Write-Host -ForegroundColor Red 'Error. Unsupported format'
+        Write-Host -ForegroundColor Red ('Error. Unsupported format:{0}' -f $audiofilePath)
     }
-
+    # 执行完后再处理进度
+    ($syncCopy).index += 1
+    Write-Host  -BackgroundColor Gray -ForegroundColor Black ('converting {0} audio file ,progressing {1}% , {2} rest files' -f ($syncCopy).index, $progeressPercent, $restCounts )
     # 清理工作，检查新文件，删除原文件
     if (Test-Path -LiteralPath  $newfilepath ) {
         if ($nodelete) {
