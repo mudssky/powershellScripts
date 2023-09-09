@@ -19,7 +19,8 @@ param(
   # 预设，存放在哈希表里，方便调用
   [string]$regexPreset = 'flv',
   [string]$ffmpegStr = '',
-  [string]$ffmpegPreset = '-vcodec libx264 -acodec copy -crf 23  -preset veryfast',
+  [ValidateSet('crf23', 'crf28', 'x265', 'hevc', '720p', '720paac', '720p28', '480p', 'm4a', '')]
+  [string]$ffmpegPreset = 'crf23',
   [string]$outputFilename = '',
   [switch]$WhatIf,
   [switch]$deleteSource
