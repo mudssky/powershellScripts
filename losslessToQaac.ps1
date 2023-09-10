@@ -38,6 +38,8 @@ $losslessFiles | ForEach-Object  -ThrottleLimit $ThrottleLimit -Parallel {
     # 引用拷贝，方便后续使用
     $syncCopy = $using:sync
 
+    $qaacParam = $using:qaacParam
+
     $audiofilePath = $losslessFile.FullName
     Write-Verbose  ('audio path:' + $audiofilePath) 
     
