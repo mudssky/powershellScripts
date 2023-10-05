@@ -35,6 +35,7 @@ $scriptsSearchList = @(
 	’package.json‘
 )
 
+$currentScriptsPath = 'scripts.json'
 
 function RunIfExist {
 	[CmdletBinding()]
@@ -73,6 +74,7 @@ function find-scripts {
 			$scriptsMap = (Get-Content $path  | ConvertFrom-Json -AsHashtable).scripts
 			if ($scriptsMap) {
 				$res = $scriptsMap
+				$script:currentScriptsPath = $path
 				break
 			}
 		}
@@ -119,6 +121,11 @@ set-scriptsMap
 if ($listCommands) {
 	Write-Host -ForegroundColor Green '下面展示scripts字段中的命令:'
 	Format-Table -InputObject $CommandMap -Property Name, Value 
+	exit 0
+}
+# 兼容npm，如果有package.json，直接使用npm
+if ($currentScriptsPath -eq 'package.json') {
+	npm run $name
 	exit 0
 }
 RunScript($CommandName)
