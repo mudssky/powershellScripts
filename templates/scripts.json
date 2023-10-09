@@ -2,6 +2,7 @@
   "scripts": {
     "test": "go test",
     "goproxy": "go env -w GOPROXY=https://goproxy.cn,direct",
-    "gomoduleOn": "go env -w GO111MODULE=on"
+    "mod:on": "go env -w GO111MODULE=on",
+    "mod:clean": "go mod tidy"
   }
 }
