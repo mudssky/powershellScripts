@@ -1,6 +1,7 @@
 {
   "scripts": {
     "test": "go test",
-    "goproxy": "go env -w GO111MODULE=on;go env -w GOPROXY=https://goproxy.cn,direct"
+    "goproxy": "go env -w GOPROXY=https://goproxy.cn,direct",
+    "gomoduleOn": "go env -w GO111MODULE=on"
   }
 }
