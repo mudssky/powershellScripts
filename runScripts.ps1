@@ -22,7 +22,9 @@
 [CmdletBinding()]
 param(
 	[string]$CommandName = 'invalid',
-	[switch]$listCommands
+	[switch]$listCommands,
+	# 初始化脚本文件
+	[switch]$init
 )
 
 
@@ -117,12 +119,24 @@ function RunScript($name) {
 	}
 }
 
+# init在读取配置之前执行
+if ($init) {
+	if (Test-Path $scriptsSearchList[0]) {
+		Write-Host -ForegroundColor Green 'scripts.json已存在'
+	}
+	else {
+		Copy-Item $PSScriptRoot/templates/scripts.json $scriptsSearchList[0]
+		Write-Host -ForegroundColor Green 'scripts.json已创建'
+	}
+	exit 0
+}
 set-scriptsMap
 if ($listCommands) {
 	Write-Host -ForegroundColor Green '下面展示scripts字段中的命令:'
 	Format-Table -InputObject $CommandMap -Property Name, Value 
 	exit 0
 }
+
 # 兼容npm，如果有package.json，直接使用npm
 if ($currentScriptsPath -eq 'package.json') {
 	npm run $name
