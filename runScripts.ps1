@@ -52,6 +52,7 @@ function RunIfExist {
 	if ($map.ContainsKey($name)) {
 		if ($map[$name] -is [string]) {
 			Invoke-Expression $map[$name]
+			Write-Verbose ('excuted {0} ' -f $map[$name])
 		}
 		else {
 
@@ -59,7 +60,7 @@ function RunIfExist {
 		}
 	}
 	else {
-		Write-Verbose  ('command{0} not found}-f $name')
+		Write-Verbose  ('command {0} not found' -f $name)
 	}
 }
 
