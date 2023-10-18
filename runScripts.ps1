@@ -88,7 +88,6 @@ function find-scripts {
 			Write-Verbose ('scripts path not found: {0}' -f $path)
 		}
 	}
-	Write-Debug $res
 	return $res
 }
 
