@@ -24,9 +24,12 @@ param(
 	[string]$CommandName = 'invalid',
 	[switch]$listCommands,
 	# 初始化脚本文件
-	[switch]$init
+	[switch]$init,
+	# 根据nvmrc切换node版本
+	[switch]$autoSwicthNode
 )
 
+trap { "Error found: $_" }
 
 $CommandMap = @{
 
@@ -34,7 +37,7 @@ $CommandMap = @{
 
 $scriptsSearchList = @(
 	'scripts.json'
-	’package.json‘
+	'package.json'
 )
 
 $currentScriptsPath = 'scripts.json'
@@ -85,10 +88,37 @@ function find-scripts {
 			Write-Verbose ('scripts path not found: {0}' -f $path)
 		}
 	}
+	Write-Debug $res
 	return $res
 }
 
 
+function switch-node {
+	# 检查nvm是否存在
+	if (-not (Test-EXEProgram 'nvm')) {
+		throw 'nvm not found,switch node error'
+	}
+	if (Test-Path  '.nvmrc') {
+		$nvmrcVersion = Get-Content  '.nvmrc'
+		$pattern = [regex]"v?\d+\.\d+\.\d+"
+		if ( -not $pattern.IsMatch($nvmrcVersion)) {
+			throw 'nvmrc not match version pattern'
+		}
+
+		$currentNodeVersion = (node --version)
+		Write-Verbose ('current node version is {0},nvmrc is {1}' -f $currentNodeVersion, $nvmrcVersion)
+		if ( $currentNodeVersion -match $nvmrcVersion) {
+			Write-Verbose 'node version is already match nvmrc,skip switch node'
+			#粗略判断一下 node版本已经是当前版本
+			return
+		}
+		nvm use $nvmrcVersion
+	}
+	else {
+		Write-Warning 'not found nvmrc ,skip swicth node'
+	}
+
+}
 function set-scriptsMap {
 	# 判断读取scripts配置的位置
 	if ($CommandMap.Count -eq 0) {
@@ -137,10 +167,15 @@ if ($listCommands) {
 	Format-Table -InputObject $CommandMap -Property Name, Value 
 	exit 0
 }
+if ($autoSwicthNode) {
+	switch-node
+	exit 0
+}
 
 # 兼容npm，如果有package.json，直接使用npm
 if ($currentScriptsPath -eq 'package.json') {
-	npm run $name
+	switch-node
+	npm run $CommandName
 	exit 0
 }
 RunScript($CommandName)
