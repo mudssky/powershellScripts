@@ -165,5 +165,24 @@ function checkErr([string]$commandName) {
 	}
 }
 
+# 设置package.json的scripts字段
+function Set-Scripts {
+	[CmdletBinding()]
+	param (
+		[string]$key , # 脚本名
+		[string]$value,
+		[string]$path # package.json路径
+	)
+	
+	$jsonMap = Get-Content $path | ConvertFrom-Json -AsHashtable
+	if ($jsonMap.scripts.ContainsKey($key)) {
+		$jsonMap.scripts.$key = $value
+	}
+	else {
+		$jsonMap.scripts.Add($key, $value)
+	}
+	ConvertTo-Json $jsonMap -Depth 100 | Out-File $path
+
+}
 Export-ModuleMember -Function *
 
