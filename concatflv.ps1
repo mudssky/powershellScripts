@@ -120,7 +120,7 @@ else {
 }
 
 if ($deleteSource) {
-  $fileList | ForEach-Object { Remove-Item -LiteralPath -Force $_.Name }
+  $fileList | ForEach-Object { Remove-Item -Force $_; Write-Host -ForegroundColor Green ('delete file succeed,:{0}' -f $_.Name) }
 }
 else {
   $answerStr = Read-Host  '输入yes或y删除用于拼接的源文件'
@@ -129,8 +129,6 @@ else {
     $fileList | ForEach-Object { Remove-Item -Force $_  ;
       Write-Host -ForegroundColor Green ('delete file succeed,:{0}' -f $_.Name)
     } 
-    
-    
   }
 
 }
