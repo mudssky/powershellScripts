@@ -19,7 +19,10 @@ Import-Module -Name "$PSScriptRoot\functions.psm1"
 # 所以应该用.点源运算符
 # 这种执行的操作,似乎不能封装到模块里执行.
 function Add-CondaEnv() {
-	. "$env:USERPROFILE\anaconda3\shell\condabin\conda-hook.ps1"
+	$condaPath = "$env:USERPROFILE\anaconda3\shell\condabin\conda-hook.ps1"
+	if (Test-Path -Path $condaPath) {
+		. $condaPath 
+	}
 }
 
 # powershell ise 的别名
@@ -38,8 +41,7 @@ Set-PSReadLineOption -PredictionSource History
 
 # 载入conda环境,环境变量中没有conda命令时执行
 if (-not (Test-EXEProgram -Name conda)) {
-	# Add-CondaEnv
-	. "$env:USERPROFILE\anaconda3\shell\condabin\conda-hook.ps1"
+	Add-CondaEnv
 }
 
 # 配置git,解决中文文件名不能正常显示的问题
