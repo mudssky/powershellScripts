@@ -1,0 +1,9 @@
+[experimental]
+autoMemoryReclaim=gradual  # gradual  | dropcache | disabled
+networkingMode=mirrored
+dnsTunneling=true
+firewall=true
+autoProxy=true
+
+[boot]
+command="service redis-server start"
