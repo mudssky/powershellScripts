@@ -1,3 +1,11 @@
+[wsl2]
+memory=20GB                   #限制最大内存
+processors=8                  #限制线程数
+localhostforwarding=true
+nestedVirtualization=true
+guiApplications=true
+
+
 [experimental]
 autoMemoryReclaim=gradual  # gradual  | dropcache | disabled
 networkingMode=mirrored
