@@ -4,6 +4,15 @@ networkingMode=mirrored
 dnsTunneling=true
 firewall=true
 autoProxy=true
+# 使用稀疏vhd减少空间占用
+sparseVhd=true
 
-[boot]
-command="service redis-server start"
+# [boot]
+# command="service redis-server start"
+
+
+[network]
+# 取消自动生成dns文件，
+# 默认生成的dns server是本地ip，那样实测走不了clash
+# 这里关掉，然后设置google dns
+generateResolvConf = false
