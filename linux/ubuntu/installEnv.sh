@@ -36,7 +36,7 @@ install_ohmyzsh() {
 	# 安装powerline10k 主题
 	git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ~/powerlevel10k
 	# 复制zshrc配置
-	
+
 
 }
 
