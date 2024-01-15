@@ -33,6 +33,25 @@ install_ohmyzsh() {
 	git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
 }
 
+install_brew_app(){
+
+	if ! command_exists brew; then
+		/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+		# 加入环境变量
+		(echo; echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"') >> ~/.zshrc
+		source  ~/.zshrc
+	fi
+	install_items=('starship' )
+	for item in "${install_items[@]}"; do
+		install_brew_app_if_not_exists "$item"
+	done
+
+
+}
+
+install_rust() {
+
+}
 # 使用apt进行安装的内容，次要安装,在关键内容之后
 apt_install() {
 	install_items=('curl' 'zsh' 'git')
