@@ -22,6 +22,8 @@ before_ohmyzsh() {
 }
 
 install_ohmyzsh() {
+
+	command_must_exists zsh
 	# 安装ohmyzsh
 	sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 	# ohmyzsh 插件
@@ -37,7 +39,6 @@ apt_install() {
 	for item in "${install_items[@]}"; do
 		install_app_if_not_exists "$item"
 	done
-
 }
 
 before_ohmyzsh

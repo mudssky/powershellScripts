@@ -9,6 +9,8 @@ guiApplications=true
 [experimental]
 autoMemoryReclaim=gradual  # gradual  | dropcache | disabled
 networkingMode=mirrored
+# 原来是按照 /etc/reslov.conf中的服务器地址查找dns的，默认是本机，且会被本机防火墙拦截
+# 开启这个选项可以解决这个问题
 dnsTunneling=true
 firewall=true
 autoProxy=true
