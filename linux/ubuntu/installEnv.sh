@@ -1,4 +1,4 @@
-sudo apt update
+# sudo apt update
 
 source ./functions.sh
 
@@ -22,6 +22,10 @@ before_ohmyzsh() {
 }
 
 install_ohmyzsh() {
+	if [ -e ~/.zshrc ];then
+	echo 'ohmyzsh already installed'
+	return 0
+	fi
 	# 安装ohmyzsh
 	sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 	# ohmyzsh 插件
@@ -29,15 +33,21 @@ install_ohmyzsh() {
 	git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
 	# zsh-syntax-highlighting
 	git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
+	# 安装powerline10k 主题
+	git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ~/powerlevel10k
+	# 复制zshrc配置
+	
+
 }
 
 install_brew_app(){
-
 	if ! command_exists brew; then
 		/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 		# 加入环境变量
 		(echo; echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"') >> ~/.zshrc
 		source  ~/.zshrc
+	else
+		echo 'nvm is already installed'
 	fi
 	install_items=('starship' )
 	for item in "${install_items[@]}"; do
@@ -47,38 +57,42 @@ install_brew_app(){
 
 }
 
-install_rust() {
 
-}
 # 使用apt进行安装的内容，次要安装,在关键内容之后
 apt_install() {
 	install_items=('curl' 'zsh' 'git')
 	for item in "${install_items[@]}"; do
 		install_app_if_not_exists "$item"
 	done
-
 }
+
+install_frontend_env(){
+	# 根据nvm的安装目录判断是否存在
+	if ! [ -e ~/.nvm ] ; then 
+		echo 'Installing nvm ...';
+		# 安装nvm
+		curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash;
+		# 安装lts版本的node
+		nvm install --lts;
+	fi
+	if ! command_exists bun ; then 
+		# bun安装
+		curl -fsSL https://bun.sh/install | bash
+	fi
+}
+
+install_others(){
+	install_brew_app
+	apt_install
+	install_frontend_env
+}
+
+
 
 before_ohmyzsh
 
-# 需要修改~/.zhsrc 配置,把插件填进去
-# plugins=(
-#         autojump
-#         extract # 解压缩
-#         git
-#         rand-quote # 随机展示格言
-#         vi-mode
-#         zsh-syntax-highlighting
-#         zsh-autosuggestions
-#         )
-# 建议直接把配置文件写一份放到github上.
+install_ohmyzsh
 
-# 安装nvm
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-# 安装lts版本的node
-nvm install --lts
-# bun安装
-curl -fsSL https://bun.sh/install | bash
+install_others
 
-# 安装github gh
-sudo apt install gh
+
