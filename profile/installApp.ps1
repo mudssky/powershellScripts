@@ -75,9 +75,6 @@ $installListMap = @{
 		#可以代替linux下的cat
 		'fd'
 		#搜索用的命令行工具
-		'lsd'
-		# 代替linux的ls命令
-
 		# 命令行跑分工具
 		'hyperfine'
 	);

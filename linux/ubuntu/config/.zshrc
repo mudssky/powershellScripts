@@ -137,3 +137,6 @@ eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 #export http_proxy="$clashIP"
 #export https_proxy="$clashIP"
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+
+
+export RUSTC_WRAPPER='sccache'
