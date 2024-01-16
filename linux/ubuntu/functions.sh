@@ -14,7 +14,16 @@ install_app_if_not_exists() {
 install_brew_app_if_not_exists() {
 	if ! command_exists "$@"; then
 		echo "Installing $@"
-		sudo brew install "$@" 
+	    brew install "$@" 
+	else
+		echo "$@ is already installed"
+	fi
+}
+
+install_npm_app_if_not_exists() {
+	if ! command_exists "$@"; then
+		echo "Installing $@"
+	    npm  install -g  "$@"  
 	else
 		echo "$@ is already installed"
 	fi
@@ -27,4 +36,8 @@ command_must_exists() {
 		echo "$@ is not installed"
 		exit 1
 	fi
+}
+
+get_timestamp() {
+
 }

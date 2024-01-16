@@ -130,6 +130,7 @@ export PATH="$PATH:/snap/bin/"
 export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # This loads nvm
 
+# load brew env
 eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 
 #clashIP="http://192.168.21.7:7890" 

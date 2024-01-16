@@ -17,7 +17,6 @@ before_ohmyzsh() {
 	for item in "${install_items[@]}"; do
 		install_app_if_not_exists "$item"
 	done
-	chsh -s /bin/zsh ## 设为默认终端 安装ohmyzsh时会提示你
 	git_config
 }
 
@@ -35,8 +34,14 @@ install_ohmyzsh() {
 	git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
 	# 安装powerline10k 主题
 	git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ~/powerlevel10k
-	# 复制zshrc配置
 
+	if [ -e ~/.zshrc ];then
+		mv ~/.zshrc ~/.zshrc.bak-$(date +%s)
+	fi
+
+	script_path=$(readlink -f "$BASH_SOURCE")
+	# 使用软链接映射zhsrc文件到目标
+	ln -s  "$(script_path)/config/.zshrc)"  "$(readpath ~/.zhsrc)"
 
 }
 
@@ -72,13 +77,18 @@ install_frontend_env(){
 		echo 'Installing nvm ...';
 		# 安装nvm
 		curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash;
-		# 安装lts版本的node
 		nvm install --lts;
+		nvm use --lts
 	fi
 	if ! command_exists bun ; then 
 		# bun安装
 		curl -fsSL https://bun.sh/install | bash
 	fi
+
+	install_items=('tldr')
+	for item in "${install_items[@]}"; do
+		install_npm_app_if_not_exists "$item"
+	done
 }
 
 install_others(){
