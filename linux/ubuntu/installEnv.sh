@@ -65,10 +65,15 @@ install_brew_app(){
 
 # 使用apt进行安装的内容，次要安装,在关键内容之后
 apt_install() {
-	install_items=('curl' 'zsh' 'git')
+	install_items=('bat','ripgrep','fd-find')
 	for item in "${install_items[@]}"; do
 		install_app_if_not_exists "$item"
 	done
+	# fd 名称配置
+	ln -s $(which fdfind) ~/.local/bin/fd
+	# bat名称配置
+	mkdir -p ~/.local/bin
+	ln -s /usr/bin/batcat ~/.local/bin/bat
 }
 
 install_frontend_env(){
