@@ -184,5 +184,42 @@ function Set-Scripts {
 	ConvertTo-Json $jsonMap -Depth 100 | Out-File $path
 
 }
+
+# 更新semver字符串
+function Update-Semver {
+	[CmdletBinding()]
+	param (
+		[Parameter(Mandatory = $true)]
+		[string]$Version,	# 版本字符串
+		[ValidateSet('major', 'minor', 'patch')]
+		[string]$UpdateType = 'patch'     
+	)
+	$regexPattern = "^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$"
+	$regexResult = $Version -match $regexPattern
+	if (-not $regexResult) {
+		Write-Error "无法解析SemVer版本字符串"
+		return 
+	}
+	# 从正则表达式匹配结果中获取版本号各部分
+	$majorVersion = [int]$matches["major"]
+	$minorVersion = [int]$matches["minor"]
+	$patchVersion = [int]$matches["patch"]
+	switch ($UpdateType) {
+		'major' {
+			$majorVersion++
+		}
+		'minor' {
+			$minorVersion++
+		}
+		'patch' {
+			$patchVersion++
+		}
+	}
+	$newVersion = "$($majorVersion).$($minorVersion).$($patchVersion)"
+	return $newVersion
+}
+
+
+
 Export-ModuleMember -Function *
 
