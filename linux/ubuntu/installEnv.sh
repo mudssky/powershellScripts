@@ -1,5 +1,7 @@
+#! /bin/bash
 # sudo apt update
 
+# shellcheck disable=SC1091
 source ./functions.sh
 
 git_config() {
@@ -29,19 +31,20 @@ install_ohmyzsh() {
 	sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 	# ohmyzsh 插件
 	# zsh-autosuggestions
-	git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
+	git clone https://github.com/zsh-users/zsh-autosuggestions "${ZSH_CUSTOM:-~/.oh-my-zsh/custom}"/plugins/zsh-autosuggestions
 	# zsh-syntax-highlighting
-	git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
+	git clone https://github.com/zsh-users/zsh-syntax-highlighting.git "${ZSH_CUSTOM:-~/.oh-my-zsh/custom}"/plugins/zsh-syntax-highlighting
 	# 安装powerline10k 主题
 	git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ~/powerlevel10k
 
 	if [ -e ~/.zshrc ]; then
-		mv ~/.zshrc ~/.zshrc.bak-$(date +%s)
+		mv ~/.zshrc ~/.zshrc.bak-"$(date +%s)"
 	fi
 
+	# shellcheck disable=SC2128
 	script_path=$(readlink -f "$BASH_SOURCE")
 	# 使用软链接映射zhsrc文件到目标
-	ln -s "$(script_path)/config/.zshrc)" "$(readpath ~/.zhsrc)"
+	ln -s "$script_path/config/.zshrc)" "$(readpath ~/.zhsrc)"
 
 }
 
@@ -49,10 +52,9 @@ install_brew_app() {
 	if ! command_exists brew; then
 		/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 		# 加入环境变量
-		(
-			echo
-			echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"'
-		) >>~/.zshrc
+		# shellcheck disable=SC2016
+		echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >>~/.zshrc
+		# shellcheck disable=SC1090
 		source ~/.zshrc
 	else
 		echo 'nvm is already installed'
@@ -71,6 +73,7 @@ apt_install() {
 		install_app_if_not_exists "$item"
 	done
 	# fd 名称配置
+	# shellcheck disable=SC2046
 	ln -s $(which fdfind) ~/.local/bin/fd
 	# bat名称配置
 	mkdir -p ~/.local/bin
