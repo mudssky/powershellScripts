@@ -199,6 +199,12 @@ function cargoInstallApps() {
 		}
 	}
 }
+function installFont() {
+	$firaCodeList = Get-ChildItem "$env:SystemRoot\Fonts" | Where-Object { $_.Name -match "FiraCode" }
+	if ($firaCodeList.Count -eq 0) {
+		choco install firacode
+	}
+}
 function installApps() {
 	[CmdletBinding(SupportsShouldProcess)]
 	param()
@@ -228,7 +234,7 @@ function installApps() {
 	chocoInstallApps -installList $installListMap.choco
 	scoopInstallApps -installList $installListMap.scoop
 	cargoInstallApps -installList $installListMap.cargo
-
+	installFont
 	if ( -not (Test-EXEProgram node)) {
 		# Write-Host -ForegroundColor Green  '未安装choco，是否安装'
 		if ($PSCmdlet.ShouldProcess('是否安装', '未检测到node')) {
