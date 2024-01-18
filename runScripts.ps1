@@ -118,7 +118,11 @@ function switch-node {
 	}
 
 }
-function set-scriptsMap {
+
+
+
+function loadScriptsMap {
+	param()
 	# 判断读取scripts配置的位置
 	if ($CommandMap.Count -eq 0) {
 		$scripts	= find-scripts -PathList $scriptsSearchList
@@ -160,7 +164,7 @@ if ($init) {
 	}
 	exit 0
 }
-set-scriptsMap
+loadScriptsMap
 if ($listCommands) {
 	Write-Host -ForegroundColor Green '下面展示scripts字段中的命令:'
 	Format-Table -InputObject $CommandMap -Property Name, Value 

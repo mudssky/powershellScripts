@@ -219,7 +219,154 @@ function Update-Semver {
 	return $newVersion
 }
 
+# 解析dotenv文件，返回键值对
+function Get-Dotenv {
+	[CmdletBinding()]
+	param (
+		[Parameter(Mandatory = $true)]
+		[string]$Path	# env文件路径
+	)
+	$content = Get-Content $Path
+	$pairs = @{}
+	foreach ($line in $content) {
+		if ($line -match '^\s*([^=]+)=(.*)') {
+			$key = $Matches[1].Trim()
+			$value = $Matches[2].Trim()
+			$pairs[$key] = $value
+		}
+	}
+	return $pairs
+}
 
+# 载入.env格式文件到环境变量
+function Install-Dotenv {
+	[CmdletBinding()]
+	param (
+		[Parameter(Mandatory = $true)]
+		[string]$Path,	# env文件路径
+
+		# Machine: 表示系统级环境变量。对所有用户和进程可见，需要管理员权限。
+		# User: 表示用户级环境变量。对当前用户和所有该用户的进程可见。
+		# Process: 表示进程级环境变量。仅对当前PowerShell进程可见。
+		[ValidateSet('Machine', 'User', 'Process')]
+		[string]$EnvTarget = 'User'
+	)
+	if (-not( Test-Path -LiteralPath $Path)) {
+		Write-Error "env文件不存在: $Path"
+	}
+	$envTargetMap = @{
+		'Machine' = [System.EnvironmentVariableTarget]::Machine
+		'User'    = [System.EnvironmentVariableTarget]::User
+		'Process' = [System.EnvironmentVariableTarget]::Process
+	}
+	$envPairs = Get-Dotenv -Path $Path
+	
+	foreach ($pair in $envPairs.GetEnumerator()) {
+		$target = $envTargetMap[$EnvTarget]
+		[System.Environment]::SetEnvironmentVariable($pair.key, $pair.value, $target)
+		Write-Verbose "set env $($pair.key) = $($pair.value) to $EnvTarget"
+	}	
+}
+
+##############################################################################
+#.SYNOPSIS
+# get a formated length of file , 当数值超过1024会采用更大的单位，直到GB
+#
+#.DESCRIPTION
+# 获得格式化的文件大小字符串
+#
+#.PARAMETER TypeName
+# 数值类型
+#
+#.PARAMETER ComObject
+# 
+#
+#.PARAMETER Force
+# 
+#
+#.EXAMPLE
+#  
+##############################################################################
+function Get-FormatLength($length) {
+	if ($length -gt 1gb) {
+		return  "$( "{0:f2}" -f  $length/1gb)GB"
+	}
+	elseif ($length -gt 1mb) {
+		return  "$( "{0:f2}" -f  $length/1mb)MB"
+	}
+	elseif ($length -gt 1kb) {
+		return  "$( "{0:f2}" -f  $length/1kb)KB"
+	}
+	else {
+		return "$length B"
+	}    
+}
+
+
+
+##############################################################################
+#.SYNOPSIS
+# get needed digits to represent a decimal number
+#
+#.DESCRIPTION
+# 获得一个数字需要多少二进制位来表示
+#
+#.PARAMETER number
+#输入的数字
+#
+#.EXAMPLE
+#  
+##############################################################################
+function Get-NeedBinaryDigits($number) {
+	# 由于powershell中最大的数字就是int64,2左移62位的时候就溢出了，所以最大比较到2左移61位。也就是2的62次方，2的63次方就会溢出int64
+	# int64 有64位，其中一位是符号位， 所以表达的最大数就是 2的63次方-1（最高位下标是63）
+	if ($number -gt ([int64]::MaxValue)) {
+		Write-Host -ForegroundColor Red "the number is exceed the area of int64"
+	}
+	else {
+		for ($i = 62; $i -gt 0; $i -= 1) {
+			if ( ([int64](1) -shl $i) -lt $number) {
+				return ($i + 1)
+			}
+		}
+	}
+}
+
+<#
+.SYNOPSIS
+    获取一个和输入哈希表key和value调换位置的哈希表
+.DESCRIPTION
+    Long description
+.EXAMPLE
+    PS C:\> Get-ReversedMap -inputMap $xxxMap
+    Explanation of what the example does
+.INPUTS
+    Inputs (if any)
+.OUTPUTS
+    Output (if any)
+.NOTES
+    General notes
+#>
+function Get-ReversedMap() {
+	param (
+		$inputMap
+	)
+	$reversedMap = @{}
+	foreach ($key in $inputMap.Keys) {
+		$reversedMap[$inputMap[$key]] = $key
+	}
+	return $reversedMap
+}
+
+
+function Test-PathMust() {
+	param (
+		$path
+	)
+	if (-not (Test-Path $path)) {
+		throw "the path $path is not exist"
+	}
+
+}
 
 Export-ModuleMember -Function *
-

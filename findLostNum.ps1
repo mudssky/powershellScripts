@@ -7,11 +7,11 @@
 #>
 
 param(
-#[Parameter(Mandatory=$true)][int]$startNum
-[int]$startNum = 0,
-[Parameter(Mandatory=$true)][int]$endNum,
-[string]$numPattern='.*(\d+).*',
-[switch]$listExist
+    #[Parameter(Mandatory=$true)][int]$startNum
+    [int]$startNum = 0,
+    [Parameter(Mandatory = $true)][int]$endNum,
+    [string]$numPattern = '.*(\d+).*',
+    [switch]$listExist
 )
 <#
 function numStrToHalfWidth(){
@@ -28,34 +28,37 @@ function numStrToHalfWidth(){
  }
 }
 #>
-$resultTable=@{}
+$resultTable = @{}
 
 
-$notMatch=New-Object -TypeName System.Collections.ArrayList
+$notMatch = New-Object -TypeName System.Collections.ArrayList
 # 获取当前目录的所有子项目
 $pwdItems = Get-ChildItem
 $pwdItems.foreach{
- $filename=$_.Name
- if ($filename -cmatch $numPattern ){
-     $matchNum = [int]($Matches[1]);
-     if (($matchNum -le $endNum) -and ($matchNum -ge $startNum )){
-            $resultTable[$matchNum]=$filename
-     }else{
-        Write-Host -ForegroundColor Yellow "matchnum exceed the range, matchNum: $matchNum ,filename: $filename"
-     }
-}else{
-    $null=$notMatch.Add($_)
-}
-}
-$startNum..$endNum |  foreach{
-if ($resultTable.ContainsKey($_)){
-    if ($listExist){
-    Write-Host -ForegroundColor Green "exists : $_ ,$($resultTable[$_]) "
+    $filename = $_.Name
+    if ($filename -cmatch $numPattern ) {
+        $matchNum = [int]($Matches[1]);
+        if (($matchNum -le $endNum) -and ($matchNum -ge $startNum )) {
+            $resultTable[$matchNum] = $filename
+        }
+        else {
+            Write-Host -ForegroundColor Yellow "matchnum exceed the range, matchNum: $matchNum ,filename: $filename"
+        }
     }
-}else{
-       Write-Host -ForegroundColor Red "not found: $_ "
-
+    else {
+        $null = $notMatch.Add($_)
+    }
 }
+$startNum..$endNum |  ForEach-Object {
+    if ($resultTable.ContainsKey($_)) {
+        if ($listExist) {
+            Write-Host -ForegroundColor Green "exists : $_ ,$($resultTable[$_]) "
+        }
+    }
+    else {
+        Write-Host -ForegroundColor Red "not found: $_ "
+
+    }
 }
 
 "not match item:"

@@ -8,8 +8,8 @@ smallFileCleaner.ps1 -limitedSize 10kb
 清理小于limitedSize的文件
 #>
 param(
-[int]$limitedSize=10kb,
-[switch] $noDelete=$false
+    [int]$limitedSize = 10kb,
+    [switch] $noDelete = $false
 
 )
 
@@ -32,30 +32,33 @@ param(
 #.EXAMPLE
 #  
 ##############################################################################
-function Get-FormatLength($length){
-    if ($length -gt 1gb){
-       return  "$( "{0:f2}" -f  $length/1gb)GB"
-    }elseif ($length -gt 1mb){
-          return  "$( "{0:f2}" -f  $length/1mb)MB"
-    }elseif ($length -gt 1kb)
-    {
+function Get-FormatLength($length) {
+    if ($length -gt 1gb) {
+        return  "$( "{0:f2}" -f  $length/1gb)GB"
+    }
+    elseif ($length -gt 1mb) {
+        return  "$( "{0:f2}" -f  $length/1mb)MB"
+    }
+    elseif ($length -gt 1kb) {
         return  "$( "{0:f2}" -f  $length/1kb)KB"
-    }else{
-         return "$length B"
+    }
+    else {
+        return "$length B"
     }    
 
 }
 
 # 清理小于 100kb的小文件
-$count=0; 
-Get-ChildItem -Recurse -File | foreach{if($_.Length -lt $limitedSize){
-    if($noDelete){
-        Write-Output -ForegroundColor Yellow "$($_.FullName),$("{0:f2}" -f ($_.Length/1kb))kb"
-    }else{
-    rm -Force -LiteralPath  $_.FullName;
-     $count+=1;
-    "$count,deleted $($_.FullName)"
-    }
-    }};
+$count = 0; 
+Get-ChildItem -Recurse -File | ForEach-Object { if ($_.Length -lt $limitedSize) {
+        if ($noDelete) {
+            Write-Output -ForegroundColor Yellow "$($_.FullName),$("{0:f2}" -f ($_.Length/1kb))kb"
+        }
+        else {
+            Remove-Item -Force -LiteralPath  $_.FullName;
+            $count += 1;
+            "$count,deleted $($_.FullName)"
+        }
+    } };
 Write-Host -ForegroundColor Green " delete smaller than $( Get-FormatLength($limitedSize)) file counts: $count "
 

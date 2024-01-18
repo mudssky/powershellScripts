@@ -7,6 +7,9 @@
 allPngtoWebp.ps1 -limitSize 10mb -paramStr '-codec libwebp -vf scale=iw/4:ih/4 -lossless 1 -quality 100 -pix_fmt yuv420p'
 
 #>
+# [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '', Scope='Function')]
+# [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingInvokeExpression', '', Scope='Function')]
+# [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '', Scope='Function')] # 这个规则很蠢会误判
 param(
    # 需要压缩的图片阈值大小，小于这个数值的图片不进行压缩
    [string]$targetPath = '.',
@@ -41,10 +44,10 @@ if ($lossless) {
 # "trace"
 
 
-Get-ChildItem -Recurse -LiteralPath $targetPath | where { $_.Extension -in $supportExt } | ForEach-Object {
+Get-ChildItem -Recurse -LiteralPath $targetPath | Where-Object { $_.Extension -in $supportExt } | ForEach-Object {
    if ($_.Length -gt $limitSize) {
       Write-Host -ForegroundColor Green "detect large png picture : $($_.FullName) size:$($_.Length/1mb)mb "
-     
+
       $newfullname = $_.FullName.Substring(0, $_.FullName.Length - 4) + '.webp'
       Invoke-Expression "ffmpeg.exe  -loglevel $ffmpegloglevel  -i '$($_.FullName)'  $paramStr  '$($newfullname)'"
       # ffmpeg.exe -i $_.FullName  $paramStr  ($_.FullName.Substring(0,$_.FullName.Length-4)+'.webp')

@@ -1,43 +1,43 @@
 <#
 .synopsis
-ÅúÁ¿×ª»»Õ¼ÓÃ¿Õ¼ä¹ı´óµÄÍ¼Æ¬
+æ‰¹é‡è½¬æ¢å ç”¨ç©ºé—´è¿‡å¤§çš„å›¾ç‰‡
 .example
 
-Ê¹ÓÃ·½·¨ÈçÏÂ
+ä½¿ç”¨æ–¹æ³•å¦‚ä¸‹
 allPngtoWebp.ps1 -limitSize 10mb -paramStr '-codec libwebp -vf scale=iw/4:ih/4 -lossless 1 -quality 100 -pix_fmt yuv420p'
 
 
 #>
 param(
-# ĞèÒªÑ¹ËõµÄÍ¼Æ¬ãĞÖµ´óĞ¡£¬Ğ¡ÓÚÕâ¸öÊıÖµµÄÍ¼Æ¬²»½øĞĞÑ¹Ëõ
-[string]$targetPath='.',
-[int]$limitSize=10mb,
-[string]$paramStr='-codec libwebp -pix_fmt yuv420p -vf scale=iw:ih  -lossless 0 -quality 75',
-# ÆäÊµ²»ÓÃ¶àÉèÖÃ£¬Ä¬ÈÏµÄÉèÖÃ¾ÍÊÇ×îºÃµÄ£¬Ä¬ÈÏÑ¹ÖÆ³öÀ´µÄ¾ÍÊÇyuv420p
-#[string]$paramStr='-codec libwebp  -vf scale=iw:ih  -lossless 0 -quality 75',
-[switch]$noDelete
+   # éœ€è¦å‹ç¼©çš„å›¾ç‰‡é˜ˆå€¼å¤§å°ï¼Œå°äºè¿™ä¸ªæ•°å€¼çš„å›¾ç‰‡ä¸è¿›è¡Œå‹ç¼©
+   [string]$targetPath = '.',
+   [int]$limitSize = 10mb,
+   [string]$paramStr = '-codec libwebp -pix_fmt yuv420p -vf scale=iw:ih  -lossless 0 -quality 75',
+   # å…¶å®ä¸ç”¨å¤šè®¾ç½®ï¼Œé»˜è®¤çš„è®¾ç½®å°±æ˜¯æœ€å¥½çš„ï¼Œé»˜è®¤å‹åˆ¶å‡ºæ¥çš„å°±æ˜¯yuv420p
+   #[string]$paramStr='-codec libwebp  -vf scale=iw:ih  -lossless 0 -quality 75',
+   [switch]$noDelete
 )
 
-#Ö»Ñ¹Ëõpng¸ñÊ½µÄÍ¼Æ¬£¬ÏÈ¼ìË÷Ä¿Â¼ÏÂµÄpngÍ¼Æ¬
-$count=0
-Get-ChildItem -Recurse -LiteralPath $targetPath| where{$_.Extension -eq '.png'} | foreach{
-if($_.Length -gt $limitSize){
-     Write-Host -ForegroundColor Green "detect large png picture : $($_.FullName) size:$($_.Length/1mb) "
+#åªå‹ç¼©pngæ ¼å¼çš„å›¾ç‰‡ï¼Œå…ˆæ£€ç´¢ç›®å½•ä¸‹çš„pngå›¾ç‰‡
+$count = 0
+Get-ChildItem -Recurse -LiteralPath $targetPath | Where-Object { $_.Extension -eq '.png' } | ForEach-Object {
+   if ($_.Length -gt $limitSize) {
+      Write-Host -ForegroundColor Green "detect large png picture : $($_.FullName) size:$($_.Length/1mb) "
      
-     $newfullname=$_.FullName.Substring(0,$_.FullName.Length-4)+'.webp'
-     Invoke-Expression "ffmpeg.exe -i '$($_.FullName)'  $paramStr  '$($newfullname)'"
-    # ffmpeg.exe -i $_.FullName  $paramStr  ($_.FullName.Substring(0,$_.FullName.Length-4)+'.webp')
+      $newfullname = $_.FullName.Substring(0, $_.FullName.Length - 4) + '.webp'
+      Invoke-Expression "ffmpeg.exe -i '$($_.FullName)'  $paramStr  '$($newfullname)'"
+      # ffmpeg.exe -i $_.FullName  $paramStr  ($_.FullName.Substring(0,$_.FullName.Length-4)+'.webp')
 
-    if ((Test-Path -LiteralPath $newfullname)-and (-not $noDelete)){
-        rm -LiteralPath $_.FullName
-        Write-Host -ForegroundColor yellow "delete $($_.FullName) complete "
-     $count++
-     }
-     else{
-        Write-Host -ForegroundColor red "not find the source file or no delete "
-        #break
-     }
-    }
+      if ((Test-Path -LiteralPath $newfullname) -and (-not $noDelete)) {
+         Remove-Item -LiteralPath $_.FullName
+         Write-Host -ForegroundColor yellow "delete $($_.FullName) complete "
+         $count++
+      }
+      else {
+         Write-Host -ForegroundColor red "not find the source file or no delete "
+         #break
+      }
+   }
 }
 
 Write-Host -ForegroundColor  Green   "compress $count  png files  complete"

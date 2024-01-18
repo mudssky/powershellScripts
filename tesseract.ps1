@@ -1,1 +1,1 @@
-ls *.jpg,*.png,*.jpeg,*.webp | %{tesseract.exe $_.Name $_.BaseName -l jpn_vert --dpi 220}
+Get-ChildItem *.jpg, *.png, *.jpeg, *.webp | ForEach-Object { tesseract.exe $_.Name $_.BaseName -l jpn_vert --dpi 220 }

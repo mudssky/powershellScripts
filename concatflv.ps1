@@ -9,7 +9,7 @@ param(
 
   #  脚本执行的目标路径，默认是当前目录
   [string]$targetPath = '.',
-  [string]$tempPath = 'temp',
+  # [string]$tempPath = 'temp',
   # 文件的排序方法，因为目前使用的录播软件《B站录播姬》的问题是网络不稳定的时候会出现下载的视频分成好几段的情况，
   # 拼接视频的时候使用的命令行语句，使用文件创建时间对文件时间进行排序，就能拼接出时序正常的视频
   [string]$sortMethod = 'CreationTime',
