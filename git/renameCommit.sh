@@ -1,5 +1,5 @@
 #!/bin/sh
-
+# 对git仓库的name和邮箱批量重命名,误切换造成个人信息泄露时可以抢救一下
 git filter-branch --env-filter '
 
 OLD_EMAIL="旧邮箱"
