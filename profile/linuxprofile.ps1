@@ -3,9 +3,7 @@ param(
 	[switch]$loadProfile
 )
 
-# 使用绝对路径导入,这样无论脚本在哪执行,PSScriptRoot都是脚本所在的位置
-# Import-Module -Name "$PSScriptRoot\functions.psm1" -Verbose 
-Import-Module -Name "$PSScriptRoot\functions.psm1"
+. $PSScriptRoot/loadModule.ps1
 
 # 开启基于历史命令的命令补全
 Set-PSReadLineOption -PredictionSource History

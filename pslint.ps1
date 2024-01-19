@@ -1,9 +1,15 @@
 
 Param(
 	[string]$Path = '.',
-	[string]$ConfigPath = "$PSScriptRoot\.vscode\analyzersettings.psd1"
+	[string]$ConfigPath = "$PSScriptRoot\.vscode\analyzersettings.psd1",
+	[switch]$Install
 )
 
+if ($Install) {
+	Install-Module PSScriptAnalyzer
+	exit
+}
 
 
-Invoke-ScriptAnalyzer -Path  . -Profile $ConfigPath
+
+Invoke-ScriptAnalyzer -Recurse -Path  . -Profile $ConfigPath

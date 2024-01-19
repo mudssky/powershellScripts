@@ -21,21 +21,15 @@
 .FUNCTIONALITY
    最准确描述此 cmdlet 的功能
 #>
-function Test-EXEProgram() {
-	Param
-	(	
-		[Parameter(Mandatory = $true, 
-		 ValueFromPipeline = $true,
-		 Position = 0 )]
-		[ValidateNotNull()]
-		[ValidateNotNullOrEmpty()]
-		[string]
-		$Name
-	)
-	# get-command  return $null  when cant find command and  SilentlyContinue flag on 
-	return ($null -ne (Get-Command -Name $Name  -CommandType Application  -ErrorAction SilentlyContinue ))
-}
+param(
+	[switch]$Confirm
+)
 
+. $PSScriptRoot/loadModule.ps1
+
+
+
+# Get-ScriptFolder
 
 <#
 .Synopsis
@@ -43,21 +37,7 @@ function Test-EXEProgram() {
 .DESCRIPTION
    详细描述
 #>
-function Test-Font() {
-	Param
-	(	
-		[Parameter(Mandatory = $true, 
-		 ValueFromPipeline = $true,
-		 Position = 0 )]
-		[ValidateNotNull()]
-		[ValidateNotNullOrEmpty()]
-		[string]
-		$Name
-	)
-	$win10systemRoot = (Get-ChildItem Env:SystemRoot).Value
-	$win10FontsPath = $win10systemRoot + '\Fonts'
-	return ($null -ne ((Get-ChildItem $win10FontsPath -Filter "*$Name*")) )
-}
+
 
 # $PSDefaultParameterValues["Write-Host:ForegroundColor"] = "Green"
 
@@ -65,8 +45,8 @@ function Test-Font() {
 # cargo install hyperfine
 # cargo install gping #带图的ping
 
-
-
+# echo (Test-PathMust -Path ./modules)
+exit 
 $installListMap = @{
 	choco  = @(
 		# 'twinkle-tray' 	# 一个调节屏幕亮度的软件，win10的亮度调节可太垃圾了。
@@ -249,4 +229,4 @@ function installApps() {
 }
 
 
-installApps -Confirm
+installApps -Confirm $Confirm

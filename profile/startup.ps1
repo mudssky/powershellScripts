@@ -2,13 +2,15 @@ param(
 	[switch]$LoadStartup
 )
 
-Import-Module -Name $PSScriptRoot\functions.psm1 -Verbose -Force
+. $PSScriptRoot/loadModule.ps1
 
 # 开机执行的脚本
 # 启动stable-diffusion-webui
 
 # 注意要设置一下ps1脚本的打开方式,用powershell或者pwsh打开,不然脚本无法正常执行.
-function Start-SdWebUI() {
+function StartSdWebUI() {
+	[CmdLetBinding()]
+	param()
 	$webuiPath = 'C:\AI\stable-diffusion\stable-diffusion-webui'
 	Set-Location $webuiPath
 	# 1.激活虚拟环境
@@ -19,7 +21,7 @@ function Start-SdWebUI() {
 	& "$webuiPath\webui-user.ps1"
 }
 if (-not $LoadStartup) {
-	Start-SdWebUI
+	StartSdWebUI
 }
 $startupPath = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup"
 

@@ -5,13 +5,16 @@ param(
 	[switch]$loadProfile
 )
 
+
+. $PSScriptRoot/loadModule.ps1
+
 if (Test-Path -Path "$PSScriptRoot\enableProxy") {
 	$Env:http_proxy = "http://127.0.0.1:7890"; $Env:https_proxy = "http://127.0.0.1:7890";
 }
 
-# 使用绝对路径导入,这样无论脚本在哪执行,PSScriptRoot都是脚本所在的位置
-# Import-Module -Name "$PSScriptRoot\functions.psm1" -Verbose 
-Import-Module -Name "$PSScriptRoot\functions.psm1"
+
+
+
 
 
 # & 运算符是调用运算符，它可以在新的作用域中执行脚本文件或命令，这样脚本文件或命令中定义的变量、函数、别名等都不会影响当前会话。
