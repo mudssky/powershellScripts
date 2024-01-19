@@ -75,12 +75,14 @@ $installListMap = @{
 		#可以代替linux下的cat
 		'fd'
 		#搜索用的命令行工具
+		'lsd'
+		# 代替linux的ls命令
+
 		# 命令行跑分工具
 		'hyperfine'
 	);
 	scoop  = @(
-		'go',
-		'python',
+		# 'python',
 		# 'aria2',
 		'nvm',
 		'git'
@@ -199,12 +201,6 @@ function cargoInstallApps() {
 		}
 	}
 }
-function installFont() {
-	$firaCodeList = Get-ChildItem "$env:SystemRoot\Fonts" | Where-Object { $_.Name -match "FiraCode" }
-	if ($firaCodeList.Count -eq 0) {
-		choco install firacode
-	}
-}
 function installApps() {
 	[CmdletBinding(SupportsShouldProcess)]
 	param()
@@ -217,6 +213,11 @@ function installApps() {
 			return
 		}
 	}
+	if (-not (Test-EXEProgram g)) {
+		# 运行g的安装脚本 ，属于go的版本管理器
+	 Invoke-WebRequest https://raw.githubusercontent.com/voidint/g/master/install.ps1 -useb | Invoke-Expression
+	}
+
 	if ( -not (Test-EXEProgram choco)) {
 		# Write-Host -ForegroundColor Green  '未安装choco，是否安装'
 		if ($PSCmdlet.ShouldProcess('是否安装', '未检测到choco')) {
@@ -234,7 +235,7 @@ function installApps() {
 	chocoInstallApps -installList $installListMap.choco
 	scoopInstallApps -installList $installListMap.scoop
 	cargoInstallApps -installList $installListMap.cargo
-	installFont
+
 	if ( -not (Test-EXEProgram node)) {
 		# Write-Host -ForegroundColor Green  '未安装choco，是否安装'
 		if ($PSCmdlet.ShouldProcess('是否安装', '未检测到node')) {
@@ -246,5 +247,6 @@ function installApps() {
 		Write-Host -ForegroundColor Yellow '请安装sccache,用于rust编译缓存,提升新安装包的编译速度,cargo install sccache,'
 	}
 }
+
 
 installApps -Confirm
