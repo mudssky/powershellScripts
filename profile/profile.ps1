@@ -8,6 +8,7 @@ param(
 
 . $PSScriptRoot/loadModule.ps1
 
+# 因为有些软件可能不支持这个环境变量，所以还是推荐直接用clash的tun模式。
 if (Test-Path -Path "$PSScriptRoot\enableProxy") {
 	$Env:http_proxy = "http://127.0.0.1:7890"; $Env:https_proxy = "http://127.0.0.1:7890";
 }
