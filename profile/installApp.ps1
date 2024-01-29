@@ -175,7 +175,7 @@ function scoopInstallApps() {
 	foreach ($appInfo in $installList) {
 		$cliName = $appInfo.cliName  ? $appInfo.cliName : $appInfo.name 
 		$appName = $appInfo.name
-		echo "cliName: $cliName  , appName: $appName"
+		# echo "cliName: $cliName  , appName: $appName"
 		if ( -not (Test-EXEProgram  $cliName)) {
 			if ($PSCmdlet.ShouldProcess( '是否安装', "未检测到$appName")) {
 				scoop install $appName 
