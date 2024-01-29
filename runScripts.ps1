@@ -26,7 +26,8 @@ param(
 	# 初始化脚本文件
 	[switch]$init,
 	# 根据nvmrc切换node版本
-	[switch]$autoSwicthNode
+	[switch]$autoSwicthNode,
+	[switch]$enableGlobalScripts
 )
 
 trap { "Error found: $_" }
@@ -38,8 +39,9 @@ $CommandMap = @{
 $scriptsSearchList = @(
 	'scripts.json'
 	'package.json'
-)
-
+) + ( $enableGlobalScripts ?
+	@("$PSScriptRoot/scripts.json"): @())
+# 把本目录的脚本地址放最后
 $currentScriptsPath = 'scripts.json'
 
 function RunIfExist {

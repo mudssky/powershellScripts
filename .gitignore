@@ -3,3 +3,5 @@ enableProxy
 gitconfig_company.ps1
 
 profile/fonts/*
+
+/scripts.json
