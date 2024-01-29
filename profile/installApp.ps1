@@ -21,32 +21,14 @@
 .FUNCTIONALITY
    最准确描述此 cmdlet 的功能
 #>
+
+[CmdletBinding(SupportsShouldProcess)]
 param(
-	[switch]$Confirm
+	# [switch]$Confirm
 )
 
 . $PSScriptRoot/loadModule.ps1
 
-
-
-# Get-ScriptFolder
-
-<#
-.Synopsis
-	检测win10字体文件夹中是否存在字体
-.DESCRIPTION
-   详细描述
-#>
-
-
-# $PSDefaultParameterValues["Write-Host:ForegroundColor"] = "Green"
-
-
-# cargo install hyperfine
-# cargo install gping #带图的ping
-
-# echo (Test-PathMust -Path ./modules)
-exit 
 $installListMap = @{
 	choco  = @(
 		# 'twinkle-tray' 	# 一个调节屏幕亮度的软件，win10的亮度调节可太垃圾了。
@@ -62,17 +44,74 @@ $installListMap = @{
 		'hyperfine'
 	);
 	scoop  = @(
-		# 'python',
-		# 'aria2',
-		'nvm',
-		'git'
-		# win提权
-		'gsudo'
-		'starship' # 跨平台终端提示符美化工具
-	)
+		@{
+			name    = 'nvm'
+			cliName = 'nvm'
+		},
+		@{
+			name = 'git'
+		},	
+		@{
+			name       = 'gsudo'
+			cliName    = 'nvm'
+			desciption = 'win提权'
+		},	
+		@{
+			name    = 'starship'
+			cliName = 'starship'
+		},	
+		@{
+			name    = 'ffmpeg'
+			cliName = 'ffmpeg'
+		},	
+		@{
+			name = 'fzf'
+			# go编写的模糊查找神器
+		},	
+		@{
+			name    = 'ripgrep'
+			cliName = 'rg'
+			# rust正则查找神奇rg
+		},
+		@{
+
+			name = 'cht'
+			# https://github.com/chubin/cheat.sh
+		},	
+		@{
+			name    = 'aria2'
+			cliName = 'aria2c'
+		},	
+		@{
+			name = 'vhs'
+		},
+		@{
+			name = 'duf'
+			# 录制终端操作到gif
+		},
+		@{
+			name = 'dust'
+			#rust ，代替linux du
+		}
+
+		@{
+			name = 'caddy'
+			#golang的web服务器，类似nginx
+		},
+		@{
+			name = 'jq' #命令行处理json
+		}
+		@{
+			name = 'tokei' #rust git仓库代码统计
+		}
+		# 	@{
+		# 	name    = 'lux' #下载器，但是感觉有yt-dlp就够了
+	
+		# }
+	);
 	winget = @(
 		'eartrumpet'
-	)
+	);
 	cargo  = @(
 		# 可以用于在不同的工作空间中共享已经构建好的依赖包,提升构建速度
 		'sccache'
@@ -103,12 +142,16 @@ $installListMap = @{
 		# 终端查看16进制
 		'hexyl'
 		#  文件搜索
-		'rg'
+		# 'rg'
 		# 统计代码行数
 		'cloc'
 		
-	)
+	);
 }
+
+
+
+
 function chocoInstallApps() {
 	[CmdletBinding(SupportsShouldProcess)]
 	param(
@@ -126,23 +169,27 @@ function chocoInstallApps() {
 function scoopInstallApps() {
 	[CmdletBinding(SupportsShouldProcess)]
 	param(
-		[string[]]
+		[array]
 		$installList
 	)
-	foreach ($appName in $installList) {
-		if ( -not (Test-EXEProgram $appName)) {
+	foreach ($appInfo in $installList) {
+		$cliName = $appInfo.cliName  ? $appInfo.cliName : $appInfo.name 
+		$appName = $appInfo.name
+		echo "cliName: $cliName  , appName: $appName"
+		if ( -not (Test-EXEProgram  $cliName)) {
 			if ($PSCmdlet.ShouldProcess( '是否安装', "未检测到$appName")) {
 				scoop install $appName 
 			}
 		}
-	}
+ }
+
 }
 
 
 function cargoInstallApps() {
 	[CmdletBinding(SupportsShouldProcess)]
 	param(
-		[string[]]
+		[array]
 		$installList
 	)
 
@@ -160,9 +207,9 @@ function cargoInstallApps() {
 		'watchexec' = @{
 			'command' = 'cargo install --locked watchexec-cli';
 		};
-		'rg'        = @{
-			'command' = 'cargo install  ripgrep';
-		};
+		# 'rg'        = @{
+		# 	'command' = 'cargo install  ripgrep';
+		# };
 		'btm'       = @{
 			'command' = 'cargo install  bottom';
 		};
@@ -229,4 +276,4 @@ function installApps() {
 }
 
 
-installApps -Confirm $Confirm
+installApps 
