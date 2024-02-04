@@ -23,6 +23,7 @@ before_ohmyzsh() {
 }
 
 install_ohmyzsh() {
+
 	if [ -e ~/.zshrc ]; then
 		echo 'ohmyzsh already installed'
 		return 0
@@ -72,12 +73,17 @@ apt_install() {
 	for item in "${install_items[@]}"; do
 		install_app_if_not_exists "$item"
 	done
+
+	if ! command_exists fd;then
 	# fd 名称配置
 	# shellcheck disable=SC2046
 	ln -s $(which fdfind) ~/.local/bin/fd
+	fi
+	if ! command_exists bat ;then
 	# bat名称配置
 	mkdir -p ~/.local/bin
 	ln -s /usr/bin/batcat ~/.local/bin/bat
+	fi
 }
 script_install() {
 	# 安装autin，更好的shell历史记录
@@ -91,6 +97,7 @@ install_frontend_env() {
 		echo 'Installing nvm ...'
 		# 安装nvm
 		curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+		[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvmS
 		nvm install --lts
 		nvm use --lts
 	fi
