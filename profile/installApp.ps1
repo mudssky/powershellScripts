@@ -52,8 +52,8 @@ $installListMap = @{
 			name = 'git'
 		},	
 		@{
-			name       = 'gsudo'
-			cliName    = 'nvm'
+			name       = 'sudo'
+			cliName    = 'sudo'
 			desciption = 'win提权'
 		},	
 		@{
@@ -251,16 +251,19 @@ function installApps() {
 			[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
 		}
 	}
-	if ( -not (Test-Font fira)) {
-		if ($PSCmdlet.ShouldProcess('是否安装', '未检测到firacode')) {
-			$win10systemRoot = (Get-ChildItem Env:SystemRoot).Value
-			$win10FontsPath = $win10systemRoot + '\Fonts'
-			Expand-Archive -Path './fonts/FiraCode Windows Compatible.zip' -DestinationPath $win10FontsPath
-		}
-	}
+	# if ( -not (Test-Font fira)) {
+	# 	if ($PSCmdlet.ShouldProcess('是否安装', '未检测到firacode')) {
+	# 		$win10systemRoot = (Get-ChildItem Env:SystemRoot).Value
+	# 		$win10FontsPath = $win10systemRoot + '\Fonts'
+	# 		Expand-Archive -Path './fonts/FiraCode Windows Compatible.zip' -DestinationPath $win10FontsPath
+	# 	}
+	# }
 	# echo hello 
-	chocoInstallApps -installList $installListMap.choco
 	scoopInstallApps -installList $installListMap.scoop
+	chocoInstallApps -installList $installListMap.choco
+	if ( -not (Test-EXEProgram sccache)) {
+		Write-Host -ForegroundColor Yellow '请安装sccache,用于rust编译缓存,提升新安装包的编译速度,cargo install sccache,'
+	}
 	cargoInstallApps -installList $installListMap.cargo
 
 	if ( -not (Test-EXEProgram node)) {
@@ -268,11 +271,10 @@ function installApps() {
 		if ($PSCmdlet.ShouldProcess('是否安装', '未检测到node')) {
 			# 使用scoop 安装的nvm 安装node
 			nvm install lts
+			nvm use lts
 		}
 	}
-	if ( -not (Test-EXEProgram sccache)) {
-		Write-Host -ForegroundColor Yellow '请安装sccache,用于rust编译缓存,提升新安装包的编译速度,cargo install sccache,'
-	}
+
 }
 
 
