@@ -52,7 +52,7 @@ $losslessFiles | ForEach-Object  -ThrottleLimit $ThrottleLimit -Parallel {
         # 目前flac与wav命令相同
         # $commandStr = ('qaac64.exe  ' + $qaacParam + ' "' + $audiofilePath + '" -o "' + $newfilepath + '"')
         # > $null 2>$null 分别是忽略stdout 和stderr
-        $commandStr = ('qaac64.exe  {0} "{1}" -o "{2}" > $null 2>$null' -f $qaacParam, $audiofilePath , $newfilepath)
+        $commandStr = ('qaac.exe  {0} "{1}" -o "{2}" > $null 2>$null' -f $qaacParam, $audiofilePath , $newfilepath)
         Write-Host $commandStr
         Invoke-Expression $commandStr  
     }
