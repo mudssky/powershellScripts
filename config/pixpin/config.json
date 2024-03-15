@@ -1,0 +1,18 @@
+{
+    "Pin.ConfirmOnCloseByDoubleClick": false,
+    "Pin.ConfirmOnCloseByKey": false,
+    "Save.AutoSave": {
+        "subConf": {
+            "enable": true,
+            "whenConflict": 1
+        },
+        "value": "C:/Users/mudssky/Pictures/PixPinAutoSave/PixPin_$yyyy-MM-dd_HH-mm-ss$.png"
+    },
+    "Screenshot.ConfirmOnCloseByKey": false,
+    "System.Run After Boot": {
+        "subConf": {
+            "RunAsAdmin": false
+        },
+        "value": true
+    }
+}

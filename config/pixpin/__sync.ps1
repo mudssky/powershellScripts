@@ -1,0 +1,1 @@
+$configDir = "$env:USERPROFILE/AppData/Local/Programs/PixPin/Config"
