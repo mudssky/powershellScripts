@@ -15,9 +15,9 @@
 
 [CmdletBinding()]
 param(
-	[ValidateSet('backup', 'restore')]
+	[ValidateSet('backup', 'restore', 'list')]
 	[string]$Mode = 'backup'
-	# [string]$configDir = "$env:USERPROFILE/AppData/Local/Programs/PixPin/Config"
+	# [string]$configDir = "$env:USERPROFILE/AppData/Local/Programs/PixPin/Config
 )
 
 
@@ -39,5 +39,9 @@ switch ($Mode) {
 	}
 	'restore' {
 		Copy-Item -Recurse -Force ./*  -Destination $configDir
+	}
+	'list' {
+		Get-ChildItem $configDir
+		Get-ChildItem ./
 	}
 }
