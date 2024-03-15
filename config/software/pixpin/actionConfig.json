@@ -6,7 +6,7 @@
             "ignoreProgramList": "",
             "isSystemAction": true,
             "script": "pixpin.closeAllPin()",
-            "shortCut": "Shift+Esc",
+            "shortCut": "",
             "showOnTray": true,
             "title": "Close all pin window",
             "type": 256
@@ -34,7 +34,7 @@
             "isSystemAction": true,
             "script": "pixpin.trigMousePenetration()",
             "shortCut": "",
-            "showOnTray": false,
+            "showOnTray": true,
             "title": "Open/Close mouse Penetration",
             "type": 256
         },
