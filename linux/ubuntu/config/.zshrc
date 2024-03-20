@@ -78,7 +78,7 @@ ZSH_THEME="robbyrussell"
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
 plugins=(
-	autojump
+	      autojump
         extract # 解压缩
         git
         rand-quote # 随机展示格言
@@ -124,7 +124,7 @@ source ~/powerlevel10k/powerlevel10k.zsh-theme
 
 # bun
 export BUN_INSTALL="$HOME/.bun"
-export PATH="$BUN_INSTALL/bin:$PATH"
+export PATH="$PATH:$BUN_INSTALL/bin"
 export PATH="$PATH:/snap/bin/"
 export PATH="$PATH:~/.local/bin/"
 
@@ -141,3 +141,9 @@ eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 
 
 export RUSTC_WRAPPER='sccache'
+
+export PATH="$PATH:/opt/nvim-linux64/bin"
+
+# pyenv config
+export PYENV_ROOT="$HOME/.pyenv"
+[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH" && eval "$(pyenv init -)"

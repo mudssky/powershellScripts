@@ -26,7 +26,7 @@ install_ohmyzsh() {
 
 	if [ -e ~/.zshrc ]; then
 		echo 'ohmyzsh already installed'
-		return 0
+		# return 0
 	fi
 	# 安装ohmyzsh
 	sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
@@ -41,11 +41,19 @@ install_ohmyzsh() {
 	if [ -e ~/.zshrc ]; then
 		mv ~/.zshrc ~/.zshrc.bak-"$(date +%s)"
 	fi
-
+	if [ -e ~/.p10k.zsh ]; then
+		mv ~/.p10k.zsh ~/.p10k.zsh.bak-"$(date +%s)"
+	fi
 	# shellcheck disable=SC2128
-	script_path=$(readlink -f "$BASH_SOURCE")
+	script_path=$(
+		cd $(dirname $0) || exit
+		pwd
+	)
+
+	echo "script_path:$script_path"
 	# 使用软链接映射zhsrc文件到目标
-	ln -s "$script_path/config/.zshrc)" "$(readpath ~/.zhsrc)"
+	ln -s "$script_path/config/.zshrc" "$(realpath ~/.zshrc)"
+	ln -s "$script_path/config/.p10k.zsh" "$(realpath ~/.p10k.zsh)"
 
 }
 
@@ -73,16 +81,21 @@ apt_install() {
 	for item in "${install_items[@]}"; do
 		install_app_if_not_exists "$item"
 	done
-
-	if ! command_exists fd;then
-	# fd 名称配置
-	# shellcheck disable=SC2046
-	ln -s $(which fdfind) ~/.local/bin/fd
+	if ! command_exists gcc; then
+		# pyenv 安装python构建需要的
+		sudo apt-get install -y make build-essential libssl-dev zlib1g-dev libbz2-dev \
+			libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev libncursesw5-dev \
+			xz-utils tk-dev libffi-dev liblzma-dev
 	fi
-	if ! command_exists bat ;then
-	# bat名称配置
-	mkdir -p ~/.local/bin
-	ln -s /usr/bin/batcat ~/.local/bin/bat
+	if ! command_exists fd; then
+		# fd 名称配置
+		# shellcheck disable=SC2046
+		ln -s $(which fdfind) ~/.local/bin/fd
+	fi
+	if ! command_exists bat; then
+		# bat名称配置
+		mkdir -p ~/.local/bin
+		ln -s /usr/bin/batcat ~/.local/bin/bat
 	fi
 }
 script_install() {
@@ -97,7 +110,7 @@ install_frontend_env() {
 		echo 'Installing nvm ...'
 		# 安装nvm
 		curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-		[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvmS
+		[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # This loads nvmS
 		nvm install --lts
 		nvm use --lts
 	fi
@@ -112,10 +125,31 @@ install_frontend_env() {
 	done
 }
 
+install_neovim() {
+	if ! command_exists nvim; then
+		echo 'installing nvim...'
+		curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz
+		sudo rm -rf /opt/nvim
+		sudo tar -C /opt -xzf nvim-linux64.tar.gz
+		rm nvim-linux64.tar.gz
+	else
+		echo 'nvim is already installed'
+	fi
+}
+install_python() {
+	if ! command_exists python; then
+		curl https://pyenv.run | bash
+		# 列出版本
+		pyenv install 3.12
+		pyenv global 3.12
+	fi
+}
 install_others() {
 	install_brew_app
 	apt_install
 	install_frontend_env
+	install_python
+	install_neovim
 }
 
 before_ohmyzsh
