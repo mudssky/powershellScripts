@@ -104,6 +104,9 @@ $installListMap = @{
 		@{
 			name = 'tokei' #rust git仓库代码统计
 		}
+		@{
+			name = 'lazygit' 
+		}
 		# 	@{
 		# 	name    = 'lux' #下载器，但是感觉有yt-dlp就够了
 	
@@ -175,6 +178,7 @@ function scoopInstallApps() {
 	foreach ($appInfo in $installList) {
 		$cliName = $appInfo.cliName  ? $appInfo.cliName : $appInfo.name 
 		$appName = $appInfo.name
+		scoop bucket add extras
 		# echo "cliName: $cliName  , appName: $appName"
 		if ( -not (Test-EXEProgram  $cliName)) {
 			if ($PSCmdlet.ShouldProcess( '是否安装', "未检测到$appName")) {
