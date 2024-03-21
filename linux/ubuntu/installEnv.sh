@@ -26,7 +26,7 @@ install_ohmyzsh() {
 
 	if [ -e ~/.zshrc ]; then
 		echo 'ohmyzsh already installed'
-		# return 0
+		return 0
 	fi
 	# 安装ohmyzsh
 	sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
@@ -45,6 +45,7 @@ install_ohmyzsh() {
 		mv ~/.p10k.zsh ~/.p10k.zsh.bak-"$(date +%s)"
 	fi
 	# shellcheck disable=SC2128
+	# 获取当前脚本所在目录
 	script_path=$(
 		cd $(dirname $0) || exit
 		pwd
@@ -132,6 +133,9 @@ install_neovim() {
 		sudo rm -rf /opt/nvim
 		sudo tar -C /opt -xzf nvim-linux64.tar.gz
 		rm nvim-linux64.tar.gz
+
+		# 安装lunarVim
+		bash <(curl -s https://raw.githubusercontent.com/lunarvim/lunarvim/master/utils/installer/install.sh)
 	else
 		echo 'nvim is already installed'
 	fi
@@ -140,6 +144,7 @@ install_python() {
 	if ! command_exists python; then
 		curl https://pyenv.run | bash
 		# 列出版本
+		# pyenv install -l
 		pyenv install 3.12
 		pyenv global 3.12
 	fi

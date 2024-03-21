@@ -85,6 +85,8 @@ plugins=(
         vi-mode
         zsh-syntax-highlighting
         zsh-autosuggestions
+        # compinit:503: no such file or directory: /usr/share/zsh/vendor-completions/_docker 处理docker报错
+        docker
 )
 
 source $ZSH/oh-my-zsh.sh
@@ -126,7 +128,7 @@ source ~/powerlevel10k/powerlevel10k.zsh-theme
 export BUN_INSTALL="$HOME/.bun"
 export PATH="$PATH:$BUN_INSTALL/bin"
 export PATH="$PATH:/snap/bin/"
-export PATH="$PATH:~/.local/bin/"
+export PATH="$PATH:$(realpath ~/.local/bin/)"
 
 export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # This loads nvm
