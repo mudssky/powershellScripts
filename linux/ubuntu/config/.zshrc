@@ -128,6 +128,8 @@ source ~/powerlevel10k/powerlevel10k.zsh-theme
 export BUN_INSTALL="$HOME/.bun"
 export PATH="$PATH:$BUN_INSTALL/bin"
 export PATH="$PATH:/snap/bin/"
+
+# 包含lunarVim lvim和其他一些命令行，因为~在PATH中好像不会解析
 export PATH="$PATH:$(realpath ~/.local/bin/)"
 
 export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
