@@ -145,6 +145,7 @@ install_python() {
 		curl https://pyenv.run | bash
 		# 列出版本
 		# pyenv install -l
+		# 需要执行.zshrc后环境变量才能找到pyenv
 		pyenv install 3.12
 		pyenv global 3.12
 	fi
