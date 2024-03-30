@@ -8,6 +8,11 @@
 npm i -g vscode-langservers-extracted
 # vue
 npm i -g @vue/language-server
+npm i -g prettier
+
+# typescript
+npm install -g typescript typescript-language-server
+
 # prisma
 npm install -g @prisma/language-server
 # bash

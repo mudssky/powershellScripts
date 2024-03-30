@@ -2,13 +2,13 @@
 name = "typescript"
 language-servers = ["typescript-language-server"]
 auto-format = true
-formater = { command = "prettier" }
+formatter = { command = "prettier" }
 
 [[language]]
 name = "javascript"
 language-servers = ["typescript-language-server"]
 auto-format = true
-formater = { command = "prettier" }
+formatter = { command = "prettier" }
 
 [[language]]
 name = "vue"
@@ -38,7 +38,7 @@ auto-format = true
 name = "css"
 auto-format = true
 language-servers = ["vscode-langservers-extracted"]
-formater = { command = "prettier" }
+formatter = { command = "prettier" }
 
 
 [[language]]
