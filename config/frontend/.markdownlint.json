@@ -31,6 +31,8 @@
   "blanks-around-fences": true,
   // MD033/no-inline-html,html还是有用的，所以关掉这个
   "no-inline-html": false,
+  // MD034/no-bare-urls
+  "no-bare-urls": false,
   // MD81 不能用强调符号作为标题，这是为了语义,但是太烦了，还是关掉
   "no-emphasis-as-heading": false,
   //   第一行需要是最高级别标题
