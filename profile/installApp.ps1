@@ -85,14 +85,14 @@ $installListMap = @{
 		@{
 			name = 'vhs'
 		},
-		@{
-			name = 'duf'
-			# 录制终端操作到gif
-		},
-		@{
-			name = 'dust'
-			#rust ，代替linux du
-		}
+		# @{
+		# 	name = 'duf'
+		# 	# 录制终端操作到gif
+		# },
+		# @{
+		# 	name = 'dust'
+		# 	#rust ，代替linux du
+		# }
 
 		@{
 			name = 'caddy'
@@ -248,6 +248,8 @@ function installApps() {
 		# 运行g的安装脚本 ，属于go的版本管理器
 	 Invoke-WebRequest https://raw.githubusercontent.com/voidint/g/master/install.ps1 -useb | Invoke-Expression
 	}
+	
+	scoopInstallApps -installList $installListMap.scoop
 
 	if ( -not (Test-EXEProgram choco)) {
 		# Write-Host -ForegroundColor Green  '未安装choco，是否安装'
@@ -263,7 +265,6 @@ function installApps() {
 	# 	}
 	# }
 	# echo hello 
-	scoopInstallApps -installList $installListMap.scoop
 	chocoInstallApps -installList $installListMap.choco
 	if ( -not (Test-EXEProgram sccache)) {
 		Write-Host -ForegroundColor Yellow '请安装sccache,用于rust编译缓存,提升新安装包的编译速度,cargo install sccache,'
