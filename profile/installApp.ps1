@@ -44,10 +44,11 @@ $installListMap = @{
 		'hyperfine'
 	);
 	scoop  = @(
-		@{
-			name    = 'nvm'
-			cliName = 'nvm'
-		},
+		# 用scoop安装会导致安装不上node
+		# @{
+		# 	name    = 'nvm'
+		# 	cliName = 'nvm'
+		# },
 		@{
 			name = 'git'
 		},	
@@ -271,14 +272,14 @@ function installApps() {
 	}
 	cargoInstallApps -installList $installListMap.cargo
 
-	if ( -not (Test-EXEProgram node)) {
-		# Write-Host -ForegroundColor Green  '未安装choco，是否安装'
-		if ($PSCmdlet.ShouldProcess('是否安装', '未检测到node')) {
-			# 使用scoop 安装的nvm 安装node
-			nvm install lts
-			nvm use lts
-		}
-	}
+	# if ( -not (Test-EXEProgram node)) {
+	# 	# Write-Host -ForegroundColor Green  '未安装choco，是否安装'
+	# 	if ($PSCmdlet.ShouldProcess('是否安装', '未检测到node')) {
+	# 		# 使用scoop 安装的nvm 安装node
+	# 		nvm install lts
+	# 		nvm use lts
+	# 	}
+	# }
 
 }
 
