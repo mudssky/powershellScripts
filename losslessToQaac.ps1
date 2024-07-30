@@ -44,9 +44,8 @@ $losslessFiles | ForEach-Object  -ThrottleLimit $ThrottleLimit -Parallel {
         param (
             [string]$inputString
         )
-        # 使用反引号（`）对双引号进行转义
-        # 连续两个双引号也可以代表一个双引号
-        $escapedString = $inputString -replace "'", "`'"
+        # 连续两个引号，可以表示一个引号，这里替换左引号
+        $escapedString = $inputString -replace "‘", "‘‘"
     
         return $escapedString
     }
