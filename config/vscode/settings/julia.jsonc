@@ -1,0 +1,9 @@
+{
+  //========== julia ==========
+  "terminal.integrated.commandsToSkipShell": ["language-julia.interrupt"],
+  "julia.enableTelemetry": false,
+  "julia.symbolCacheDownload": true,
+  "[julia]": {
+    "editor.defaultFormatter": "julialang.language-julia"
+  }
+}

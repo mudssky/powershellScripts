@@ -1,0 +1,15 @@
+{
+  //========== python ==========
+  "workbench.editorAssociations": {
+    "*.ipynb": "jupyter-notebook",
+    "{git,gitlens}:/**/*.{md,csv,svg}": "default"
+  },
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff"
+  },
+  "notebook.cellToolbarLocation": {
+    "default": "right",
+    "jupyter-notebook": "left"
+  },
+  "jupyter.askForKernelRestart": false
+}
