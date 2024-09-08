@@ -41,7 +41,9 @@ $PSDefaultParameterValues["Out-File:Encoding"] = "UTF8"
 
 
 # 开启基于历史命令的命令补全
-Set-PSReadLineOption -PredictionSource History
+# Set-PSReadLineOption -PredictionSource History
+# 直接导入模块就能生效
+Import-Module PSReadLine
 
 # 载入conda环境,环境变量中没有conda命令时执行
 if (-not (Test-EXEProgram -Name conda)) {
