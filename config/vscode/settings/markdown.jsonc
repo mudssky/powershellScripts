@@ -1,0 +1,16 @@
+{
+  //========== markdown ==========
+  "markdown-preview-enhanced.enableScriptExecution": true,
+  "markdown-preview-enhanced.liveUpdate": true,
+  "markdown-preview-enhanced.enableHTML5Embed": true,
+  "markdown-preview-enhanced.printBackground": true,
+  "[markdown]": {
+    "editor.wordWrap": "on",
+    "editor.quickSuggestions": {
+      "comments": "off",
+      "strings": "off",
+      "other": "off"
+    },
+    "editor.defaultFormatter": "DavidAnson.vscode-markdownlint"
+  }
+}

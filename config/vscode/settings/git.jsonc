@@ -1,0 +1,11 @@
+{
+  //========== git ==========
+  "git.enableSmartCommit": true,
+  "gitlens.views.worktrees.files.layout": "list",
+  "gitlens.gitCommands.skipConfirmations": [
+    "fetch:command",
+    "stash-push:command",
+    "switch:command",
+    "stash-apply:command"
+  ]
+}

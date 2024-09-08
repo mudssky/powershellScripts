@@ -1,0 +1,5 @@
+{
+  //========== Golang ==========
+  "go.useLanguageServer": true,
+  "go.toolsManagement.autoUpdate": true
+}

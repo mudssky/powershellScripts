@@ -1,0 +1,53 @@
+{
+  //========== editor ==========
+  "editor.formatOnSave": true,
+  "editor.formatOnPaste": true,
+  "editor.formatOnType": false,
+  // 键入tab时使用空格代替
+  "editor.insertSpaces": true,
+  // 展示行号
+  "editor.lineNumbers": "on",
+  // taiwindCss需要在字符串中显示快速建议,这个还是在使用tailwind的项目中手动配置一下
+  // 免得占用性能
+  // "editor.quickSuggestions": {
+  //   "strings": true
+  // },
+  "editor.inlineSuggest.enabled": true,
+  "editor.fontFamily": "'FiraCode NF Retina', Iosevka, 'FiraCode NF', Consolas, 'Cascadia Code', 'Courier New', 'Fira Code'",
+  "editor.fontLigatures": true,
+  "editor.stickyScroll.enabled": true,
+  // 关闭无障碍支持
+  "editor.accessibilitySupport": "off",
+  "editor.tabCompletion": "off",
+  "editor.wordSeparators": "`~!@#$%^&*()-=+[{]}\\|;:'\",.<>/?",
+  // 关闭代码缩略图,比较鸡肋
+  "editor.minimap.autohide": true,
+  "editor.minimap.enabled": false,
+  // 可以用鼠标滚轮调整字体大小。因为一般用ctrl+ 整体放大的，所以以前一直没有开过这个配置
+  "editor.mouseWheelZoom": false,
+  // 显示折行，一般用格式化插件比如prettier实际换行的，这个折行消耗性能可以不开
+  "editor.wordWrap": "off",
+  // 增加滚动和光标移动的动画，会显得更丝滑
+  // 感觉动画不是很明显
+  // "editor.smoothScrolling": true,
+  // "editor.cursorBlinking": "smooth",
+  // "workbench.list.smoothScrolling": true,
+
+  //========== theme ui ==========
+  // 主题和全局配置
+  "workbench.startupEditor": "none",
+  // 使用新的profile ui，因为升级1.92后，旧ui有bug
+  "workbench.experimental.enableNewProfilesUI": true,
+  "workbench.iconTheme": "material-icon-theme",
+  "workbench.colorTheme": "Quiet Light",
+
+  // 自动保存,因为已经配置了保存时自动格式化了,
+  // 而且保存一般会触发服务重渲染，所以不要太频繁
+  // 这里设置为5分钟
+  "files.autoSave": "afterDelay",
+  "files.autoSaveDelay": 300000,
+  // 自动判断文件编码，还是关了，因为一般都是utf8编码
+  // "files.autoGuessEncoding": false,
+  //========== debug ==========
+  "debug.openDebug": "openOnDebugBreak"
+}

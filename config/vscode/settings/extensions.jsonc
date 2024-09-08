@@ -1,0 +1,60 @@
+{
+  //========== extensions ==========
+  // xml插件
+  "redhat.telemetry.enabled": false,
+  // better comments插件
+  "better-comments.tags": [
+    {
+      "tag": "!",
+      "color": "#FF2D00",
+      "strikethrough": false,
+      "underline": false,
+      "backgroundColor": "transparent",
+      "bold": false,
+      "italic": false
+    },
+    {
+      "tag": "?",
+      "color": "#3498DB",
+      "strikethrough": false,
+      "underline": false,
+      "backgroundColor": "transparent",
+      "bold": false,
+      "italic": false
+    },
+    {
+      "tag": "//",
+      "color": "#474747",
+      "strikethrough": true,
+      "underline": false,
+      "backgroundColor": "transparent",
+      "bold": false,
+      "italic": false
+    },
+    {
+      "tag": "todo",
+      "color": "#FF8C00",
+      "strikethrough": false,
+      "underline": false,
+      "backgroundColor": "transparent",
+      "bold": false,
+      "italic": false
+    },
+    {
+      "tag": "*",
+      "color": "#98C379",
+      "strikethrough": false,
+      "underline": false,
+      "backgroundColor": "transparent",
+      "bold": false,
+      "italic": false
+    }
+  ],
+  // 配置unicode-latex支持的文件格式
+  "unicode-latex.extensions": ["plaintext", "markdown", "coq", "ipynb", "py"],
+  // git提交插件配置最大标题长度
+  "GitCommitPlugin.MaxSubjectCharacters": 100,
+  //   Codegeex
+  "Codegeex.CandidateNum": "2 (medium)",
+  "Codegeex.Privacy": false
+}
