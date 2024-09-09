@@ -1,7 +1,7 @@
 {
   //========== terminal ==========
   "terminal.integrated.defaultProfile.windows": "PowerShell",
-  "terminal.integrated.fontFamily": "FiraCode NF Retina, Fira Code Retina, FiraCode Nerd Font, FiraCode Nerd Font Mono, Fira Code",
+  "terminal.integrated.fontFamily": "'JetBrains Mono', 'FiraCode NF Retina', 'FiraCode Nerd Font', 'FiraCode Nerd Font Mono','Cascadia Mono'",
   "terminal.integrated.defaultProfile.linux": "zsh",
   "terminal.integrated.profiles.windows": {
     "PowerShell": {
