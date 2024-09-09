@@ -13,7 +13,9 @@
   //   "strings": true
   // },
   "editor.inlineSuggest.enabled": true,
-  "editor.fontFamily": "'FiraCode NF Retina', Iosevka, 'FiraCode NF', Consolas, 'Cascadia Code', 'Courier New', 'Fira Code'",
+  "editor.fontFamily": "'JetBrains Mono','FiraCode NF Retina', 'FiraCode NF','Fira Code',Iosevka, Consolas, 'Cascadia Code', 'Courier New', 'Source Code Pro'",
+  "editor.fontSize": 13,
+  "editor.lineHeight": 1.2,
   "editor.fontLigatures": true,
   "editor.stickyScroll.enabled": true,
   // 关闭无障碍支持
