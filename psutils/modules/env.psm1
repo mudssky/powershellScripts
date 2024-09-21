@@ -84,7 +84,7 @@ function Install-Dotenv {
 
 
 
-function Import-Envpath {
+function Import-EnvPath {
 	<#
 	.SYNOPSIS
 		重新加载环境变量中的path
@@ -109,5 +109,143 @@ function Import-Envpath {
 	$env:Path = [System.Environment]::GetEnvironmentVariable("Path", $EnvTarget)
 }
 
+
+function Set-EnvPath {
+	<#
+	.SYNOPSIS
+		设置环境变量path,直接整个替换
+	.DESCRIPTION
+		设置环境变量path,直接整个替换，建议先做好备份
+	.NOTES
+		Information or caveats about the function e.g. 'This function is not supported in Linux'
+	.LINK
+		Specify a URI to a help page, this will show when Get-Help -Online is used.
+	.EXAMPLE
+		Test-MyTestFunction -Verbose
+		Explanation of the function or its result. You can include multiple examples with additional .EXAMPLE lines
+
+	#>
+	[CmdletBinding()]
+	param (
+		[Parameter(Mandatory = $true)]
+		[string]
+		# 这里是Path的值
+		$PathStr,
+		[ValidateSet('System', 'User')]
+		[string]$EnvTarget = 'User'
+	)
+	
+	begin {
+		Write-Host 	"current env path:$env:Path"
+	}
+	
+	process {
+		switch ($EnvTarget) {
+			'System' {
+				[System.Environment]::SetEnvironmentVariable("Path", $PathStr, [System.EnvironmentVariableTarget]::System)
+			}
+
+			’User' {
+				[System.Environment]::SetEnvironmentVariable("Path", $PathStr, [System.EnvironmentVariableTarget]::User)
+			}
+		}
+	}
+	
+	end {
+		# 导入环境变量
+		Import-Envpath -EnvTarget User
+	}
+}
+
+
+function Add-EnvPath {
+	<#
+	.SYNOPSIS
+		设置环境变量path
+	.DESCRIPTION
+		设置环境变量path，支持user path和system path
+	.NOTES
+		Information or caveats about the function e.g. 'This function is not supported in Linux'
+	.LINK
+		Specify a URI to a help page, this will show when Get-Help -Online is used.
+	.EXAMPLE
+		Test-MyTestFunction -Verbose
+		Explanation of the function or its result. You can include multiple examples with additional .EXAMPLE lines
+
+	#>
+	[CmdletBinding()]
+	param (
+		[Parameter(Mandatory = $true)]
+		[string]
+		$Path,
+		[ValidateSet('System', 'User')]
+		[string]$EnvTarget = 'User'
+	)
+	
+	begin {
+		
+	}
+	
+	process {
+		$absPath = Resolve-Path $Path
+		$newPath = $Env:Path + ";$absPath"
+
+		Set-EnvPath -PathStr $newPath -EnvTarget $EnvTarget
+	}
+	
+	end {
+		# 导入环境变量
+		Import-Envpath -EnvTarget User
+	}
+}
+
+
+function Remove-FromEnvPath {
+	<#
+	.SYNOPSIS
+		从环境变量path移除一个path
+	.DESCRIPTION
+		设置环境变量path，支持user path和system path
+	.NOTES
+		Information or caveats about the function e.g. 'This function is not supported in Linux'
+	.LINK
+		Specify a URI to a help page, this will show when Get-Help -Online is used.
+	.EXAMPLE
+		Test-MyTestFunction -Verbose
+		Explanation of the function or its result. You can include multiple examples with additional .EXAMPLE lines
+
+	#>
+	[CmdletBinding()]
+	param (
+		[Parameter(Mandatory = $true)]
+		[string]
+		$Path,
+		[ValidateSet('System', 'User')]
+		[string]$EnvTarget = 'User'
+	)
+	
+	begin {
+		
+	}
+	
+	process {
+		$removePath = Resolve-Path $Path
+		$pathList = $env:Path -split ';'
+		Write-Host "remove path:$removePath"
+		if ($pathList -contains $removePath) {
+			$newPathList = $pathList | Where-Object { $_ -ne $removePath }
+			$newPath = $newPathList -join ';'
+			Set-EnvPath -PathStr $newPath -EnvTarget $EnvTarget
+		}
+		else {
+			Write-Error "path not found in path env"
+		}
+	}
+	
+	end {
+		# 导入环境变量
+		Import-Envpath -EnvTarget User
+	}
+}
 
 Export-ModuleMember -Function *
