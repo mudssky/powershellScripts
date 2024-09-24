@@ -5,7 +5,7 @@ param (
     $Mode,
 
     [ValidateSet("always", "unless-stopped", 'on-failure', 'on-failure:3', 'no')]
-    $Restart = 'unless-stopped'
+    $Restart = 'always'
 )
     
 
