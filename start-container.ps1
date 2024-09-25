@@ -5,7 +5,7 @@ param (
     $Mode,
 
     [ValidateSet("always", "unless-stopped", 'on-failure', 'on-failure:3', 'no')]
-    $Restart = 'always'
+    $Restart = 'unless-stopped'
 )
     
 
@@ -27,7 +27,7 @@ switch ($Mode) {
     }
      
     'redis' {
-        docker run -d --name redis-dev -p 6379:6379 redis
+        docker run -d --name redis-dev -p 6379:6379 --restart=$Restart redis 
     }
     'postgre' {
         docker run --name postgre-dev -d -p 5432:5432 `
