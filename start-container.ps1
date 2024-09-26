@@ -22,7 +22,7 @@ switch ($Mode) {
             -v $dockerDataPath/minio:/bitnami/minio/data `
             -e MINIO_ROOT_USER=root `
             -e MINIO_ROOT_PASSWORD=12345678 `
-            --restart = $Restart `
+            --restart=$Restart `
             bitnami/minio
     }
      
@@ -34,7 +34,7 @@ switch ($Mode) {
             -e POSTGRES_PASSWORD=123456 `
             -e TZ=Asia/Shanghai `
             -v $dockerDataPath/postgresql/data:/var/lib/postgresql/data `
-            --restart = $Restart `
+            --restart=$Restart `
             postgres
 
         # 创建nestAdmin表
@@ -49,7 +49,7 @@ switch ($Mode) {
             -e ETCD_ROOT_PASSWORD=123456 `
             -e ALLOW_NONE_AUTHENTICATION=yes `
             -e ETCD_ADVERTISE_CLIENT_URLS=http://etcd-server:2379 `
-            --restart = $Restart `
+            --restart=$Restart `
             bitnami/etcd
 
         # docker run --name etcd-dev -d -p 2379:2379 `
@@ -66,14 +66,14 @@ switch ($Mode) {
     'nacos' {
         docker run --name nacos-dev -d -p 8848:8848 `
             -e MODE=standalone `
-            --restart = $Restart `
+            --restart=$Restart `
             nacos/nacos-server
     }
 
     'rabbitmq' {
         docker run -d --name rabbitmq-dev `
             -p 5672:5672 -p 15672:15672 `
-            --restart = $Restart `
+            --restart=$Restart `
             rabbitmq
     }
 
