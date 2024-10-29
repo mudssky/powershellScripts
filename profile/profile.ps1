@@ -72,6 +72,10 @@ if (Test-EXEProgram -Name sccache) {
 	$Env:RUSTC_WRAPPER = 'sccache';
 }
 
+if (Test-EXEProgram -Name zoxide) {
+	Invoke-Expression (& { (zoxide init powershell | Out-String) })
+}
+
 if ($loadProfile) {
 	Set-Content -Path $profile  -Value  ". $PSCommandPath"
 }

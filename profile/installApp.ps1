@@ -108,6 +108,16 @@ $installListMap = @{
 		@{
 			name = 'lazygit' 
 		}
+		@{
+			name = 'lazydocker' 
+		}
+		@{
+			name = 'zoxide' 
+		}
+		@{
+			name = 'scc' 
+		}
+
 		# 	@{
 		# 	name    = 'lux' #下载器，但是感觉有yt-dlp就够了
 	
@@ -147,8 +157,8 @@ $installListMap = @{
 		'hexyl'
 		#  文件搜索
 		# 'rg'
-		# 统计代码行数
-		'cloc'
+		# 统计代码行数 ,用go语言开发的scc代替
+		# 'cloc'
 		
 	);
 }
