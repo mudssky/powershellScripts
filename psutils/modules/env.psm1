@@ -161,7 +161,7 @@ function Set-EnvPath {
 function Add-EnvPath {
 	<#
 	.SYNOPSIS
-		设置环境变量path
+		设置环境变量path,增加一个新的path
 	.DESCRIPTION
 		设置环境变量path，支持user path和system path
 	.NOTES

@@ -1,0 +1,6 @@
+// 百度网盘临时文件
+*.baiduyun.uploading.cfg*
+// 夸克临时文件
+*.qkdownloading
+// 迅雷临时文件
+*.torrent
