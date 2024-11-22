@@ -1,0 +1,1 @@
+$configDir = "D:\coding\gitea"
