@@ -1,7 +1,7 @@
-function Save-ModuleToFile {
+function Out-ModuleToFile {
     <#
     .SYNOPSIS
-        保存当前会话加载的模块的所有函数，到指定的文件。
+        保存当前会话加载的指定模块的所有函数，到指定的文件。
     .DESCRIPTION
         A longer description of the function, its purpose, common use cases, etc.
     .NOTES
@@ -34,7 +34,7 @@ function Save-ModuleToFile {
 
     $outputFunctions = New-Object System.Collections.Generic.List[string]
     foreach ($function in $functions) {
-        $fullFunction = $function.Name + '{' + "`n" + $function.Definition + "`n" + '}'
+        $fullFunction = 'function ' + $function.Name + '{' + "`n" + $function.Definition + "`n" + '}'
         $outputFunctions.Add($fullFunction)
     }
 

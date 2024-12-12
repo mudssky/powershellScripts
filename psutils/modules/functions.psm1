@@ -60,20 +60,6 @@ function New-Shortcut {
 }
 
 
-# 检查上一条命令是否执行成功，如果上一条命令失败直接退出程序,退出码1
-function checkErr([string]$commandName) {
-	if (-not $?) {
-		# 输出执行失败信息
-		write-host -ForegroundColor Red  ('checkErr: {0} exctute failed' -f $commandName)
-		throw('{0} error found' -f $commandName)
-		exit 1
-	}
-	else {
-		# 上条命令执行成功后输出消息
-		write-host -ForegroundColor Green  ('checkErr: {0} exctute successful' -f $commandName)
-	}
-}
-
 # 设置package.json的scripts字段
 function Set-Script {
 	[CmdletBinding()]
