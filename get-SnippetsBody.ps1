@@ -7,6 +7,8 @@ function Convert-DoubleQuotes {
 	return $inputString -replace '"', '\"'
 }
 
+Import-Module (Resolve-Path -Path $PSScriptRoot/psutils)
+
 function Get-SnippetsBody {
 	[CmdletBinding()]
 	param (
@@ -19,8 +21,11 @@ function Get-SnippetsBody {
 	
 	process {
 
-		$bodyList = (Get-Clipboard ).Split('\n') | ForEach-Object { '"' + (Convert-DoubleQuotes -inputString $_) + '"' }
-		$res = $bodyList -join ','
+		$content = Get-Clipboard -Raw
+		$lineBreak = Get-LineBreak -Content $content -Debug
+
+		$bodyList = ($content ).Split($lineBreak) | ForEach-Object { '"' + (Convert-DoubleQuotes -inputString $_) + '"' }
+		$res = $bodyList -join (',' + $lineBreak)
 		$res
 		Set-Clipboard -Value $res
 
