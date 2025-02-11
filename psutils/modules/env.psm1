@@ -148,7 +148,7 @@ function Set-EnvPath {
 	
 	end {
 		# 导入环境变量
-		Import-Envpath -EnvTarget Process
+		Import-Envpath -EnvTarget User
 	}
 }
 
