@@ -88,6 +88,9 @@ function Import-EnvPath {
 	<#
 	.SYNOPSIS
 		重新加载环境变量中的path
+		Process 进程级，当前会话生效
+		User 用户级，当前用户生效
+		Process 系统级，所有用户生效
 	.DESCRIPTION
 		重新加载环境变量中的path，这样你在对应目录中新增一个exe就可以不用重启终端就能直接在终端运行了。
 	.NOTES
@@ -131,7 +134,7 @@ function Set-EnvPath {
 		[string]
 		# 这里是Path的值
 		$PathStr,
-		[ValidateSet('System', 'User')]
+		[ValidateSet('Machine', 'User', 'Process')]
 		[string]$EnvTarget = 'User'
 	)
 	
@@ -140,20 +143,12 @@ function Set-EnvPath {
 	}
 	
 	process {
-		switch ($EnvTarget) {
-			'System' {
-				[System.Environment]::SetEnvironmentVariable("Path", $PathStr, [System.EnvironmentVariableTarget]::System)
-			}
-
-			’User' {
-				[System.Environment]::SetEnvironmentVariable("Path", $PathStr, [System.EnvironmentVariableTarget]::User)
-			}
-		}
+		[Environment]::SetEnvironmentVariable("Path", $PathStr, $EnvTarget)
 	}
 	
 	end {
 		# 导入环境变量
-		Import-Envpath -EnvTarget User
+		Import-Envpath -EnvTarget Process
 	}
 }
 
@@ -169,8 +164,8 @@ function Add-EnvPath {
 	.LINK
 		Specify a URI to a help page, this will show when Get-Help -Online is used.
 	.EXAMPLE
-		Test-MyTestFunction -Verbose
-		Explanation of the function or its result. You can include multiple examples with additional .EXAMPLE lines
+		Get-EnvParam -ParamName 'Path' -EnvTarget User
+		获取当前用户的Path环境变量值
 
 	#>
 	[CmdletBinding()]
@@ -199,6 +194,47 @@ function Add-EnvPath {
 	}
 }
 
+function Get-EnvParam {
+	<#
+	.SYNOPSIS
+	获取环境变量中的参数，ParamName不指定时获取Path。可以指定EnvTarget 'Machine', 'User', 'Process
+	.DESCRIPTION
+		设置环境变量path，支持user path和system path
+	.NOTES
+		Information or caveats about the function e.g. 'This function is not supported in Linux'
+	.LINK
+		Specify a URI to a help page, this will show when Get-Help -Online is used.
+	.EXAMPLE
+		Test-MyTestFunction -Verbose
+		Explanation of the function or its result. You can include multiple examples with additional .EXAMPLE lines
+
+	#>
+	[CmdletBinding()]
+	param (
+		[string]
+		$ParamName = 'Path',
+		[ValidateSet('Machine', 'User', 'Process')]
+		[string]$EnvTarget = 'User'
+	)
+	
+	begin {
+		
+		Write-Debug "current env path: $env:Path"
+	}
+	process {
+		try {
+			$value = [Environment]::GetEnvironmentVariable($ParamName, $EnvTarget)
+			if ($value -eq $null) {
+				Write-Warning "环境变量 $ParamName 未找到或未设置。"
+			}
+			return $value
+		}
+		catch {
+			Write-Error "获取环境变量 $ParamName 时出错: $_"
+		}
+	}
+	
+}
 
 function Remove-FromEnvPath {
 	<#
