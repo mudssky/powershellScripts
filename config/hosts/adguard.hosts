@@ -1,0 +1,22 @@
+# 屏蔽小米电视广告
+# 广告服务
+0.0.0.0 api.ad.xiaomi.com
+0.0.0.0 ad.mi.com
+0.0.0.0 ad.xiaomi.com
+0.0.0.0 adv.sec.miui.com
+0.0.0.0 dvb.pandora.xiaomi.com
+0.0.0.0 logonext.tv.kuyun.com
+0.0.0.0 config.kuyun.com
+0.0.0.0 api.io.mi.com
+0.0.0.0 stat.pandora.xiaomi.com
+0.0.0.0 de.pandora.xiaomi.com
+0.0.0.0 tracking.miui.com
+0.0.0.0 tvapi.kuyun.com
+0.0.0.0 data.mistat.xiaomi.com
+0.0.0.0 sdkconfig.ad.xiaomi.com
+0.0.0.0 mishop.pandora.xiaomi.com
+
+# 视频广告（部分）
+0.0.0.0 iaomi.com
+0.0.0.0 cdn.ad.xiaomi.com
+0.0.0.0 mi-vod-ssl.se.haplat.net
