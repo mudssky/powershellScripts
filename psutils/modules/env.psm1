@@ -55,7 +55,7 @@ function Install-Dotenv {
 	[CmdletBinding()]
 	param (
 		# dotenv文件路径
-		[Parameter(Mandatory = $true)]
+		# [Parameter(Mandatory = $true)]
 		[string]$Path,	
 
 		# Machine: 表示系统级环境变量。对所有用户和进程可见，需要管理员权限。
@@ -65,14 +65,32 @@ function Install-Dotenv {
 		[ValidateSet('Machine', 'User', 'Process')]
 		[string]$EnvTarget = 'User'
 	)
+
+	$defaultEnvFileList = @('.env.local', '.env')
 	if (-not( Test-Path -LiteralPath $Path)) {
-		Write-Error "env文件不存在: $Path"
+		$foundDefaultFile = $false
+		# 判断默认环境变量文件
+		foreach ($defaultEnvFilePath in $defaultEnvFileList) {
+			if (Test-Path -LiteralPath $defaultEnvFilePath) {
+				$Path = $defaultEnvFilePath
+				$foundDefaultFile = $true
+				break
+			}
+		}
+		
+		if (-not $foundDefaultFile) {
+			Write-Error "env文件不存在: $Path"
+			return
+		}
+
+	
 	}
 	$envTargetMap = @{
 		'Machine' = [System.EnvironmentVariableTarget]::Machine
 		'User'    = [System.EnvironmentVariableTarget]::User
 		'Process' = [System.EnvironmentVariableTarget]::Process
 	}
+
 	$envPairs = Get-Dotenv -Path $Path
 	
 	foreach ($pair in $envPairs.GetEnumerator()) {
