@@ -8,9 +8,11 @@ param (
     [ValidateSet("always", "unless-stopped", 'on-failure', 'on-failure:3', 'no')]
     [string]$RestartPolicy = 'unless-stopped', # 更明确的参数名
     
-    [string]$DataPath = "C:/docker_data"  # 允许自定义数据目录
+    [string]$DataPath = "C:/docker_data"  ,# 允许自定义数据目录
+    [string]$DefaultUser = "root",  # 默认用户名
+    [string]$DefaultPassword = "12345678"  # 默认密码
 )
-    
+  
 
 # 可以添加统一网络配置
 # $networkName = "dev-net"
@@ -42,8 +44,8 @@ switch ($ServiceName) {
            $commonParams`
             -p 9000:9000 -p 9001:9001 `
             -v $DataPath/minio:/bitnami/minio/data `
-            -e MINIO_ROOT_USER=root `
-            -e MINIO_ROOT_PASSWORD=12345678 `
+            -e MINIO_ROOT_USER=$DefaultUser `
+            -e MINIO_ROOT_PASSWORD=$DefaultPassword `
             --restart=$RestartPolicy `
             bitnami/minio
     }
@@ -58,7 +60,7 @@ switch ($ServiceName) {
            $commonParams`
             -p 5432:5432 `
             $pgHealthCheck `
-            -e POSTGRES_PASSWORD=123456 `
+            -e POSTGRES_PASSWORD=$DefaultPassword `
             -e TZ=Asia/Shanghai `
             -v $DataPath/postgresql/data:/var/lib/postgresql/data `
             --restart=$RestartPolicy `
@@ -74,7 +76,7 @@ switch ($ServiceName) {
         docker run --name etcd-dev -d `
            $commonParams`
             -p 2379:2379 -p 2380:2380 `
-            -e ETCD_ROOT_PASSWORD=123456 `
+            -e ETCD_ROOT_PASSWORD=$DefaultPassword `
             -e ALLOW_NONE_AUTHENTICATION=yes `
             -e ETCD_ADVERTISE_CLIENT_URLS=http://etcd-server:2379 `
             --restart=$RestartPolicy `
@@ -112,10 +114,7 @@ switch ($ServiceName) {
             $commonParams `
             -p 27017:27017 `
             -v $DataPath/mongodb:/data/db `
-            -e MONGO_INITDB_ROOT_USERNAME=root `
-            -e MONGO_INITDB_ROOT_PASSWORD=123456 `
             --restart=$RestartPolicy `
             mongo:8
     }
-
 }
