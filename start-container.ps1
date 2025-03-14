@@ -12,12 +12,34 @@ param (
 )
     
 
+# 可以添加统一网络配置
+# $networkName = "dev-net"
+# if (-not (docker network ls -q -f name="$networkName")) {
+#     docker network create $networkName
+# }
+
+# 使用数组存储日志配置参数
+$commonParams = @(
+    # 日志相关参数
+    "--log-driver", "json-file",
+    "--log-opt", "max-size=10m",
+    "--log-opt", "max-file=3"
+    # 网络配置
+    # "--network","dev-net"
+)
+$pgHealthCheck = @(
+    "--health-cmd", "pg_isready -U postgres",
+    "--health-interval", "10s",
+    "--health-timeout", "5s",
+    "--health-retries", "3"
+)
 
 
 switch ($ServiceName) {
 
     'minio' {
         docker run -d --name minio-dev `
+           $commonParams`
             -p 9000:9000 -p 9001:9001 `
             -v $DataPath/minio:/bitnami/minio/data `
             -e MINIO_ROOT_USER=root `
@@ -27,10 +49,15 @@ switch ($ServiceName) {
     }
      
     'redis' {
-        docker run -d --name redis-dev -p 6379:6379 --restart=$RestartPolicy redis 
+        docker run -d --name redis-dev `
+           $commonParams`
+            -p 6379:6379 --restart=$RestartPolicy redis 
     }
     'postgre' {
-        docker run --name postgre-dev -d -p 5432:5432 `
+        docker run --name postgre-dev -d `
+           $commonParams`
+            -p 5432:5432 `
+            $pgHealthCheck `
             -e POSTGRES_PASSWORD=123456 `
             -e TZ=Asia/Shanghai `
             -v $DataPath/postgresql/data:/var/lib/postgresql/data `
@@ -42,10 +69,11 @@ switch ($ServiceName) {
         #     -c "CREATE DATABASE nestAdmin"
         
     }
+    # 其他服务同样添加$commonParams参数
     'etcd' {
-        # ! 注意这里移除了etcd的认证，意味着本地谁都能访问，只适合本地开发环境使用
-        docker run --name etcd-dev -d -p 2379:2379 `
-            -p 2380:2380 `
+        docker run --name etcd-dev -d `
+           $commonParams`
+            -p 2379:2379 -p 2380:2380 `
             -e ETCD_ROOT_PASSWORD=123456 `
             -e ALLOW_NONE_AUTHENTICATION=yes `
             -e ETCD_ADVERTISE_CLIENT_URLS=http://etcd-server:2379 `
@@ -64,7 +92,9 @@ switch ($ServiceName) {
         # 需要去docker个人页面获取token登录才能拉取
     }
     'nacos' {
-        docker run --name nacos-dev -d -p 8848:8848 `
+        docker run --name nacos-dev -d `
+           $commonParams`
+            -p 8848:8848 `
             -e MODE=standalone `
             --restart=$RestartPolicy `
             nacos/nacos-server
@@ -72,12 +102,14 @@ switch ($ServiceName) {
 
     'rabbitmq' {
         docker run -d --name rabbitmq-dev `
+           $commonParams`
             -p 5672:5672 -p 15672:15672 `
             --restart=$RestartPolicy `
             rabbitmq
     }
     'mongodb' {
         docker run -d --name mongodb-dev `
+            $commonParams `
             -p 27017:27017 `
             -v $DataPath/mongodb:/data/db `
             -e MONGO_INITDB_ROOT_USERNAME=root `
