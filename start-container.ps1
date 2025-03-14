@@ -1,40 +1,40 @@
 
 [CmdletBinding()]
 param (
-    [ValidateSet("minio", "redis", 'postgre', 'etcd', 'nacos', 'rabbitmq')]
-    $Mode,
-
+    [Parameter(Mandatory = $true)]
+    [ValidateSet("minio", "redis", 'postgre', 'etcd', 'nacos', 'rabbitmq', 'mongodb')]
+    [string]$ServiceName, # 更合理的参数名
+    
     [ValidateSet("always", "unless-stopped", 'on-failure', 'on-failure:3', 'no')]
-    $Restart = 'unless-stopped'
+    [string]$RestartPolicy = 'unless-stopped', # 更明确的参数名
+    
+    [string]$DataPath = "C:/docker_data"  # 允许自定义数据目录
 )
     
 
-# docker映射数据卷的根目录
-$dockerDataPath = "C:/docker_data"
 
 
-
-switch ($Mode) {
+switch ($ServiceName) {
 
     'minio' {
         docker run -d --name minio-dev `
             -p 9000:9000 -p 9001:9001 `
-            -v $dockerDataPath/minio:/bitnami/minio/data `
+            -v $DataPath/minio:/bitnami/minio/data `
             -e MINIO_ROOT_USER=root `
             -e MINIO_ROOT_PASSWORD=12345678 `
-            --restart=$Restart `
+            --restart=$RestartPolicy `
             bitnami/minio
     }
      
     'redis' {
-        docker run -d --name redis-dev -p 6379:6379 --restart=$Restart redis 
+        docker run -d --name redis-dev -p 6379:6379 --restart=$RestartPolicy redis 
     }
     'postgre' {
         docker run --name postgre-dev -d -p 5432:5432 `
             -e POSTGRES_PASSWORD=123456 `
             -e TZ=Asia/Shanghai `
-            -v $dockerDataPath/postgresql/data:/var/lib/postgresql/data `
-            --restart=$Restart `
+            -v $DataPath/postgresql/data:/var/lib/postgresql/data `
+            --restart=$RestartPolicy `
             postgres
 
         # 创建nestAdmin表
@@ -49,7 +49,7 @@ switch ($Mode) {
             -e ETCD_ROOT_PASSWORD=123456 `
             -e ALLOW_NONE_AUTHENTICATION=yes `
             -e ETCD_ADVERTISE_CLIENT_URLS=http://etcd-server:2379 `
-            --restart=$Restart `
+            --restart=$RestartPolicy `
             bitnami/etcd
 
         # docker run --name etcd-dev -d -p 2379:2379 `
@@ -66,15 +66,24 @@ switch ($Mode) {
     'nacos' {
         docker run --name nacos-dev -d -p 8848:8848 `
             -e MODE=standalone `
-            --restart=$Restart `
+            --restart=$RestartPolicy `
             nacos/nacos-server
     }
 
     'rabbitmq' {
         docker run -d --name rabbitmq-dev `
             -p 5672:5672 -p 15672:15672 `
-            --restart=$Restart `
+            --restart=$RestartPolicy `
             rabbitmq
+    }
+    'mongodb' {
+        docker run -d --name mongodb-dev `
+            -p 27017:27017 `
+            -v $DataPath/mongodb:/data/db `
+            -e MONGO_INITDB_ROOT_USERNAME=root `
+            -e MONGO_INITDB_ROOT_PASSWORD=123456 `
+            --restart=$RestartPolicy `
+            mongo:8
     }
 
 }
