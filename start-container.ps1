@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param (
     [Parameter(Mandatory = $true)]
-    [ValidateSet("minio", "redis", 'postgre', 'etcd', 'nacos', 'rabbitmq', 'mongodb')]
+    [ValidateSet("minio", "redis", 'postgre', 'etcd', 'nacos', 'rabbitmq', 'mongodb', ‘one-api', 'mongodb-replica' )]
     [string]$ServiceName, # 更合理的参数名
     
     [ValidateSet("always", "unless-stopped", 'on-failure', 'on-failure:3', 'no')]
@@ -116,5 +116,21 @@ switch ($ServiceName) {
             -v $DataPath/mongodb:/data/db `
             --restart=$RestartPolicy `
             mongo:8
+    }
+    
+     'mongodb-replica' {
+        $env:DOCKER_DATA_PATH=$DataPath
+        $env:MONGO_USER=$DefaultUser
+        $env:MONGO_PASSWORD=$DefaultPassword
+        docker-compose  -p mongo-repl-dev -f dockerfiles/compose/mongo-repl.compose.yml up -d
+    }
+    ‘one-api’ {
+        docker run -d  --name one-api-dev `
+        $commonParams `
+         -p 39010:3000 `
+         -e TZ=Asia/Shanghai `
+         -v $DataPath/one-api:/data `
+         --restart=$RestartPolicy `
+         justsong/one-api
     }
 }

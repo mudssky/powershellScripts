@@ -7,3 +7,4 @@ profile/fonts/*
 /scripts.json
 
 apiKey
+docker_data/
