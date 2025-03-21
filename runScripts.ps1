@@ -1,37 +1,79 @@
-
 <#
 .SYNOPSIS
-	像npm run scripts一样执行命令
+    像npm run scripts一样执行命令
 .DESCRIPTION
-	习惯于npm scripts，但是在go，rust中没有这么方便的执行指令，
-	所以用powershell实现类似的效果。
-	可以从任意json中读取scripts代码块。并执行对应的命令
+    习惯于npm scripts，但是在go，rust中没有这么方便的执行指令，
+    所以用powershell实现类似的效果。
+    可以从任意json中读取scripts代码块。并执行对应的命令
+
+    支持以下功能：
+    1. 执行scripts.json或package.json中定义的命令
+    2. 支持pre/post钩子，如test命令会按pretest -> test -> posttest顺序执行
+    3. 支持全局scripts配置
+    4. 自动识别.nvmrc并切换Node.js版本
+
 .PARAMETER CommandName
-执行命令的名字
+    执行命令的名字，必须在scripts配置中存在
+
+.PARAMETER TemplateName
+    初始化时使用的模板名称，可选值：golang, rust, nodejs
+    默认值: golang
 
 .PARAMETER listCommands
-列出所有可以执行的命令
+    列出所有可以执行的命令
+
+.PARAMETER init
+    初始化scripts.json配置文件
+
+.PARAMETER autoSwitchNode
+    根据.nvmrc文件自动切换Node.js版本
+
+.PARAMETER enableGlobalScripts
+    启用全局scripts配置，将会加载脚本所在目录的scripts.json
 
 .EXAMPLE
-	# 执行指定命令
-	runScripts -CommandName test
+    # 执行指定命令
+    runScripts -CommandName test
+
 .EXAMPLE
-	# 列出所有可执行的命令
-	runScripts -listCommands
+    # 列出所有可执行的命令
+    runScripts -listCommands
+
+.EXAMPLE
+    # 初始化配置文件
+    runScripts -init -TemplateName golang
+
+.EXAMPLE
+    # 启用全局配置并执行命令
+    runScripts -CommandName build -enableGlobalScripts
+
+.NOTES
+	版本: 1.0.0
+    配置文件搜索顺序：
+    1. 当前目录的scripts.json
+    2. 当前目录的package.json
+    3. 全局scripts.json（需要启用enableGlobalScripts）
 #>
 [CmdletBinding()]
 param(
 	[ValidateNotNullOrEmpty()]
 	[string]$CommandName = 'invalid',
-	[switch]$listCommands,
+	[ValidateSet('golang', 'rust', 'nodejs')]
+	[string]$TemplateName = 'golang',
+	[switch]$ListCommands,
 	# 初始化脚本文件
-	[switch]$init,
+	[switch]$Init,
 	# 根据nvmrc切换node版本
-	[switch]$autoSwitchNode,
-	[switch]$enableGlobalScripts
+	[switch]$AutoSwitchNode,
+	[switch]$EnableGlobalScripts
+
 )
 
-trap { "Error found: $_" }
+trap { 
+	Write-Host -ForegroundColor Red "执行过程中发生错误: $_" 
+	Write-Host -ForegroundColor Red $_.ScriptStackTrace
+	exit 1
+}
 
 $CommandMap = @{
 
@@ -40,7 +82,7 @@ $CommandMap = @{
 $scriptsSearchList = @(
 	'scripts.json'
 	'package.json'
-) + ( $enableGlobalScripts ?
+) + ( $EnableGlobalScripts ?
 	@("$PSScriptRoot/scripts.json"): @())
 # 把本目录的脚本地址放最后
 $currentScriptsPath = 'scripts.json'
@@ -156,24 +198,29 @@ function RunScript($name) {
 }
 
 # init在读取配置之前执行
-if ($init) {
+if ($Init) {
 	if (Test-Path $scriptsSearchList[0]) {
 		Write-Host -ForegroundColor Green 'scripts.json已存在'
 	}
 	else {
-		Copy-Item $PSScriptRoot/templates/scripts.json $scriptsSearchList[0]
+		$templateFullName = "$TemplateName.scripts.json"
+		$templatePath = "$PSScriptRoot/templates/$templateFullName"
+		if (-not (Test-Path $templatePath)) {
+			throw ('模板文件不存在:{0}' -f $templatePath)
+		}
+		Copy-Item $templatePath $scriptsSearchList[0]
 		Write-Host -ForegroundColor Green 'scripts.json已创建'
 	}
 	exit 0
 }
 loadScriptsMap
-if ($listCommands) {
+if ($ListCommands) {
 	Write-Host -ForegroundColor Green '下面展示scripts字段中的命令:'
 	# Format-Table -InputObject $CommandMap -Property Name, Value 
 	$CommandMap.GetEnumerator() | Sort-Object Name | Format-Table -AutoSize | Out-Host -Paging
 	exit 0
 }
-if ($autoSwitchNode) {
+if ($AutoSwitchNode) {
 	switch-node
 	exit 0
 }
