@@ -57,6 +57,36 @@
 [CmdletBinding()]
 param(
 	[ValidateNotNullOrEmpty()]
+	[ArgumentCompleter({
+			param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameters)
+		
+			# 获取可能的脚本文件路径
+			$searchList = @('scripts.json', 'package.json')
+			if ($fakeBoundParameters.ContainsKey('EnableGlobalScripts') -and $fakeBoundParameters['EnableGlobalScripts']) {
+				$searchList += "$PSScriptRoot/scripts.json"
+			}
+		
+			# 查找并解析脚本文件
+			$commands = @()
+			foreach ($path in $searchList) {
+				if (Test-Path $path) {
+					try {
+						$content = Get-Content $path -Raw | ConvertFrom-Json
+						if ($content.scripts) {
+							$commands += $content.scripts.PSObject.Properties.Name
+						}
+					}
+					catch {
+						# 忽略解析错误
+					}
+				}
+			}
+		
+			# 返回匹配的命令
+			$commands | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
+				[System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
+			}
+		})]
 	[string]$CommandName = 'invalid',
 	[ValidateSet('golang', 'rust', 'nodejs')]
 	[string]$TemplateName = 'golang',
