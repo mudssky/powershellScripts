@@ -21,12 +21,13 @@
 #>
 [CmdletBinding()]
 param(
+	[ValidateNotNullOrEmpty()]
 	[string]$CommandName = 'invalid',
 	[switch]$listCommands,
 	# 初始化脚本文件
 	[switch]$init,
 	# 根据nvmrc切换node版本
-	[switch]$autoSwicthNode,
+	[switch]$autoSwitchNode,
 	[switch]$enableGlobalScripts
 )
 
@@ -141,7 +142,6 @@ function RunScript($name) {
 	if ( -not  $CommandMap.ContainsKey($name) ) {
 		$supportCommands = $CommandMap.Keys -join ","
 		throw  ("该命令未找到:{0},  当前支持以下命令: {1}" -f $name, $supportCommands )
-		return
 	}
 	# 前置后置脚本直接执行
 	if ($name -match "^(pre|post)") {
@@ -169,10 +169,11 @@ if ($init) {
 loadScriptsMap
 if ($listCommands) {
 	Write-Host -ForegroundColor Green '下面展示scripts字段中的命令:'
-	Format-Table -InputObject $CommandMap -Property Name, Value 
+	# Format-Table -InputObject $CommandMap -Property Name, Value 
+	$CommandMap.GetEnumerator() | Sort-Object Name | Format-Table -AutoSize | Out-Host -Paging
 	exit 0
 }
-if ($autoSwicthNode) {
+if ($autoSwitchNode) {
 	switch-node
 	exit 0
 }
