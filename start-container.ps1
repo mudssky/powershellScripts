@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param (
     [Parameter(Mandatory = $true)]
-    [ValidateSet("minio", "redis", 'postgre', 'etcd', 'nacos', 'rabbitmq', 'mongodb', ‘one-api', 'mongodb-replica' )]
+    [ValidateSet("minio", "redis", 'postgre', 'etcd', 'nacos', 'rabbitmq', 'mongodb', ‘one-api', 'mongodb-replica','kokoro-fastapi')]
     [string]$ServiceName, # 更合理的参数名
     
     [ValidateSet("always", "unless-stopped", 'on-failure', 'on-failure:3', 'no')]
@@ -10,7 +10,9 @@ param (
     
     [string]$DataPath = "C:/docker_data"  ,# 允许自定义数据目录
     [string]$DefaultUser = "root",  # 默认用户名
-    [string]$DefaultPassword = "12345678"  # 默认密码
+    [string]$DefaultPassword = "12345678" , # 默认密码
+    [string]$Port
+    
 )
   
 
@@ -132,5 +134,13 @@ switch ($ServiceName) {
          -v $DataPath/one-api:/data `
          --restart=$RestartPolicy `
          justsong/one-api
+    }
+    # ai模型相关
+    'kokoro-fastapi' {
+        docker run -d --name kokoro-fastapi-dev `
+        $commonParams `
+        --gpus all -p 38880:8880 `
+        --restart=$RestartPolicy `
+        ghcr.io/remsky/kokoro-fastapi-gpu:v0.2.2
     }
 }
