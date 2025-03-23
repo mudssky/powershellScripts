@@ -35,7 +35,6 @@ Set-Alias -Name ipython -Value Start-Ipython
 
 # powershell控制台编码设为utf8
 $OutputEncoding = [console]::InputEncoding = [console]::OutputEncoding = New-Object System.Text.UTF8Encoding
-
 # cmdlets 的默认参数
 $PSDefaultParameterValues["Out-File:Encoding"] = "UTF8"
 
@@ -45,6 +44,30 @@ $PSDefaultParameterValues["Out-File:Encoding"] = "UTF8"
 # 直接导入模块就能生效
 Import-Module PSReadLine
 
+
+$tools = @{
+	starship = { Invoke-Expression (&starship init powershell) }
+	sccache  = {
+		# 设置sccache用于rust编译缓存,提高新启动项目的编译速度
+		$Env:RUSTC_WRAPPER = 'sccache' 
+	}
+	zoxide   = { Invoke-Expression (& { (zoxide init powershell | Out-String) }) }
+}
+
+foreach ($tool in $tools.GetEnumerator()) {
+	if (Test-EXEProgram -Name $tool.Key) {
+		& $tool.Value
+	}
+	else {
+		if ($tool.Key -eq 'starship') {
+			# 不存在starship的时候，提示用户进行安装
+			Write-Host -ForegroundColor Green  '未安装startship（一款开源提示符美化），可以运行以下命令进行安装 
+			1.choco install starship 
+			2.Invoke-Expression (&starship init powershell)'
+		}
+	}
+}
+
 # 载入conda环境,环境变量中没有conda命令时执行
 if (-not (Test-EXEProgram -Name conda)) {
 	Add-CondaEnv
@@ -52,29 +75,6 @@ if (-not (Test-EXEProgram -Name conda)) {
 
 # 配置git,解决中文文件名不能正常显示的问题
 # git config --global core.quotepath false
-
-# 提示符
-# 开源的自定义提示符starship
-# 1.choco install starship
-# 2、Invoke-Expression (&starship init powershell)
-if (Test-EXEProgram -Name starship) {
-	Invoke-Expression (&starship init powershell)
-}
-else {
-	# 不存在starship的时候，提示用户进行安装
-	Write-Host -ForegroundColor Green  '未安装startship（一款开源提示符美化），可以运行以下命令进行安装 
-	1.choco install starship 
-	2.Invoke-Expression (&starship init powershell)'
-}
-
-if (Test-EXEProgram -Name sccache) {
-	# 设置sccache用于rust编译缓存,提高新启动项目的编译速度
-	$Env:RUSTC_WRAPPER = 'sccache';
-}
-
-if (Test-EXEProgram -Name zoxide) {
-	Invoke-Expression (& { (zoxide init powershell | Out-String) })
-}
 
 if ($loadProfile) {
 	Set-Content -Path $profile  -Value  ". $PSCommandPath"
