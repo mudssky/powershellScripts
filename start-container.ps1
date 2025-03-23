@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param (
     [Parameter(Mandatory = $true)]
-    [ValidateSet("minio", "redis", 'postgre', 'etcd', 'nacos', 'rabbitmq', 'mongodb', ‘one-api', 'mongodb-replica','kokoro-fastapi')]
+    [ValidateSet("minio", "redis", 'postgre', 'etcd', 'nacos', 'rabbitmq', 'mongodb', ‘one-api', 'mongodb-replica','kokoro-fastapi','cadvisor', 'prometheus')]
     [string]$ServiceName, # 更合理的参数名
     
     [ValidateSet("always", "unless-stopped", 'on-failure', 'on-failure:3', 'no')]
@@ -10,9 +10,7 @@ param (
     
     [string]$DataPath = "C:/docker_data"  ,# 允许自定义数据目录
     [string]$DefaultUser = "root",  # 默认用户名
-    [string]$DefaultPassword = "12345678" , # 默认密码
-    [string]$Port
-    
+    [string]$DefaultPassword = "12345678"  # 默认密码
 )
   
 
@@ -142,5 +140,26 @@ switch ($ServiceName) {
         --gpus all -p 38880:8880 `
         --restart=$RestartPolicy `
         ghcr.io/remsky/kokoro-fastapi-gpu:v0.2.2
+    }
+    'cadvisor' {
+        docker run -d --name cadvisor-dev `
+            $commonParams `
+            -p 38181:8080 `
+            --volume=/:/rootfs:ro `
+            --volume=/var/run:/var/run:ro `
+            --volume=/sys:/sys:ro `
+            --volume=/var/lib/docker/:/var/lib/docker:ro `
+            --volume=/dev/disk/:/dev/disk:ro `
+            --privileged `
+            --device=/dev/kmsg `
+            --restart=$RestartPolicy `
+            gcr.io/cadvisor/cadvisor:$VERSION
+    }
+    'prometheus' {
+        docker run -d --name prometheus-dev `
+            $commonParams `
+            -p 39090:9090 `
+            --restart=$RestartPolicy `
+            prom/prometheus
     }
 }
