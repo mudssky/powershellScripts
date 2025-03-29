@@ -38,7 +38,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$Version,
     
-    [string]$OutputPath = "$env:USERPROFILE\Downloads"
+    [string]$OutputPath = "."
 )
 
 # 构造下载URL
