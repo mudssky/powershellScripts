@@ -5,7 +5,7 @@
 .DESCRIPTION
     此脚本用于从Visual Studio Marketplace下载特定版本的VS Code扩展包。
     通过提供发布者、扩展名称和版本号，脚本将自动下载对应的.vsix文件。
-
+    插件市场 ： https://marketplace.visualstudio.com/
 .PARAMETER Publisher
     扩展发布者的名称。
 
