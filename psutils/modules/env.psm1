@@ -191,7 +191,7 @@ function Add-EnvPath {
 		[Parameter(Mandatory = $true)]
 		[string]
 		$Path,
-		[ValidateSet('System', 'User')]
+		[ValidateSet('Machine', 'User', 'Process')]
 		[string]$EnvTarget = 'User'
 	)
 	
@@ -274,7 +274,7 @@ function Remove-FromEnvPath {
 		[Parameter(Mandatory = $true)]
 		[string]
 		$Path,
-		[ValidateSet('System', 'User')]
+		[ValidateSet('Machine', 'User', 'Process')]
 		[string]$EnvTarget = 'User'
 	)
 	
