@@ -108,12 +108,9 @@ function Convert-JsoncToJson {
     $jsonContent = $jsonContent -replace ',\s*([}\]])', '$1'
 
     # 转换内容为JSON对象以验证有效性
-    try {
-        $jsonContent | ConvertFrom-Json| Out-Null
-    }
-    catch {
+    if ( -not (Test-Json -Json $jsonContent -ErrorAction SilentlyContinue)) {
+        Write-Debug '目前7.5.0版本，Test-Json无法处理包含$schema的json'
         Write-Error "转换失败: $_"
-        return
     }
 
     # 输出结果
@@ -122,7 +119,7 @@ function Convert-JsoncToJson {
         Write-Host "转换成功，结果已保存到: $OutputFilePath"
     }
     else {
-         $jsonContent
+        $jsonContent
     }
 }
 
