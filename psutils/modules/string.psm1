@@ -110,8 +110,8 @@ function Convert-JsoncToJson {
 
     # 移除行尾注释 (/*...*/)
     # TODO
-    $jsonContent = $jsonContent -replace '(?m)/\*.*?\*/\s*$', ''
-    Write-Debug "移除行尾注释后:$jsonContent"
+    # $jsonContent = $jsonContent -replace '(?m)/\*.*?\*/\s*$', ''
+    # Write-Debug "移除行尾注释后:$jsonContent"
 
     # 移除多行注释 (/*...*/) 
     $jsonContent = $jsonContent -replace '(?s)/\*.*?\*/', ''

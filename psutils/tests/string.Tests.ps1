@@ -44,6 +44,19 @@ Describe "Convert-JsoncToJson 函数测试" {
         $testJsonc | Out-File -FilePath $testJsoncPath -Encoding utf8
 
         # 新增带$schema的测试用例
+        #         $testJsoncWithSchema = @"
+        # {
+        #     "`$schema": "http://json-schema.org/draft-07/schema#",
+        #     // 带schema的配置
+        #     "name": "schema_test",
+        #     /**
+        #      * 测试多行需求**/
+        #     "config": {
+        #         "url": "http://example.com",  // URL注释
+        #         "path": "some//path"         // 包含//的字符串
+        #     }
+        # }
+        # "@
         $testJsoncWithSchema = @"
 {
     "`$schema": "http://json-schema.org/draft-07/schema#",
@@ -52,8 +65,8 @@ Describe "Convert-JsoncToJson 函数测试" {
     /**
      * 测试多行需求**/
     "config": {
-        "url": "http://example.com",  // URL注释
-        "path": "some//path"         // 包含//的字符串
+        "url": "http://example.com",  
+        "path": "some//path"      
     }
 }
 "@
