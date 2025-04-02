@@ -77,7 +77,7 @@ Describe "Convert-JsoncToJson 函数测试" {
     It "成功转换JSONC到JSON" {
         $result = Convert-JsoncToJson -Path $testJsoncPath
         $result | Should -Not -BeNullOrEmpty
-        $result | ConvertFrom-Json | % { $_.name } | Should -Be "test"
+        $result | ConvertFrom-Json | ForEach-Object { $_.name } | Should -Be "test"
     }
 
     It "成功移除单行注释" {
@@ -105,9 +105,9 @@ Describe "Convert-JsoncToJson 函数测试" {
     }
 
     It "正确处理包含$schema的JSONC文件" {
-        $result = Convert-JsoncToJson -Path $testJsoncWithSchemaPath -Debug
+        $result = Convert-JsoncToJson -Path $testJsoncWithSchemaPath 
         $result | Should -Not -BeNullOrEmpty
-        $result | ConvertFrom-Json | % { $_.name } | Should -Be "schema_test"
+        $result | ConvertFrom-Json | ForEach-Object { $_.name } | Should -Be "schema_test"
         $result -match '\$schema' | Should -Be $false
     }
 
