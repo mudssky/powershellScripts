@@ -4,6 +4,11 @@ $config = @{
         # 输出测试结果对象，因为我不需要解析结果对象，所以关掉
         # PassThru = $True
         PassThru = $False
+        # 多线程执行测试
+        Parallel = @{
+            Enabled    = $true
+            MaxThreads = 4
+        }
     }
     CodeCoverage = @{
         Enabled                 = $true
