@@ -1,4 +1,4 @@
-$config = [PesterConfiguration]@{
+$config = @{
     Run          = @{
         Path     = "./psutils"
         # 输出测试结果对象，因为我不需要解析结果对象，所以关掉
@@ -19,4 +19,7 @@ $config = [PesterConfiguration]@{
 
 }
 
-$config
+$newConfig =New-PesterConfiguration -Hashtable $config
+
+
+$newConfig
