@@ -98,19 +98,34 @@ function Convert-JsoncToJson {
     # 读取JSONC文件内容
     $jsoncContent = Get-Content -Path $Path -Raw
 
-    # 移除单行注释 (//...)
-    $jsonContent = $jsoncContent -replace '(?m)\s*//.*$', ''
+    # 初始化$jsonContent变量
+    $jsonContent = $jsoncContent
 
-    # 移除多行注释 (/*...*/)
+    # 移除键名包含$schema的整行（最终修正版）
+    $jsonContent = $jsonContent -replace '(?m)^\s*"[^"]*?\$schema[^"]*"\s*:\s*".*?"[,\r\n]*\s*$', ''
+    Write-Debug "移除`$schema后:$jsonContent"
+    # 移除单行注释 (//...) 但排除字符串中的//
+    $jsonContent = $jsonContent -replace '(?m)(?<!"[^"]*)//.*$', ''
+    Write-Debug "移除单行注释后:$jsonContent"
+
+    # 移除行尾注释 (/*...*/)
+    # TODO
+    $jsonContent = $jsonContent -replace '(?m)/\*.*?\*/\s*$', ''
+    Write-Debug "移除行尾注释后:$jsonContent"
+
+    # 移除多行注释 (/*...*/) 
     $jsonContent = $jsonContent -replace '(?s)/\*.*?\*/', ''
-
+    Write-Debug "移除多行注释后:$jsonContent"
     # 移除尾随逗号
     $jsonContent = $jsonContent -replace ',\s*([}\]])', '$1'
+    Write-Debug "移除尾随逗号后:$jsonContent"
 
     # 转换内容为JSON对象以验证有效性
     if ( -not (Test-Json -Json $jsonContent -ErrorAction SilentlyContinue)) {
         Write-Debug '目前7.5.0版本，Test-Json无法处理包含$schema的json'
+        Write-Debug '暂未实现移除行尾注释的功能'
         Write-Error "转换失败: $_"
+        return
     }
 
     # 输出结果

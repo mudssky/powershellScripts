@@ -42,6 +42,23 @@ Describe "Convert-JsoncToJson 函数测试" {
 "@
         $testJsoncPath = "$TestDrive\test.jsonc"
         $testJsonc | Out-File -FilePath $testJsoncPath -Encoding utf8
+
+        # 新增带$schema的测试用例
+        $testJsoncWithSchema = @"
+{
+    "`$schema": "http://json-schema.org/draft-07/schema#",
+    // 带schema的配置
+    "name": "schema_test",
+    /**
+     * 测试多行需求**/
+    "config": {
+        "url": "http://example.com",  // URL注释
+        "path": "some//path"         // 包含//的字符串
+    }
+}
+"@
+        $testJsoncWithSchemaPath = "$TestDrive\test_with_schema.jsonc"
+        $testJsoncWithSchema | Out-File -FilePath $testJsoncWithSchemaPath -Encoding utf8
     }
 
     It "成功转换JSONC到JSON" {
@@ -72,5 +89,18 @@ Describe "Convert-JsoncToJson 函数测试" {
         Convert-JsoncToJson -Path $testJsoncPath -OutputFilePath $outputPath *> $null
         Test-Path $outputPath | Should -Be $true
         Get-Content $outputPath -Raw | Should -Not -Match "//"
+    }
+
+    It "正确处理包含$schema的JSONC文件" {
+        $result = Convert-JsoncToJson -Path $testJsoncWithSchemaPath -Debug
+        $result | Should -Not -BeNullOrEmpty
+        $result | ConvertFrom-Json | % { $_.name } | Should -Be "schema_test"
+        $result -match '\$schema' | Should -Be $false
+    }
+
+    It "保留字符串中的//不当作注释" {
+        $result = Convert-JsoncToJson -Path $testJsoncWithSchemaPath
+        $jsonObj = $result | ConvertFrom-Json
+        $jsonObj.config.path | Should -Be "some//path"
     }
 }
