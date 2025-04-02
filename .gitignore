@@ -4,7 +4,10 @@ gitconfig_company.ps1
 
 profile/fonts/*
 
-/scripts.json
 
 apiKey
 docker_data/
+
+# pester配置文件
+coverage.xml
+testResults.xml
