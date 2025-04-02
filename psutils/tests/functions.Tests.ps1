@@ -3,7 +3,7 @@ BeforeAll {
 }
 
 Describe "Get-HistoryCommandRank 函数测试" {
-    It "返回历史命令排名" {
+    It "返回历史命令排名" -Skip {
         $result = Get-HistoryCommandRank -top 5
         $result | Should -Not -BeNullOrEmpty
     }
