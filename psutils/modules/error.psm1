@@ -2,35 +2,42 @@
 
 
 function Debug-CommandExecution {
-    <#
-    .SYNOPSIS
-        输出上调命令执行成功或失败的信息，可以用于调试程序，或者在程序出错时提供更多提示信息
-    .DESCRIPTION
-        A longer description of the function, its purpose, common use cases, etc.
-    .NOTES
-        Information or caveats about the function e.g. 'This function is not supported in Linux'
-    .LINK
-        Specify a URI to a help page, this will show when Get-Help -Online is used.
-    .EXAMPLE
-        Test-MyTestFunction -Verbose
-        Explanation of the function or its result. You can include multiple examples with additional .EXAMPLE lines
-    #>
-    
-    
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory = $true, Position = 0)]
-        [string]$CommandName
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
+        [string]$CommandName,
+        
+        [ValidateSet('Silent','Normal','Verbose')]
+        [string]$Verbosity = 'Normal'
     )
 
-    if (-not $?) {
-        # 输出执行失败信息
-        Write-Host -ForegroundColor Red  ("Check-CommandExecution: {0} execute failed" -f $CommandName)
-        throw ("{0} error found" -f $CommandName)
+    begin {
+        $ErrorActionPreference = 'Stop'
     }
-    else {
-        # 上条命令执行成功后输出消息
-        Write-Host -ForegroundColor Green  ("Check-CommandExecution: {0} execute successful" -f $CommandName)
+
+    process {
+        try {
+            if (-not $?) {
+                # 输出详细错误信息
+                $errorMsg = $Error[0].ToString()
+                if ($Verbosity -ne 'Silent') {
+                    Write-Host -ForegroundColor Red ("命令执行失败: {0}`n错误详情: {1}" -f $CommandName, $errorMsg)
+                }
+                throw [System.OperationCanceledException]::new("$CommandName 执行失败: $errorMsg")
+            }
+            else {
+                if ($Verbosity -ne 'Silent') {
+                    Write-Host -ForegroundColor Green ("命令执行成功: {0}" -f $CommandName)
+                }
+                return $true
+            }
+        }
+        catch {
+            if ($Verbosity -eq 'Verbose') {
+                Write-Verbose $_.Exception.Message
+            }
+            return $false
+        }
     }
 }
 

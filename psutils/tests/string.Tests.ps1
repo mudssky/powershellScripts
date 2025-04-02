@@ -47,7 +47,7 @@ Describe "Convert-JsoncToJson 函数测试" {
     It "成功转换JSONC到JSON" {
         $result = Convert-JsoncToJson -Path $testJsoncPath
         $result | Should -Not -BeNullOrEmpty
-        $result |ConvertFrom-Json|%{$_.name} | Should -Be "test"
+        $result | ConvertFrom-Json | % { $_.name } | Should -Be "test"
     }
 
     It "成功移除单行注释" {
@@ -69,7 +69,7 @@ Describe "Convert-JsoncToJson 函数测试" {
 
     It "输出到指定文件" {
         $outputPath = "$TestDrive\output.json"
-        Convert-JsoncToJson -Path $testJsoncPath -OutputFilePath $outputPath
+        Convert-JsoncToJson -Path $testJsoncPath -OutputFilePath $outputPath *> $null
         Test-Path $outputPath | Should -Be $true
         Get-Content $outputPath -Raw | Should -Not -Match "//"
     }

@@ -98,10 +98,12 @@ function Test-PathHasExe {
 	if ($item.PSIsContainer) {
 		# 目录的情况
 		# 遍历单层文件判断是否有可执行文件
-		Get-ChildItem $Path -File -ErrorAction SilentlyContinue | where-object { $_.Extension -in '.exe', '.cmd', '.bat', '.ps1' } | ForEach-Object {
+		$exeList = Get-ChildItem -Path $Path -File -ErrorAction SilentlyContinue | where-object { $_.Extension -in '.exe', '.cmd', '.bat', '.ps1' } 
+		if ($exeList.Count -gt 0) {
 			Write-Debug "the path $Path has exe file $($_.FullName)"
 			return $true
 		}
+
 		Write-Debug "the path $Path has no exe file"
 		return $false
 	}

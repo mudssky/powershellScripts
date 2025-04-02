@@ -6,10 +6,18 @@ $config = @{
         PassThru = $False
     }
     CodeCoverage = @{
-        Enabled      = $true
-        Path         = "./psutils/modules/*.psm1"
+        Enabled                 = $true
+        Path                    = "./psutils/modules/*.psm1"
         # OutputPath   = "./coverge.xml"
-        OutputFormat = 'CoverageGutters'
+        OutputFormat            = 'CoverageGutters'
+        ExcludeFromCodeCoverage = @(
+            ’./psutils/modules/error.psm1‘
+            './psutils/modules/linux.psm1'
+            './psutils/modules/network.psm1'
+            './psutils/modules/proxy.psm1'
+            './psutils/modules/pwsh.psm1'
+        )
+
     }
     TestResult   = @{
         Enabled    = $true
@@ -19,7 +27,7 @@ $config = @{
 
 }
 
-$newConfig =New-PesterConfiguration -Hashtable $config
+$newConfig = New-PesterConfiguration -Hashtable $config
 
 
 $newConfig

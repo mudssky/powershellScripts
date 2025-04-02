@@ -67,21 +67,26 @@ function Install-Dotenv {
 	)
 
 	$defaultEnvFileList = @('.env.local', '.env')
+	Write-Debug "开始查找默认环境变量文件，当前路径: $Path"
 	if (-not( Test-Path -LiteralPath $Path)) {
 		$foundDefaultFile = $false
 		# 判断默认环境变量文件
+		Write-Debug "开始检查默认环境变量文件列表: $($defaultEnvFileList -join ', ')"
 		foreach ($defaultEnvFilePath in $defaultEnvFileList) {
+			Write-Debug "正在检查文件: $defaultEnvFilePath"
 			if (Test-Path -LiteralPath $defaultEnvFilePath) {
 				$Path = $defaultEnvFilePath
 				$foundDefaultFile = $true
+				Write-Debug "找到默认环境变量文件: $defaultEnvFilePath"
 				break
 			}
 		}
 		
 		if (-not $foundDefaultFile) {
 			Write-Error "env文件不存在: $Path"
+			Write-Debug "未找到任何默认环境变量文件"
 			return
-		}
+		} 
 
 	
 	}
@@ -95,8 +100,10 @@ function Install-Dotenv {
 	
 	foreach ($pair in $envPairs.GetEnumerator()) {
 		$target = $envTargetMap[$EnvTarget]
+		Write-Debug "正在设置环境变量: $($pair.key) = $($pair.value) (目标: $EnvTarget)"
 		[System.Environment]::SetEnvironmentVariable($pair.key, $pair.value, $target)
 		Write-Verbose "set env $($pair.key) = $($pair.value) to $EnvTarget"
+		Write-Debug "成功设置环境变量: $($pair.key)"
 	}	
 }
 
