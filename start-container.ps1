@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param (
     [Parameter(Mandatory = $true)]
-    [ValidateSet("minio", "redis", 'postgre', 'etcd', 'nacos', 'rabbitmq', 'mongodb', ‘one-api', 'mongodb-replica','kokoro-fastapi','cadvisor', 'prometheus')]
+    [ValidateSet("minio", "redis", 'postgre', 'etcd', 'nacos', 'rabbitmq', 'mongodb', 'one-api', 'mongodb-replica','kokoro-fastapi','cadvisor', 'prometheus', 'noco')]
     [string]$ServiceName, # 更合理的参数名
     
     [ValidateSet("always", "unless-stopped", 'on-failure', 'on-failure:3', 'no')]
@@ -161,5 +161,13 @@ switch ($ServiceName) {
             -p 39090:9090 `
             --restart=$RestartPolicy `
             prom/prometheus
+    }
+    'noco' {
+        docker run -d --name noco-dev `
+           $commonParams `
+            -p 35080:8080 `
+            -v $DataPath/nocodb:/usr/app/data/ `
+            --restart=$RestartPolicy `
+            nocodb/nocodb:latest
     }
 }
