@@ -1,0 +1,22 @@
+# 对github api 进行反向代理
+
+
+# 监听本地 33080 端口，反向代理到 GitHub API，并通过本地 7890 代理访问 GitHub
+:33080 {
+	handle_path /repos/*/* {
+		# 提取 owner 和 repo
+		@owner_repo path_regexp ^/repos/([^/]+)/([^/]+)/?
+		vars owner {re.owner_repo.1}
+		vars repo {re.owner_repo.2}
+		# 反向代理到 GitHub API，并通过本地 7890 代理
+		rewrite * /repos/{http.vars.owner}/{http.vars.repo}
+		reverse_proxy https://api.github.com {
+			transport http {
+				tls
+				tls_insecure_skip_verify
+			}
+			# Add proxy configuration here instead of inside transport
+			header_up Host api.github.com
+		}
+	}
+}
