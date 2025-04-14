@@ -31,7 +31,10 @@ param (
 	[string]
 	$Path = '.',
 	[switch]
-	$WithDate
+	$WithDate,
+	# 纯备份场景不需要工作区
+	[switch]
+	$OnlyBackup
 )
 	
 # $repos = Invoke-RestMethod -Uri "https://api.github.com/users/$UserName/repos" -Headers @{ "User-Agent" = "Mozilla/5.0" }
@@ -125,7 +128,32 @@ $repoParentPath = Join-Path $Path $folderMame
 if (-not (Test-Path $repoParentPath)) {
 	New-Item -ItemType Directory -Force -Path $repoParentPath
 }
-
+function updateRepo {
+	params(
+		[string]$Path
+	)
+	# 检查是否为 Git 仓库
+	if (-not (Test-Path (Join-Path $Path ".git"))) {
+		Write-Error "目录 '$Path' 不是 Git 仓库！"
+		return
+	}
+	try {
+		# 使用 -C 直接指定路径，避免切换目录
+		git -C $Path fetch --all --prune
+		Write-Host "仓库 '$Path' 更新成功。" -ForegroundColor Green
+	}
+	catch {
+		Write-Error "更新仓库 '$Path' 时出错: $_"
+	}
+	# Push-Location $Path
+	# try {
+	# 	git fetch --all
+	# 	git remote update
+	# }
+	# finally {
+	# 	Pop-Location
+	# }
+}
 
 foreach ($repo in $finalRepos) {
 	$repoName = $repo.name
@@ -135,17 +163,11 @@ foreach ($repo in $finalRepos) {
 	# 检查是否已经存在该目录
 	if (-not (Test-Path -Path $repoPath)) {
 		gh repo clone $repoUrl $repoPath
+		updateRepo -Path $repoPath
 	}
 	else {
 		Write-Output "Repository '$repoName' already exists, updating..."
-		Push-Location $repoPath
-		try {
-			git fetch --all
-			git remote update
-		}
-		finally {
-			Pop-Location
-		}
+		updateRepo -Path $repoPath
 	}
 }
 
