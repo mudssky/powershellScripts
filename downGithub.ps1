@@ -155,10 +155,19 @@ function updateRepo {
 	# }
 }
 
+$totalRepos = $finalRepos.Count
+$currentRepo = 0
+
 foreach ($repo in $finalRepos) {
+	$currentRepo++
 	$repoName = $repo.name
 	$repoUrl = $repo.clone_url
 	$repoPath = "$repoParentPath\$repoName"
+    
+	# 显示进度
+	Write-Progress -Activity "正在处理仓库" -Status "$currentRepo/$totalRepos - $repoName" `
+		-PercentComplete (($currentRepo / $totalRepos) * 100) `
+		-CurrentOperation "正在下载/更新仓库"
     
 	# 检查是否已经存在该目录
 	if (-not (Test-Path -Path $repoPath)) {
@@ -170,6 +179,9 @@ foreach ($repo in $finalRepos) {
 		updateRepo -Path $repoPath
 	}
 }
+
+# 完成后清除进度条
+Write-Progress -Activity "完成" -Completed
 
 
 
