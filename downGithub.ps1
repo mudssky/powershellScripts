@@ -129,7 +129,7 @@ if (-not (Test-Path $repoParentPath)) {
 	New-Item -ItemType Directory -Force -Path $repoParentPath
 }
 function updateRepo {
-	params(
+	param(
 		[string]$Path
 	)
 	# 检查是否为 Git 仓库
