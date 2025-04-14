@@ -134,7 +134,7 @@ foreach ($repo in $finalRepos) {
     
 	# 检查是否已经存在该目录
 	if (-not (Test-Path -Path $repoPath)) {
-		gh repo clone $repoUrl $repoPath -- --mirror
+		gh repo clone $repoUrl $repoPath
 	}
 	else {
 		Write-Output "Repository '$repoName' already exists, updating..."
