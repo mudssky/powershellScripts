@@ -34,9 +34,83 @@ param (
 	$WithDate
 )
 	
-$repos = Invoke-RestMethod -Uri "https://api.github.com/users/$UserName/repos" -Headers @{ "User-Agent" = "Mozilla/5.0" }
+# $repos = Invoke-RestMethod -Uri "https://api.github.com/users/$UserName/repos" -Headers @{ "User-Agent" = "Mozilla/5.0" }
+# gh命令返回的信息更多更全
+$ghRepos = gh repo list $UserName --json 'name,url,sshUrl' --limit 1000 --source | ConvertFrom-Json
+# gh repo list --json
+# Specify one or more comma-separated fields for `--json`:
+#   assignableUsers
+#   codeOfConduct
+#   contactLinks
+#   createdAt
+#   defaultBranchRef
+#   deleteBranchOnMerge
+#   description
+#   diskUsage
+#   forkCount
+#   fundingLinks
+#   hasIssuesEnabled
+#   hasProjectsEnabled
+#   hasWikiEnabled
+#   homepageUrl
+#   id
+#   isArchived
+#   isBlankIssuesEnabled
+#   isEmpty
+#   isFork
+#   isInOrganization
+#   isMirror
+#   isPrivate
+#   isSecurityPolicyEnabled
+#   isTemplate
+#   isUserConfigurationRepository
+#   issueTemplates
+#   issues
+#   labels
+#   languages
+#   latestRelease
+#   licenseInfo
+#   mentionableUsers
+#   mergeCommitAllowed
+#   milestones
+#   mirrorUrl
+#   name
+#   nameWithOwner
+#   openGraphImageUrl
+#   owner
+#   parent
+#   primaryLanguage
+#   projects
+#   pullRequestTemplates
+#   pullRequests
+#   pushedAt
+#   rebaseMergeAllowed
+#   repositoryTopics
+#   securityPolicyUrl
+#   squashMergeAllowed
+#   sshUrl
+#   stargazerCount
+#   templateRepository
+#   updatedAt
+#   url
+#   usesCustomOpenGraphImage
+#   viewerCanAdminister
+#   viewerDefaultCommitEmail
+#   viewerDefaultMergeMethod
+#   viewerHasStarred
+#   viewerPermission
+#   viewerPossibleCommitEmails
+#   viewerSubscription
+#   watchers
+$finalRepos = $ghRepos | ForEach-Object {
+	# 创建新对象并添加必要的属性
+	[PSCustomObject]@{
+		name      = $_.name
+		clone_url = $_.url
+	}
+}
 
-$repos
+$finalRepos
 
 $folderMame = $UserName
 
@@ -53,17 +127,25 @@ if (-not (Test-Path $repoParentPath)) {
 }
 
 
-foreach ($repo in $repos) {
+foreach ($repo in $finalRepos) {
 	$repoName = $repo.name
 	$repoUrl = $repo.clone_url
 	$repoPath = "$repoParentPath\$repoName"
     
-	# 检查是否已经存在该目录，如果不存在则克隆完整仓库镜像
+	# 检查是否已经存在该目录
 	if (-not (Test-Path -Path $repoPath)) {
 		gh repo clone $repoUrl $repoPath -- --mirror
 	}
 	else {
-		Write-Output "Repository '$repoName' already exists, skipping..."
+		Write-Output "Repository '$repoName' already exists, updating..."
+		Push-Location $repoPath
+		try {
+			git fetch --all
+			git remote update
+		}
+		finally {
+			Pop-Location
+		}
 	}
 }
 
