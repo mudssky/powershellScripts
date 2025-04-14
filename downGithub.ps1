@@ -31,10 +31,10 @@ param (
 	[string]
 	$Path = '.',
 	[switch]
-	$WithDate,
+	$WithDate
 	# 纯备份场景不需要工作区
-	[switch]
-	$OnlyBackup
+	# [switch]
+	# $OnlyBackup
 )
 	
 # $repos = Invoke-RestMethod -Uri "https://api.github.com/users/$UserName/repos" -Headers @{ "User-Agent" = "Mozilla/5.0" }
