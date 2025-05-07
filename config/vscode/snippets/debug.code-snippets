@@ -1,0 +1,176 @@
+{
+	// Place your global snippets here. Each snippet is defined under a snippet name and has a scope, prefix, body and 
+	// description. Add comma separated ids of the languages where the snippet is applicable in the scope field. If scope 
+	// is left empty or omitted, the snippet gets applied to all languages. The prefix is what is 
+	// used to trigger the snippet and the body will be expanded and inserted. Possible variables are: 
+	// $1, $2 for tab stops, $0 for the final cursor position, and ${1:label}, ${2:another} for placeholders. 
+	// Placeholders with the same ids are connected.
+	// Example:
+	// "Print to console": {
+	// 	"scope": "javascript,typescript",
+	// 	"prefix": "log",
+	// 	"body": [
+	// 		"console.log('$1');",
+	// 		"$2"
+	// 	],
+	// 	"description": "Log output to console"
+	// }
+	"react chrome debug": {
+		"prefix": "debug-react",
+		"scope": "json,jsonc",
+		"body": [
+			"{",
+			"    \"name\": \"react chrome launch\",",
+			"    \"type\": \"chrome\",",
+			"    \"request\": \"launch\",",
+			//为了安装插件不与平时使用的chrome冲突，可以使用canary版本，就是chrome的开发者版本，",
+			//这个版本的更新速度很快，有最新的特性，也有最新的bug",
+			//\"runtimeExecutable\":\"canary\",
+			"    \"runtimeArgs\": [",
+			//默认打开chrome开发者面板",
+			"        \"--auto-open-devtools-for-tabs\",",
+			"    ],",
+			// 设置用户信息保存目录，这样方便安装插件，保存cookie等信息。",
+			"    \"userDataDir\":  \"D:\\\\\\chrome-dev-userDataDir\",",
+			"    \"url\": \"http://localhost:${1:3000}\",",
+			"    \"webRoot\": \"\\${workspaceFolder}\"",
+			"}",
+			""
+		],
+		"description": "react chrome launch debug"
+	},
+	"react vite chrome debug": {
+		"prefix": "debug-react-vite",
+		"scope": "json,jsonc",
+		"body": [
+			"{",
+			"    \"name\": \"react chrome launch\",",
+			"    \"type\": \"chrome\",",
+			"    \"request\": \"launch\",",
+			//为了安装插件不与平时使用的chrome冲突，可以使用canary版本，就是chrome的开发者版本，",
+			//这个版本的更新速度很快，有最新的特性，也有最新的bug",
+			//\"runtimeExecutable\":\"canary\",
+			"    \"runtimeArgs\": [",
+			//默认打开chrome开发者面板"
+			"        \"--auto-open-devtools-for-tabs\",",
+			"    ],",
+			// 设置用户信息保存目录，这样方便安装插件，保存cookie等信息。",
+			"    \"userDataDir\":  \"D:\\\\\\chrome-dev-userDataDir\",",
+			"    \"url\": \"http://localhost:${1:3000}\",",
+			// 这个是配置sourcemap映射的目录
+			// 调试vite项目，webRoot设置一个不存在的目录，是为了热更新的代码断点不会打到本地文件上，因为热更的临时文件并没有本地文件，会导致断点在奇怪的位置
+			// 配置以后断点就不会断住了
+			"    \"webRoot\": \"\\${workspaceFolder}\"",
+			"}",
+			""
+		],
+		"description": "react vite chrome launch debug"
+	},
+	"vue vite chrome debug": {
+		"prefix": "debug-vue-vite",
+		"scope": "json,jsonc",
+		"body": [
+			"{",
+			"    \"name\": \"react chrome launch\",",
+			"    \"type\": \"chrome\",",
+			"    \"request\": \"launch\",",
+			//为了安装插件不与平时使用的chrome冲突，可以使用canary版本，就是chrome的开发者版本，",
+			//这个版本的更新速度很快，有最新的特性，也有最新的bug",
+			//\"runtimeExecutable\":\"canary\"
+			"    \"runtimeArgs\": [",
+			//默认打开chrome开发者面板",
+			"        \"--auto-open-devtools-for-tabs\",",
+			"    ],",
+			// 设置用户信息保存目录，这样方便安装插件，保存cookie等信息。",
+			"    \"userDataDir\":  \"D:\\\\\\chrome-dev-userDataDir\",",
+			"    \"url\": \"http://localhost:${1:3000}\",",
+			// 这个是配置sourcemap映射的目录
+			// 调试vite项目，webRoot设置一个不存在的目录，是为了热更新的代码断点不会打到本地文件上，因为热更的临时文件并没有本地文件，会导致断点在奇怪的位置
+			// 配置以后断点就不会断住了 ${workspaceFolder}\\aaabbb
+			"    \"webRoot\": \"\\${workspaceFolder}\\\\\\aaabbb\"",
+			"}",
+			""
+		],
+		"description": "vue vite chrome launch debug"
+	},
+	// node --inspect-brk 进入调试并在首行断电，可以用chrome devtool调试
+	"node launch": {
+		"prefix": "debug-node",
+		"scope": "json,jsonc",
+		// "program": "${workspaceFolder}/index.js",
+		"body": [
+			"{",
+			"    \"name\": \"node launch\",",
+			"    \"type\": \"node\",",
+			"    \"request\": \"launch\",",
+			"    \"skipFiles\": [",
+			"    \"<node_internals>/**\"",
+			"    ],",
+			"    \"program\": \"\\${workspaceFolder}\\\\\\index.js\"",
+			// 第一行打断点
+			// "stopOnEntry": true
+			"}",
+		],
+		"description": "node launch debug"
+	},
+	"npm scripts launch": {
+		"prefix": "debug-npm-scripts",
+		"scope": "json,jsonc",
+		"body": [
+			"{",
+			"    \"name\": \"npm scripts launch\",",
+			"    \"type\": \"node\",",
+			"    \"request\": \"launch\",",
+			"    \"runtimeArgs\": [",
+			"    \"run-script\",",
+			"    \"${1:debug}\"",
+			"    ],",
+			"    \"runtimeExecutable\": \"npm\",",
+			// 集成到终端和平时开发无缝衔接
+			// 缺点是 debug console是可以执行表达式获取值的，终端没有这个功能。
+			"    \"console\": \"integratedTerminal\",",
+			"    \"skipFiles\": [",
+			"    \"<node_internals>/**\"",
+			"    ],",
+			// 第一行打断点
+			// "stopOnEntry": true
+			"}",
+		],
+		"description": "node launch debug"
+	},
+	// 使用特殊变量实现调试当前文件
+	// 适合调试单个js文件的案例
+	"node launch current js": {
+		"prefix": "debug-node-current",
+		"scope": "json,jsonc",
+		"body": [
+			"{",
+			"    \"name\": \"node launch current\",",
+			"    \"type\": \"node\",",
+			"    \"request\": \"launch\",",
+			"    \"skipFiles\": [",
+			"    \"<node_internals>/**\"",
+			"    ],",
+			// 调试当前的文件
+			"    \"program\": \"\\${file}\"",
+			"}",
+		],
+		"description": "node launch debug"
+	},
+	"node launch current ts": {
+		"prefix": "debug-node-current-ts",
+		"scope": "json,jsonc",
+		"body": [
+			"    {",
+			"      \"name\": \"node launch current\",",
+			"      \"type\": \"node\",",
+			"      \"request\": \"launch\",",
+			"      \"skipFiles\": [\"<node_internals>/**\"],",
+			"      \"runtimeExecutable\": \"tsx\",",
+			"      \"console\": \"integratedTerminal\",",
+			"      \"program\": \"\\${file}\"",
+			"    }"
+		],
+		"description": "node launch debug"
+	},
+}
