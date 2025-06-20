@@ -51,7 +51,9 @@ $tools = @{
 		# 设置sccache用于rust编译缓存,提高新启动项目的编译速度
 		$Env:RUSTC_WRAPPER = 'sccache' 
 	}
-	zoxide   = { Invoke-Expression (& { (zoxide init powershell | Out-String) }) }
+	zoxide   = { Invoke-Expression (& { (zoxide init powershell | Out-String) }) 
+	}
+	fnm      = { fnm env --use-on-cd | Out-String | Invoke-Expression }
 }
 
 foreach ($tool in $tools.GetEnumerator()) {

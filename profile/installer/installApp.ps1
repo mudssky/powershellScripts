@@ -48,7 +48,12 @@ $installListMap = @{
 		# @{
 		# 	name    = 'nvm'
 		# 	cliName = 'nvm'
-		# },
+		# }
+		@{
+			name        = 'fnm'
+			cliName     = 'fnm'
+			description = 'nvm的rust替代，跨平台node版本管理'
+		},
 		@{
 			name = 'git'
 		},	
