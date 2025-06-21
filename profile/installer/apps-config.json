@@ -1,0 +1,263 @@
+{
+  "packageManagers": {
+    "choco": [
+      {
+        "name": "bat",
+        "cliName": "bat",
+        "description": "cat的替代品",
+        "command": "choco install bat -y"
+      },
+      {
+        "name": "twinkle-tray",
+        "cliName": "twinkle-tray",
+        "description": "一个调节屏幕亮度的软件，win10的亮度调节可太垃圾了。",
+        "command": "choco install twinkle-tray -y",
+        "skipInstall": true
+      },
+      {
+        "name": "eartrumpet",
+        "cliName": "eartrumpet",
+        "description": "替代win10的音量调节",
+        "command": "choco install eartrumpet -y",
+        "skipInstall": true
+      },
+      {
+        "name": "fd",
+        "cliName": "fd",
+        "description": "搜索用的命令行工具",
+        "command": "choco install fd -y"
+      },
+      {
+        "name": "lsd",
+        "cliName": "lsd",
+        "description": "代替linux的ls命令",
+        "command": "choco install lsd -y"
+      },
+      {
+        "name": "hyperfine",
+        "cliName": "hyperfine",
+        "description": "命令行跑分工具",
+        "command": "choco install hyperfine -y"
+      }
+    ],
+    "scoop": [
+      {
+        "name": "fnm",
+        "cliName": "fnm",
+        "description": "nvm的rust替代，跨平台node版本管理",
+        "command": "scoop install fnm"
+      },
+      {
+        "name": "git",
+        "cliName": "git",
+        "description": "版本控制系统",
+        "command": "scoop install git"
+      },
+      {
+        "name": "sudo",
+        "cliName": "sudo",
+        "description": "win提权",
+        "command": "scoop install sudo"
+      },
+      {
+        "name": "starship",
+        "cliName": "starship",
+        "description": "跨平台shell提示符",
+        "command": "scoop install starship"
+      },
+      {
+        "name": "ffmpeg",
+        "cliName": "ffmpeg",
+        "description": "音视频处理工具",
+        "command": "scoop install ffmpeg"
+      },
+      {
+        "name": "fzf",
+        "cliName": "fzf",
+        "description": "go编写的模糊查找神器",
+        "command": "scoop install fzf"
+      },
+      {
+        "name": "ripgrep",
+        "cliName": "rg",
+        "description": "rust正则查找神器",
+        "command": "scoop install ripgrep"
+      },
+      {
+        "name": "cht",
+        "cliName": "cht",
+        "description": "命令行备忘单工具",
+        "command": "scoop install cht"
+      },
+      {
+        "name": "aria2",
+        "cliName": "aria2c",
+        "description": "多线程下载工具",
+        "command": "scoop install aria2"
+      },
+      {
+        "name": "vhs",
+        "cliName": "vhs",
+        "description": "录制终端操作到gif",
+        "command": "scoop install vhs"
+      },
+      {
+        "name": "caddy",
+        "cliName": "caddy",
+        "description": "golang的web服务器，类似nginx",
+        "command": "scoop install caddy"
+      },
+      {
+        "name": "jq",
+        "cliName": "jq",
+        "description": "命令行处理json",
+        "command": "scoop install jq"
+      },
+      {
+        "name": "tokei",
+        "cliName": "tokei",
+        "description": "rust git仓库代码统计",
+        "command": "scoop install tokei"
+      },
+      {
+        "name": "lazygit",
+        "cliName": "lazygit",
+        "description": "git的TUI界面",
+        "command": "scoop install lazygit"
+      },
+      {
+        "name": "lazydocker",
+        "cliName": "lazydocker",
+        "description": "docker的TUI界面",
+        "command": "scoop install lazydocker"
+      },
+      {
+        "name": "zoxide",
+        "cliName": "z",
+        "description": "更智能的cd",
+        "command": "scoop install zoxide"
+      },
+      {
+        "name": "scc",
+        "cliName": "scc",
+        "description": "代码行数统计工具",
+        "command": "scoop install scc"
+      }
+    ],
+    "winget": [
+      {
+        "name": "eartrumpet",
+        "cliName": "eartrumpet",
+        "description": "替代win10的音量调节",
+        "command": "winget install eartrumpet"
+      }
+    ],
+    "cargo": [
+      {
+        "name": "sccache",
+        "cliName": "sccache",
+        "description": "可以用于在不同的工作空间中共享已经构建好的依赖包,提升构建速度",
+        "command": "cargo install sccache"
+      },
+      {
+        "name": "sd",
+        "cliName": "sd",
+        "description": "linux sed命令行的rust实现，执行速度快2倍以上",
+        "command": "cargo install sd"
+      },
+      {
+        "name": "dust",
+        "cliName": "dust",
+        "description": "查看磁盘占用情况",
+        "command": "cargo install du-dust"
+      },
+      {
+        "name": "tokei",
+        "cliName": "tokei",
+        "description": "统计各种语言的代码行数",
+        "command": "cargo install tokei"
+      },
+      {
+        "name": "btm",
+        "cliName": "btm",
+        "description": "rust 版本的top，任务管理器bottom",
+        "command": "cargo install bottom"
+      },
+      {
+        "name": "tldr",
+        "cliName": "tldr",
+        "description": "rust版本tldr 太长不看帮助文档",
+        "command": "cargo install tealdeer"
+      },
+      {
+        "name": "grex",
+        "cliName": "grex",
+        "description": "根据用户输入生成正则表达式",
+        "command": "cargo install grex"
+      },
+      {
+        "name": "zoxide",
+        "cliName": "z",
+        "description": "更智能的cd",
+        "command": "cargo install zoxide"
+      },
+      {
+        "name": "pueue",
+        "cliName": "pueue",
+        "description": "命令行任务管理工具，它可以管理你的长时间运行的命令，支持顺序或并行执行。简单来说，它可以管理一个命令队列。",
+        "command": "cargo install --locked pueue"
+      },
+      {
+        "name": "watchexec",
+        "cliName": "watchexec",
+        "description": "监听到文件变动后执行命令",
+        "command": "cargo install --locked watchexec-cli"
+      },
+      {
+        "name": "cargo-watch",
+        "cliName": "cargo-watch",
+        "description": "监听变动执行cargo操作，和watchexec是同一个开发者",
+        "command": "cargo install cargo-watch"
+      },
+      {
+        "name": "broot",
+        "cliName": "broot",
+        "description": "文件目录管理",
+        "command": "cargo install broot"
+      },
+      {
+        "name": "hexyl",
+        "cliName": "hexyl",
+        "description": "终端查看16进制",
+        "command": "cargo install hexyl"
+      }
+    ],
+    "homebrew": [
+      {
+        "name": "powershell",
+        "cliName": "pwsh",
+        "description": "powershell",
+        "command": "brew install powershell",
+        "supportOs": ["macOS"]
+      },
+      {
+        "name": "pyenv",
+        "cliName": "pyenv",
+        "description": "python版本管理工具",
+        "command": "brew install pyenv"
+      },
+      {
+        "name": "xz",
+        "cliName": "xz",
+        "description": "xz压缩工具",
+        "command": "brew install xz"
+      },
+      {
+        "name": "go",
+        "cliName": "go",
+        "description": "golang",
+        "command": "brew install go"
+      }
+    ]
+  }
+}
