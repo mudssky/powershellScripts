@@ -269,6 +269,84 @@
         "cliName": "docker",
         "description": "macOS的docker可视化工具",
         "command": "brew install --cask docker"
+      },
+      {
+        "name": "yazi",
+        "cliName": "yazi",
+        "description": "终端文件管理器",
+        "command": "brew install yazi"
+      },
+      {
+        "name": "ffmpeg",
+        "cliName": "ffmpeg",
+        "description": "音视频处理工具",
+        "command": "brew install ffmpeg"
+      },
+      {
+        "name": "sevenzip",
+        "cliName": "7z",
+        "description": "7zip压缩工具",
+        "command": "brew install sevenzip"
+      },
+      {
+        "name": "jq",
+        "cliName": "jq",
+        "description": "命令行JSON处理工具",
+        "command": "brew install jq"
+      },
+      {
+        "name": "poppler",
+        "cliName": "pdfinfo",
+        "description": "PDF处理工具集",
+        "command": "brew install poppler"
+      },
+      {
+        "name": "fd",
+        "cliName": "fd",
+        "description": "快速文件搜索工具",
+        "command": "brew install fd"
+      },
+      {
+        "name": "ripgrep",
+        "cliName": "rg",
+        "description": "快速文本搜索工具",
+        "command": "brew install ripgrep"
+      },
+      {
+        "name": "fzf",
+        "cliName": "fzf",
+        "description": "模糊查找工具",
+        "command": "brew install fzf"
+      },
+      {
+        "name": "zoxide",
+        "cliName": "z",
+        "description": "智能目录跳转工具",
+        "command": "brew install zoxide"
+      },
+      {
+        "name": "resvg",
+        "cliName": "resvg",
+        "description": "SVG渲染工具",
+        "command": "brew install resvg"
+      },
+      {
+        "name": "imagemagick",
+        "cliName": "magick",
+        "description": "图像处理工具",
+        "command": "brew install imagemagick"
+      },
+      {
+        "name": "font-symbols-only-nerd-font",
+        "cliName": "font-symbols-only-nerd-font",
+        "description": "Nerd Font符号字体",
+        "command": "brew install --cask font-symbols-only-nerd-font"
+      },
+      {
+        "name": "jordanbaird-ice",
+        "cliName": "Ice",
+        "description": "macOS 菜单栏管理工具",
+        "command": "brew install --cask jordanbaird-ice"
       }
     ]
   }
