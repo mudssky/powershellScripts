@@ -167,6 +167,41 @@ function Test-MacOSCaskApp {
     }
 }
 
+function Test-HomebrewFormula {
+    <#
+    .SYNOPSIS
+        检测macOS上通过brew安装的formula是否已安装
+    .DESCRIPTION
+        通过使用brew list命令来判断macOS Homebrew formula是否已安装
+    .PARAMETER AppName
+        要检测的formula名称
+    .EXAMPLE
+        Test-HomebrewFormula -AppName "sevenzip"
+        检测sevenzip formula是否已安装
+    .OUTPUTS
+        [bool] 如果formula已安装返回$true，否则返回$false
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$AppName
+    )
+    
+    try {
+        if (Test-EXEProgram -Name "brew") {
+            $brewList = brew list 2>$null
+            if ($LASTEXITCODE -eq 0) {
+                return $brewList -contains $AppName
+            }
+        }
+        return $false
+    }
+    catch {
+        Write-Warning "检测Homebrew formula '$AppName' 时发生错误: $_"
+        return $false
+    }
+}
+
 function Test-ApplicationInstalled {
     <#
     .SYNOPSIS
@@ -213,13 +248,20 @@ function Test-ApplicationInstalled {
                     return Test-EXEProgram -Name $AppName
                 }
                 else {
-                    # 检测所有类型：先检测命令行程序，再检测cask应用
+                    # 检测所有类型：先检测命令行程序，再检测cask应用和formula
                     $cliInstalled = Test-EXEProgram -Name $AppName
                     if ($cliInstalled) {
                         return $true
                     }
+                    
                     # 如果命令行程序未安装，检测cask应用
-                    return Test-MacOSCaskApp -AppName $AppName -UseBrew $true
+                    $caskInstalled = Test-MacOSCaskApp -AppName $AppName -UseBrew $true
+                    if ($caskInstalled) {
+                        return $true
+                    }
+
+                    # 如果cask应用也未安装，检测Homebrew formula
+                    return Test-HomebrewFormula -AppName $AppName
                 }
             }
             { $_ -in @("Windows", "Linux") } {
