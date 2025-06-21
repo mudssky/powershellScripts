@@ -284,7 +284,7 @@
       },
       {
         "name": "sevenzip",
-        "cliName": "7z",
+        "cliName": "sevenzip",
         "description": "7zip压缩工具",
         "command": "brew install sevenzip"
       },
@@ -320,7 +320,7 @@
       },
       {
         "name": "zoxide",
-        "cliName": "z",
+        "cliName": "zoxide",
         "description": "智能目录跳转工具",
         "command": "brew install zoxide"
       },
@@ -344,9 +344,15 @@
       },
       {
         "name": "jordanbaird-ice",
-        "cliName": "Ice",
+        "cliName": "jordanbaird-ice",
         "description": "macOS 菜单栏管理工具",
         "command": "brew install --cask jordanbaird-ice"
+      },
+      {
+        "name": "hammerspoon",
+        "cliName": "hammerspoon",
+        "description": "macOS 自动化工具",
+        "command": "brew install --cask hammerspoon"
       }
     ]
   }
