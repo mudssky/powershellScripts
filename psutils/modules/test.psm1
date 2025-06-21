@@ -243,26 +243,7 @@ function Test-ApplicationInstalled {
         
         switch ($os) {
             "macOS" {
-                if ($FilterCli) {
-                    # 仅检测命令行程序
-                    return Test-EXEProgram -Name $AppName
-                }
-                else {
-                    # 检测所有类型：先检测命令行程序，再检测cask应用和formula
-                    $cliInstalled = Test-EXEProgram -Name $AppName
-                    if ($cliInstalled) {
-                        return $true
-                    }
-                    
-                    # 如果命令行程序未安装，检测cask应用
-                    $caskInstalled = Test-MacOSCaskApp -AppName $AppName -UseBrew $true
-                    if ($caskInstalled) {
-                        return $true
-                    }
-
-                    # 如果cask应用也未安装，检测Homebrew formula
-                    return Test-HomebrewFormula -AppName $AppName
-                }
+                return Test-MacOSApplicationInstalled -AppName $AppName -FilterCli $FilterCli
             }
             { $_ -in @("Windows", "Linux") } {
                 # Windows和Linux使用命令行程序检测
@@ -277,6 +258,56 @@ function Test-ApplicationInstalled {
     catch {
         Write-Error "检测应用程序 '$AppName' 时发生错误: $($_.Exception.Message)"
         return $false
+    }
+}
+
+function Test-MacOSApplicationInstalled {
+    <#
+    .SYNOPSIS
+        检测macOS上应用程序是否已安装
+    .DESCRIPTION
+        在macOS上，根据FilterCli参数检测命令行程序、cask应用或Homebrew formula。
+    .PARAMETER AppName
+        要检测的应用程序名称
+    .PARAMETER FilterCli
+        是否仅检测命令行程序，默认为$false（检测所有类型）
+    .EXAMPLE
+        Test-MacOSApplicationInstalled -AppName "git"
+        检测git是否已安装（包括命令行和应用程序）
+    .EXAMPLE
+        Test-MacOSApplicationInstalled -AppName "git" -FilterCli $true
+        仅检测git命令行工具是否已安装
+    .OUTPUTS
+        [bool] 如果应用已安装返回$true，否则返回$false
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$AppName,
+        
+        [Parameter()]
+        [bool]$FilterCli = $false
+    )
+
+    if ($FilterCli) {
+        # 仅检测命令行程序
+        return Test-EXEProgram -Name $AppName
+    }
+    else {
+        # 检测所有类型：先检测命令行程序，再检测cask应用和formula
+        $cliInstalled = Test-EXEProgram -Name $AppName
+        if ($cliInstalled) {
+            return $true
+        }
+        
+        # 如果命令行程序未安装，检测cask应用
+        $caskInstalled = Test-MacOSCaskApp -AppName $AppName -UseBrew $true
+        if ($caskInstalled) {
+            return $true
+        }
+
+        # 如果cask应用也未安装，检测Homebrew formula
+        return Test-HomebrewFormula -AppName $AppName
     }
 }
 
