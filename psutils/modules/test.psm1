@@ -117,4 +117,125 @@ function Test-PathHasExe {
   	
 
 }
+function Test-MacOSCaskApp {
+    <#
+    .SYNOPSIS
+        检测macOS上通过brew cask安装的应用程序是否已安装
+    .DESCRIPTION
+        通过检查/Applications目录或使用brew list --cask命令来判断macOS应用程序是否已安装
+    .PARAMETER AppName
+        要检测的应用程序名称
+    .PARAMETER UseBrew
+        是否使用brew命令检测，默认为$true。如果为$false则检查/Applications目录
+    .EXAMPLE
+        Test-MacOSCaskApp -AppName "DockDoor"
+        检测DockDoor应用是否已安装
+    .EXAMPLE
+        Test-MacOSCaskApp -AppName "Visual Studio Code" -UseBrew $false
+        通过检查Applications目录来检测VS Code是否已安装
+    .OUTPUTS
+        [bool] 如果应用已安装返回$true，否则返回$false
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$AppName,
+        
+        [Parameter()]
+        [bool]$UseBrew = $true
+    )
+    
+    try {
+        if ($UseBrew) {
+            # 使用brew命令检测
+            if (Test-EXEProgram -Name "brew") {
+                $brewList = brew list --cask 2>$null
+                if ($LASTEXITCODE -eq 0) {
+                    return $brewList -contains $AppName
+                }
+            }
+            # 如果brew命令失败，回退到目录检查
+        }
+        
+        # 检查/Applications目录
+        $appPath = "/Applications/$AppName.app"
+        return (Test-Path $appPath)
+    }
+    catch {
+        Write-Warning "检测macOS应用 '$AppName' 时发生错误: $_"
+        return $false
+    }
+}
+
+function Test-ApplicationInstalled {
+    <#
+    .SYNOPSIS
+        跨平台应用程序安装检测
+    .DESCRIPTION
+        整合了跨平台应用安装检测逻辑，支持Windows、macOS和Linux系统。
+        在macOS上会同时检测命令行程序和cask应用，在其他系统上使用命令行程序检测。
+    .PARAMETER AppName
+        要检测的应用程序名称
+    .PARAMETER FilterCli
+        是否仅检测命令行程序，默认为$false（检测所有类型）
+    .EXAMPLE
+        Test-ApplicationInstalled -AppName "git"
+        检测git是否已安装（包括命令行和应用程序）
+    .EXAMPLE
+        Test-ApplicationInstalled -AppName "git" -FilterCli $true
+        仅检测git命令行工具是否已安装
+    .EXAMPLE
+        Test-ApplicationInstalled -AppName "dockdoor"
+        在macOS上检测DockDoor（会同时检测命令行和cask应用）
+    .OUTPUTS
+        [bool] 如果应用已安装返回$true，否则返回$false
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$AppName,
+        
+        [Parameter()]
+        [bool]$FilterCli = $false
+    )
+    
+    try {
+        # 获取当前操作系统
+        $os = Get-OperatingSystem
+        
+        Write-Verbose "当前操作系统: $os"
+        Write-Verbose "检测应用: $AppName (FilterCli: $FilterCli)"
+        
+        switch ($os) {
+            "macOS" {
+                if ($FilterCli) {
+                    # 仅检测命令行程序
+                    return Test-EXEProgram -Name $AppName
+                }
+                else {
+                    # 检测所有类型：先检测命令行程序，再检测cask应用
+                    $cliInstalled = Test-EXEProgram -Name $AppName
+                    if ($cliInstalled) {
+                        return $true
+                    }
+                    # 如果命令行程序未安装，检测cask应用
+                    return Test-MacOSCaskApp -AppName $AppName -UseBrew $true
+                }
+            }
+            { $_ -in @("Windows", "Linux") } {
+                # Windows和Linux使用命令行程序检测
+                return Test-EXEProgram -Name $AppName
+            }
+            default {
+                Write-Warning "未知操作系统: $os，使用默认命令行程序检测"
+                return Test-EXEProgram -Name $AppName
+            }
+        }
+    }
+    catch {
+        Write-Error "检测应用程序 '$AppName' 时发生错误: $($_.Exception.Message)"
+        return $false
+    }
+}
+
 Export-ModuleMember -Function *

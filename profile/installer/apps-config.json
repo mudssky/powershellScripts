@@ -257,6 +257,18 @@
         "cliName": "go",
         "description": "golang",
         "command": "brew install go"
+      },
+      {
+        "name": "dockdoor",
+        "cliName": "dockdoor",
+        "description": "macOS 的窗口预览和 Alt-Tab",
+        "command": "brew install --cask dockdoor"
+      },
+      {
+        "name": "docker",
+        "cliName": "docker",
+        "description": "macOS的docker可视化工具",
+        "command": "brew install --cask docker"
       }
     ]
   }

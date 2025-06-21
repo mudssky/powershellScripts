@@ -161,22 +161,10 @@ function Install-PackageManagerApps() {
         $cliName = if ($appInfo.cliName) { $appInfo.cliName } else { $appInfo.name }
 		
         # 生成安装命令（如果未配置则根据包管理器自动生成）
-        $command = if ($appInfo.command) {
-            $appInfo.command
-        }
-        else {
-            switch ($PackageManager.ToLower()) {
-                'choco' { "choco install $appName -y" }
-                'scoop' { "scoop install $appName" }
-                'winget' { "winget install $appName" }
-                'cargo' { "cargo install $appName" }
-                'homebrew' { "brew install $appName" }
-                'apt' { "apt install $appName" }
-                default { 
-                    Write-Warning "未知的包管理器: $PackageManager，跳过 $appName"
-                    continue
-                }
-            }
+        $command = Get-PackageInstallCommand -PackageManager $PackageManager -AppName $appName -CustomCommand $appInfo.command
+        if (-not $command) {
+            Write-Warning "未知的包管理器: $PackageManager，跳过 $appName"
+            continue
         }
 		
         # 检查是否跳过安装
@@ -187,8 +175,16 @@ function Install-PackageManagerApps() {
         
         # 执行安装逻辑
         try {
-            # 检查应用是否已安装
-            if (-not (Test-EXEProgram $cliName)) {
+            # 检查应用是否已安装（使用更智能的检测方法）
+            $isInstalled = if ($appInfo.filterCli) {
+                # 如果配置中指定仅检测CLI，则只检测命令行程序
+                Test-ApplicationInstalled -AppName $cliName -FilterCli $true
+            } else {
+                # 默认检测所有类型（命令行和应用程序）
+                Test-ApplicationInstalled -AppName $cliName
+            }
+            
+            if (-not $isInstalled) {
                 if ($PSCmdlet.ShouldProcess($appName, "安装应用")) {
                     Write-Host "正在安装 $appName..." -ForegroundColor Yellow
                     Invoke-Expression $command
@@ -201,6 +197,60 @@ function Install-PackageManagerApps() {
         }
         catch {
             Write-Error "安装 $appName 失败: $($_.Exception.Message)"
+        }
+    }
+}
+
+function Get-PackageInstallCommand {
+    <#
+    .SYNOPSIS
+        根据包管理器和应用名称生成安装命令
+    .DESCRIPTION
+        根据指定的包管理器类型和应用名称，生成对应的安装命令。
+        如果提供了自定义命令，则优先使用自定义命令。
+    .PARAMETER PackageManager
+        包管理器名称，支持：choco、scoop、winget、cargo、homebrew、apt
+    .PARAMETER AppName
+        要安装的应用名称
+    .PARAMETER CustomCommand
+        自定义安装命令（可选）
+    .EXAMPLE
+        Get-PackageInstallCommand -PackageManager "scoop" -AppName "git"
+        返回: "scoop install git"
+    .EXAMPLE
+        Get-PackageInstallCommand -PackageManager "choco" -AppName "nodejs" -CustomCommand "choco install nodejs.install -y"
+        返回: "choco install nodejs.install -y"
+    .OUTPUTS
+        [string] 安装命令字符串，如果包管理器不支持则返回 $null
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PackageManager,
+        
+        [Parameter(Mandatory = $true)]
+        [string]$AppName,
+        
+        [Parameter()]
+        [string]$CustomCommand
+    )
+    
+    # 如果提供了自定义命令，优先使用
+    if ($CustomCommand) {
+        return $CustomCommand
+    }
+    
+    # 根据包管理器生成默认安装命令
+    switch ($PackageManager.ToLower()) {
+        'choco' { return "choco install $AppName -y" }
+        'scoop' { return "scoop install $AppName" }
+        'winget' { return "winget install $AppName" }
+        'cargo' { return "cargo install $AppName" }
+        'homebrew' { return "brew install $AppName" }
+        'apt' { return "apt install $AppName" }
+        default { 
+            Write-Verbose "不支持的包管理器: $PackageManager"
+            return $null
         }
     }
 }
