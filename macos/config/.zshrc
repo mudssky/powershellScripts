@@ -22,3 +22,7 @@ fi
 # 启用修饰键交换（默认行为）
 export HAMMERSPOON_MODIFIER_SWAP=true
 
+# ai相关
+# ollama配置
+export OLLAMA_MODELS='/Volumes/Data/env/.ollama/models'
+
