@@ -13,7 +13,8 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # 获取脚本所在目录
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# 使用 $0 而不是 ${BASH_SOURCE[0]} 以确保在 zsh 中正确工作
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 HAMMERSPOON_CONFIG_DIR="$HOME/.hammerspoon"
 
 echo -e "${BLUE}🔨 Hammerspoon Lua Scripts Loader${NC}"
@@ -48,11 +49,27 @@ echo -e "${BLUE}📝 生成新的init.lua配置文件${NC}"
 
 # 复制 init.lua 配置文件
 echo "📋 复制 init.lua 配置文件..."
-if [ -f "$SCRIPT_DIR/init/init.lua" ]; then
-    cp "$SCRIPT_DIR/init/init.lua" "$HAMMERSPOON_CONFIG_DIR/init.lua"
-    echo "✅ init.lua 配置文件已复制"
-else
-    echo "❌ 错误: 找不到 init.lua 文件在 $SCRIPT_DIR"
+# 检查多个可能的init.lua位置
+INIT_LUA_PATHS=(
+    "$SCRIPT_DIR/init/init.lua"
+    "$SCRIPT_DIR/init.lua"
+)
+
+INIT_LUA_FOUND=false
+for init_path in "${INIT_LUA_PATHS[@]}"; do
+    if [ -f "$init_path" ]; then
+        cp "$init_path" "$HAMMERSPOON_CONFIG_DIR/init.lua"
+        echo "✅ init.lua 配置文件已复制 (来源: $(basename "$(dirname "$init_path")"))"
+        INIT_LUA_FOUND=true
+        break
+    fi
+done
+
+if [ "$INIT_LUA_FOUND" = false ]; then
+    echo "❌ 错误: 找不到 init.lua 文件在以下位置:"
+    for init_path in "${INIT_LUA_PATHS[@]}"; do
+        echo "  - $init_path"
+    done
     exit 1
 fi
 
