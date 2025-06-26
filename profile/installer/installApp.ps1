@@ -19,7 +19,8 @@ param(
 	# [switch]$Confirm
 )
 
-. $PSScriptRoot/loadModule.ps1
+$parentFolder = Split-Path -Parent $PSScriptRoot
+. $parentFolder/loadModule.ps1
 
 
 
