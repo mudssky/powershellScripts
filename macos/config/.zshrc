@@ -17,5 +17,8 @@ if command_exists fnm; then
     eval "$(fnm env --use-on-cd --shell zsh)"
 fi
 
-
+# hammerspoon 相关配置
+# win.lua相关配置
+# 启用修饰键交换（默认行为）
+export HAMMERSPOON_MODIFIER_SWAP=true
 
