@@ -11,3 +11,5 @@ docker_data/
 # pester配置文件
 coverage.xml
 testResults.xml
+# 加载环境变量
+env.ps1
