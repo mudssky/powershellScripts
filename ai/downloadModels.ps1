@@ -31,6 +31,11 @@ $modelList = @(
         Size = 8
         VramRequired = 8
     },
+     @{
+        ModelId = "qwen3:14b"
+        Name    = 'qwen3:14b'
+        VramRequired = 14
+    },
     @{
         ModelId = "gemma3:4b"
         Name    = 'gemma3:4b'
@@ -84,8 +89,8 @@ function Test-ModelCanDownload {
     )
     
 
-    $modelMemoryGB = $Model.Size 
-    $modelVramGB = $Model.VramRequired
+    $modelMemoryGB =if ($Model.Size ){$Model.Size} else{ 8 }
+    $modelVramGB = if($Model.VramRequired){$Model.VramRequired} else{ 4 }
     
     if ($GpuInfo.HasGpu) {
         # 有GPU时检查显存
