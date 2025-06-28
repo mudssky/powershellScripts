@@ -14,6 +14,10 @@ if (Test-Path -Path "$PSScriptRoot\enableProxy") {
 }
 
 
+if(Test-Path -Path "$PSScriptRoot/env.ps1"){
+	. $PSScriptRoot/env.ps1
+}
+	
 
 
 
