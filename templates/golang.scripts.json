@@ -3,6 +3,9 @@
     "test": "go test",
     "goproxy": "go env -w GOPROXY=https://goproxy.cn,direct",
     "mod:on": "go env -w GO111MODULE=on",
-    "mod:clean": "go mod tidy"
+    "mod:clean": "go mod tidy",
+    "watch": "watchexec.exe --restart --clear  --exts go --no-project-ignore  go run ./main.go",
+    "watch:test": "watchexec.exe --restart --clear  --exts go --no-project-ignore  go test -v ./...",
+    "watch:doc": "watchexec.exe --restart --clear  --exts go --no-project-ignore  go doc -all"
   }
 }
