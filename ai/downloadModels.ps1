@@ -124,7 +124,7 @@ $memoryInfo = Get-SystemMemoryInfo
 # macOS系统特殊处理：使用系统内存作为显存计算基准
 if ($osType -eq "macOS") {
     Write-Host "检测到macOS系统，使用系统内存作为显存计算基准" -ForegroundColor Yellow
-    $gpuInfo.VramGB = $memoryInfo.TotalGB
+    $gpuInfo.VramGB = $memoryInfo.TotalGB - 2
     $gpuInfo.HasGpu = $true  # 将macOS视为有GPU（使用统一内存架构）
 }
 else {
@@ -164,10 +164,10 @@ foreach ($model in $modelList) {
     
     # 转换为hashtable格式以兼容现有函数
     $modelHashtable = @{
-        Name = $model.name
-        Size = $model.size
+        Name         = $model.name
+        Size         = $model.size
         VramRequired = $model.vramRequired
-        ModelId = $model.modelId
+        ModelId      = $model.modelId
     }
     
     if (Test-ModelCanDownload -Model $modelHashtable -GpuInfo $gpuInfo -MemoryInfo $memoryInfo) {
