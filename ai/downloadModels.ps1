@@ -8,59 +8,45 @@
     该脚本会检测系统的GPU显存和内存情况，根据可用资源智能选择合适的模型进行下载。
     - 有GPU时：检查显存是否足够运行模型
     - 无GPU时：限制下载小于8GB的模型，使用系统内存运行
+    - macOS系统：使用系统内存作为显存计算基准
+    - 支持从JSON配置文件读取模型列表
+    - 支持skip参数跳过指定模型
 
 .EXAMPLE
     .\downloadModels.ps1
     运行脚本自动检测系统资源并下载合适的模型
 #>
 
-# 导入硬件检测模块
+# 导入硬件检测模块和操作系统检测模块
 Import-Module "$PSScriptRoot\..\psutils\index.psm1" -Force
 
-# 模型列表，包含内存和显存需求信息（单位：GB）
-$modelList = @(
-    @{
-        ModelId      = "bge-m3"
-        Name         = 'bge-m3'
-        Size         = 2
-        VramRequired = 2
-    },
-    @{
-        ModelId      = "qwen3:8b"
-        Name         = 'qwen3:8b'
-        Size         = 8
-        VramRequired = 8
-    },
-    @{
-        ModelId      = "qwen3:14b"
-        Name         = 'qwen3:14b'
-        VramRequired = 14
-    },
-    @{
-        ModelId      = "gemma3:4b"
-        Name         = 'gemma3:4b'
-        Size         = 4
-        VramRequired = 4
-    },
-    @{
-        ModelId      = "gemma3n:e4b"
-        Name         = 'gemma3n:e4b'
-        Size         = 4
-        VramRequired = 4
-    },
-    # @{
-    #     ModelId = "deepseek-r1"
-    #     Name    = 'deepseek-r1'
-    #     Size = 7
-    #     VramRequired = 7
-    # },
-    @{
-        ModelId      = "qwen3:30b-a3b"
-        Name         = 'qwen3:30b-a3b'
-        Size         = 19
-        VramRequired = 16
+<#
+.SYNOPSIS
+    从JSON配置文件加载模型列表
+
+.DESCRIPTION
+    读取models.json文件并返回模型配置数组
+
+.OUTPUTS
+    返回模型配置数组
+#>
+function Get-ModelListFromConfig {
+    $configPath = Join-Path $PSScriptRoot "models.json"
+    
+    if (-not (Test-Path $configPath)) {
+        Write-Error "配置文件不存在: $configPath"
+        return @()
     }
-)
+    
+    try {
+        $config = Get-Content $configPath -Raw | ConvertFrom-Json
+        return $config.models
+    }
+    catch {
+        Write-Error "读取配置文件失败: $($_.Exception.Message)"
+        return @()
+    }
+}
 
 <#
 .SYNOPSIS
@@ -127,11 +113,31 @@ function Test-ModelCanDownload {
 Write-Host "=== AI模型下载脚本 ===" -ForegroundColor Cyan
 Write-Host "正在检测系统资源..." -ForegroundColor Yellow
 
+# 检测操作系统
+$osType = Get-OperatingSystem
+Write-Host "操作系统: $osType" -ForegroundColor White
+
 # 获取系统信息
 $gpuInfo = Get-GpuInfo
-# 最小显存按照8gb
-$gpuInfo.VramGB = [math]::max($gpuInfo.VramGB, 8)
 $memoryInfo = Get-SystemMemoryInfo
+
+# macOS系统特殊处理：使用系统内存作为显存计算基准
+if ($osType -eq "macOS") {
+    Write-Host "检测到macOS系统，使用系统内存作为显存计算基准" -ForegroundColor Yellow
+    $gpuInfo.VramGB = $memoryInfo.TotalGB
+    $gpuInfo.HasGpu = $true  # 将macOS视为有GPU（使用统一内存架构）
+}
+else {
+    # 其他系统最小显存按照8GB
+    $gpuInfo.VramGB = [math]::max($gpuInfo.VramGB, 8)
+}
+
+# 从配置文件加载模型列表
+$modelList = Get-ModelListFromConfig
+if ($modelList.Count -eq 0) {
+    Write-Error "无法加载模型配置，脚本退出"
+    exit 1
+}
 
 # 显示系统信息
 Write-Host "`n系统资源信息:" -ForegroundColor Cyan
@@ -147,28 +153,43 @@ $downloadedCount = 0
 $skippedCount = 0
 
 foreach ($model in $modelList) {
-    Write-Host "`n检查模型: $($model.Name)" -ForegroundColor Yellow
+    Write-Host "`n检查模型: $($model.name)" -ForegroundColor Yellow
     
-    if (Test-ModelCanDownload -Model $model -GpuInfo $gpuInfo -MemoryInfo $memoryInfo) {
-        Write-Host "正在下载模型: $($model.Name)..." -ForegroundColor Cyan
+    # 检查是否设置了skip参数
+    if ($model.skip -eq $true) {
+        Write-Host "⏭ 模型 $($model.name) 已设置为跳过" -ForegroundColor Gray
+        $skippedCount++
+        continue
+    }
+    
+    # 转换为hashtable格式以兼容现有函数
+    $modelHashtable = @{
+        Name = $model.name
+        Size = $model.size
+        VramRequired = $model.vramRequired
+        ModelId = $model.modelId
+    }
+    
+    if (Test-ModelCanDownload -Model $modelHashtable -GpuInfo $gpuInfo -MemoryInfo $memoryInfo) {
+        Write-Host "正在下载模型: $($model.name)..." -ForegroundColor Cyan
         try {
-            ollama pull $model.ModelId
+            ollama pull $model.modelId
             if ($LASTEXITCODE -eq 0) {
-                Write-Host "✓ 模型 $($model.Name) 下载成功" -ForegroundColor Green
+                Write-Host "✓ 模型 $($model.name) 下载成功" -ForegroundColor Green
                 $downloadedCount++
             }
             else {
-                Write-Host "✗ 模型 $($model.Name) 下载失败" -ForegroundColor Red
+                Write-Host "✗ 模型 $($model.name) 下载失败" -ForegroundColor Red
                 $skippedCount++
             }
         }
         catch {
-            Write-Host "✗ 模型 $($model.Name) 下载出错: $($_.Exception.Message)" -ForegroundColor Red
+            Write-Host "✗ 模型 $($model.name) 下载出错: $($_.Exception.Message)" -ForegroundColor Red
             $skippedCount++
         }
     }
     else {
-        Write-Host "跳过模型: $($model.Name)" -ForegroundColor Yellow
+        Write-Host "跳过模型: $($model.name)" -ForegroundColor Yellow
         $skippedCount++
     }
 }
