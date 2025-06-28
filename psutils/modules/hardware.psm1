@@ -159,22 +159,147 @@ function Get-GpuInfo {
     获取系统内存信息
 
 .DESCRIPTION
-    获取系统总内存和可用内存大小
+    获取系统总内存和可用内存大小，支持 Windows、macOS 和 Linux 系统
 
 .OUTPUTS
     返回包含内存信息的哈希表
 #>
 function Get-SystemMemoryInfo {
     try {
-        $totalMemory = Get-WmiObject -Class Win32_ComputerSystem | Select-Object -ExpandProperty TotalPhysicalMemory
-        $availableMemory = Get-WmiObject -Class Win32_OperatingSystem | Select-Object -ExpandProperty FreePhysicalMemory
+        # 检测操作系统类型
+        $osType = Get-OperatingSystem
         
-        $totalMemoryGB = [math]::Round($totalMemory / 1GB, 1)
-        $availableMemoryGB = [math]::Round(($availableMemory * 1KB) / 1GB, 1)
-        
-        return @{
-            TotalGB = $totalMemoryGB
-            AvailableGB = $availableMemoryGB
+        switch ($osType) {
+            "Windows" {
+                # Windows 系统使用 WMI
+                $totalMemory = Get-WmiObject -Class Win32_ComputerSystem | Select-Object -ExpandProperty TotalPhysicalMemory
+                $availableMemory = Get-WmiObject -Class Win32_OperatingSystem | Select-Object -ExpandProperty FreePhysicalMemory
+                
+                $totalMemoryGB = [math]::Round($totalMemory / 1GB, 1)
+                $availableMemoryGB = [math]::Round(($availableMemory * 1KB) / 1GB, 1)
+                
+                return @{
+                    TotalGB = $totalMemoryGB
+                    AvailableGB = $availableMemoryGB
+                }
+            }
+            "macOS" {
+                # macOS 系统使用 sysctl 和 vm_stat
+                try {
+                    # 获取总内存（字节）
+                    $totalMemoryBytes = sysctl -n hw.memsize
+                    $totalMemoryGB = [math]::Round([long]$totalMemoryBytes / 1GB, 1)
+                    
+                    # 获取可用内存（使用 vm_stat）
+                    $vmStat = vm_stat | Where-Object { $_ -match "Pages free:|Pages inactive:|Pages speculative:" }
+                    $freePages = 0
+                    $inactivePages = 0
+                    $speculativePages = 0
+                    
+                    foreach ($line in $vmStat) {
+                        if ($line -match "Pages free:\s+(\d+)") {
+                            $freePages = [long]$matches[1]
+                        }
+                        elseif ($line -match "Pages inactive:\s+(\d+)") {
+                            $inactivePages = [long]$matches[1]
+                        }
+                        elseif ($line -match "Pages speculative:\s+(\d+)") {
+                            $speculativePages = [long]$matches[1]
+                        }
+                    }
+                    
+                    # 页面大小（通常是 4KB）
+                    $pageSize = sysctl -n hw.pagesize
+                    $availablePages = $freePages + $inactivePages + $speculativePages
+                    $availableMemoryBytes = $availablePages * [long]$pageSize
+                    $availableMemoryGB = [math]::Round($availableMemoryBytes / 1GB, 1)
+                    
+                    return @{
+                        TotalGB = $totalMemoryGB
+                        AvailableGB = $availableMemoryGB
+                    }
+                }
+                catch {
+                    Write-Warning "macOS 内存信息获取失败，尝试备用方法: $($_.Exception.Message)"
+                    # 备用方法：只获取总内存
+                    $totalMemoryBytes = sysctl -n hw.memsize
+                    $totalMemoryGB = [math]::Round([long]$totalMemoryBytes / 1GB, 1)
+                    return @{
+                        TotalGB = $totalMemoryGB
+                        AvailableGB = [math]::Round($totalMemoryGB * 0.7, 1)  # 估算可用内存为总内存的70%
+                    }
+                }
+            }
+            "Linux" {
+                # Linux 系统使用 /proc/meminfo
+                try {
+                    $memInfo = Get-Content "/proc/meminfo"
+                    $totalMemoryKB = 0
+                    $availableMemoryKB = 0
+                    $freeMemoryKB = 0
+                    $buffersKB = 0
+                    $cachedKB = 0
+                    
+                    foreach ($line in $memInfo) {
+                        if ($line -match "^MemTotal:\s+(\d+)\s+kB") {
+                            $totalMemoryKB = [long]$matches[1]
+                        }
+                        elseif ($line -match "^MemAvailable:\s+(\d+)\s+kB") {
+                            $availableMemoryKB = [long]$matches[1]
+                        }
+                        elseif ($line -match "^MemFree:\s+(\d+)\s+kB") {
+                            $freeMemoryKB = [long]$matches[1]
+                        }
+                        elseif ($line -match "^Buffers:\s+(\d+)\s+kB") {
+                            $buffersKB = [long]$matches[1]
+                        }
+                        elseif ($line -match "^Cached:\s+(\d+)\s+kB") {
+                            $cachedKB = [long]$matches[1]
+                        }
+                    }
+                    
+                    $totalMemoryGB = [math]::Round($totalMemoryKB / 1MB, 1)
+                    
+                    # 优先使用 MemAvailable，如果不存在则计算 Free + Buffers + Cached
+                    if ($availableMemoryKB -gt 0) {
+                        $availableMemoryGB = [math]::Round($availableMemoryKB / 1MB, 1)
+                    }
+                    else {
+                        $availableMemoryGB = [math]::Round(($freeMemoryKB + $buffersKB + $cachedKB) / 1MB, 1)
+                    }
+                    
+                    return @{
+                        TotalGB = $totalMemoryGB
+                        AvailableGB = $availableMemoryGB
+                    }
+                }
+                catch {
+                    Write-Warning "Linux 内存信息获取失败，尝试备用方法: $($_.Exception.Message)"
+                    # 备用方法：使用 free 命令
+                    try {
+                        $freeOutput = free -m | Select-String "^Mem:"
+                        if ($freeOutput -match "Mem:\s+(\d+)\s+(\d+)\s+(\d+)") {
+                            $totalMemoryMB = [long]$matches[1]
+                            $availableMemoryMB = [long]$matches[3]
+                            
+                            return @{
+                                TotalGB = [math]::Round($totalMemoryMB / 1KB, 1)
+                                AvailableGB = [math]::Round($availableMemoryMB / 1KB, 1)
+                            }
+                        }
+                    }
+                    catch {
+                        Write-Warning "Linux 备用方法也失败: $($_.Exception.Message)"
+                    }
+                }
+            }
+            default {
+                Write-Warning "不支持的操作系统: $osType"
+                return @{
+                    TotalGB = 0
+                    AvailableGB = 0
+                }
+            }
         }
     }
     catch {
