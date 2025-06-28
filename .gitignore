@@ -13,3 +13,6 @@ coverage.xml
 testResults.xml
 # 加载环境变量
 env.ps1
+
+# lingma规则文件
+.lingma/rules/project_rules.md
