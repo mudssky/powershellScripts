@@ -20,32 +20,32 @@ Import-Module "$PSScriptRoot\..\psutils\index.psm1" -Force
 # 模型列表，包含内存和显存需求信息（单位：GB）
 $modelList = @(
     @{
-        ModelId = "bge-m3"
-        Name    = 'bge-m3'
-        Size = 2
+        ModelId      = "bge-m3"
+        Name         = 'bge-m3'
+        Size         = 2
         VramRequired = 2
     },
     @{
-        ModelId = "qwen3:8b"
-        Name    = 'qwen3:8b'
-        Size = 8
+        ModelId      = "qwen3:8b"
+        Name         = 'qwen3:8b'
+        Size         = 8
         VramRequired = 8
     },
-     @{
-        ModelId = "qwen3:14b"
-        Name    = 'qwen3:14b'
+    @{
+        ModelId      = "qwen3:14b"
+        Name         = 'qwen3:14b'
         VramRequired = 14
     },
     @{
-        ModelId = "gemma3:4b"
-        Name    = 'gemma3:4b'
-        Size = 4
+        ModelId      = "gemma3:4b"
+        Name         = 'gemma3:4b'
+        Size         = 4
         VramRequired = 4
     },
     @{
-        ModelId = "gemma3n:e4b"
-        Name    = 'gemma3n:e4b'
-        Size = 4
+        ModelId      = "gemma3n:e4b"
+        Name         = 'gemma3n:e4b'
+        Size         = 4
         VramRequired = 4
     },
     # @{
@@ -55,9 +55,9 @@ $modelList = @(
     #     VramRequired = 7
     # },
     @{
-        ModelId = "qwen3:30b-a3b"
-        Name    = 'qwen3:30b-a3b'
-        Size = 19
+        ModelId      = "qwen3:30b-a3b"
+        Name         = 'qwen3:30b-a3b'
+        Size         = 19
         VramRequired = 16
     }
 )
@@ -89,8 +89,8 @@ function Test-ModelCanDownload {
     )
     
 
-    $modelMemoryGB =if ($Model.Size ){$Model.Size} else{ 8 }
-    $modelVramGB = if($Model.VramRequired){$Model.VramRequired} else{ 4 }
+    $modelMemoryGB = if ($Model.Size ) { $Model.Size } else { 8 }
+    $modelVramGB = if ($Model.VramRequired) { $Model.VramRequired } else { 4 }
     
     if ($GpuInfo.HasGpu) {
         # 有GPU时检查显存
@@ -129,6 +129,8 @@ Write-Host "正在检测系统资源..." -ForegroundColor Yellow
 
 # 获取系统信息
 $gpuInfo = Get-GpuInfo
+# 最小显存按照8gb
+$gpuInfo.VramGB = [math]::max($gpuInfo.VramGB, 8)
 $memoryInfo = Get-SystemMemoryInfo
 
 # 显示系统信息
