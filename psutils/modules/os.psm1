@@ -53,4 +53,57 @@ function Get-OperatingSystem {
     }
 }
 
+function Test-Administrator {
+    <#
+    .SYNOPSIS
+        检测当前PowerShell会话是否以管理员权限运行
+    .DESCRIPTION
+        该函数检查当前用户是否具有管理员权限。在Windows系统上检查是否为管理员角色，
+        在Linux/macOS系统上检查是否为root用户。
+    .EXAMPLE
+        Test-Administrator
+        返回$true表示具有管理员权限，$false表示普通用户权限
+    .EXAMPLE
+        if (Test-Administrator) {
+            Write-Host "当前以管理员权限运行"
+        } else {
+            Write-Host "当前以普通用户权限运行"
+        }
+    .OUTPUTS
+        System.Boolean
+        返回布尔值，$true表示管理员权限，$false表示普通用户权限
+    .NOTES
+        在Windows系统上使用WindowsIdentity和WindowsPrincipal检查管理员角色
+        在Linux/macOS系统上检查用户ID是否为0（root用户）
+    #>
+    [CmdletBinding()]
+    param()
+    
+    try {
+        $os = Get-OperatingSystem
+        
+        switch ($os) {
+            "Windows" {
+                # Windows系统：检查是否为管理员角色
+                $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
+                $principal = New-Object Security.Principal.WindowsPrincipal($currentUser)
+                return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+            }
+            { $_ -in @("Linux", "macOS") } {
+                # Linux/macOS系统：检查是否为root用户（UID = 0）
+                $userId = (id -u 2>$null)
+                return ($userId -eq "0")
+            }
+            default {
+                Write-Warning "无法在未知操作系统上检测管理员权限: $os"
+                return $false
+            }
+        }
+    }
+    catch {
+        Write-Warning "检测管理员权限时发生错误: $_"
+        return $false
+    }
+}
+
 Export-ModuleMember  -Function  *
