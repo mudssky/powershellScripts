@@ -1,0 +1,115 @@
+{
+  "version": "2.0.0",
+  "source": "project",
+  "metadata": {
+    "version": "2.0.0",
+    "description": "project 级资源注册表",
+    "createdAt": "2025-06-29T08:29:38.257Z",
+    "updatedAt": "2025-06-29T08:29:38.258Z",
+    "resourceCount": 7
+  },
+  "resources": [
+    {
+      "id": "script-developer",
+      "source": "project",
+      "protocol": "role",
+      "name": "Script Developer 角色",
+      "description": "专业角色，提供特定领域的专业能力",
+      "reference": "@project://.promptx/resource/domain/script-developer/script-developer.role.md",
+      "metadata": {
+        "createdAt": "2025-06-29T08:29:38.258Z",
+        "updatedAt": "2025-06-29T08:29:38.258Z",
+        "scannedAt": "2025-06-29T08:29:38.258Z"
+      }
+    },
+    {
+      "id": "script-best-practices",
+      "source": "project",
+      "protocol": "execution",
+      "name": "Script Best Practices 执行模式",
+      "description": "执行模式，定义具体的行为模式",
+      "reference": "@project://.promptx/resource/domain/script-developer/execution/script-best-practices.execution.md",
+      "metadata": {
+        "createdAt": "2025-06-29T08:29:38.258Z",
+        "updatedAt": "2025-06-29T08:29:38.258Z",
+        "scannedAt": "2025-06-29T08:29:38.258Z"
+      }
+    },
+    {
+      "id": "bash-shell-scripting",
+      "source": "project",
+      "protocol": "knowledge",
+      "name": "Bash Shell Scripting 知识库",
+      "description": "知识库，提供专业知识和信息",
+      "reference": "@project://.promptx/resource/domain/script-developer/knowledge/bash-shell-scripting.knowledge.md",
+      "metadata": {
+        "createdAt": "2025-06-29T08:29:38.258Z",
+        "updatedAt": "2025-06-29T08:29:38.258Z",
+        "scannedAt": "2025-06-29T08:29:38.258Z"
+      }
+    },
+    {
+      "id": "linux-system-administration",
+      "source": "project",
+      "protocol": "knowledge",
+      "name": "Linux System Administration 知识库",
+      "description": "知识库，提供专业知识和信息",
+      "reference": "@project://.promptx/resource/domain/script-developer/knowledge/linux-system-administration.knowledge.md",
+      "metadata": {
+        "createdAt": "2025-06-29T08:29:38.258Z",
+        "updatedAt": "2025-06-29T08:29:38.258Z",
+        "scannedAt": "2025-06-29T08:29:38.258Z"
+      }
+    },
+    {
+      "id": "macos-system-administration",
+      "source": "project",
+      "protocol": "knowledge",
+      "name": "Macos System Administration 知识库",
+      "description": "知识库，提供专业知识和信息",
+      "reference": "@project://.promptx/resource/domain/script-developer/knowledge/macos-system-administration.knowledge.md",
+      "metadata": {
+        "createdAt": "2025-06-29T08:29:38.258Z",
+        "updatedAt": "2025-06-29T08:29:38.258Z",
+        "scannedAt": "2025-06-29T08:29:38.258Z"
+      }
+    },
+    {
+      "id": "powershell-core",
+      "source": "project",
+      "protocol": "knowledge",
+      "name": "Powershell Core 知识库",
+      "description": "知识库，提供专业知识和信息",
+      "reference": "@project://.promptx/resource/domain/script-developer/knowledge/powershell-core.knowledge.md",
+      "metadata": {
+        "createdAt": "2025-06-29T08:29:38.258Z",
+        "updatedAt": "2025-06-29T08:29:38.258Z",
+        "scannedAt": "2025-06-29T08:29:38.258Z"
+      }
+    },
+    {
+      "id": "windows-system-administration",
+      "source": "project",
+      "protocol": "knowledge",
+      "name": "Windows System Administration 知识库",
+      "description": "知识库，提供专业知识和信息",
+      "reference": "@project://.promptx/resource/domain/script-developer/knowledge/windows-system-administration.knowledge.md",
+      "metadata": {
+        "createdAt": "2025-06-29T08:29:38.258Z",
+        "updatedAt": "2025-06-29T08:29:38.258Z",
+        "scannedAt": "2025-06-29T08:29:38.258Z"
+      }
+    }
+  ],
+  "stats": {
+    "totalResources": 7,
+    "byProtocol": {
+      "role": 1,
+      "execution": 1,
+      "knowledge": 5
+    },
+    "bySource": {
+      "project": 7
+    }
+  }
+}
