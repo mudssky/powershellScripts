@@ -1,0 +1,1 @@
+请先阅读 .trae/rules/project_rules.md里的内容了解项目

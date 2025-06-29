@@ -4,8 +4,8 @@
   "metadata": {
     "version": "2.0.0",
     "description": "project 级资源注册表",
-    "createdAt": "2025-06-29T08:29:38.257Z",
-    "updatedAt": "2025-06-29T08:29:38.258Z",
+    "createdAt": "2025-06-29T15:51:00.303Z",
+    "updatedAt": "2025-06-29T15:51:00.331Z",
     "resourceCount": 7
   },
   "resources": [
@@ -17,9 +17,9 @@
       "description": "专业角色，提供特定领域的专业能力",
       "reference": "@project://.promptx/resource/domain/script-developer/script-developer.role.md",
       "metadata": {
-        "createdAt": "2025-06-29T08:29:38.258Z",
-        "updatedAt": "2025-06-29T08:29:38.258Z",
-        "scannedAt": "2025-06-29T08:29:38.258Z"
+        "createdAt": "2025-06-29T15:51:00.313Z",
+        "updatedAt": "2025-06-29T15:51:00.313Z",
+        "scannedAt": "2025-06-29T15:51:00.313Z"
       }
     },
     {
@@ -30,9 +30,9 @@
       "description": "执行模式，定义具体的行为模式",
       "reference": "@project://.promptx/resource/domain/script-developer/execution/script-best-practices.execution.md",
       "metadata": {
-        "createdAt": "2025-06-29T08:29:38.258Z",
-        "updatedAt": "2025-06-29T08:29:38.258Z",
-        "scannedAt": "2025-06-29T08:29:38.258Z"
+        "createdAt": "2025-06-29T15:51:00.322Z",
+        "updatedAt": "2025-06-29T15:51:00.322Z",
+        "scannedAt": "2025-06-29T15:51:00.322Z"
       }
     },
     {
@@ -43,9 +43,9 @@
       "description": "知识库，提供专业知识和信息",
       "reference": "@project://.promptx/resource/domain/script-developer/knowledge/bash-shell-scripting.knowledge.md",
       "metadata": {
-        "createdAt": "2025-06-29T08:29:38.258Z",
-        "updatedAt": "2025-06-29T08:29:38.258Z",
-        "scannedAt": "2025-06-29T08:29:38.258Z"
+        "createdAt": "2025-06-29T15:51:00.329Z",
+        "updatedAt": "2025-06-29T15:51:00.329Z",
+        "scannedAt": "2025-06-29T15:51:00.329Z"
       }
     },
     {
@@ -56,9 +56,9 @@
       "description": "知识库，提供专业知识和信息",
       "reference": "@project://.promptx/resource/domain/script-developer/knowledge/linux-system-administration.knowledge.md",
       "metadata": {
-        "createdAt": "2025-06-29T08:29:38.258Z",
-        "updatedAt": "2025-06-29T08:29:38.258Z",
-        "scannedAt": "2025-06-29T08:29:38.258Z"
+        "createdAt": "2025-06-29T15:51:00.329Z",
+        "updatedAt": "2025-06-29T15:51:00.329Z",
+        "scannedAt": "2025-06-29T15:51:00.329Z"
       }
     },
     {
@@ -69,9 +69,9 @@
       "description": "知识库，提供专业知识和信息",
       "reference": "@project://.promptx/resource/domain/script-developer/knowledge/macos-system-administration.knowledge.md",
       "metadata": {
-        "createdAt": "2025-06-29T08:29:38.258Z",
-        "updatedAt": "2025-06-29T08:29:38.258Z",
-        "scannedAt": "2025-06-29T08:29:38.258Z"
+        "createdAt": "2025-06-29T15:51:00.329Z",
+        "updatedAt": "2025-06-29T15:51:00.329Z",
+        "scannedAt": "2025-06-29T15:51:00.329Z"
       }
     },
     {
@@ -82,9 +82,9 @@
       "description": "知识库，提供专业知识和信息",
       "reference": "@project://.promptx/resource/domain/script-developer/knowledge/powershell-core.knowledge.md",
       "metadata": {
-        "createdAt": "2025-06-29T08:29:38.258Z",
-        "updatedAt": "2025-06-29T08:29:38.258Z",
-        "scannedAt": "2025-06-29T08:29:38.258Z"
+        "createdAt": "2025-06-29T15:51:00.329Z",
+        "updatedAt": "2025-06-29T15:51:00.329Z",
+        "scannedAt": "2025-06-29T15:51:00.329Z"
       }
     },
     {
@@ -95,9 +95,9 @@
       "description": "知识库，提供专业知识和信息",
       "reference": "@project://.promptx/resource/domain/script-developer/knowledge/windows-system-administration.knowledge.md",
       "metadata": {
-        "createdAt": "2025-06-29T08:29:38.258Z",
-        "updatedAt": "2025-06-29T08:29:38.258Z",
-        "scannedAt": "2025-06-29T08:29:38.258Z"
+        "createdAt": "2025-06-29T15:51:00.329Z",
+        "updatedAt": "2025-06-29T15:51:00.329Z",
+        "scannedAt": "2025-06-29T15:51:00.329Z"
       }
     }
   ],

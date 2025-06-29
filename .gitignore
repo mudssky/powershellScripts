@@ -16,3 +16,5 @@ env.ps1
 
 # lingma规则文件
 .lingma/rules/project_rules.md
+
+.env
