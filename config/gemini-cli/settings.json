@@ -21,6 +21,12 @@
       "command": "npx",
       "args": ["mcp-remote", "https://gitmcp.io/{owner}/{repo}"]
     },
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@latest"
+      ]
+    },
     "git": {
       "command": "uvx",
       "args": ["mcp-server-git"]
