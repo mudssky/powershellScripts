@@ -112,29 +112,86 @@ function Install-Dotenv {
 function Import-EnvPath {
 	<#
 	.SYNOPSIS
-		重新加载环境变量中的path
-		Process 进程级，当前会话生效
-		User 用户级，当前用户生效
-		Process 系统级，所有用户生效
+		重新加载环境变量中的PATH
 	.DESCRIPTION
-		重新加载环境变量中的path，这样你在对应目录中新增一个exe就可以不用重启终端就能直接在终端运行了。
-	.NOTES
-		Information or caveats about the function e.g. 'This function is not supported in Linux'
-	.LINK
-		Specify a URI to a help page, this will show when Get-Help -Online is used.
+		重新加载环境变量中的PATH，支持三种模式：
+		- Machine: 仅加载系统级PATH
+		- User: 仅加载用户级PATH  
+		- All: 合并系统级和用户级PATH（默认）
+		这样你在对应目录中新增一个exe就可以不用重启终端就能直接在终端运行了。
+	.PARAMETER EnvTarget
+		指定要重新加载的PATH类型：
+		- Machine: 仅系统级PATH
+		- User: 仅用户级PATH
+		- All: 合并系统级和用户级PATH
 	.EXAMPLE
-		Test-MyTestFunction -Verbose
-		Explanation of the function or its result. You can include multiple examples with additional .EXAMPLE lines
-
+		Import-EnvPath
+		重新加载合并的系统级和用户级PATH（默认行为）
+	.EXAMPLE
+		Import-EnvPath -EnvTarget User
+		仅重新加载用户级PATH
+	.EXAMPLE
+		Import-EnvPath -EnvTarget Machine
+		仅重新加载系统级PATH
+	.NOTES
+		合并模式下，系统级PATH优先于用户级PATH
 	#>
 
 	[CmdletBinding()]
 	param (
-		[ValidateSet('Machine', 'User', 'Process')]
-		[string]$EnvTarget = 'User'
+		[ValidateSet('Machine', 'User', 'All', "Process")]
+		[string]$EnvTarget = 'All'
 	)	
 
-	$env:Path = [System.Environment]::GetEnvironmentVariable("Path", $EnvTarget)
+	switch ($EnvTarget) {
+		'Machine' {
+			$env:Path = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
+			Write-Verbose "已重新加载系统级PATH"
+		}
+		'User' {
+			$env:Path = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::User)
+			Write-Verbose "已重新加载用户级PATH"
+		}
+		'Process' {
+			$env:Path = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Process)
+			Write-Verbose "已重新加载进程级PATH"
+		}
+		'All' {
+			# 获取系统级和用户级PATH
+			$machinePath = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
+			$userPath = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::User)
+			
+			# 合并PATH，系统级在前，用户级在后，并去除重复项
+			$allPaths = @()
+			
+			# 添加系统级PATH
+			if ($machinePath) {
+				$allPaths += $machinePath -split ';' | Where-Object { $_.Trim() -ne '' }
+			}
+			
+			# 添加用户级PATH
+			if ($userPath) {
+				$allPaths += $userPath -split ';' | Where-Object { $_.Trim() -ne '' }
+			}
+			
+			# 去除重复项，保持顺序（系统级优先）
+			$uniquePaths = @()
+			$seenPaths = @{}
+			
+			foreach ($path in $allPaths) {
+				$normalizedPath = $path.Trim().TrimEnd('\').ToLower()
+				if (-not $seenPaths.ContainsKey($normalizedPath) -and $normalizedPath -ne '') {
+					$uniquePaths += $path.Trim()
+					$seenPaths[$normalizedPath] = $true
+				}
+			}
+			
+			$env:Path = $uniquePaths -join ';'
+			Write-Verbose "已重新加载合并的系统级和用户级PATH，共 $($uniquePaths.Count) 个唯一路径"
+		}
+	}
+	
+	Write-Host "PATH已重新加载" -ForegroundColor Green
 }
 
 
