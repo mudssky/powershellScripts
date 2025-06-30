@@ -143,17 +143,31 @@ function Import-EnvPath {
 		[string]$EnvTarget = 'All'
 	)	
 
+	Write-Debug "开始重新加载PATH，模式: $EnvTarget"
+	Write-Debug "当前PATH长度: $($env:Path.Length) 字符"
+	
 	switch ($EnvTarget) {
 		'Machine' {
-			$env:Path = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
+			$newPath = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
+			Write-Debug "系统级PATH长度: $($newPath.Length) 字符"
+			Write-Debug "系统级PATH内容: $newPath"
+			$env:Path = $newPath
 			Write-Verbose "已重新加载系统级PATH"
 		}
 		'User' {
-			$env:Path = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::User)
+			$newPath = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::User)
+			Write-Debug "用户级PATH长度: $($newPath.Length) 字符"
+			Write-Debug "用户级PATH内容: $newPath"
+			$env:Path = $newPath
 			Write-Verbose "已重新加载用户级PATH"
 		}
 		'Process' {
-			$env:Path = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Process)
+			# [System.EnvironmentVariableTarget]::Process 获取的是当前这个 PowerShell 进程已经拥有的 Path 变量。所以，$newPath 的值和执行这行代码之前的 $env:Path 的值是完全一样的。
+			# 这是一个无用操作
+			$newPath = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Process)
+			Write-Debug "进程级PATH长度: $($newPath.Length) 字符"
+			Write-Debug "进程级PATH内容: $newPath"
+			$env:Path = $newPath
 			Write-Verbose "已重新加载进程级PATH"
 		}
 		'All' {
@@ -161,36 +175,59 @@ function Import-EnvPath {
 			$machinePath = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
 			$userPath = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::User)
 			
+			Write-Debug "系统级PATH长度: $($machinePath.Length) 字符`n"
+			Write-Debug "用户级PATH长度: $($userPath.Length) 字符"
+			Write-Debug "系统级PATH: $machinePath"
+			Write-Debug "用户级PATH: $userPath"
+			
 			# 合并PATH，系统级在前，用户级在后，并去除重复项
 			$allPaths = @()
 			
 			# 添加系统级PATH
 			if ($machinePath) {
-				$allPaths += $machinePath -split ';' | Where-Object { $_.Trim() -ne '' }
+				$machinePaths = $machinePath -split ';' | Where-Object { $_.Trim() -ne '' }
+				Write-Debug "系统级PATH分割后数量: $($machinePaths.Count)"
+				$allPaths += $machinePaths
 			}
-			
+			pn
 			# 添加用户级PATH
 			if ($userPath) {
-				$allPaths += $userPath -split ';' | Where-Object { $_.Trim() -ne '' }
+				$userPaths = $userPath -split ';' | Where-Object { $_.Trim() -ne '' }
+				Write-Debug "用户级PATH分割后数量: $($userPaths.Count)"
+				$allPaths += $userPaths
 			}
+			
+			Write-Debug "合并前总PATH数量: $($allPaths.Count)"
 			
 			# 去除重复项，保持顺序（系统级优先）
 			$uniquePaths = @()
 			$seenPaths = @{}
+			$duplicateCount = 0
 			
 			foreach ($path in $allPaths) {
 				$normalizedPath = $path.Trim().TrimEnd('\').ToLower()
 				if (-not $seenPaths.ContainsKey($normalizedPath) -and $normalizedPath -ne '') {
 					$uniquePaths += $path.Trim()
 					$seenPaths[$normalizedPath] = $true
+					Write-Debug "添加唯一路径: $($path.Trim())"
+				}
+				else {
+					$duplicateCount++
+					Write-Debug "跳过重复路径: $($path.Trim())"
 				}
 			}
 			
-			$env:Path = $uniquePaths -join ';'
-			Write-Verbose "已重新加载合并的系统级和用户级PATH，共 $($uniquePaths.Count) 个唯一路径"
+			Write-Debug "去重后唯一PATH数量: $($uniquePaths.Count)"
+			Write-Debug "跳过的重复PATH数量: $duplicateCount"
+			
+			$finalPath = $uniquePaths -join ';'
+			Write-Debug "最终PATH长度: $($finalPath.Length) 字符"
+			$env:Path = $finalPath
+			Write-Verbose "已重新加载合并的系统级和用户级PATH，共 $($uniquePaths.Count) 个唯一路径，去除了 $duplicateCount 个重复项"
 		}
 	}
 	
+	Write-Debug "PATH重新加载完成，最终长度: $($env:Path.Length) 字符"
 	Write-Host "PATH已重新加载" -ForegroundColor Green
 }
 
