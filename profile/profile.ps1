@@ -48,7 +48,7 @@ function Init-Environment {
 		Write-Verbose "启用代理设置: $ProxyUrl"
 		$Env:http_proxy = $ProxyUrl
 		$Env:https_proxy = $ProxyUrl
-		Write-Host "已设置代理: $ProxyUrl" -ForegroundColor Green
+		Write-Debug "已设置代理: $ProxyUrl" 
 	}
  else {
 		Write-Verbose "跳过代理设置"
@@ -138,11 +138,12 @@ function Init-Environment {
 		Add-CondaEnv
 	}
 	
-	Write-Host "PowerShell环境初始化完成" -ForegroundColor Green
+	# Write-Host "PowerShell环境初始化完成" -ForegroundColor Green
+	Write-Debug "PowerShell环境初始化完成" 
 }
 
 # 调用环境初始化函数
-Init-Environment
+Init-Environment 
 
 # 配置git,解决中文文件名不能正常显示的问题
 # git config --global core.quotepath false
