@@ -103,10 +103,12 @@ function Init-Environment {
 			Write-Verbose "初始化zoxide目录跳转工具"
 			Invoke-Expression (& { (zoxide init powershell | Out-String) }) 
 		}
-		fnm      = { 
-			Write-Verbose "初始化fnm Node.js版本管理器"
-			fnm env --use-on-cd | Out-String | Invoke-Expression 
-		}
+		# 在windows上使用比nvm麻烦很多，，所以不用了
+		# 这个环境变量还需要在husky的git bash，npm使用的cmd里配置
+		# fnm      = { 
+		# 	Write-Verbose "初始化fnm Node.js版本管理器"
+		# 	fnm env --use-on-cd | Out-String | Invoke-Expression 
+		# }
 	}
 	
 	foreach ($tool in $tools.GetEnumerator()) {
