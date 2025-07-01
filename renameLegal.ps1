@@ -1,3 +1,30 @@
+<#
+.SYNOPSIS
+    文件名合法化重命名脚本
+
+.DESCRIPTION
+    该脚本用于将文件名中的非法字符替换为合法字符，使文件名符合Windows文件系统要求。
+    支持正向转换（非法字符转为合法字符）和反向转换（恢复原始字符）。
+    主要处理Windows文件名中不允许的特殊字符。
+
+.PARAMETER reverse
+    开关参数，如果指定则执行反向转换，将之前替换的合法字符恢复为原始字符
+
+.EXAMPLE
+    .\renameLegal.ps1
+    将当前目录下文件名中的非法字符替换为合法字符
+
+.EXAMPLE
+    .\renameLegal.ps1 -reverse
+    将之前替换的合法字符恢复为原始字符
+
+.NOTES
+    支持WhatIf参数预览操作结果
+    处理Windows文件名非法字符如：< > : " | ? * 等
+    使用字符映射表进行双向转换
+    确保文件名符合Windows文件系统规范
+#>
+
 [CmdletBinding(SupportsShouldProcess)]
 param(
     [switch]$reverse

@@ -1,3 +1,23 @@
+<#
+.SYNOPSIS
+    PowerShell脚本环境安装脚本
+
+.DESCRIPTION
+    该脚本用于安装和配置PowerShell脚本运行环境。包括检查管理员权限、
+    安装测试框架和其他必要的依赖组件。脚本会自动检测权限并提示用户
+    是否继续执行需要管理员权限的操作。
+
+.EXAMPLE
+    .\install.ps1
+    运行安装脚本，配置PowerShell环境
+
+.NOTES
+    需要psutils模块支持
+    某些操作可能需要管理员权限
+    会检查并提示权限要求
+    自动安装测试框架和相关组件
+#>
+
 # 导入psutils模块以使用管理员权限检测功能
 Import-Module "$PSScriptRoot\psutils" -Force
 

@@ -1,4 +1,45 @@
 
+<#
+.SYNOPSIS
+    无损音频文件转换为AAC格式的脚本
+
+.DESCRIPTION
+    该脚本使用qaac编码器将无损音频文件（如FLAC、WAV等）批量转换为AAC格式。
+    支持并行处理以提高转换效率，并可选择保留或删除原始文件。
+    支持标准AAC和HE-AAC两种编码模式。
+
+.PARAMETER qaacParam
+    qaac编码器的参数，默认为'--verbose --rate keep -v320 -q2 --copy-artwork'
+
+.PARAMETER targetPath
+    要处理的目标目录路径，默认为当前目录
+
+.PARAMETER ThrottleLimit
+    并行处理的最大线程数，默认为6
+
+.PARAMETER nodelete
+    开关参数，如果指定则保留原始无损音频文件
+
+.PARAMETER he
+    开关参数，如果指定则使用HE-AAC编码模式
+
+.EXAMPLE
+    .\losslessToQaac.ps1
+    使用默认设置转换当前目录下的无损音频文件
+
+.EXAMPLE
+    .\losslessToQaac.ps1 -targetPath "C:\Music" -nodelete
+    转换指定目录下的文件并保留原始文件
+
+.EXAMPLE
+    .\losslessToQaac.ps1 -he -ThrottleLimit 4
+    使用HE-AAC模式和4个并行线程进行转换
+
+.NOTES
+    需要安装qaac编码器
+    脚本会记录执行时间
+    支持多线程并行处理以提高效率
+#>
 [CmdletBinding()]
 param(
     [string]$qaacParam = '--verbose --rate keep -v320 -q2 --copy-artwork',

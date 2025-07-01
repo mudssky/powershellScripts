@@ -1,15 +1,34 @@
 <#
 .SYNOPSIS
-	同步配置文件，在两个目录之间
+    配置文件同步脚本
+
 .DESCRIPTION
-	A longer description of the function, its purpose, common use cases, etc.
-.NOTES
-	Information or caveats about the function e.g. 'This function is not supported in Linux'
-.LINK
-	Specify a URI to a help page, this will show when Get-Help -Online is used.
+    该脚本用于在两个目录之间同步配置文件。支持备份、恢复和列出配置文件等操作。
+    主要用于管理应用程序配置文件的备份和同步，确保配置文件的安全性和一致性。
+
+.PARAMETER Mode
+    操作模式，支持以下选项：
+    - backup: 备份配置文件
+    - restore: 恢复配置文件
+    - list: 列出配置文件
+    默认为'backup'
+
 .EXAMPLE
-	Test-MyTestFunction -Verbose
-	Explanation of the function or its result. You can include multiple examples with additional .EXAMPLE lines
+    .\syncConfig.ps1 -Mode backup
+    备份配置文件到指定目录
+
+.EXAMPLE
+    .\syncConfig.ps1 -Mode restore
+    从备份目录恢复配置文件
+
+.EXAMPLE
+    .\syncConfig.ps1 -Mode list
+    列出当前的配置文件
+
+.NOTES
+    支持多种应用程序的配置文件同步
+    确保在操作前备份重要配置
+    可用于配置文件的版本管理
 #>
 
 

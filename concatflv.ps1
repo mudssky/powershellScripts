@@ -1,6 +1,68 @@
 <#
+.SYNOPSIS
+使用通配符或正则表达式匹配视频文件并按时间顺序拼接
+
 .DESCRIPTION
-使用通配符或者正则来匹配文件名，对匹配的视频进行拼接，默认按照文件创建时间顺序来拼接，拼接过程按照给定的ffmpeg参数进行转码
+该脚本用于批量拼接视频文件，特别适用于处理录播软件因网络不稳定而分段的视频文件。
+支持通配符和正则表达式两种文件匹配方式，默认按照文件创建时间顺序进行拼接，
+拼接过程中可以使用预设的 FFmpeg 参数进行转码，支持多种输出格式和质量设置。
+
+.PARAMETER targetPath
+脚本执行的目标路径，默认为当前目录 ('.')
+
+.PARAMETER sortMethod
+文件的排序方法，默认为 'CreationTime'（按创建时间排序），确保拼接的视频时序正确
+
+.PARAMETER wildcard
+通配符匹配模式，用于初步筛选文件，支持标准的 PowerShell 通配符语法
+
+.PARAMETER regexStr
+正则表达式字符串，用于精确匹配文件名，在通配符匹配后进行二次过滤
+
+.PARAMETER regexPreset
+正则表达式预设，默认为 'flv'，可选值：'flv'、'mp4'，对应不同的文件扩展名匹配
+
+.PARAMETER ffmpegStr
+自定义的 FFmpeg 转码参数字符串，如果不指定则使用预设参数
+
+.PARAMETER ffmpegPreset
+FFmpeg 预设参数，可选值：'crf23'、'crf28'、'x265'、'hevc'、'720p'、'720paac'、'720p28'、'480p'、'm4a'，默认为 'crf23'
+
+.PARAMETER outputFilename
+输出文件名，如果不指定则自动根据第一个文件名生成，扩展名根据预设自动调整
+
+.PARAMETER WhatIf
+开关参数，如果指定则只显示将要执行的操作而不实际执行，用于预览和调试
+
+.PARAMETER deleteSource
+开关参数，如果指定则在拼接完成后自动删除源文件，否则会提示用户确认
+
+.EXAMPLE
+concatflv.ps1
+使用默认设置拼接当前目录下的所有 .flv 文件
+
+.EXAMPLE
+concatflv.ps1 -targetPath "C:\Videos" -regexPreset "mp4" -ffmpegPreset "720p"
+拼接 C:\Videos 目录下的 MP4 文件，输出为 720p 分辨率
+
+.EXAMPLE
+concatflv.ps1 -wildcard "录播*" -regexStr ".*\.flv$" -WhatIf
+预览匹配 "录播" 开头的 .flv 文件的拼接操作
+
+.EXAMPLE
+concatflv.ps1 -ffmpegPreset "m4a" -outputFilename "output.m4a" -deleteSource
+提取音频为 M4A 格式并自动删除源文件
+
+.EXAMPLE
+concatflv.ps1 -ffmpegStr "-vcodec libx264 -acodec aac -crf 20 -preset medium"
+使用自定义 FFmpeg 参数进行拼接
+
+.NOTES
+- 需要系统中安装 FFmpeg 工具
+- 脚本会生成临时的 filelist.txt 文件，完成后自动删除
+- 支持的预设包括不同的视频质量、分辨率和音频提取选项
+- 当只有一个文件时，脚本会直接进行转码而不是拼接
+- 建议在正式运行前使用 -WhatIf 参数预览操作
 #>
 
 

@@ -1,9 +1,40 @@
-﻿<#
-.synopsis
-下载网上的一些广播节目，生放送节目之类的，批量下载有时候视频的某几集被版权了，或者up主删掉了，导致缺少某几集，本脚本就是使用正则表达式匹配缺少的数字，并列出来，方便我们查找
-.example
-找寻数字1-500，也就是检查1-500集中缺少的集数 listExist把存在的也列出来，存在的用绿色，不存在用红色，对比鲜明
- findLostNum.ps1 -startNum 1 -endNum 500 -numPattern '第(\d+)回' -listExist
+<#
+.SYNOPSIS
+    查找缺失集数的脚本
+
+.DESCRIPTION
+    该脚本用于检查批量下载的视频、音频或其他文件中缺失的集数。
+    当下载网络节目、广播节目或连续剧时，某些集数可能因版权问题或被删除而缺失。
+    脚本使用正则表达式匹配文件名中的数字，找出指定范围内缺失的集数。
+
+.PARAMETER startNum
+    开始检查的数字，默认为0
+
+.PARAMETER endNum
+    结束检查的数字（必填参数）
+
+.PARAMETER numPattern
+    用于匹配文件名中数字的正则表达式模式，默认为'.*(\\d+).*'
+
+.PARAMETER listExist
+    开关参数，如果指定则同时列出存在的集数（绿色显示）和缺失的集数（红色显示）
+
+.EXAMPLE
+    .\findLostNum.ps1 -startNum 1 -endNum 500 -numPattern '第(\\d+)回' -listExist
+    检查第1回到第500回中缺少的集数，同时显示存在和缺失的集数
+
+.EXAMPLE
+    .\findLostNum.ps1 -endNum 100
+    检查0到100中缺失的数字，使用默认的数字匹配模式
+
+.EXAMPLE
+    .\findLostNum.ps1 -startNum 1 -endNum 50 -numPattern 'EP(\\d+)'
+    检查EP1到EP50格式的文件中缺失的集数
+
+.NOTES
+    支持自定义正则表达式模式匹配不同的文件命名格式
+    使用颜色区分存在（绿色）和缺失（红色）的集数
+    适用于检查连续编号的文件系列
 #>
 
 param(
