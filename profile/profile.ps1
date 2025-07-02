@@ -80,13 +80,14 @@ function Init-Environment {
 	$Global:PSDefaultParameterValues["Out-File:Encoding"] = "UTF8"
 	
 	# 导入PSReadLine模块
-	Write-Verbose "导入PSReadLine模块"
-	try {
-		Import-Module PSReadLine -ErrorAction Stop
-	}
- catch {
-		Write-Warning "无法导入PSReadLine模块: $($_.Exception.Message)"
-	}
+	# pwsh 7.x版本以上是自动启用了，所以也不用导入
+	# 	Write-Verbose "导入PSReadLine模块"
+	# 	try {
+	# 		Import-Module PSReadLine -ErrorAction Stop
+	# 	}
+	#  catch {
+	# 		Write-Warning "无法导入PSReadLine模块: $($_.Exception.Message)"
+	# 	}
 	
 	# 初始化开发工具
 	Write-Verbose "初始化开发工具"

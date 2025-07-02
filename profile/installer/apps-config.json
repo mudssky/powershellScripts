@@ -353,6 +353,12 @@
         "cliName": "hammerspoon",
         "description": "macOS 自动化工具",
         "command": "brew install --cask hammerspoon"
+      },
+      {
+        "name": "starship",
+        "cliName": "starship",
+        "description": "跨平台shell提示符",
+        "command": "brew install starship"
       }
     ]
   }
