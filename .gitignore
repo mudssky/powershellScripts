@@ -21,3 +21,5 @@ env.ps1
 
 # 脚本执行的备份目录
 backup
+
+macEnableProxy.ps1
