@@ -4,11 +4,102 @@
   "metadata": {
     "version": "2.0.0",
     "description": "project 级资源注册表",
-    "createdAt": "2025-06-30T03:37:45.694Z",
-    "updatedAt": "2025-06-30T03:37:45.697Z",
-    "resourceCount": 8
+    "createdAt": "2025-07-04T15:01:47.872Z",
+    "updatedAt": "2025-07-04T15:01:47.875Z",
+    "resourceCount": 19
   },
   "resources": [
+    {
+      "id": "golang-expert",
+      "source": "project",
+      "protocol": "role",
+      "name": "Golang Expert 角色",
+      "description": "专业角色，提供特定领域的专业能力",
+      "reference": "@project://.promptx/resource/domain/golang-expert/golang-expert.role.md",
+      "metadata": {
+        "createdAt": "2025-07-04T15:01:47.873Z",
+        "updatedAt": "2025-07-04T15:01:47.873Z",
+        "scannedAt": "2025-07-04T15:01:47.873Z"
+      }
+    },
+    {
+      "id": "golang-thinking",
+      "source": "project",
+      "protocol": "thought",
+      "name": "Golang Thinking 思维模式",
+      "description": "思维模式，指导AI的思考方式",
+      "reference": "@project://.promptx/resource/domain/golang-expert/thought/golang-thinking.thought.md",
+      "metadata": {
+        "createdAt": "2025-07-04T15:01:47.873Z",
+        "updatedAt": "2025-07-04T15:01:47.873Z",
+        "scannedAt": "2025-07-04T15:01:47.873Z"
+      }
+    },
+    {
+      "id": "performance-optimization",
+      "source": "project",
+      "protocol": "thought",
+      "name": "Performance Optimization 思维模式",
+      "description": "思维模式，指导AI的思考方式",
+      "reference": "@project://.promptx/resource/domain/golang-expert/thought/performance-optimization.thought.md",
+      "metadata": {
+        "createdAt": "2025-07-04T15:01:47.873Z",
+        "updatedAt": "2025-07-04T15:01:47.873Z",
+        "scannedAt": "2025-07-04T15:01:47.873Z"
+      }
+    },
+    {
+      "id": "golang-workflow",
+      "source": "project",
+      "protocol": "execution",
+      "name": "Golang Workflow 执行模式",
+      "description": "执行模式，定义具体的行为模式",
+      "reference": "@project://.promptx/resource/domain/golang-expert/execution/golang-workflow.execution.md",
+      "metadata": {
+        "createdAt": "2025-07-04T15:01:47.874Z",
+        "updatedAt": "2025-07-04T15:01:47.874Z",
+        "scannedAt": "2025-07-04T15:01:47.874Z"
+      }
+    },
+    {
+      "id": "testing-strategy",
+      "source": "project",
+      "protocol": "execution",
+      "name": "Testing Strategy 执行模式",
+      "description": "执行模式，定义具体的行为模式",
+      "reference": "@project://.promptx/resource/domain/python-expert/execution/testing-strategy.execution.md",
+      "metadata": {
+        "createdAt": "2025-07-04T15:01:47.875Z",
+        "updatedAt": "2025-07-04T15:01:47.875Z",
+        "scannedAt": "2025-07-04T15:01:47.875Z"
+      }
+    },
+    {
+      "id": "golang-ecosystem",
+      "source": "project",
+      "protocol": "knowledge",
+      "name": "Golang Ecosystem 知识库",
+      "description": "知识库，提供专业知识和信息",
+      "reference": "@project://.promptx/resource/domain/golang-expert/knowledge/golang-ecosystem.knowledge.md",
+      "metadata": {
+        "createdAt": "2025-07-04T15:01:47.874Z",
+        "updatedAt": "2025-07-04T15:01:47.874Z",
+        "scannedAt": "2025-07-04T15:01:47.874Z"
+      }
+    },
+    {
+      "id": "golang-fundamentals",
+      "source": "project",
+      "protocol": "knowledge",
+      "name": "Golang Fundamentals 知识库",
+      "description": "知识库，提供专业知识和信息",
+      "reference": "@project://.promptx/resource/domain/golang-expert/knowledge/golang-fundamentals.knowledge.md",
+      "metadata": {
+        "createdAt": "2025-07-04T15:01:47.874Z",
+        "updatedAt": "2025-07-04T15:01:47.874Z",
+        "scannedAt": "2025-07-04T15:01:47.874Z"
+      }
+    },
     {
       "id": "prompt-optimizer",
       "source": "project",
@@ -17,9 +108,61 @@
       "description": "专业角色，提供特定领域的专业能力",
       "reference": "@project://.promptx/resource/domain/prompt-optimizer/prompt-optimizer.role.md",
       "metadata": {
-        "createdAt": "2025-06-30T03:37:45.695Z",
-        "updatedAt": "2025-06-30T03:37:45.695Z",
-        "scannedAt": "2025-06-30T03:37:45.695Z"
+        "createdAt": "2025-07-04T15:01:47.874Z",
+        "updatedAt": "2025-07-04T15:01:47.874Z",
+        "scannedAt": "2025-07-04T15:01:47.874Z"
+      }
+    },
+    {
+      "id": "python-expert",
+      "source": "project",
+      "protocol": "role",
+      "name": "Python Expert 角色",
+      "description": "专业角色，提供特定领域的专业能力",
+      "reference": "@project://.promptx/resource/domain/python-expert/python-expert.role.md",
+      "metadata": {
+        "createdAt": "2025-07-04T15:01:47.874Z",
+        "updatedAt": "2025-07-04T15:01:47.874Z",
+        "scannedAt": "2025-07-04T15:01:47.874Z"
+      }
+    },
+    {
+      "id": "code-quality",
+      "source": "project",
+      "protocol": "thought",
+      "name": "Code Quality 思维模式",
+      "description": "思维模式，指导AI的思考方式",
+      "reference": "@project://.promptx/resource/domain/python-expert/thought/code-quality.thought.md",
+      "metadata": {
+        "createdAt": "2025-07-04T15:01:47.874Z",
+        "updatedAt": "2025-07-04T15:01:47.874Z",
+        "scannedAt": "2025-07-04T15:01:47.874Z"
+      }
+    },
+    {
+      "id": "python-development",
+      "source": "project",
+      "protocol": "thought",
+      "name": "Python Development 思维模式",
+      "description": "思维模式，指导AI的思考方式",
+      "reference": "@project://.promptx/resource/domain/python-expert/thought/python-development.thought.md",
+      "metadata": {
+        "createdAt": "2025-07-04T15:01:47.874Z",
+        "updatedAt": "2025-07-04T15:01:47.874Z",
+        "scannedAt": "2025-07-04T15:01:47.874Z"
+      }
+    },
+    {
+      "id": "python-workflow",
+      "source": "project",
+      "protocol": "execution",
+      "name": "Python Workflow 执行模式",
+      "description": "执行模式，定义具体的行为模式",
+      "reference": "@project://.promptx/resource/domain/python-expert/execution/python-workflow.execution.md",
+      "metadata": {
+        "createdAt": "2025-07-04T15:01:47.875Z",
+        "updatedAt": "2025-07-04T15:01:47.875Z",
+        "scannedAt": "2025-07-04T15:01:47.875Z"
       }
     },
     {
@@ -30,9 +173,9 @@
       "description": "专业角色，提供特定领域的专业能力",
       "reference": "@project://.promptx/resource/domain/script-developer/script-developer.role.md",
       "metadata": {
-        "createdAt": "2025-06-30T03:37:45.695Z",
-        "updatedAt": "2025-06-30T03:37:45.695Z",
-        "scannedAt": "2025-06-30T03:37:45.695Z"
+        "createdAt": "2025-07-04T15:01:47.875Z",
+        "updatedAt": "2025-07-04T15:01:47.875Z",
+        "scannedAt": "2025-07-04T15:01:47.875Z"
       }
     },
     {
@@ -43,9 +186,9 @@
       "description": "执行模式，定义具体的行为模式",
       "reference": "@project://.promptx/resource/domain/script-developer/execution/script-best-practices.execution.md",
       "metadata": {
-        "createdAt": "2025-06-30T03:37:45.696Z",
-        "updatedAt": "2025-06-30T03:37:45.696Z",
-        "scannedAt": "2025-06-30T03:37:45.696Z"
+        "createdAt": "2025-07-04T15:01:47.875Z",
+        "updatedAt": "2025-07-04T15:01:47.875Z",
+        "scannedAt": "2025-07-04T15:01:47.875Z"
       }
     },
     {
@@ -56,9 +199,9 @@
       "description": "知识库，提供专业知识和信息",
       "reference": "@project://.promptx/resource/domain/script-developer/knowledge/bash-shell-scripting.knowledge.md",
       "metadata": {
-        "createdAt": "2025-06-30T03:37:45.696Z",
-        "updatedAt": "2025-06-30T03:37:45.696Z",
-        "scannedAt": "2025-06-30T03:37:45.696Z"
+        "createdAt": "2025-07-04T15:01:47.875Z",
+        "updatedAt": "2025-07-04T15:01:47.875Z",
+        "scannedAt": "2025-07-04T15:01:47.875Z"
       }
     },
     {
@@ -69,9 +212,9 @@
       "description": "知识库，提供专业知识和信息",
       "reference": "@project://.promptx/resource/domain/script-developer/knowledge/linux-system-administration.knowledge.md",
       "metadata": {
-        "createdAt": "2025-06-30T03:37:45.696Z",
-        "updatedAt": "2025-06-30T03:37:45.696Z",
-        "scannedAt": "2025-06-30T03:37:45.696Z"
+        "createdAt": "2025-07-04T15:01:47.875Z",
+        "updatedAt": "2025-07-04T15:01:47.875Z",
+        "scannedAt": "2025-07-04T15:01:47.875Z"
       }
     },
     {
@@ -82,9 +225,9 @@
       "description": "知识库，提供专业知识和信息",
       "reference": "@project://.promptx/resource/domain/script-developer/knowledge/macos-system-administration.knowledge.md",
       "metadata": {
-        "createdAt": "2025-06-30T03:37:45.696Z",
-        "updatedAt": "2025-06-30T03:37:45.696Z",
-        "scannedAt": "2025-06-30T03:37:45.696Z"
+        "createdAt": "2025-07-04T15:01:47.875Z",
+        "updatedAt": "2025-07-04T15:01:47.875Z",
+        "scannedAt": "2025-07-04T15:01:47.875Z"
       }
     },
     {
@@ -95,9 +238,9 @@
       "description": "知识库，提供专业知识和信息",
       "reference": "@project://.promptx/resource/domain/script-developer/knowledge/powershell-core.knowledge.md",
       "metadata": {
-        "createdAt": "2025-06-30T03:37:45.696Z",
-        "updatedAt": "2025-06-30T03:37:45.696Z",
-        "scannedAt": "2025-06-30T03:37:45.696Z"
+        "createdAt": "2025-07-04T15:01:47.875Z",
+        "updatedAt": "2025-07-04T15:01:47.875Z",
+        "scannedAt": "2025-07-04T15:01:47.875Z"
       }
     },
     {
@@ -108,21 +251,22 @@
       "description": "知识库，提供专业知识和信息",
       "reference": "@project://.promptx/resource/domain/script-developer/knowledge/windows-system-administration.knowledge.md",
       "metadata": {
-        "createdAt": "2025-06-30T03:37:45.696Z",
-        "updatedAt": "2025-06-30T03:37:45.696Z",
-        "scannedAt": "2025-06-30T03:37:45.696Z"
+        "createdAt": "2025-07-04T15:01:47.875Z",
+        "updatedAt": "2025-07-04T15:01:47.875Z",
+        "scannedAt": "2025-07-04T15:01:47.875Z"
       }
     }
   ],
   "stats": {
-    "totalResources": 8,
+    "totalResources": 19,
     "byProtocol": {
-      "role": 2,
-      "execution": 1,
-      "knowledge": 5
+      "role": 4,
+      "thought": 4,
+      "execution": 4,
+      "knowledge": 7
     },
     "bySource": {
-      "project": 8
+      "project": 19
     }
   }
 }
