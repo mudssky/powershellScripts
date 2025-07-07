@@ -155,7 +155,8 @@
         "name": "eartrumpet",
         "cliName": "eartrumpet",
         "description": "替代win10的音量调节",
-        "command": "winget install eartrumpet"
+        "command": "winget install eartrumpet",
+        "skipInstall": true
       }
     ],
     "cargo": [
