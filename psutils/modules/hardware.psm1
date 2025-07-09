@@ -157,12 +157,23 @@ function Get-GpuInfo {
 <#
 .SYNOPSIS
     获取系统内存信息
-
 .DESCRIPTION
-    获取系统总内存和可用内存大小，支持 Windows、macOS 和 Linux 系统
-
+    此函数用于获取当前系统的总物理内存和可用物理内存大小。
+    它支持 Windows、macOS 和 Linux 操作系统，并根据不同的操作系统调用相应的命令来获取内存信息。
 .OUTPUTS
-    返回包含内存信息的哈希表
+    System.Collections.Hashtable
+    返回一个哈希表，包含以下键值对：
+    - TotalGB (System.Double): 系统总内存大小，单位为 GB。
+    - AvailableGB (System.Double): 系统可用内存大小，单位为 GB。
+.EXAMPLE
+    Get-SystemMemoryInfo
+    返回类似 @{TotalGB=16.0; AvailableGB=8.5} 的哈希表，表示总内存16GB，可用内存8.5GB。
+.NOTES
+    作者: PowerShell Scripts
+    版本: 1.0.0
+    创建日期: 2025-01-07
+    用途: 方便在脚本中获取和显示系统内存使用情况。
+    在Linux和macOS系统上，需要确保系统安装了相应的命令行工具（如 `free`, `sysctl`, `vm_stat`）。
 #>
 function Get-SystemMemoryInfo {
     try {

@@ -6,16 +6,35 @@
 function Add-Startup {
     <#
 .SYNOPSIS
-    win系统 添加一个程序到开机启动
+    在 Windows 系统中添加一个程序到开机启动项。
+
 .DESCRIPTION
-    创建一个程序的快捷方式，并将其添加到开机启动startup目录
-.NOTES
-    Information or caveats about the function e.g. 'This function is not supported in Linux'
-.LINK
-    Specify a URI to a help page, this will show when Get-Help -Online is used.
+    此函数通过创建一个程序的符号链接（SymbolicLink）或快捷方式，并将其放置到 Windows 的“启动”文件夹中，
+    从而实现程序开机自启动。
+
+.PARAMETER Path
+    必需参数。要添加到开机启动的程序的完整路径。
+
+.PARAMETER LinkName
+    可选参数。在“启动”文件夹中创建的快捷方式或符号链接的名称。如果未指定，则默认为程序的文件名。
+
+.OUTPUTS
+    无。函数执行成功后，会在控制台输出成功信息。
+
 .EXAMPLE
-    Test-MyTestFunction -Verbose
-    Explanation of the function or its result. You can include multiple examples with additional .EXAMPLE lines
+    Add-Startup -Path "C:\Program Files\MyApp\MyApp.exe"
+    将 "MyApp.exe" 添加到当前用户的开机启动项，链接名称默认为 "MyApp.exe"。
+
+.EXAMPLE
+    Add-Startup -Path "C:\Tools\MyScript.ps1" -LinkName "My PowerShell Script"
+    将 "MyScript.ps1" 添加到当前用户的开机启动项，并指定链接名称为 "My PowerShell Script"。
+
+.NOTES
+    此函数仅适用于 Windows 操作系统。
+    它默认将程序添加到当前用户的启动文件夹 (`$Env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup`)。
+    如果需要添加到所有用户的启动文件夹 (`C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp`)，可能需要管理员权限。
+    此函数使用 `New-Item -ItemType SymbolicLink` 创建符号链接，而不是传统的快捷方式（.lnk 文件）。
+
 #>
 
 

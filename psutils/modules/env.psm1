@@ -5,21 +5,28 @@ function Get-Dotenv {
 	.SYNOPSIS
 		解析dotenv内容为键值对保存到map中
 	.DESCRIPTION
-		A longer description of the function, its purpose, common use cases, etc.
-	.NOTES
-		Information or caveats about the function e.g. 'This function is not supported in Linux'
-	.LINK
-		Specify a URI to a help page, this will show when Get-Help -Online is used.
+		此函数用于读取指定路径的 .env 文件，并将其内容解析为键值对的哈希表。每行格式为 KEY=VALUE 的内容将被解析，空行和注释行（以 # 开头）将被忽略。
+	.PARAMETER Path
+		.env 文件的绝对或相对路径。
+	.OUTPUTS
+		System.Collections.Hashtable
+		返回一个哈希表，其中包含 .env 文件中解析出的所有键值对。
 	.EXAMPLE
-		Test-MyTestFunction -Verbose
-		Explanation of the function or its result. You can include multiple examples with additional .EXAMPLE lines
+		Get-Dotenv -Path ".\project\.env"
+		解析当前项目目录下的 .env 文件，并返回其内容。
+	.NOTES
+		作者: PowerShell Scripts
+		版本: 1.0.0
+		创建日期: 2025-01-07
+		用途: 用于从 .env 文件中读取配置。
 	#>
 	
 	[CmdletBinding()]
 	param (
 		# dotenv文件路径
 		[Parameter(Mandatory = $true)]
-		[string]$Path		)
+		[string]$Path
+	)
 	$content = Get-Content $Path
 	$pairs = @{}
 	foreach ($line in $content) {
@@ -41,14 +48,30 @@ function Install-Dotenv {
 	.SYNOPSIS
 		加载dotenv文件到环境变量
 	.DESCRIPTION
-		A longer description of the function, its purpose, common use cases, etc.
-	.NOTES
-		Information or caveats about the function e.g. 'This function is not supported in Linux'
-	.LINK
-		Specify a URI to a help page, this will show when Get-Help -Online is used.
+		此函数用于读取指定路径的 .env 文件，并将其内容加载到系统的环境变量中。支持将环境变量设置到机器、用户或当前进程级别。
+		如果未指定 Path，函数将尝试在当前目录查找 .env.local 或 .env 文件。
+	.PARAMETER Path
+		.env 文件的绝对或相对路径。如果未提供，函数将尝试查找默认文件。
+	.PARAMETER EnvTarget
+		指定环境变量的目标级别：
+		- Machine: 系统级环境变量，对所有用户和进程可见，需要管理员权限。
+		- User: 用户级环境变量，对当前用户的所有进程可见。
+		- Process: 进程级环境变量，仅对当前 PowerShell 进程可见。
+		默认为 'User'。
+	.OUTPUTS
+		此函数没有直接输出。成功执行后，环境变量将被设置。
 	.EXAMPLE
-		Test-MyTestFunction -Verbose
-		Explanation of the function or its result. You can include multiple examples with additional .EXAMPLE lines
+		Install-Dotenv -Path ".\project\.env" -EnvTarget User
+		将指定 .env 文件的内容加载到当前用户的环境变量中。
+	.EXAMPLE
+		Install-Dotenv
+		在当前目录查找 .env.local 或 .env 文件，并将其内容加载到当前用户的环境变量中。
+	.NOTES
+		作者: PowerShell Scripts
+		版本: 1.0.0
+		创建日期: 2025-01-07
+		用途: 用于在 PowerShell 会话或系统环境中设置环境变量。
+		默认情况下，如果未指定 Path，函数会按顺序查找 .env.local 和 .env 文件。
 	#>
 	
 	
@@ -189,7 +212,6 @@ function Import-EnvPath {
 				Write-Debug "系统级PATH分割后数量: $($machinePaths.Count)"
 				$allPaths += $machinePaths
 			}
-			pn
 			# 添加用户级PATH
 			if ($userPath) {
 				$userPaths = $userPath -split ';' | Where-Object { $_.Trim() -ne '' }

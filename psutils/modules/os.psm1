@@ -1,18 +1,20 @@
 <#
 .SYNOPSIS
-检测当前操作系统类型（Windows、macOS 或 Linux）。
+    检测当前操作系统类型（Windows、macOS 或 Linux）。
 
 .DESCRIPTION
-该函数检查当前运行的操作系统，并返回 "Windows"、"macOS"、"Linux" 或 "Unknown OS"。
-优先使用 PowerShell 7+ 的 $IsWindows/$IsLinux/$IsMacOS 变量，如果不支持则回退到其他兼容方法。
+    该函数检查当前运行的操作系统，并返回 "Windows"、"macOS"、"Linux" 或 "Unknown OS"。
+    优先使用 PowerShell 7+ 的 $IsWindows/$IsLinux/$IsMacOS 变量，如果不支持则回退到其他兼容方法。
 
 .EXAMPLE
-Get-OperatingSystem
-返回当前操作系统的名称（如 "Windows"）。
+    Get-OperatingSystem
+    返回当前操作系统的名称（如 "Windows"）。
 
 .OUTPUTS
-System.String
-返回操作系统名称的字符串。
+    [string] 返回操作系统名称的字符串。
+
+.NOTES
+    此函数旨在提供跨平台的操作系统检测能力，优先利用PowerShell内置变量以提高效率和准确性。
 #>
 function Get-OperatingSystem {
 
@@ -55,27 +57,35 @@ function Get-OperatingSystem {
 
 function Test-Administrator {
     <#
-    .SYNOPSIS
-        检测当前PowerShell会话是否以管理员权限运行
-    .DESCRIPTION
-        该函数检查当前用户是否具有管理员权限。在Windows系统上检查是否为管理员角色，
-        在Linux/macOS系统上检查是否为root用户。
-    .EXAMPLE
-        Test-Administrator
-        返回$true表示具有管理员权限，$false表示普通用户权限
-    .EXAMPLE
-        if (Test-Administrator) {
-            Write-Host "当前以管理员权限运行"
-        } else {
-            Write-Host "当前以普通用户权限运行"
-        }
-    .OUTPUTS
-        System.Boolean
-        返回布尔值，$true表示管理员权限，$false表示普通用户权限
-    .NOTES
-        在Windows系统上使用WindowsIdentity和WindowsPrincipal检查管理员角色
-        在Linux/macOS系统上检查用户ID是否为0（root用户）
-    #>
+.SYNOPSIS
+    检测当前 PowerShell 会话是否以管理员权限运行。
+
+.DESCRIPTION
+    此函数用于检查当前 PowerShell 会话是否具有管理员权限。
+    在 Windows 系统上，它通过检查当前用户是否属于管理员组来判断。
+    在 Linux/macOS 系统上，它通过检查当前用户 ID 是否为 0（即 root 用户）来判断。
+
+.OUTPUTS
+    布尔值。如果当前会话以管理员权限运行，则返回 $true；否则返回 $false。
+
+.EXAMPLE
+    Test-Administrator
+    检查当前 PowerShell 会话是否以管理员权限运行。
+
+.EXAMPLE
+    if (Test-Administrator) {
+        Write-Host "当前以管理员权限运行"
+    } else {
+        Write-Host "当前以普通用户权限运行"
+    }
+    根据权限状态输出不同的信息。
+
+.NOTES
+    在 Windows 系统上，此函数依赖于 .NET 的 `WindowsIdentity` 和 `WindowsPrincipal` 类来执行权限检查。
+    在 Linux/macOS 系统上，它通过检查 `id -u` 命令的输出来判断是否为 root 用户。
+    此函数会调用 `Get-OperatingSystem` 来确定当前操作系统类型。
+
+#>
     [CmdletBinding()]
     param()
     
