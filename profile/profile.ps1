@@ -5,62 +5,25 @@ param(
 	[switch]$loadProfile
 )
 
-
+# 加载自定义模块 (例如包含 Test-EXEProgram 的文件)
 . $PSScriptRoot/loadModule.ps1
 
-function Init-Environment {
-	<#
-	.SYNOPSIS
-		初始化PowerShell环境配置
-	.DESCRIPTION
-		初始化PowerShell环境配置，包括代理设置、编码配置、别名设置、工具初始化等。
-		这个函数封装了所有对环境变量有影响的配置，便于重复调用。
-	.PARAMETER ScriptRoot
-		脚本根目录路径，默认为当前脚本所在目录
-	.PARAMETER EnableProxy
-		是否启用代理设置，默认根据enableProxy文件存在性决定
-	.PARAMETER ProxyUrl
-		代理服务器地址，默认为 http://127.0.0.1:7890
-	.EXAMPLE
-		Init-Environment
-		使用默认配置初始化环境
-	.EXAMPLE
-		Init-Environment -EnableProxy $false
-		初始化环境但不启用代理
-	.EXAMPLE
-		Init-Environment -ProxyUrl "http://127.0.0.1:8080"
-		使用自定义代理地址初始化环境
-	.NOTES
-		此函数会影响当前PowerShell会话的环境变量和配置
-	#>
-	
-	[CmdletBinding()]
-	param (
-		[string]$ScriptRoot = $PSScriptRoot,
-		[bool]$EnableProxy = (Test-Path -Path "$PSScriptRoot\enableProxy"),
-		[string]$ProxyUrl = "http://127.0.0.1:7890"
-	)
-	
-	Write-Verbose "开始初始化PowerShell环境配置"
-	
-	# 设置代理环境变量
-	if ($EnableProxy) {
-		Write-Verbose "启用代理设置: $ProxyUrl"
-		$Env:http_proxy = $ProxyUrl
-		$Env:https_proxy = $ProxyUrl
-		Write-Debug "已设置代理: $ProxyUrl" 
+# 初次使用时，执行loadProfile覆盖本地profile
+if ($loadProfile) {
+	# 备份逻辑，执行覆盖时备份，防止数据丢失
+	if (Test-Path -Path $profile) {
+		# 备份文件名添加时间戳，支持多次备份
+		$timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+		$backupPath = "$profile.$timestamp.bak"
+		Write-Warning "发现现有的profile文件，备份为 $backupPath"
+		Copy-Item -Path $profile -Destination $backupPath -Force
 	}
- else {
-		Write-Verbose "跳过代理设置"
-	}
-	
-	# 加载自定义环境变量脚本
-	if (Test-Path -Path "$ScriptRoot/env.ps1") {
-		Write-Verbose "加载自定义环境变量脚本: $ScriptRoot/env.ps1"
-		. "$ScriptRoot/env.ps1"
-	}
-	
-	<#
+	Set-Content -Path $profile  -Value  ". $PSCommandPath"
+	return 
+}
+
+
+<#
 	.SYNOPSIS
 		添加Conda环境到当前PowerShell会话
 	
@@ -81,13 +44,105 @@ function Init-Environment {
 		创建日期: 2025-01-07
 		用途: 在PowerShell中启用Conda环境管理
 	#>
-	function Add-CondaEnv {
-		$condaPath = "$env:USERPROFILE\anaconda3\shell\condabin\conda-hook.ps1"
-		if (Test-Path -Path $condaPath) {
-			Write-Verbose "加载Conda环境: $condaPath"
-			. $condaPath 
+function Add-CondaEnv {
+	$condaPath = "$env:USERPROFILE\anaconda3\shell\condabin\conda-hook.ps1"
+	if (Test-Path -Path $condaPath) {
+		Write-Verbose "加载Conda环境: $condaPath"
+		. $condaPath 
+	}
+}
+
+<#
+.SYNOPSIS
+    显示当前 Profile 加载的自定义别名、函数和关键环境变量。
+#>
+function Show-MyProfileHelp {
+	Write-Host "--- PowerShell Profile 帮助 ---" -ForegroundColor Cyan
+
+	# 1. 显示自定义别名
+	Write-Host "`n[自定义别名]" -ForegroundColor Yellow
+	Get-Alias | Where-Object { $_.Definition -in ('powershell_ise', 'Start-Ipython') } | Format-Table -AutoSize
+
+	# 2. 显示此 Profile 文件中定义的函数
+	Write-Host "`n[自定义函数]" -ForegroundColor Yellow
+	# 假设你的自定义函数都在一个模块里，或者你可以用其他方式过滤
+	# 这里我们简单地列出几个关键函数
+	"Initialize-Environment", "Show-MyProfileHelp" | ForEach-Object { Get-Command $_ } | Format-Table Name, CommandType, Source -AutoSize
+
+
+	# 3. 显示关键环境变量  
+	Write-Host "`n[关键环境变量]" -ForegroundColor Yellow
+	$envVars = @(
+		'POWERSHELL_SCRIPTS_ROOT',
+		'http_proxy',
+		'https_proxy',
+		'RUSTC_WRAPPER'
+	)
+	foreach ($var in $envVars) {
+		if ($value = Get-Variable "env:$var" -ErrorAction SilentlyContinue) {
+			Write-Host ("{0,-25} : {1}" -f $var, $value.Value)
 		}
 	}
+
+	Write-Host "`n要重新加载环境, 请运行: Initialize-Environment" -ForegroundColor Green
+}
+
+
+function Initialize-Environment {
+	<#
+	.SYNOPSIS
+		初始化PowerShell环境配置
+	.DESCRIPTION
+		初始化PowerShell环境配置，包括代理设置、编码配置、别名设置、工具初始化等。
+		这个函数封装了所有对环境变量有影响的配置，便于重复调用。
+	.PARAMETER ScriptRoot
+		脚本根目录路径，默认为当前脚本所在目录
+	.PARAMETER EnableProxy
+		是否启用代理设置，默认根据enableProxy文件存在性决定
+	.PARAMETER ProxyUrl
+		代理服务器地址，默认为 http://127.0.0.1:7890
+	.EXAMPLE
+		Initialize-Environment
+		使用默认配置初始化环境
+	.EXAMPLE
+		Initialize-Environment -EnableProxy $false
+		初始化环境但不启用代理
+	.EXAMPLE
+		Initialize-Environment -ProxyUrl "http://127.0.0.1:8080"
+		使用自定义代理地址初始化环境
+	.NOTES
+		此函数会影响当前PowerShell会话的环境变量和配置
+	#>
+	
+	[CmdletBinding()]
+	param (
+		[string]$ScriptRoot = $PSScriptRoot,
+		[bool]$EnableProxy = (Test-Path -Path "$PSScriptRoot\enableProxy"),
+		[string]$ProxyUrl = "http://127.0.0.1:7890"
+	)
+	
+	Write-Verbose "开始初始化PowerShell环境配置"
+	
+	# 设置代理环境变量
+	# 设置项目根目录环境变量
+	$Global:Env:POWERSHELL_SCRIPTS_ROOT = $PSScriptRoot | Split-Path
+	if ($EnableProxy) {
+		Write-Verbose "启用代理设置: $ProxyUrl"
+		$Env:http_proxy = $ProxyUrl
+		$Env:https_proxy = $ProxyUrl
+		Write-Debug "已设置代理: $ProxyUrl" 
+	}
+ else {
+		Write-Verbose "跳过代理设置"
+	}
+	
+	# 加载自定义环境变量脚本 (用于存放机密或个人配置)
+	if (Test-Path -Path "$ScriptRoot/env.ps1") {
+		Write-Verbose "加载自定义环境变量脚本: $ScriptRoot/env.ps1"
+		. "$ScriptRoot/env.ps1"
+	}
+	
+
 	
 	# 设置PowerShell别名
 	Write-Verbose "设置PowerShell别名"
@@ -166,11 +221,8 @@ function Init-Environment {
 }
 
 # 调用环境初始化函数
-Init-Environment 
+Initialize-Environment 
 
 # 配置git,解决中文文件名不能正常显示的问题
 # git config --global core.quotepath false
 
-if ($loadProfile) {
-	Set-Content -Path $profile  -Value  ". $PSCommandPath"
-}
