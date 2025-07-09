@@ -1,5 +1,37 @@
 
 
+<#
+.SYNOPSIS
+    提取JSONC文件的内部内容
+
+.DESCRIPTION
+    从JSONC文件或字符串中提取大括号内的内容，去除外层的空白字符，
+    并确保内容以逗号结尾，用于合并多个JSONC文件的设置。
+
+.PARAMETER Path
+    JSONC文件的路径。如果提供此参数，将从文件读取内容。
+
+.PARAMETER JsoncString
+    JSONC格式的字符串。如果未提供Path参数，将使用此字符串。
+
+.OUTPUTS
+    System.String
+    返回提取的内部JSON内容，确保以逗号结尾
+
+.EXAMPLE
+    Get-JsoncInnerContent -Path "settings.jsonc"
+    从settings.jsonc文件中提取内部内容
+
+.EXAMPLE
+    Get-JsoncInnerContent -JsoncString '{"key": "value"}'
+    从字符串中提取内部内容，返回 '"key": "value",'
+
+.NOTES
+    作者: PowerShell Scripts
+    版本: 1.0.0
+    创建日期: 2025-01-07
+    用途: 用于合并多个VSCode设置文件
+#>
 function Get-JsoncInnerContent {
     [CmdletBinding()]
     param (
