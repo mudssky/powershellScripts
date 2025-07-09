@@ -17,12 +17,14 @@ BeforeAll {
 Describe "Search-ModuleHelp 函数测试" {
     Context "基本搜索功能" {
         It "应该能够搜索到包含指定关键词的函数" {
+            # Test deprecated function
             $results = Search-ModuleHelp -SearchTerm "install" -ModulePath $script:TestModulePath
             $results | Should -Not -BeNullOrEmpty
             $results.Count | Should -BeGreaterThan 0
         }
         
         It "应该能够精确搜索指定的函数名" {
+            # Test deprecated function
             $results = Search-ModuleHelp -FunctionName "Get-OperatingSystem" -ModulePath $script:TestModulePath
             if ($results) {
                 $results.Name | Should -Be "Get-OperatingSystem"
@@ -30,6 +32,7 @@ Describe "Search-ModuleHelp 函数测试" {
         }
         
         It "搜索不存在的函数应该返回空结果" {
+            # Test deprecated function
             $results = Search-ModuleHelp -FunctionName "NonExistentFunction" -ModulePath $script:TestModulePath
             $results | Should -BeNullOrEmpty
         }
@@ -37,12 +40,15 @@ Describe "Search-ModuleHelp 函数测试" {
     
     Context "参数验证" {
         It "无效的模块路径应该产生错误" {
-            { Search-ModuleHelp -SearchTerm "test" -ModulePath "C:\NonExistentPath" -ErrorAction Stop } | Should -Throw
+            # Test deprecated function
+            # Test deprecated function
+             { Search-ModuleHelp -SearchTerm "test" -ModulePath "C:\NonExistentPath" -ErrorAction Stop } | Should -Throw
         }
     }
     
     Context "结果格式验证" {
         It "返回的结果应该包含必要的属性" {
+            # Test deprecated function
             $results = Search-ModuleHelp -SearchTerm "Get" -ModulePath $script:TestModulePath
             if ($results) {
                 $result = $results[0]

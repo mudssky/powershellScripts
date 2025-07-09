@@ -89,6 +89,7 @@ function Search-ModuleHelp {
     )
     
     begin {
+        Write-Warning "此函数已弃用。建议直接使用 `Get-Help` cmdlet 来获取帮助信息，可以限定范围实现较快搜索，如Get-Help  -Name '搜索' -Category Function"
         Write-Verbose "开始搜索模块帮助信息..."
         Write-Verbose "搜索路径: $ModulePath"
         Write-Verbose "使用Get-Help: $UseGetHelp"
