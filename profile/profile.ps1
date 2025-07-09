@@ -60,7 +60,27 @@ function Init-Environment {
 		. "$ScriptRoot/env.ps1"
 	}
 	
-	# 内部函数：添加Conda环境
+	<#
+	.SYNOPSIS
+		添加Conda环境到当前PowerShell会话
+	
+	.DESCRIPTION
+		检查用户主目录下的Anaconda3安装路径，如果存在conda-hook.ps1文件则加载它，
+		以便在当前PowerShell会话中使用conda命令。
+	
+	.OUTPUTS
+		无返回值，加载Conda环境到当前会话
+	
+	.EXAMPLE
+		Add-CondaEnv
+		加载Conda环境
+	
+	.NOTES
+		作者: PowerShell Scripts
+		版本: 1.0.0
+		创建日期: 2025-01-07
+		用途: 在PowerShell中启用Conda环境管理
+	#>
 	function Add-CondaEnv {
 		$condaPath = "$env:USERPROFILE\anaconda3\shell\condabin\conda-hook.ps1"
 		if (Test-Path -Path $condaPath) {
