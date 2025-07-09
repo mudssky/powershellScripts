@@ -224,6 +224,39 @@ New-Shortcut -Path "C:\Program Files\App\app.exe" -Destination "C:\Users\Desktop
 
 提供测试和验证相关的工具函数。
 
+### 📖 帮助搜索 (help)
+
+提供高性能的模块内帮助搜索功能，替代传统Get-Help的模块搜索。
+
+#### 主要函数
+
+- **`Search-ModuleHelp`**: 在指定模块或路径中搜索函数帮助信息
+- **`Find-PSUtilsFunction`**: 快速搜索当前psutils模块中的函数
+- **`Get-FunctionHelp`**: 获取指定函数的详细帮助信息
+
+#### 使用示例
+
+```powershell
+# 搜索包含"install"关键词的函数
+Find-PSUtilsFunction "install"
+
+# 获取特定函数的详细帮助
+Get-FunctionHelp "Get-OperatingSystem"
+
+# 在指定路径中搜索函数
+Search-ModuleHelp -SearchTerm "config" -ModulePath "C:\MyModule"
+
+# 显示详细信息
+Find-PSUtilsFunction "Get" -ShowDetails
+```
+
+#### 性能优势
+
+- 只搜索指定模块，避免全局扫描
+- 直接解析文件，无需模块加载开销
+- 支持模糊搜索和精确匹配
+- 提供更好的输出格式和颜色显示
+
 ### 🪟 Windows 工具 (win)
 
 提供 Windows 系统专用工具。
