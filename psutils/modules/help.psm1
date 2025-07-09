@@ -152,7 +152,7 @@ function Search-ModuleHelp {
         
         # 输出结果
         if ($results.Count -eq 0) {
-            Write-Warning "未找到匹配的函数或脚本"
+            Write-Verbose "未找到匹配的函数或脚本"
             return
         }
         
@@ -385,11 +385,11 @@ function Search-WithCustomParsing {
         
         if ($file.Extension -eq '.psm1') {
             # 处理模块文件中的函数
-            $results += Parse-ModuleFunctions -Content $content -FilePath $file.FullName -SearchTerm $SearchTerm -FunctionName $FunctionName
+            $results += Convert-ModuleFunctions -Content $content -FilePath $file.FullName -SearchTerm $SearchTerm -FunctionName $FunctionName
         }
         elseif ($file.Extension -eq '.ps1') {
             # 处理脚本文件
-            $results += Parse-ScriptHelp -Content $content -FilePath $file.FullName -SearchTerm $SearchTerm -FunctionName $FunctionName
+            $results += Convert-ScriptHelp -Content $content -FilePath $file.FullName -SearchTerm $SearchTerm -FunctionName $FunctionName
         }
     }
     
@@ -403,7 +403,7 @@ function Search-WithCustomParsing {
 .DESCRIPTION
     从模块文件内容中提取函数定义和帮助信息
 #>
-function Parse-ModuleFunctions {
+function Convert-ModuleFunctions {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
@@ -432,7 +432,7 @@ function Parse-ModuleFunctions {
         $foundFunctionNames += $funcName
         
         # 解析帮助信息
-        $helpInfo = Parse-HelpBlock -HelpBlock $helpBlock -Name $funcName -FilePath $FilePath -Type "Function"
+        $helpInfo = Convert-HelpBlock -HelpBlock $helpBlock -Name $funcName -FilePath $FilePath -Type "Function"
         
         # 应用搜索过滤器
         $shouldInclude = $false
@@ -467,7 +467,7 @@ function Parse-ModuleFunctions {
             $foundFunctionNames += $funcName
             
             # 解析帮助信息
-            $helpInfo = Parse-HelpBlock -HelpBlock $helpBlock -Name $funcName -FilePath $FilePath -Type "Function"
+            $helpInfo = Convert-HelpBlock -HelpBlock $helpBlock -Name $funcName -FilePath $FilePath -Type "Function"
             
             # 应用搜索过滤器
             $shouldInclude = $false
@@ -579,7 +579,7 @@ function Parse-ModuleFunctions {
 .DESCRIPTION
     从脚本文件内容中提取帮助信息
 #>
-function Parse-ScriptHelp {
+function Convert-ScriptHelp {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
@@ -621,7 +621,7 @@ function Parse-ScriptHelp {
     
     if ($helpMatch.Success) {
         $helpBlock = $helpMatch.Groups[1].Value.Trim()
-        $helpInfo = Parse-HelpBlock -HelpBlock $helpBlock -Name $scriptName -FilePath $FilePath -Type "Script"
+        $helpInfo = Convert-HelpBlock -HelpBlock $helpBlock -Name $scriptName -FilePath $FilePath -Type "Script"
         
         # 如果有搜索词，进一步过滤描述内容
         if ($SearchTerm -and -not [string]::IsNullOrEmpty($SearchTerm)) {
@@ -742,13 +742,13 @@ function Convert-GetHelpToCustomObject {
 .OUTPUTS
     [PSCustomObject] 包含解析后帮助信息的对象
 #>
-function Parse-HelpBlock {
+function Convert-HelpBlock {
     <#
     .SYNOPSIS
-        简要描述 Parse-HelpBlock 函数的功能
+        简要描述 Convert-HelpBlock 函数的功能
     
     .DESCRIPTION
-        详细描述 Parse-HelpBlock 函数的用途、工作原理和使用场景
+        详细描述 Convert-HelpBlock 函数的用途、工作原理和使用场景
     
     .PARAMETER HelpBlock
         描述参数 HelpBlock 的用途和要求
@@ -766,7 +766,7 @@ function Parse-HelpBlock {
         描述参数 true 的用途和要求
     
     .EXAMPLE
-        Parse-HelpBlock
+        Convert-HelpBlock
         提供一个使用示例和说明
     
     .NOTES
@@ -989,10 +989,10 @@ function Get-FunctionHelp {
     模块路径
 
 .EXAMPLE
-    Compare-HelpSearchPerformance "Get"
+    Test-HelpSearchPerformance "Get"
     比较搜索"Get"关键词的性能
 #>
-function Compare-HelpSearchPerformance {
+function Test-HelpSearchPerformance {
 
     [CmdletBinding()]
     param(
@@ -1036,7 +1036,7 @@ function Compare-HelpSearchPerformance {
 }
 
 # 导出函数
-Export-ModuleMember -Function Search-ModuleHelp, Find-PSUtilsFunction, Get-FunctionHelp, Compare-HelpSearchPerformance, Parse-HelpBlock
+Export-ModuleMember -Function Search-ModuleHelp, Find-PSUtilsFunction, Get-FunctionHelp, Test-HelpSearchPerformance, Convert-HelpBlock
 
 
 

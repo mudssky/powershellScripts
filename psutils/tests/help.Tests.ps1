@@ -58,7 +58,7 @@ Describe "Search-ModuleHelp 函数测试" {
     }
 }
 
-Describe "Parse-HelpBlock 函数测试" {
+Describe "Convert-HelpBlock 函数测试" {
     Context "帮助块解析" {
         It "应该能够解析完整的帮助块" {
             $helpBlock = @"
@@ -76,7 +76,7 @@ Describe "Parse-HelpBlock 函数测试" {
     测试示例
 "@
             
-            $result = Parse-HelpBlock -HelpBlock $helpBlock -Name "Test-Function" -FilePath "C:\test.psm1" -Type "Function"
+            $result = Convert-HelpBlock -HelpBlock $helpBlock -Name "Test-Function" -FilePath "C:\test.psm1" -Type "Function"
             
             $result.Name | Should -Be "Test-Function"
             $result.Synopsis | Should -Be "测试函数"
@@ -87,7 +87,7 @@ Describe "Parse-HelpBlock 函数测试" {
         }
         
         It "应该能够处理空的帮助块" {
-            $result = Parse-HelpBlock -HelpBlock "" -Name "Test-Function" -FilePath "C:\test.psm1" -Type "Function"
+            $result = Convert-HelpBlock -HelpBlock "" -Name "Test-Function" -FilePath "C:\test.psm1" -Type "Function"
             
             $result.Name | Should -Be "Test-Function"
             $result.Synopsis | Should -Be "无帮助信息"
