@@ -128,8 +128,8 @@ function Initialize-Environment {
 	$Global:Env:POWERSHELL_SCRIPTS_ROOT = $PSScriptRoot | Split-Path
 	if ($EnableProxy) {
 		Write-Verbose "启用代理设置: $ProxyUrl"
-		$Env:http_proxy = $ProxyUrl
-		$Env:https_proxy = $ProxyUrl
+		$Global:Env:http_proxy = $ProxyUrl
+		$Global:Env:https_proxy = $ProxyUrl
 		Write-Debug "已设置代理: $ProxyUrl" 
 	}
  else {
