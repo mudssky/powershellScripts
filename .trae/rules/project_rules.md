@@ -100,6 +100,65 @@
 - 使用 Pester 框架进行单元测试
 - 测试覆盖主要功能和边界情况
 
+### 空值检查
+
+#### **1. 检查一个变量是否就是 `null`**
+
+**做法：** 把 `$null` 放在左边比较。
+
+```powershell
+if ($null -eq $myVar) { ... }
+```
+
+**场景：** 只关心变量是不是 `null`，不关心它是不是空字符串或空数组。
+
+#### **2. 检查一个字符串是否“没有内容”**
+
+**做法：** 使用 `[string]::IsNullOrWhiteSpace()`。
+
+```powershell
+if ([string]::IsNullOrWhiteSpace($myString)) { ... }
+```
+
+**场景：** 需要判断字符串是 `null`、空 (`""`) 还是只有空格。
+
+---
+
+#### **3. 检查一个数组或哈希表是否为空**
+
+**做法：** 检查 `.Count` 属性是否为 `0`。
+
+```powershell
+if ($myArray.Count -eq 0) { ... }
+```
+
+**场景：** 确定一个集合里没有任何元素。**切勿**用 `if (-not $myArray)`，因为空数组在布尔判断中是 `true`。
+
+---
+
+#### **4. 检查一个变量是 `null` 或空数组**
+
+**做法：** 使用 `@()` 强制转换为数组再检查 `.Count`。
+
+```powershell
+if (@($myVar).Count -eq 0) { ... }
+```
+
+**场景：** 函数可能返回 `null` 或一个空数组，你希望两种情况都当成“空”来处理。
+
+---
+
+### **Pester 测试中的规则 (`.Tests.ps1`)**
+
+| 检查目标                  | Pester 断言                                |
+| :------------------------ | :----------------------------------------- |
+| **是 `$null`**            | `($variable) | Should -Be $null`         |
+| **不是 `$null`**          | `($variable) | Should -Not -Be $null`     |
+| **是空数组/空字符串**     | `$variable | Should -BeEmpty`             |
+| **是 `$null` 或空**       | `($variable) | Should -BeNullOrEmpty`     |
+
+**为什么要有括号？** 防止当变量是空数组时，PowerShell 管道“吞掉”它，导致 `Should` 命令收不到任何东西而报错。括号能确保数组对象本身被传递。
+
 ## 文档规范
 
 ### README 文档
