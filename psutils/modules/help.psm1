@@ -922,7 +922,7 @@ function Find-PSUtilsFunction {
     )
     
     $modulePath = Split-Path -Parent $PSScriptRoot
-    return Search-ModuleHelp -SearchTerm $SearchTerm -ModulePath $modulePath -ShowDetails:$ShowDetails -UseGetHelp:$UseGetHelp -IncludeScripts:$IncludeScripts
+    return Search-ModuleHelp -SearchTerm $SearchTerm -ModulePath $modulePath -ShowDetails:$ShowDetails -UseGetHelp:$UseGetHelp -IncludeScripts:$IncludeScripts -WarningAction SilentlyContinue
 }
 
 <#
@@ -973,7 +973,7 @@ function Get-FunctionHelp {
         [switch]$IncludeScripts
     )
     
-    return Search-ModuleHelp -FunctionName $Name -ModulePath $ModulePath -ShowDetails -UseGetHelp:$UseGetHelp -IncludeScripts:$IncludeScripts
+    return Search-ModuleHelp -FunctionName $Name -ModulePath $ModulePath -ShowDetails -UseGetHelp:$UseGetHelp -IncludeScripts:$IncludeScripts -WarningAction SilentlyContinue
 }
 
 <#
