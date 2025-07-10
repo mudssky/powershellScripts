@@ -124,6 +124,24 @@ function Set-AliasProfile {
 				aliasValue  = 'duf'
 				description = 'df 是 du 的别名，用于显示目录内容。'
 			}
+			[PSCustomObject]@{
+				cliName     = 'zoxide'
+				aliasName   = 'zq'
+				aliasValue  = 'zoxide query'
+				description = 'zoxide query 用于查询zoxide的数据库，显示最近访问的目录。'
+			}
+			[PSCustomObject]@{
+				cliName     = 'zoxide'
+				aliasName   = 'za'
+				aliasValue  = 'zoxide add'
+				description = 'zoxide add 用于将当前目录添加到zoxide的数据库中，以便下次快速访问。'
+			}
+			[PSCustomObject]@{
+				cliName     = 'zoxide'
+				aliasName   = 'zr'
+				aliasValue  = 'zoxide remove'
+				description = '如果你不希望某个目录再出现在 zoxide 的候选项中'
+			}
 			# scoop下载下来就是btm，不用设置别名
 			# [PSCustomObject]@{
 			# 	cliName     = 'bottom'
