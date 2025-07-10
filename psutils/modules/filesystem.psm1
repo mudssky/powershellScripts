@@ -340,7 +340,7 @@ function Get-GitignoreRules {
     }
     
     # 确保返回数组
-    return ,$rules
+    return , $rules
 }
 
 <#
@@ -374,31 +374,82 @@ function Test-GitignoreMatch {
     $relativePath = $relativePath.Replace('\', '/')
     
     foreach ($rule in $GitignoreRules) {
-        $pattern = $rule.Replace('\\', '/')
+        $pattern = $rule.Trim().Replace('\\', '/')
+        
+        # 跳过空规则
+        if ([string]::IsNullOrWhiteSpace($pattern)) {
+            continue
+        }
         
         # 处理否定规则（以!开头）
         if ($pattern.StartsWith('!')) {
             continue  # 简化处理，暂不支持否定规则
         }
         
-        # 处理目录规则（以/结尾）
-        if ($pattern.EndsWith('/')) {
-            if ($Item.PSIsContainer) {
-                $pattern = $pattern.TrimEnd('/')
-                if ($relativePath -like $pattern -or $relativePath.Split('/') -contains $pattern) {
+        # 使用switch语句处理不同的匹配模式
+        switch -Regex ($pattern) {
+            # 处理以/开头的绝对路径模式
+            '^/' {
+                $cleanPattern = $pattern.TrimStart('/')
+                if ($cleanPattern.EndsWith('/')) {
+                    # 目录规则
+                    $cleanPattern = $cleanPattern.TrimEnd('/')
+                    if ($Item.PSIsContainer -and ($relativePath -eq $cleanPattern -or $relativePath -like "$cleanPattern/*")) {
+                        return $true
+                    }
+                } else {
+                    # 文件或目录规则
+                    if ($relativePath -eq $cleanPattern -or $relativePath -like "$cleanPattern/*" -or $Item.Name -eq $cleanPattern) {
+                        return $true
+                    }
+                }
+                break
+            }
+            # 处理以/结尾的目录模式
+            '/$' {
+                $cleanPattern = $pattern.TrimEnd('/')
+                if ($Item.PSIsContainer) {
+                    # 检查目录名匹配
+                    if ($Item.Name -eq $cleanPattern -or $relativePath -eq $cleanPattern -or $relativePath -like "*/$cleanPattern" -or $relativePath -like "$cleanPattern/*") {
+                        return $true
+                    }
+                }
+                break
+            }
+            # 处理包含通配符的模式
+            '[*?\[\]]' {
+                if ($relativePath -like $pattern -or $Item.Name -like $pattern) {
                     return $true
                 }
+                # 检查路径的任何部分是否匹配
+                $pathParts = $relativePath.Split('/')
+                foreach ($part in $pathParts) {
+                    if ($part -like $pattern) {
+                        return $true
+                    }
+                }
+                break
             }
-        }
-        else {
-            # 处理文件和目录规则
-            if ($relativePath -like $pattern -or $relativePath.Split('/') -contains $pattern) {
-                return $true
-            }
-            
-            # 处理通配符模式
-            if ($Item.Name -like $pattern) {
-                return $true
+            # 处理普通模式（文件名或目录名）
+            default {
+                # 直接匹配文件名或目录名
+                if ($Item.Name -eq $pattern) {
+                    return $true
+                }
+                # 匹配相对路径
+                if ($relativePath -eq $pattern) {
+                    return $true
+                }
+                # 检查是否为路径中的任何部分
+                $pathParts = $relativePath.Split('/')
+                if ($pathParts -contains $pattern) {
+                    return $true
+                }
+                # 检查是否匹配路径的开始部分
+                if ($relativePath -like "$pattern/*") {
+                    return $true
+                }
+                break
             }
         }
     }
