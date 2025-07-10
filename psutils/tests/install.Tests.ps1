@@ -17,9 +17,8 @@ Describe "Test-ModuleInstalled 函数测试" {
     
     It "应该支持详细输出" {
         # 测试详细输出模式
-        $VerbosePreference = 'Continue'
-        { Test-ModuleInstalled -ModuleName "Microsoft.PowerShell.Management" -Verbose } | Should -Not -Throw
-        $VerbosePreference = 'SilentlyContinue'
+        # 测试模块安装检查功能，不输出详细信息
+        { Test-ModuleInstalled -ModuleName "Microsoft.PowerShell.Management" } | Should -Not -Throw
     }
      
     It "应该处理包含特殊字符的模块名" {

@@ -25,8 +25,8 @@ temp*
     }
 
     It "基本功能测试 - 显示目录树" {
-        # 由于Get-Tree默认输出到控制台，我们测试它不抛出异常
-        { Get-Tree -Path $testRoot -MaxDepth 1 } | Should -Not -Throw
+        # 测试Get-Tree函数不抛出异常，使用AsObject避免控制台输出
+        { $null = Get-Tree -Path $testRoot -MaxDepth 1 -AsObject $true } | Should -Not -Throw
     }
 
     It "AsObject参数测试 - 返回对象" {
