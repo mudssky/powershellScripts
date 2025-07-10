@@ -77,10 +77,10 @@ function Initialize-Environment {
             Write-Verbose "初始化 fnm Node.js 版本管理器"
             fnm env --use-on-cd | Out-String | Invoke-Expression 
         }
-        # zoxide = { 
-        #     Write-Verbose "初始化 zoxide 目录跳转工具"
-        #     Invoke-Expression (& { (zoxide init powershell | Out-String) }) 
-        # }
+        zoxide   = { 
+            Write-Verbose "初始化 zoxide 目录跳转工具"
+            Invoke-Expression (& { (zoxide init powershell | Out-String) }) 
+        }
     }
     
     foreach ($tool in $tools.GetEnumerator()) {
