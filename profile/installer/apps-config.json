@@ -148,6 +148,12 @@
         "cliName": "make",
         "description": "构建自动化工具",
         "command": "scoop install make"
+      },
+      {
+        "name": "bottom",
+        "cliName": "bottom",
+        "description": "rust 版本的top，任务管理器bottom",
+        "command": "scoop install bottom"
       }
     ],
     "winget": [
@@ -366,6 +372,48 @@
         "cliName": "starship",
         "description": "跨平台shell提示符",
         "command": "brew install starship"
+      },
+      {
+        "name": "bat",
+        "cliName": "bat",
+        "description": "cat的替代品",
+        "command": "brew install bat"
+      },
+      {
+        "name": "dust",
+        "cliName": "dust",
+        "description": "查看磁盘占用情况",
+        "command": "brew install du-dust"
+      },
+      {
+        "name": "duf",
+        "cliName": "duf",
+        "description": "磁盘使用情况工具",
+        "command": "brew install duf"
+      },
+      {
+        "name": "lazygit",
+        "cliName": "lazygit",
+        "description": "git的TUI界面",
+        "command": "brew install lazygit"
+      },
+      {
+        "name": "yq",
+        "cliName": "yq",
+        "description": "YAML/JSON处理器",
+        "command": "brew install yq"
+      },
+      {
+        "name": "nvim",
+        "cliName": "nvim",
+        "description": "Neovim",
+        "command": "brew install neovim"
+      },
+      {
+        "name": "bottom",
+        "cliName": "btm",
+        "description": "rust 版本的top，任务管理器bottom",
+        "command": "brew install bottom"
       }
     ]
   }

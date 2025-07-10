@@ -2,7 +2,9 @@
 
 [CmdletBinding()]
 param(
-	[switch]$loadProfile
+	[switch]$loadProfile,
+	# 别名前缀，用于区分自己定义的别名
+	[string]$AliasDespPrefix = '[mudssky]'
 )
 
 # 加载自定义模块 (例如包含 Test-EXEProgram 的文件)
@@ -52,16 +54,22 @@ function Add-CondaEnv {
 	}
 }
 
+
+
 <#
 .SYNOPSIS
     显示当前 Profile 加载的自定义别名、函数和关键环境变量。
 #>
 function Show-MyProfileHelp {
+	[CmdletBinding()]
+	param(
+
+	)
 	Write-Host "--- PowerShell Profile 帮助 ---" -ForegroundColor Cyan
 
 	# 1. 显示自定义别名
 	Write-Host "`n[自定义别名]" -ForegroundColor Yellow
-	Get-Alias | Where-Object { $_.Definition -in ('powershell_ise', 'Start-Ipython') } | Format-Table -AutoSize
+	Get-CustomAlias -AliasDespPrefix $AliasDespPrefix | Format-Table -AutoSize
 
 	# 2. 显示此 Profile 文件中定义的函数
 	Write-Host "`n[自定义函数]" -ForegroundColor Yellow
@@ -146,8 +154,41 @@ function Initialize-Environment {
 	
 	# 设置PowerShell别名
 	Write-Verbose "设置PowerShell别名"
-	Set-Alias -Name ise -Value powershell_ise -Scope Global
-	Set-Alias -Name ipython -Value Start-Ipython -Scope Global
+	Set-CustomAlias -Name ise -Value powershell_ise  -AliasDespPrefix $AliasDespPrefix -Scope Global
+	Set-CustomAlias -Name ipython -Value Start-Ipython  -AliasDespPrefix $AliasDespPrefix  -Scope Global
+	$userAlias = @(
+		[PSCustomObject]@{
+			cliName     = 'dust'
+			aliasName   = 'du'
+			aliasValue  = 'dust'
+			description = 'dust 是一个用于清理磁盘空间的命令行工具。它可以扫描指定目录并显示占用空间较大的文件和目录，以便用户确定是否删除它们。'
+		}
+		[PSCustomObject]@{
+			cliName     = 'duf'
+			aliasName   = 'df'
+			aliasValue  = 'duf'
+			description = 'df 是 du 的别名，用于显示目录内容。'
+		}
+		# scoop下载下来就是btm，不用设置别名
+		# [PSCustomObject]@{
+		# 	cliName     = 'bottom'
+		# 	aliasName   = 'btm'
+		# 	aliasValue  = 'bottom'
+		# 	description = 'bottom 是一个用于显示系统资源使用情况的命令行工具。它可以实时显示CPU、内存、磁盘和网络等系统资源的使用情况，帮助用户监控系统性能。'
+		# }
+	)
+	foreach ($alias in $userAlias) {
+		if (Test-ExeProgram -Name $alias.cliName) {
+			Set-CustomAlias -Name $alias.aliasName -Value $alias.aliasValue -Description $alias.description -AliasDespPrefix $AliasDespPrefix -Scope Global
+			Write-Verbose "已设置别名: $($alias.aliasName) -> $($alias.aliasValue)"
+		}
+		else {
+			Write-Warning "未找到 $($alias.cliName) 命令，无法设置别名: $($alias.aliasName)"
+		}
+	}
+	if (Test-ExeProgram -Name 'conda') {
+		Add-CondaEnv
+	}
 	
 	# 设置控制台编码为UTF8
 	Write-Verbose "设置控制台编码为UTF8"
