@@ -96,6 +96,58 @@ function Show-MyProfileHelp {
 }
 
 
+function Set-AliasProfile {
+	[CmdletBinding()]
+	param (
+		
+	)
+	
+	begin {
+		
+	}
+	
+	process {
+		# 设置PowerShell别名
+		Write-Verbose "设置PowerShell别名"
+		Set-CustomAlias -Name ise -Value powershell_ise  -AliasDespPrefix $AliasDespPrefix -Scope Global
+		Set-CustomAlias -Name ipython -Value Start-Ipython  -AliasDespPrefix $AliasDespPrefix  -Scope Global
+		$userAlias = @(
+			[PSCustomObject]@{
+				cliName     = 'dust'
+				aliasName   = 'du'
+				aliasValue  = 'dust'
+				description = 'dust 是一个用于清理磁盘空间的命令行工具。它可以扫描指定目录并显示占用空间较大的文件和目录，以便用户确定是否删除它们。'
+			}
+			[PSCustomObject]@{
+				cliName     = 'duf'
+				aliasName   = 'df'
+				aliasValue  = 'duf'
+				description = 'df 是 du 的别名，用于显示目录内容。'
+			}
+			# scoop下载下来就是btm，不用设置别名
+			# [PSCustomObject]@{
+			# 	cliName     = 'bottom'
+			# 	aliasName   = 'btm'
+			# 	aliasValue  = 'bottom'
+			# 	description = 'bottom 是一个用于显示系统资源使用情况的命令行工具。它可以实时显示CPU、内存、磁盘和网络等系统资源的使用情况，帮助用户监控系统性能。'
+			# }
+		)
+		foreach ($alias in $userAlias) {
+			if (Test-ExeProgram -Name $alias.cliName) {
+				Set-CustomAlias -Name $alias.aliasName -Value $alias.aliasValue -Description $alias.description -AliasDespPrefix $AliasDespPrefix -Scope Global
+				Write-Verbose "已设置别名: $($alias.aliasName) -> $($alias.aliasValue)"
+			}
+			else {
+				Write-Warning "未找到 $($alias.cliName) 命令，无法设置别名: $($alias.aliasName)"
+			}
+		}
+	}
+	
+	end {
+		
+	}
+}
+
 function Initialize-Environment {
 	<#
 	.SYNOPSIS
@@ -152,40 +204,8 @@ function Initialize-Environment {
 	
 
 	
-	# 设置PowerShell别名
-	Write-Verbose "设置PowerShell别名"
-	Set-CustomAlias -Name ise -Value powershell_ise  -AliasDespPrefix $AliasDespPrefix -Scope Global
-	Set-CustomAlias -Name ipython -Value Start-Ipython  -AliasDespPrefix $AliasDespPrefix  -Scope Global
-	$userAlias = @(
-		[PSCustomObject]@{
-			cliName     = 'dust'
-			aliasName   = 'du'
-			aliasValue  = 'dust'
-			description = 'dust 是一个用于清理磁盘空间的命令行工具。它可以扫描指定目录并显示占用空间较大的文件和目录，以便用户确定是否删除它们。'
-		}
-		[PSCustomObject]@{
-			cliName     = 'duf'
-			aliasName   = 'df'
-			aliasValue  = 'duf'
-			description = 'df 是 du 的别名，用于显示目录内容。'
-		}
-		# scoop下载下来就是btm，不用设置别名
-		# [PSCustomObject]@{
-		# 	cliName     = 'bottom'
-		# 	aliasName   = 'btm'
-		# 	aliasValue  = 'bottom'
-		# 	description = 'bottom 是一个用于显示系统资源使用情况的命令行工具。它可以实时显示CPU、内存、磁盘和网络等系统资源的使用情况，帮助用户监控系统性能。'
-		# }
-	)
-	foreach ($alias in $userAlias) {
-		if (Test-ExeProgram -Name $alias.cliName) {
-			Set-CustomAlias -Name $alias.aliasName -Value $alias.aliasValue -Description $alias.description -AliasDespPrefix $AliasDespPrefix -Scope Global
-			Write-Verbose "已设置别名: $($alias.aliasName) -> $($alias.aliasValue)"
-		}
-		else {
-			Write-Warning "未找到 $($alias.cliName) 命令，无法设置别名: $($alias.aliasName)"
-		}
-	}
+
+	Set-AliasProfile
 	if (Test-ExeProgram -Name 'conda') {
 		Add-CondaEnv
 	}
