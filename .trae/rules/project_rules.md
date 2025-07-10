@@ -1,5 +1,8 @@
 # PowerShell 脚本项目规则
 
+我们的默认终端是pwsh（powershell 7+），执行较长的命令创建一个ps1脚本来执行。因为长命令有很多引号，容易出错导致命令不执行
+短命令可以使用pwsh -Command来执行，不要用powershell来执行，因为可能调用的是windows默认的powershell，而不是powershell 7+
+
 ## 代码风格规范
 
 ### 命名约定
