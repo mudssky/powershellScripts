@@ -133,7 +133,7 @@
       },
       {
         "name": "zoxide",
-        "cliName": "z",
+        "cliName": "zoxide",
         "description": "更智能的cd",
         "command": "scoop install zoxide"
       },
@@ -151,7 +151,7 @@
       },
       {
         "name": "bottom",
-        "cliName": "bottom",
+        "cliName": "btm",
         "description": "rust 版本的top，任务管理器bottom",
         "command": "scoop install bottom"
       }
@@ -210,9 +210,10 @@
       },
       {
         "name": "zoxide",
-        "cliName": "z",
+        "cliName": "zoxide",
         "description": "更智能的cd",
-        "command": "cargo install zoxide"
+        "command": "cargo install zoxide",
+        "skipInstall": true
       },
       {
         "name": "pueue",

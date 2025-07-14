@@ -172,7 +172,7 @@ function Set-CustomAliasesProfile {
     # 定义用户别名配置
     $userAlias = @(
         [PSCustomObject]@{
-            cliName     = 'dust'
+            cliName     = 'du'
             aliasName   = 'du'
             aliasValue  = 'dust'
             description = 'dust 是一个用于清理磁盘空间的命令行工具。它可以扫描指定目录并显示占用空间较大的文件和目录，以便用户确定是否删除它们。'
