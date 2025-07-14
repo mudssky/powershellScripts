@@ -23,7 +23,51 @@ if ($loadProfile) {
 	Set-Content -Path $profile  -Value  ". $PSCommandPath"
 	return 
 }
+# 自定义别名配置
+$userAlias = @(
+	[PSCustomObject]@{
+		cliName     = 'dust'
+		aliasName   = 'du'
+		aliasValue  = 'dust'
+		description = 'dust 是一个用于清理磁盘空间的命令行工具。它可以扫描指定目录并显示占用空间较大的文件和目录，以便用户确定是否删除它们。'
+	}
+	[PSCustomObject]@{
+		cliName     = 'duf'
+		aliasName   = 'df'
+		aliasValue  = 'duf'
+		description = 'df 是 du 的别名，用于显示目录内容。'
+	}
+	[PSCustomObject]@{
+		cliName     = 'zoxide'
+		aliasName   = 'zq'
+		aliasValue  = ''
+		description = 'zoxide query 用于查询zoxide的数据库，显示最近访问的目录。'
+		command     = 'zoxide query'
 
+	}
+	[PSCustomObject]@{
+		cliName     = 'zoxide'
+		aliasName   = 'za'
+		aliasValue  = ''
+		description = 'zoxide add 用于将当前目录添加到zoxide的数据库中，以便下次快速访问。'
+		command     = 'zoxide add'
+	}
+	[PSCustomObject]@{
+		cliName     = 'zoxide'
+		aliasName   = 'zr'
+		aliasValue  = 'zoxide'
+		description = '如果你不希望某个目录再出现在 zoxide 的候选项中'
+		command     = 'zoxide remove'
+
+	}
+	# scoop下载下来就是btm，不用设置别名
+	# [PSCustomObject]@{
+	# 	cliName     = 'bottom'
+	# 	aliasName   = 'btm'
+	# 	aliasValue  = 'bottom'
+	# 	description = 'bottom 是一个用于显示系统资源使用情况的命令行工具。它可以实时显示CPU、内存、磁盘和网络等系统资源的使用情况，帮助用户监控系统性能。'
+	# }
+)
 
 <#
 	.SYNOPSIS
@@ -71,6 +115,10 @@ function Show-MyProfileHelp {
 	Write-Host "`n[自定义别名]" -ForegroundColor Yellow
 	Get-CustomAlias -AliasDespPrefix $AliasDespPrefix | Format-Table -AutoSize
 
+	# 1.5 函数别名
+	Write-Host "`n[自定义函数别名]" -ForegroundColor Yellow
+	$userAlias | Where-Object { $_.PSObject.Properties.Name -contains 'command' } | Select-Object @{N = '函数名'; E = 'aliasName' }, @{N = '底层命令'; E = 'command' }, @{N = '描述'; E = 'description' } | Format-Table -AutoSize
+	
 	# 2. 显示此 Profile 文件中定义的函数
 	Write-Host "`n[自定义函数]" -ForegroundColor Yellow
 	# 假设你的自定义函数都在一个模块里，或者你可以用其他方式过滤
@@ -99,11 +147,9 @@ function Show-MyProfileHelp {
 function Set-AliasProfile {
 	[CmdletBinding()]
 	param (
-		
+		[PSCustomObject]$userAlias = $userAlias
 	)
-	
 	begin {
-		
 	}
 	
 	process {
@@ -111,46 +157,14 @@ function Set-AliasProfile {
 		Write-Verbose "设置PowerShell别名"
 		Set-CustomAlias -Name ise -Value powershell_ise  -AliasDespPrefix $AliasDespPrefix -Scope Global
 		Set-CustomAlias -Name ipython -Value Start-Ipython  -AliasDespPrefix $AliasDespPrefix  -Scope Global
-		$userAlias = @(
-			[PSCustomObject]@{
-				cliName     = 'dust'
-				aliasName   = 'du'
-				aliasValue  = 'dust'
-				description = 'dust 是一个用于清理磁盘空间的命令行工具。它可以扫描指定目录并显示占用空间较大的文件和目录，以便用户确定是否删除它们。'
-			}
-			[PSCustomObject]@{
-				cliName     = 'duf'
-				aliasName   = 'df'
-				aliasValue  = 'duf'
-				description = 'df 是 du 的别名，用于显示目录内容。'
-			}
-			[PSCustomObject]@{
-				cliName     = 'zoxide'
-				aliasName   = 'zq'
-				aliasValue  = 'zoxide query'
-				description = 'zoxide query 用于查询zoxide的数据库，显示最近访问的目录。'
-			}
-			[PSCustomObject]@{
-				cliName     = 'zoxide'
-				aliasName   = 'za'
-				aliasValue  = 'zoxide add'
-				description = 'zoxide add 用于将当前目录添加到zoxide的数据库中，以便下次快速访问。'
-			}
-			[PSCustomObject]@{
-				cliName     = 'zoxide'
-				aliasName   = 'zr'
-				aliasValue  = 'zoxide remove'
-				description = '如果你不希望某个目录再出现在 zoxide 的候选项中'
-			}
-			# scoop下载下来就是btm，不用设置别名
-			# [PSCustomObject]@{
-			# 	cliName     = 'bottom'
-			# 	aliasName   = 'btm'
-			# 	aliasValue  = 'bottom'
-			# 	description = 'bottom 是一个用于显示系统资源使用情况的命令行工具。它可以实时显示CPU、内存、磁盘和网络等系统资源的使用情况，帮助用户监控系统性能。'
-			# }
-		)
 		foreach ($alias in $userAlias) {
+			if ($alias.command) {
+				Write-Verbose "别名 $($alias.aliasName) 已设置函数，执行函数创建"
+				$scriptBlock = [scriptblock]::Create("$($alias.command) `$args")
+				New-Item -Path "Function:Global:$($alias.aliasName)" -Value $scriptBlock -Force  | Out-Null
+				Write-Verbose "已创建函数: $($alias.name)"
+				continue
+			}
 			if (Test-ExeProgram -Name $alias.cliName) {
 				Set-CustomAlias -Name $alias.aliasName -Value $alias.aliasValue -Description $alias.description -AliasDespPrefix $AliasDespPrefix -Scope Global
 				Write-Verbose "已设置别名: $($alias.aliasName) -> $($alias.aliasValue)"
@@ -221,9 +235,6 @@ function Initialize-Environment {
 	}
 	
 
-	
-
-	Set-AliasProfile
 	if (Test-ExeProgram -Name 'conda') {
 		Add-CondaEnv
 	}
@@ -289,6 +300,7 @@ function Initialize-Environment {
 		}
 	}
 	
+	Set-AliasProfile
 	# 载入conda环境（如果环境变量中没有conda命令）
 	if (-not (Test-EXEProgram -Name conda)) {
 		Write-Verbose "尝试加载Conda环境"
