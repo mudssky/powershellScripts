@@ -154,6 +154,12 @@
         "cliName": "btm",
         "description": "rust 版本的top，任务管理器bottom",
         "command": "scoop install bottom"
+      },
+      {
+        "name": "helix",
+        "cliName": "hx",
+        "description": "受 Kakoune/Vim 启发的 Rust 编写的文本编辑器",
+        "command": "scoop install helix"
       }
     ],
     "winget": [
