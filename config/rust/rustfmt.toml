@@ -1,0 +1,12 @@
+# rustfmt 配置
+# 更多配置项请参考：https://rust-lang.github.io/rustfmt/?version=v1.7.0&edition=2024&search=
+
+# 单行代码的最大宽度。当代码超出此宽度时，rustfmt 会尝试将其格式化为多行。
+max_width = 100
+
+# 是否对导入（use 语句）进行排序。设置为 true 会按照字母顺序对导入进行排序和分组。
+reorder_imports = true
+
+# 链式方法调用的最大宽度。当链式调用超出此宽度时，rustfmt 会将其拆分为多行。
+# 通常设置为略小于 `max_width` 的值，以便在达到行宽限制前提前换行，提高可读性。
+chain_width = 80
