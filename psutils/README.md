@@ -150,11 +150,12 @@ switch ($os) {
 
 ### 🌐 网络工具 (network)
 
-提供网络连接测试和端口检查功能。
+提供网络连接测试、端口检查和进程管理功能。
 
 #### 主要函数
 
 - **`Test-PortOccupation`**: 检查端口是否被占用
+- **`Get-PortProcess`**: 获取占用指定端口的进程信息
 - **`Wait-ForURL`**: 等待 URL 可访问
 
 #### 使用示例
@@ -167,8 +168,19 @@ if (Test-PortOccupation -Port 8080) {
     Write-Host "端口 8080 可用"
 }
 
+# 获取占用端口的进程信息
+$processInfo = Get-PortProcess -Port 8080
+if ($processInfo) {
+    Write-Host "端口 8080 被进程占用:"
+    Write-Host "进程ID: $($processInfo.ProcessId)"
+    Write-Host "进程名: $($processInfo.ProcessName)"
+    Write-Host "进程路径: $($processInfo.Path)"
+} else {
+    Write-Host "端口 8080 未被占用"
+}
+
 # 等待服务启动
-Wait-ForURL -URL "http://localhost:8080" -Timeout 30
+Wait-ForURL -URL "http://localhost:8080" -Timeout 30 -Verbose
 ```
 
 ### 📦 模块安装管理 (install)
@@ -303,6 +315,7 @@ Invoke-Pester .\tests\string.Tests.ps1
 - ✅ 环境变量管理
 - ✅ 字符串处理
 - ✅ 操作系统检测
+- ✅ 网络工具
 - ✅ 模块安装管理
 - ✅ 通用函数
 - ✅ 错误处理
