@@ -1,6 +1,7 @@
 {
   "scripts": {
     "install": "pwsh -File ./install.ps1",
-    "test": "Invoke-Pester -Configuration ( ./PesterConfiguration.ps1 )"
+    "test": "Invoke-Pester -Configuration ( ./PesterConfiguration.ps1 )",
+    "test:detailed": "Invoke-Pester -Output Detailed"
   }
 }

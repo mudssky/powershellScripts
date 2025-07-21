@@ -31,6 +31,11 @@ $config = @{
             MaxThreads = 4
         }
     }
+
+    # Filter 模块: 定义筛选规则
+    Filter       = @{
+        ExcludeTag = @('Slow')
+    }
     CodeCoverage = @{
         Enabled                 = $true
         Path                    = "./psutils/modules/*.psm1"
@@ -44,6 +49,10 @@ $config = @{
             './psutils/modules/pwsh.psm1'
         )
 
+    }
+    Output       = @{
+        # 使用详细输出，方便查看哪些测试被跳过了
+        # Verbosity = 'Detailed'
     }
     TestResult   = @{
         Enabled    = $true
