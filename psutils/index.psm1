@@ -1,11 +1,6 @@
-# Import-Module -Name $PSScriptRoot\test.psm1
-# Import-Module -Name $PSScriptRoot\functions.psm1
-
-
-# 批量导入modules目录下的模块
-Get-ChildItem  $PSScriptRoot/modules/*.psm1 | ForEach-Object {
-	Import-Module -Name $_.FullName
-}
+# 使用 NestedModules 方式导入子模块，无需手动导入
+# 所有子模块已在 psutils.psd1 的 NestedModules 中配置
+# PowerShell 会自动加载这些模块
 
 # # 统一导出控制 - 明确指定所有要导出的函数
 # Export-ModuleMember -Function @(

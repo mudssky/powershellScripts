@@ -10,7 +10,8 @@
 @{
 
     # 与此清单关联的脚本模块或二进制模块文件
-    RootModule           = 'index.psm1'
+    # RootModule           = 'index.psm1'
+    RootModule           = ''
 
     # 此模块的版本号
     ModuleVersion        = '1.0.0'
@@ -67,8 +68,25 @@
     # FormatsToProcess = @()
 
     # 要作为 RootModule/ModuleToProcess 中指定模块的嵌套模块导入的模块
-    # 注意：RootModule 已经指定了主模块，无需重复配置
-    # NestedModules = @()
+    NestedModules        = @(
+        'modules\env.psm1',
+        'modules\error.psm1',
+        'modules\filesystem.psm1',
+        'modules\font.psm1',
+        'modules\functions.psm1',
+        'modules\hardware.psm1',
+        'modules\help.psm1',
+        'modules\install.psm1',
+        'modules\linux.psm1',
+        'modules\network.psm1',
+        'modules\os.psm1',
+        'modules\proxy.psm1',
+        'modules\pwsh.psm1',
+        'modules\string.psm1',
+        'modules\test.psm1',
+        'modules\win.psm1',
+        'modules\wrapper.psm1'
+    )
 
     # 要从此模块导出的函数，为获得最佳性能，请不要使用通配符，如果没有要导出的函数，请使用空数组
     FunctionsToExport    = @(
@@ -85,7 +103,7 @@
         # 硬件信息模块 (hardware.psm1)
         'Get-GpuInfo', 'Get-SystemMemoryInfo',
         # 帮助搜索模块 (help.psm1)
-        'Get-Help',
+        'Search-ModuleHelp', 'Find-PSUtilsFunction', 'Get-FunctionHelp', 'Test-HelpSearchPerformance', 'Convert-HelpBlock',
         # 安装管理模块 (install.psm1)
         'Test-ModuleInstalled', 'Install-RequiredModule', 'Install-PackageManagerApps', 'Get-PackageInstallCommand',
         # Linux 系统模块 (linux.psm1)
@@ -98,13 +116,13 @@
         'Close-Proxy', 'Start-Proxy',
         # PowerShell 工具模块 (pwsh.psm1)
         'Out-ModuleToFile',
-        # 字符串处理模块
+        # 字符串处理模块 (string.psm1)
         'Get-LineBreak', 'Convert-JsoncToJson',
-        # 测试工具模块
-        'Test-EXEProgram', 'Test-ArrayNotNull', 'Test-PathMust', 'Test-PathHasExe', 'Test-MacOSCaskApp', 'Test-HomebrewFormula', 'Test-ApplicationInstalled', 'Test-MacOSApplicationInstalled',
-        # Windows 系统模块
-        'Add-Startup',
-        # 包装器模块
+        # 测试工具模块 (test.psm1)
+        'Test-ModuleFunction', 'Test-ExeProgram', 'Test-ArrayNotNull', 'Test-PathHasExe', 'Test-MacOSCaskApp', 'Test-HomebrewFormula', 'Test-ApplicationInstalled', 'Test-MacOSApplicationInstalled',
+        # Windows 系统模块 (win.psm1)
+        'Add-Startup', 'New-Shortcut',
+        # 包装器模块 (wrapper.psm1)
         'Set-CustomAlias', 'Get-CustomAlias'
     )
 
