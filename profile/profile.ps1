@@ -155,7 +155,8 @@ function Show-MyProfileHelp {
 			}
 			Write-Host ""
 		}
-	} else {
+	}
+ else {
 		Write-Host "  暂无自定义函数包装" -ForegroundColor Gray
 	}
 	
@@ -166,7 +167,8 @@ function Show-MyProfileHelp {
 	"Initialize-Environment", "Show-MyProfileHelp", "Add-CondaEnv" | ForEach-Object { 
 		try {
 			Get-Command $_ -ErrorAction Stop
-		} catch {
+		}
+		catch {
 			# 忽略不存在的函数
 		}
 	} | Format-Table Name, CommandType, Source -AutoSize
@@ -382,70 +384,72 @@ function Initialize-Environment {
     依赖: yazi, Git for Windows (提供file.exe)
 #>
 function yaz {
-    [CmdletBinding()]
-    param(
-        [Parameter(ValueFromRemainingArguments = $true)]
-        [string[]]$Arguments
-    )
+	[CmdletBinding()]
+	param(
+		[Parameter(ValueFromRemainingArguments = $true)]
+		[string[]]$Arguments
+	)
     
-    # Windows下配置file.exe路径
-    if ($IsWindows -or $env:OS -eq "Windows_NT") {
-        # 检查是否已设置YAZI_FILE_ONE环境变量
-        if (-not $env:YAZI_FILE_ONE) {
-            # 尝试找到Git安装目录下的file.exe
-            $gitPaths = @(
-                "$env:ProgramFiles\Git\usr\bin\file.exe",
-                "$env:ProgramFiles(x86)\Git\usr\bin\file.exe",
-                "$env:USERPROFILE\scoop\apps\git\current\usr\bin\file.exe",
-                "$env:LOCALAPPDATA\Programs\Git\usr\bin\file.exe"
-            )
+	# Windows下配置file.exe路径
+	if ($IsWindows -or $env:OS -eq "Windows_NT") {
+		# 检查是否已设置YAZI_FILE_ONE环境变量
+		if (-not $env:YAZI_FILE_ONE) {
+			# 尝试找到Git安装目录下的file.exe
+			$gitPaths = @(
+				"$env:ProgramFiles\Git\usr\bin\file.exe",
+				"$env:ProgramFiles(x86)\Git\usr\bin\file.exe",
+				"$env:USERPROFILE\scoop\apps\git\current\usr\bin\file.exe",
+				"$env:LOCALAPPDATA\Programs\Git\usr\bin\file.exe"
+			)
             
-            $fileExePath = $gitPaths | Where-Object { Test-Path $_ } | Select-Object -First 1
+			$fileExePath = $gitPaths | Where-Object { Test-Path $_ } | Select-Object -First 1
             
-            if ($fileExePath) {
-                $env:YAZI_FILE_ONE = $fileExePath
-                Write-Verbose "已设置YAZI_FILE_ONE环境变量: $fileExePath"
-            } else {
-                Write-Warning "未找到file.exe，请安装Git for Windows或手动设置YAZI_FILE_ONE环境变量"
-            }
-        }
-    }
+			if ($fileExePath) {
+				$env:YAZI_FILE_ONE = $fileExePath
+				Write-Verbose "已设置YAZI_FILE_ONE环境变量: $fileExePath"
+			}
+			else {
+				Write-Warning "未找到file.exe，请安装Git for Windows或手动设置YAZI_FILE_ONE环境变量"
+			}
+		}
+	}
     
-    # 检查yazi是否可用
-    if (-not (Test-ExeProgram -Name 'yazi')) {
-        Write-Error "未找到yazi命令，请先安装yazi文件管理器"
-        return
-    }
+	# 检查yazi是否可用
+	if (-not (Test-ExeProgram -Name 'yazi')) {
+		Write-Error "未找到yazi命令，请先安装yazi文件管理器"
+		return
+	}
     
-    # 创建临时文件存储目录路径
-    $tmp = (New-TemporaryFile).FullName
+	# 创建临时文件存储目录路径
+	$tmp = (New-TemporaryFile).FullName
     
-    try {
-        # 启动yazi并传递参数
-        yazi @Arguments --cwd-file="$tmp"
+	try {
+		# 启动yazi并传递参数
+		yazi @Arguments --cwd-file="$tmp"
         
-        # 读取退出时的目录路径
-        if (Test-Path $tmp) {
-            $cwd = Get-Content -Path $tmp -Encoding UTF8 -ErrorAction SilentlyContinue
-            if (-not [String]::IsNullOrWhiteSpace($cwd) -and $cwd -ne $PWD.Path) {
-                if (Test-Path $cwd) {
-                    Set-Location -LiteralPath (Resolve-Path -LiteralPath $cwd).Path
-                    Write-Host "已切换到目录: $cwd" -ForegroundColor Green
-                } else {
-                    Write-Warning "目标目录不存在: $cwd"
-                }
-            }
-        }
-    }
-    catch {
-        Write-Error "启动yazi时出错: $($_.Exception.Message)"
-    }
-    finally {
-        # 清理临时文件
-        if (Test-Path $tmp) {
-            Remove-Item -Path $tmp -Force -ErrorAction SilentlyContinue
-        }
-    }
+		# 读取退出时的目录路径
+		if (Test-Path $tmp) {
+			$cwd = Get-Content -Path $tmp -Encoding UTF8 -ErrorAction SilentlyContinue
+			if (-not [String]::IsNullOrWhiteSpace($cwd) -and $cwd -ne $PWD.Path) {
+				if (Test-Path $cwd) {
+					Set-Location -LiteralPath (Resolve-Path -LiteralPath $cwd).Path
+					Write-Host "已切换到目录: $cwd" -ForegroundColor Green
+				}
+				else {
+					Write-Warning "目标目录不存在: $cwd"
+				}
+			}
+		}
+	}
+	catch {
+		Write-Error "启动yazi时出错: $($_.Exception.Message)"
+	}
+	finally {
+		# 清理临时文件
+		if (Test-Path $tmp) {
+			Remove-Item -Path $tmp -Force -ErrorAction SilentlyContinue
+		}
+	}
 }
 
 # 调用环境初始化函数
