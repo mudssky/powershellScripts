@@ -48,6 +48,12 @@
         "command": "scoop install gping"
       },
       {
+        "name": "lazydocker",
+        "cliName": "lazydocker",
+        "description": "docker的TUI界面",
+        "command": "scoop install lazydocker"
+      },
+      {
         "name": "fnm",
         "cliName": "fnm",
         "description": "nvm的rust替代，跨平台node版本管理",
