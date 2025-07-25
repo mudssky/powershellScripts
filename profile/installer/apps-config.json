@@ -160,6 +160,30 @@
         "cliName": "hx",
         "description": "受 Kakoune/Vim 启发的 Rust 编写的文本编辑器",
         "command": "scoop install helix"
+      },
+      {
+        "name": "sevenzip",
+        "cliName": "7z",
+        "description": "7zip压缩工具",
+        "command": "scoop install 7zip"
+      },
+      {
+        "name": "poppler",
+        "cliName": "pdfinfo",
+        "description": "PDF处理工具集",
+        "command": "scoop install poppler"
+      },
+      {
+        "name": "resvg",
+        "cliName": "resvg",
+        "description": "SVG渲染工具",
+        "command": "scoop install resvg"
+      },
+      {
+        "name": "imagemagick",
+        "cliName": "magick",
+        "description": "图像处理工具",
+        "command": "scoop install imagemagick"
       }
     ],
     "winget": [
