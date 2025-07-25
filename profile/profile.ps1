@@ -10,15 +10,8 @@ $profileLoadStartTime = Get-Date
 # 加载自定义模块 (例如包含 Test-EXEProgram 的文件)
 . $PSScriptRoot/loadModule.ps1
 
-# 导入cache模块
-$cacheModulePath = Join-Path $PSScriptRoot "..\psutils\modules\cache.psm1"
-if (Test-Path $cacheModulePath) {
-	Import-Module $cacheModulePath -Force
-}
-else {
-	Write-Warning "未找到cache模块: $cacheModulePath"
-}
-
+# 加载自定义函数包装
+. $PSScriptRoot/wrapper.ps1
 
 # 初次使用时，执行loadProfile覆盖本地profile
 if ($loadProfile) {
@@ -79,48 +72,6 @@ $userAlias = @(
 	# }
 )
 
-# 自定义函数包装配置
-$customFunctionWrappers = @(
-	[PSCustomObject]@{
-		functionName = 'yaz'
-		baseCli      = 'yazi'
-		description  = 'Yazi文件管理器包装函数，支持目录切换和Windows下file.exe自动配置'
-		features     = @('目录切换', 'file.exe自动配置', '错误处理', '参数透传')
-		version      = '1.0'
-		author       = 'mudssky'
-	}
-)
-
-<#
-	.SYNOPSIS
-		添加Conda环境到当前PowerShell会话
-	
-	.DESCRIPTION
-		检查用户主目录下的Anaconda3安装路径，如果存在conda-hook.ps1文件则加载它，
-		以便在当前PowerShell会话中使用conda命令。
-	
-	.OUTPUTS
-		无返回值，加载Conda环境到当前会话
-	
-	.EXAMPLE
-		Add-CondaEnv
-		加载Conda环境
-	
-	.NOTES
-		作者: PowerShell Scripts
-		版本: 1.0.0
-		创建日期: 2025-01-07
-		用途: 在PowerShell中启用Conda环境管理
-	#>
-function Add-CondaEnv {
-	$condaPath = "$env:USERPROFILE\anaconda3\shell\condabin\conda-hook.ps1"
-	if (Test-Path -Path $condaPath) {
-		Write-Verbose "加载Conda环境: $condaPath"
-		. $condaPath 
-	}
-}
-
-
 
 <#
 .SYNOPSIS
@@ -142,29 +93,15 @@ function Show-MyProfileHelp {
 	$userAlias | Where-Object { $_.PSObject.Properties.Name -contains 'command' } | Select-Object @{N = '函数名'; E = 'aliasName' }, @{N = '底层命令'; E = 'command' }, @{N = '描述'; E = 'description' } | Format-Table -AutoSize
 	
 	# 2. 显示自定义函数包装
+	# 动态获取自定义函数包装配置
+	$customFunctionWrappers = Get-CustomFunctionWrapperInfos
 	Write-Host "`n[自定义函数包装]" -ForegroundColor Yellow
 	if ($customFunctionWrappers -and $customFunctionWrappers.Count -gt 0) {
 		$customFunctionWrappers | Select-Object @{
 			N = '函数名'; E = 'functionName'
 		}, @{
-			N = '基础CLI'; E = 'baseCli'
-		}, @{
-			N = '版本'; E = 'version'
-		}, @{
 			N = '描述'; E = 'description'
 		} | Format-Table -AutoSize
-		
-		# 显示详细功能信息
-		Write-Host "`n[函数包装详细功能]" -ForegroundColor Yellow
-		foreach ($wrapper in $customFunctionWrappers) {
-			Write-Host "  $($wrapper.functionName):" -ForegroundColor White
-			if ($wrapper.features -and $wrapper.features.Count -gt 0) {
-				$wrapper.features | ForEach-Object {
-					Write-Host "    • $_" -ForegroundColor Gray
-				}
-			}
-			Write-Host ""
-		}
 	}
  else {
 		Write-Host "  暂无自定义函数包装" -ForegroundColor Gray
@@ -367,98 +304,7 @@ function Initialize-Environment {
 	Write-Debug "PowerShell环境初始化完成" 
 }
 
-<#
-.SYNOPSIS
-    Yazi文件管理器包装函数，支持目录切换
 
-.DESCRIPTION
-    启动Yazi文件管理器，并在退出时自动切换到选择的目录。
-    Windows下会自动配置file.exe路径以支持文件类型检测。
-
-.PARAMETER Arguments
-    传递给yazi的参数
-
-.EXAMPLE
-    yaz
-    启动Yazi文件管理器
-
-.EXAMPLE
-    yaz /path/to/directory
-    在指定目录启动Yazi
-
-.NOTES
-    作者: mudssky
-    版本: 1.0
-    依赖: yazi, Git for Windows (提供file.exe)
-#>
-function yaz {
-	[CmdletBinding()]
-	param(
-		[Parameter(ValueFromRemainingArguments = $true)]
-		[string[]]$Arguments
-	)
-    
-	# Windows下配置file.exe路径
-	if ($IsWindows -or $env:OS -eq "Windows_NT") {
-		# 检查是否已设置YAZI_FILE_ONE环境变量
-		if (-not $env:YAZI_FILE_ONE) {
-			# 尝试找到Git安装目录下的file.exe
-			$gitPaths = @(
-				"$env:ProgramFiles\Git\usr\bin\file.exe",
-				"$env:ProgramFiles(x86)\Git\usr\bin\file.exe",
-				"$env:USERPROFILE\scoop\apps\git\current\usr\bin\file.exe",
-				"$env:LOCALAPPDATA\Programs\Git\usr\bin\file.exe"
-			)
-            
-			$fileExePath = $gitPaths | Where-Object { Test-Path $_ } | Select-Object -First 1
-            
-			if ($fileExePath) {
-				$env:YAZI_FILE_ONE = $fileExePath
-				Write-Verbose "已设置YAZI_FILE_ONE环境变量: $fileExePath"
-			}
-			else {
-				Write-Warning "未找到file.exe，请安装Git for Windows或手动设置YAZI_FILE_ONE环境变量"
-			}
-		}
-	}
-    
-	# 检查yazi是否可用
-	if (-not (Test-ExeProgram -Name 'yazi')) {
-		Write-Error "未找到yazi命令，请先安装yazi文件管理器"
-		return
-	}
-    
-	# 创建临时文件存储目录路径
-	$tmp = (New-TemporaryFile).FullName
-    
-	try {
-		# 启动yazi并传递参数
-		yazi @Arguments --cwd-file="$tmp"
-        
-		# 读取退出时的目录路径
-		if (Test-Path $tmp) {
-			$cwd = Get-Content -Path $tmp -Encoding UTF8 -ErrorAction SilentlyContinue
-			if (-not [String]::IsNullOrWhiteSpace($cwd) -and $cwd -ne $PWD.Path) {
-				if (Test-Path $cwd) {
-					Set-Location -LiteralPath (Resolve-Path -LiteralPath $cwd).Path
-					Write-Host "已切换到目录: $cwd" -ForegroundColor Green
-				}
-				else {
-					Write-Warning "目标目录不存在: $cwd"
-				}
-			}
-		}
-	}
-	catch {
-		Write-Error "启动yazi时出错: $($_.Exception.Message)"
-	}
-	finally {
-		# 清理临时文件
-		if (Test-Path $tmp) {
-			Remove-Item -Path $tmp -Force -ErrorAction SilentlyContinue
-		}
-	}
-}
 
 # 调用环境初始化函数
 Initialize-Environment 
