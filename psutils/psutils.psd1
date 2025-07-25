@@ -71,6 +71,7 @@
 
     # 要作为 RootModule/ModuleToProcess 中指定模块的嵌套模块导入的模块
     NestedModules        = @(
+        'modules\cache.psm1',
         'modules\env.psm1',
         'modules\error.psm1',
         'modules\filesystem.psm1',
@@ -92,6 +93,8 @@
 
     # 要从此模块导出的函数，为获得最佳性能，请不要使用通配符，如果没有要导出的函数，请使用空数组
     FunctionsToExport    = @(
+        # 缓存管理模块 (cache.psm1)
+        'Invoke-WithCache', 'Clear-ExpiredCache', 'Get-CacheStats',
         # 环境管理模块 (env.psm1)
         'Get-Dotenv', 'Install-Dotenv', 'Import-EnvPath', 'Set-EnvPath', 'Add-EnvPath', 'Get-EnvParam', 'Remove-FromEnvPath',
         # 错误处理模块 (error.psm1)

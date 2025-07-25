@@ -1,14 +1,24 @@
 
-
 [CmdletBinding()]
 param(
 	[switch]$loadProfile,
 	# 别名前缀，用于区分自己定义的别名
 	[string]$AliasDespPrefix = '[mudssky]'
 )
+$profileLoadStartTime = Get-Date
 
 # 加载自定义模块 (例如包含 Test-EXEProgram 的文件)
 . $PSScriptRoot/loadModule.ps1
+
+# 导入cache模块
+$cacheModulePath = Join-Path $PSScriptRoot "..\psutils\modules\cache.psm1"
+if (Test-Path $cacheModulePath) {
+	Import-Module $cacheModulePath -Force
+}
+else {
+	Write-Warning "未找到cache模块: $cacheModulePath"
+}
+
 
 # 初次使用时，执行loadProfile覆盖本地profile
 if ($loadProfile) {
@@ -213,14 +223,15 @@ function Set-AliasProfile {
 				Write-Verbose "已创建函数: $($alias.name)"
 				continue
 			}
-			if (Test-ExeProgram -Name $alias.cliName) {
-				Set-CustomAlias -Name $alias.aliasName -Value $alias.aliasValue -Description $alias.description -AliasDespPrefix $AliasDespPrefix -Scope Global
-				Write-Verbose "已设置别名: $($alias.aliasName) -> $($alias.aliasValue)"
-			}
-			else {
-				Write-Warning "未找到 $($alias.cliName) 命令，无法设置别名: $($alias.aliasName)"
-			}
+			# 设置别名时，PowerShell 不需要目标命令当前就存在。它只在你使用该别名时才会去解析命令。因此，可以安全地移除所有 Test-ExeProgram 检查。
+			# if (Test-ExeProgram -Name $alias.cliName) {
+			Set-CustomAlias -Name $alias.aliasName -Value $alias.aliasValue -Description $alias.description -AliasDespPrefix $AliasDespPrefix -Scope Global
+			Write-Verbose "已设置别名: $($alias.aliasName) -> $($alias.aliasValue)"
 		}
+		# else {
+		# 	Write-Warning "未找到 $($alias.cliName) 命令，无法设置别名: $($alias.aliasName)"
+		# }
+	
 	}
 	
 	end {
@@ -282,11 +293,6 @@ function Initialize-Environment {
 		. "$ScriptRoot/env.ps1"
 	}
 	
-
-	if (Test-ExeProgram -Name 'conda') {
-		Add-CondaEnv
-	}
-	
 	# 设置控制台编码为UTF8
 	Write-Verbose "设置控制台编码为UTF8"
 	$Global:OutputEncoding = [console]::InputEncoding = [console]::OutputEncoding = New-Object System.Text.UTF8Encoding
@@ -307,7 +313,8 @@ function Initialize-Environment {
 	$tools = @{
 		starship = { 
 			Write-Verbose "初始化Starship提示符"
-			Invoke-Expression (&starship init powershell) 
+			$starshipInit = Invoke-WithCache -Key "starship-init-powershell" -MaxAge ([TimeSpan]::FromDays(30)) -ScriptBlock { &starship init powershell }
+			Invoke-Expression $starshipInit
 		}
 		sccache  = {
 			Write-Verbose "设置sccache用于Rust编译缓存"
@@ -315,7 +322,8 @@ function Initialize-Environment {
 		}
 		zoxide   = { 
 			Write-Verbose "初始化zoxide目录跳转工具"
-			Invoke-Expression (& { (zoxide init powershell | Out-String) }) 
+			$zoxideInit = Invoke-WithCache -Key "zoxide-init-powershell"  -MaxAge ([TimeSpan]::FromDays(30)) -ScriptBlock { zoxide init powershell | Out-String }
+			Invoke-Expression $zoxideInit
 		}
 		# 在windows上使用比nvm麻烦很多，，所以不用了
 		# 这个环境变量还需要在husky的git bash，npm使用的cmd里配置
@@ -350,10 +358,10 @@ function Initialize-Environment {
 	
 	Set-AliasProfile
 	# 载入conda环境（如果环境变量中没有conda命令）
-	if (-not (Test-EXEProgram -Name conda)) {
-		Write-Verbose "尝试加载Conda环境"
-		Add-CondaEnv
-	}
+	# if (-not (Test-EXEProgram -Name conda)) {
+	# 	Write-Verbose "尝试加载Conda环境"
+	# 	Add-CondaEnv
+	# }
 	
 	# Write-Host "PowerShell环境初始化完成" -ForegroundColor Green
 	Write-Debug "PowerShell环境初始化完成" 
@@ -457,4 +465,8 @@ Initialize-Environment
 
 # 配置git,解决中文文件名不能正常显示的问题
 # git config --global core.quotepath false
+
+$profileLoadEndTime = Get-Date
+$profileLoadTime = ($profileLoadEndTime - $profileLoadStartTime).TotalMilliseconds
+Write-Host "Profile 加载耗时: $($profileLoadTime) 毫秒" -ForegroundColor Green
 

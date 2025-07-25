@@ -183,6 +183,136 @@ if ($processInfo) {
 Wait-ForURL -URL "http://localhost:8080" -Timeout 30 -Verbose
 ```
 
+### 💾 缓存管理 (cache)
+
+提供高性能的函数结果缓存功能，支持多种缓存格式和灵活的缓存策略。
+
+#### 主要函数
+
+- **`Invoke-WithCache`**: 带缓存的函数执行，支持 XML 和 Text 两种缓存格式
+
+#### 核心特性
+
+- **多种缓存格式**: 支持 XML（默认）和 Text 两种缓存类型
+- **智能缓存策略**: 基于文件修改时间的自动过期检测
+- **灵活控制**: 支持强制刷新、禁用缓存等选项
+- **跨平台兼容**: 支持 Windows、Linux、macOS
+- **性能优化**: 显著减少重复计算时间
+
+#### 使用示例
+
+```powershell
+# 基本用法 - 默认 XML 缓存
+$result = Invoke-WithCache -Key "expensive-operation" -ScriptBlock {
+    # 耗时操作
+    Start-Sleep 3
+    Get-Process | Select-Object -First 10
+}
+
+# 使用 Text 缓存格式（适合字符串结果）
+$textResult = Invoke-WithCache -Key "text-data" -CacheType Text -ScriptBlock {
+    "这是一个文本结果: $(Get-Date)"
+}
+
+# 强制刷新缓存
+$freshResult = Invoke-WithCache -Key "data" -ScriptBlock { Get-Date } -Force
+
+# 禁用缓存（仅执行不缓存）
+$noCache = Invoke-WithCache -Key "temp" -ScriptBlock { Get-Random } -NoCache
+
+# 自定义缓存目录和过期时间
+$result = Invoke-WithCache -Key "custom" -ScriptBlock { Get-Service } `
+    -CacheDirectory "C:\MyCache" -ExpirationMinutes 30
+```
+
+#### 缓存类型说明
+
+- **XML 缓存** (`-CacheType XML`):
+  - 默认格式，使用 `Export-CliXml` 和 `Import-CliXml`
+  - 完美保持对象类型和结构
+  - 适合复杂对象、数组、哈希表等
+  - 文件扩展名: `.cache.xml`
+
+- **Text 缓存** (`-CacheType Text`):
+  - 纯文本格式，使用字符串存储
+  - 非字符串对象自动转换为字符串
+  - 适合简单文本结果
+  - 文件扩展名: `.cache.txt`
+  - 性能更优，文件更小
+
+#### 高级用法
+
+```powershell
+# 相同 Key 不同 CacheType 会创建不同缓存文件
+$xmlData = Invoke-WithCache -Key "data" -CacheType XML -ScriptBlock { @{Name="Test"; Value=123} }
+$textData = Invoke-WithCache -Key "data" -CacheType Text -ScriptBlock { "Simple text" }
+
+# 缓存目录结构
+# PowerShellCache/
+# ├── data.cache.xml
+# └── data.cache.txt
+
+# 性能对比示例
+Measure-Command {
+    1..100 | ForEach-Object {
+        Invoke-WithCache -Key "perf-xml-$_" -CacheType XML -ScriptBlock { Get-Date }
+    }
+}
+
+Measure-Command {
+    1..100 | ForEach-Object {
+        Invoke-WithCache -Key "perf-text-$_" -CacheType Text -ScriptBlock { Get-Date }
+    }
+}
+```
+
+#### 缓存管理
+
+```powershell
+# 获取缓存统计信息
+Get-CacheStats
+
+# 获取详细缓存信息（包括文件列表）
+Get-CacheStats -Detailed
+
+# 清理过期缓存（默认7天）
+Clear-ExpiredCache
+
+# 清理3天前的过期缓存
+Clear-ExpiredCache -MaxAge ([TimeSpan]::FromDays(3))
+
+# 预览清理操作（不实际删除）
+Clear-ExpiredCache -WhatIf
+
+# 强制清理所有缓存文件
+Clear-ExpiredCache -Force
+
+# 手动查看缓存文件
+Get-ChildItem "$env:LOCALAPPDATA\PowerShellCache" -Filter "*.cache.*"
+```
+
+#### 性能监控
+
+```powershell
+# 查看缓存性能统计
+$stats = Get-CacheStats
+Write-Host "缓存命中率: $($stats.Performance.HitRate)%"
+Write-Host "总请求数: $($stats.Performance.TotalRequests)"
+
+# 性能对比示例
+$stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+$result1 = Invoke-WithCache -Key "perf-test" -ScriptBlock { Start-Sleep 1; Get-Date }
+$firstTime = $stopwatch.ElapsedMilliseconds
+
+$stopwatch.Restart()
+$result2 = Invoke-WithCache -Key "perf-test" -ScriptBlock { Start-Sleep 1; "不会执行" }
+$cacheTime = $stopwatch.ElapsedMilliseconds
+
+Write-Host "首次执行: $firstTime ms"
+Write-Host "缓存命中: $cacheTime ms"
+Write-Host "性能提升: $([math]::Round($firstTime / $cacheTime, 2))x"
+```
+
 ### 📦 模块安装管理 (install)
 
 提供 PowerShell 模块安装和管理功能。
@@ -316,6 +446,7 @@ Invoke-Pester .\tests\string.Tests.ps1
 - ✅ 字符串处理
 - ✅ 操作系统检测
 - ✅ 网络工具
+- ✅ 缓存管理
 - ✅ 模块安装管理
 - ✅ 通用函数
 - ✅ 错误处理
