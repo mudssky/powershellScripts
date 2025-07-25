@@ -1,5 +1,10 @@
 
 
+# 模块级别的缓存哈希表，用于存储已检查过的可执行程序结果
+if (-not $script:ExeProgramCache) {
+    $script:ExeProgramCache = @{}
+}
+
 <#
 .SYNOPSIS
     判断环境变量中是否存在可执行程序。
@@ -7,9 +12,13 @@
 .DESCRIPTION
     此函数用于检查系统环境变量 PATH 中是否存在指定名称的可执行程序（应用程序）。
     它通过尝试获取命令来判断程序是否存在，并返回布尔值。
+    为了优化性能，函数使用缓存机制来存储已检查过的程序结果，避免重复的系统调用。
 
 .PARAMETER Name
     必需参数。要检查的可执行程序的名称。
+
+.PARAMETER NoCache
+    可选参数。如果指定此参数，将跳过缓存直接进行检查，并更新缓存结果。
 
 .INPUTS
     字符串。可以通过管道传递程序名称。
@@ -25,28 +34,99 @@
     "git", "node" | Test-EXEProgram
     通过管道检查 "git" 和 "node" 是否存在。
 
+.EXAMPLE
+    Test-EXEProgram -Name "git" -NoCache
+    强制重新检查 "git" 程序，不使用缓存结果。
+
 .NOTES
     此函数使用 Get-Command -CommandType Application 来查找可执行程序。
     它会静默处理错误，因此不会在找不到程序时抛出错误。
     适用于Windows、Linux和macOS等支持PowerShell的平台。
+    缓存功能可以显著提升多次调用相同程序检查时的性能。
 
 #>
 function Test-EXEProgram() {
-	Param
-	(	
-		[Parameter(Mandatory = $true, 
-		 ValueFromPipeline = $true,
-		 Position = 0 )]
-		[ValidateNotNull()]
-		[ValidateNotNullOrEmpty()]
-		[string]
-		$Name
-	)
-	process {
-		# get-command  return $null  when cant find command and  SilentlyContinue flag on 
-		return ($null -ne (Get-Command -Name $Name  -CommandType Application  -ErrorAction SilentlyContinue ))
-	}
+    [CmdletBinding()]
+    Param
+    (	
+        [Parameter(Mandatory = $true, 
+            ValueFromPipeline = $true,
+            Position = 0 )]
+        [ValidateNotNull()]
+        [ValidateNotNullOrEmpty()]
+        [string]
+        $Name,
+        
+        [Parameter(Mandatory = $false)]
+        [switch]
+        $NoCache
+    )
+    process {
+        # 如果不使用缓存或缓存中没有该程序的记录，则进行检查
+        if ($NoCache -or -not $script:ExeProgramCache.ContainsKey($Name)) {
+            Write-Verbose "检查可执行程序: $Name"
+            # get-command  return $null  when cant find command and  SilentlyContinue flag on 
+            $result = ($null -ne (Get-Command -Name $Name -CommandType Application -ErrorAction SilentlyContinue))
+            
+            # 将结果存储到缓存中
+            $script:ExeProgramCache[$Name] = $result
+            Write-Verbose "缓存结果: $Name = $result"
+            
+            return $result
+        }
+        else {
+            # 从缓存中返回结果
+            Write-Verbose "从缓存获取结果: $Name = $($script:ExeProgramCache[$Name])"
+            return $script:ExeProgramCache[$Name]
+        }
+    }
+}
 
+<#
+.SYNOPSIS
+    清除 Test-EXEProgram 函数的缓存。
+
+.DESCRIPTION
+    此函数用于清除 Test-EXEProgram 函数使用的缓存，强制后续调用重新检查所有程序。
+    当系统环境发生变化（如安装或卸载程序）时，可以使用此函数来刷新缓存。
+
+.PARAMETER ProgramName
+    可选参数。如果指定，则只清除特定程序的缓存；如果不指定，则清除所有缓存。
+
+.EXAMPLE
+    Clear-EXEProgramCache
+    清除所有程序的缓存。
+
+.EXAMPLE
+    Clear-EXEProgramCache -ProgramName "git"
+    只清除 "git" 程序的缓存。
+
+.NOTES
+    当系统PATH环境变量发生变化或安装/卸载程序后，建议调用此函数来确保缓存的准确性。
+#>
+function Clear-EXEProgramCache() {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $false)]
+        [string]
+        $ProgramName
+    )
+    
+    if ([string]::IsNullOrWhiteSpace($ProgramName)) {
+        # 清除所有缓存
+        $script:ExeProgramCache.Clear()
+        Write-Verbose "已清除所有可执行程序缓存"
+    }
+    else {
+        # 清除特定程序的缓存
+        if ($script:ExeProgramCache.ContainsKey($ProgramName)) {
+            $script:ExeProgramCache.Remove($ProgramName)
+            Write-Verbose "已清除程序 '$ProgramName' 的缓存"
+        }
+        else {
+            Write-Verbose "程序 '$ProgramName' 不在缓存中"
+        }
+    }
 }
 
 
@@ -80,13 +160,13 @@ function Test-EXEProgram() {
     此函数可以用于在脚本中进行数组有效性检查，避免对空数组进行操作时引发错误。
 #>
 function Test-ArrayNotNull() {
-	param(
-		$array
-	)
-	if ( $null -ne $array -and @($array).count -gt 0 ) {
-		return $True
-	}
-	return $False
+    param(
+        $array
+    )
+    if ( $null -ne $array -and @($array).count -gt 0 ) {
+        return $True
+    }
+    return $False
 }
 
 <#
@@ -115,16 +195,16 @@ function Test-ArrayNotNull() {
     此函数通过抛出错误来强制执行路径存在性检查，这有助于在脚本早期发现问题。
 #>
 function Test-PathMust() {
-	param (
-		$Path
-	)
-	if (-not (Test-Path $Path)) {
-		throw "the path $Path is not exist"
-	}
+    param (
+        $Path
+    )
+    if (-not (Test-Path $Path)) {
+        throw "the path $Path is not exist"
+    }
 }
 
 function Test-PathHasExe {
-	<#
+    <#
 	.SYNOPSIS
 	    判断路径中是否含有可执行文件。
 
@@ -152,42 +232,42 @@ function Test-PathHasExe {
 	#>
 	
 	
-	param(
-		[string]
-		$Path = '.'
-	)
+    param(
+        [string]
+        $Path = '.'
+    )
 	
 	
 
 
-	# 1. 检查路径是否存在
-	if ( -not (Test-Path -Path $Path)) {
-		Write-Debug "the path $Path is not exist"
-		return $false
-	}
-	# 2. 检查路径是否是目录
-	# 可以用Test-Path指定PathType来判断，Container是目录
-	# Test-Path $Path -PathType Leaf
-	$item = Get-Item $Path
+    # 1. 检查路径是否存在
+    if ( -not (Test-Path -Path $Path)) {
+        Write-Debug "the path $Path is not exist"
+        return $false
+    }
+    # 2. 检查路径是否是目录
+    # 可以用Test-Path指定PathType来判断，Container是目录
+    # Test-Path $Path -PathType Leaf
+    $item = Get-Item $Path
 
-	if ($item.PSIsContainer) {
-		# 目录的情况
-		# 遍历单层文件判断是否有可执行文件
-		$exeList = Get-ChildItem -Path $Path -File -ErrorAction SilentlyContinue | where-object { $_.Extension -in '.exe', '.cmd', '.bat', '.ps1' } 
-		if ($exeList.Count -gt 0) {
-			Write-Debug "the path $Path has exe file $($_.FullName)"
-			return $true
-		}
+    if ($item.PSIsContainer) {
+        # 目录的情况
+        # 遍历单层文件判断是否有可执行文件
+        $exeList = Get-ChildItem -Path $Path -File -ErrorAction SilentlyContinue | where-object { $_.Extension -in '.exe', '.cmd', '.bat', '.ps1' } 
+        if ($exeList.Count -gt 0) {
+            Write-Debug "the path $Path has exe file $($_.FullName)"
+            return $true
+        }
 
-		Write-Debug "the path $Path has no exe file"
-		return $false
-	}
- else {
-		#   非目录的情况，只需判断路径是否是.exe结尾
-		Write-Debug "the path $Path is not a directory"
-		return $item.Extension -eq '.exe'
+        Write-Debug "the path $Path has no exe file"
+        return $false
+    }
+    else {
+        #   非目录的情况，只需判断路径是否是.exe结尾
+        Write-Debug "the path $Path is not a directory"
+        return $item.Extension -eq '.exe'
 
-	}
+    }
 
   	
 
@@ -458,4 +538,4 @@ function Test-MacOSApplicationInstalled {
     }
 }
 
-Export-ModuleMember -Function Test-ModuleFunction,Test-ExeProgram,Test-ArrayNotNull,Test-PathHasExe
+Export-ModuleMember -Function Test-ModuleFunction, Test-EXEProgram, Test-ArrayNotNull, Test-PathHasExe, Test-MacOSCaskApp, Test-HomebrewFormula, Test-ApplicationInstalled, Test-MacOSApplicationInstalled, Clear-EXEProgramCache

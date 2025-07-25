@@ -121,7 +121,7 @@
         # 字符串处理模块 (string.psm1)
         'Get-LineBreak', 'Convert-JsoncToJson',
         # 测试工具模块 (test.psm1)
-        'Test-ModuleFunction', 'Test-ExeProgram', 'Test-ArrayNotNull', 'Test-PathHasExe', 'Test-MacOSCaskApp', 'Test-HomebrewFormula', 'Test-ApplicationInstalled', 'Test-MacOSApplicationInstalled',
+        'Test-ModuleFunction', 'Test-EXEProgram', 'Test-ArrayNotNull', 'Test-PathHasExe', 'Test-MacOSCaskApp', 'Test-HomebrewFormula', 'Test-ApplicationInstalled', 'Test-MacOSApplicationInstalled', 'Clear-EXEProgramCache',
         # Windows 系统模块 (win.psm1)
         'Add-Startup', 'New-Shortcut',
         # 包装器模块 (wrapper.psm1)
