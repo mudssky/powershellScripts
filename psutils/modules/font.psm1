@@ -198,4 +198,4 @@ function Uninstall-Font {
 }  
   
 
-Export-ModuleMember -Function *
+Export-ModuleMember -Function Test-Font, Install-Font, Uninstall-Font

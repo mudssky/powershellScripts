@@ -425,4 +425,4 @@ function Remove-FromEnvPath {
 	}
 }
 
-Export-ModuleMember -Function *
+Export-ModuleMember -Function Get-Dotenv, Install-Dotenv, Import-EnvPath, Set-EnvPath, Add-EnvPath, Get-EnvParam, Remove-FromEnvPath

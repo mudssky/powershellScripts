@@ -60,3 +60,5 @@ function Out-ModuleToFile {
 
     Out-File -FilePath $ModuleOutputName -InputObject ($outputFunctions -Join "`n`n") -Encoding utf8
 }
+
+Export-ModuleMember -Function Out-ModuleToFile

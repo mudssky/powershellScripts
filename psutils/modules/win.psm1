@@ -116,4 +116,4 @@ function New-Shortcut {
 }
 
 
-Export-ModuleMember -Function *
+Export-ModuleMember -Function Add-Startup, New-Shortcut

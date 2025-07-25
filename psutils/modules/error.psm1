@@ -76,4 +76,4 @@ function Debug-CommandExecution {
 }
 
 
-Export-ModuleMember -Function *
+Export-ModuleMember -Function Debug-CommandExecution

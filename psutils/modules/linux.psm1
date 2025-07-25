@@ -84,4 +84,4 @@ function Set-SSHKeyAuth {
     return $true
 }
 
-Export-ModuleMember -Function *
+Export-ModuleMember -Function Set-SSHKeyAuth

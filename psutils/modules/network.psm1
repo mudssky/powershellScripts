@@ -177,4 +177,4 @@ function Wait-ForURL {
 }
 
 
-Export-ModuleMember -Function *
+Export-ModuleMember -Function Test-PortOccupation, Get-PortProcess, Wait-ForURL

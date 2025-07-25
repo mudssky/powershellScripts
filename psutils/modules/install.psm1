@@ -255,4 +255,4 @@ function Get-PackageInstallCommand {
     }
 }
 
-Export-ModuleMember -Function *
+Export-ModuleMember -Function Test-ModuleInstalled, Install-RequiredModule, Install-PackageManagerApps, Get-PackageInstallCommand

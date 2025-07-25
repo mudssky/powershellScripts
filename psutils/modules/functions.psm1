@@ -401,4 +401,4 @@ function Get-ReversedMap($map) {
 }
 
 
-Export-ModuleMember -Function *
+Export-ModuleMember -Function Get-HistoryCommandRank, Get-ScriptFolder, Start-Ipython, Start-PSReadline, New-Shortcut, Set-Script, Update-Semver, Get-FormatLength, Get-NeedBinaryDigit, Get-ReversedMap

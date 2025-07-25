@@ -66,3 +66,5 @@ function Start-Proxy() {
     Set-ItemProperty -Path $internetSettingPath -Name ProxyEnable -Value 1
     # Restart-Service -Name WinHttpAutoProxySvc
 }
+
+Export-ModuleMember -Function Close-Proxy, Start-Proxy

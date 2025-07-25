@@ -324,4 +324,4 @@ function Get-SystemMemoryInfo {
 
 
 
-Export-ModuleMember -Function *
+Export-ModuleMember -Function Get-GpuInfo, Get-SystemMemoryInfo

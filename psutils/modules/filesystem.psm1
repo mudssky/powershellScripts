@@ -688,4 +688,4 @@ function ConvertTo-TreeJson {
     }
 }
 
-Export-ModuleMember -Function *
+Export-ModuleMember -Function Get-Tree, Show-TreeItem, Get-ItemColor, Get-GitignoreRules, Test-GitignoreMatch, Build-TreeObject, Get-TreeObject, ConvertTo-TreeJson

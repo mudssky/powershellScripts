@@ -116,4 +116,4 @@ function Test-Administrator {
     }
 }
 
-Export-ModuleMember  -Function  *
+Export-ModuleMember -Function Get-OperatingSystem, Test-Administrator

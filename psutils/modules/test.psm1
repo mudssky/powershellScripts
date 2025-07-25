@@ -458,4 +458,4 @@ function Test-MacOSApplicationInstalled {
     }
 }
 
-Export-ModuleMember -Function *
+Export-ModuleMember -Function Test-ModuleFunction,Test-ExeProgram,Test-ArrayNotNull,Test-PathHasExe
