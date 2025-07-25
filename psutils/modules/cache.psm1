@@ -6,9 +6,9 @@ if (-not (Test-Path $script:CacheBaseDir)) {
 
 # 模块级别变量：缓存统计
 $script:CacheStats = @{
-    Hits = 0
-    Misses = 0
-    Writes = 0
+    Hits        = 0
+    Misses      = 0
+    Writes      = 0
     CleanupRuns = 0
     LastCleanup = $null
 }
@@ -65,11 +65,11 @@ function Clear-ExpiredCache {
     )
 
     $cleanupStats = @{
-        TotalFiles = 0
+        TotalFiles   = 0
         ExpiredFiles = 0
         DeletedFiles = 0
-        FreedSpace = 0
-        Errors = @()
+        FreedSpace   = 0
+        Errors       = @()
     }
 
     try {
@@ -132,7 +132,8 @@ function Clear-ExpiredCache {
         $freedSpaceKB = [math]::Round($cleanupStats.FreedSpace / 1KB, 2)
         $message = if ($WhatIfPreference) {
             "[预览] 将清理 $($cleanupStats.DeletedFiles) 个文件，释放 $freedSpaceKB KB 空间"
-        } else {
+        }
+        else {
             "已清理 $($cleanupStats.DeletedFiles) 个文件，释放 $freedSpaceKB KB 空间"
         }
         
@@ -188,17 +189,17 @@ function Get-CacheStats {
 
     $stats = @{
         CacheDirectory = $script:CacheBaseDir
-        RuntimeStats = $script:CacheStats.Clone()
-        FileStats = @{
+        RuntimeStats   = $script:CacheStats.Clone()
+        FileStats      = @{
             TotalFiles = 0
-            TotalSize = 0
-            XMLFiles = 0
-            TextFiles = 0
+            TotalSize  = 0
+            XMLFiles   = 0
+            TextFiles  = 0
             OldestFile = $null
             NewestFile = $null
         }
-        Performance = @{
-            HitRate = 0
+        Performance    = @{
+            HitRate       = 0
             TotalRequests = 0
         }
     }
@@ -473,7 +474,8 @@ function Invoke-WithCache {
                     # Text格式：将结果转换为字符串并写入文本文件
                     $textContent = if ($result -is [string]) { 
                         $result 
-                    } else { 
+                    }
+                    else { 
                         ($result | Out-String).Trim() 
                     }
                     Set-Content -Path $cacheFile -Value $textContent -Encoding UTF8 -NoNewline

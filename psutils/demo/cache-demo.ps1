@@ -24,7 +24,8 @@ $cacheModulePath = Join-Path $PSScriptRoot "..\modules\cache.psm1"
 if (Test-Path $cacheModulePath) {
     Import-Module $cacheModulePath -Force
     Write-Host "✅ 缓存模块v1.2.0加载成功" -ForegroundColor Green
-} else {
+}
+else {
     Write-Error "❌ 未找到缓存模块: $cacheModulePath"
     exit 1
 }
@@ -103,14 +104,14 @@ Write-Host "缓存复杂PowerShell对象:" -ForegroundColor White
 $complexData = Invoke-WithCache -Key "demo-complex" -ScriptBlock {
     Write-Host "  正在生成复杂对象..." -ForegroundColor Gray
     [PSCustomObject]@{
-        Timestamp = Get-Date
+        Timestamp    = Get-Date
         ProcessCount = (Get-Process).Count
-        SystemInfo = @{
-            OS = $env:OS
+        SystemInfo   = @{
+            OS           = $env:OS
             ComputerName = $env:COMPUTERNAME
-            UserName = $env:USERNAME
+            UserName     = $env:USERNAME
         }
-        RandomData = 1..5 | ForEach-Object { Get-Random -Maximum 100 }
+        RandomData   = 1..5 | ForEach-Object { Get-Random -Maximum 100 }
         CacheVersion = "v1.2.0"
     }
 }
@@ -153,7 +154,8 @@ if (Test-Path $cacheDir) {
             Write-Host "  📄 $($_.Name) ($size KB, $($_.LastWriteTime), 哈希长度: $hashLength)" -ForegroundColor Gray
         }
     }
-} else {
+}
+else {
     Write-Host "缓存目录不存在" -ForegroundColor Red
 }
 
