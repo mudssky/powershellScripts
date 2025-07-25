@@ -314,5 +314,7 @@ Initialize-Environment
 
 $profileLoadEndTime = Get-Date
 $profileLoadTime = ($profileLoadEndTime - $profileLoadStartTime).TotalMilliseconds
-Write-Host "Profile 加载耗时: $($profileLoadTime) 毫秒" -ForegroundColor Green
+if ($profileLoadTime -gt 1000) {
+	Write-Host "Profile 加载耗时: $($profileLoadTime) 毫秒" -ForegroundColor Green
+}
 
