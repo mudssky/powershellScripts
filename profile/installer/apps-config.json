@@ -42,6 +42,12 @@
     ],
     "scoop": [
       {
+        "name": "gping",
+        "cliName": "gping",
+        "description": "带图表的ping工具",
+        "command": "scoop install gping"
+      },
+      {
         "name": "fnm",
         "cliName": "fnm",
         "description": "nvm的rust替代，跨平台node版本管理",
