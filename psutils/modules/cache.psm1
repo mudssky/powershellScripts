@@ -1,7 +1,44 @@
-# 模块级别初始化：创建缓存目录
-$script:CacheBaseDir = Join-Path $env:LOCALAPPDATA "PowerShellCache"
+# 导入操作系统检测模块
+$osModulePath = Join-Path $PSScriptRoot "os.psm1"
+if (Test-Path $osModulePath) {
+    Import-Module $osModulePath -Force
+}
+
+# 模块级别初始化：创建缓存目录（跨平台兼容）
+function Get-CacheBaseDirectory {
+    $os = Get-OperatingSystem
+    switch ($os) {
+        "Windows" {
+            return Join-Path $env:LOCALAPPDATA "PowerShellCache"
+        }
+        "macOS" {
+            $homeDir = $env:HOME
+            return Join-Path $homeDir "Library/Caches/PowerShellCache"
+        }
+        "Linux" {
+            $homeDir = $env:HOME
+            $xdgCacheHome = $env:XDG_CACHE_HOME
+            if ([string]::IsNullOrWhiteSpace($xdgCacheHome)) {
+                return Join-Path $homeDir ".cache/PowerShellCache"
+            }
+            else {
+                return Join-Path $xdgCacheHome "PowerShellCache"
+            }
+        }
+        default {
+            # 回退到用户主目录下的 .powershell-cache
+            $homeDir = $env:HOME
+            if ([string]::IsNullOrWhiteSpace($homeDir)) {
+                $homeDir = $env:USERPROFILE  # Windows 回退
+            }
+            return Join-Path $homeDir ".powershell-cache"
+        }
+    }
+}
+
+$script:CacheBaseDir = Get-CacheBaseDirectory
 if (-not (Test-Path $script:CacheBaseDir)) {
-    New-Item -ItemType Directory -Path $script:CacheBaseDir | Out-Null
+    New-Item -ItemType Directory -Path $script:CacheBaseDir -Force | Out-Null
 }
 
 # 模块级别变量：缓存统计
