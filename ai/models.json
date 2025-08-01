@@ -43,8 +43,15 @@
       "skip": true
     },
     {
-      "modelId": "qwen3:30b-a3b",
-      "name": "qwen3:30b-a3b",
+      "modelId": "qwen3:30b",
+      "name": "qwen3:30b",
+      "size": 19,
+      "vramRequired": 16,
+      "skip": false
+    },
+    {
+      "modelId": "qwen3-coder",
+      "name": "qwen3-coder",
       "size": 19,
       "vramRequired": 16,
       "skip": false
