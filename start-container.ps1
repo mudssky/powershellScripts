@@ -56,7 +56,7 @@
 [CmdletBinding()]
 param (
     [Parameter(Mandatory = $true)]
-    [ValidateSet("minio", "redis", 'postgre', 'etcd', 'nacos', 'rabbitmq', 'mongodb', 'one-api', 'mongodb-replica','kokoro-fastapi','cadvisor', 'prometheus', 'noco')]
+    [ValidateSet("minio", "redis", 'postgre', 'etcd', 'nacos', 'rabbitmq', 'mongodb', 'one-api', 'mongodb-replica', 'kokoro-fastapi', 'kokoro-fastapi-cpu', 'cadvisor', 'prometheus', 'noco')]
     [string]$ServiceName, # 更合理的参数名
     
     [ValidateSet("always", "unless-stopped", 'on-failure', 'on-failure:3', 'no')]
@@ -95,7 +95,7 @@ switch ($ServiceName) {
 
     'minio' {
         docker run -d --name minio-dev `
-           $commonParams`
+            $commonParams`
             -p 9000:9000 -p 9001:9001 `
             -v $DataPath/minio:/bitnami/minio/data `
             -e MINIO_ROOT_USER=$DefaultUser `
@@ -106,12 +106,12 @@ switch ($ServiceName) {
      
     'redis' {
         docker run -d --name redis-dev `
-           $commonParams`
+            $commonParams`
             -p 6379:6379 --restart=$RestartPolicy redis 
     }
     'postgre' {
         docker run --name postgre-dev -d `
-           $commonParams`
+            $commonParams`
             -p 5432:5432 `
             $pgHealthCheck `
             -e POSTGRES_PASSWORD=$DefaultPassword `
@@ -128,7 +128,7 @@ switch ($ServiceName) {
     # 其他服务同样添加$commonParams参数
     'etcd' {
         docker run --name etcd-dev -d `
-           $commonParams`
+            $commonParams`
             -p 2379:2379 -p 2380:2380 `
             -e ETCD_ROOT_PASSWORD=$DefaultPassword `
             -e ALLOW_NONE_AUTHENTICATION=yes `
@@ -149,7 +149,7 @@ switch ($ServiceName) {
     }
     'nacos' {
         docker run --name nacos-dev -d `
-           $commonParams`
+            $commonParams`
             -p 8848:8848 `
             -e MODE=standalone `
             --restart=$RestartPolicy `
@@ -158,7 +158,7 @@ switch ($ServiceName) {
 
     'rabbitmq' {
         docker run -d --name rabbitmq-dev `
-           $commonParams`
+            $commonParams`
             -p 5672:5672 -p 15672:15672 `
             --restart=$RestartPolicy `
             rabbitmq
@@ -172,35 +172,35 @@ switch ($ServiceName) {
             mongo:8
     }
     
-     'mongodb-replica' {
-        $env:DOCKER_DATA_PATH=$DataPath
-        $env:MONGO_USER=$DefaultUser
-        $env:MONGO_PASSWORD=$DefaultPassword
+    'mongodb-replica' {
+        $env:DOCKER_DATA_PATH = $DataPath
+        $env:MONGO_USER = $DefaultUser
+        $env:MONGO_PASSWORD = $DefaultPassword
         docker-compose  -p mongo-repl-dev -f dockerfiles/compose/mongo-repl.compose.yml up -d
     }
     ‘one-api’ {
         docker run -d  --name one-api-dev `
-        $commonParams `
-         -p 39010:3000 `
-         -e TZ=Asia/Shanghai `
-         -v $DataPath/one-api:/data `
-         --restart=$RestartPolicy `
-         justsong/one-api
+            $commonParams `
+            -p 39010:3000 `
+            -e TZ=Asia/Shanghai `
+            -v $DataPath/one-api:/data `
+            --restart=$RestartPolicy `
+            justsong/one-api
     }
     # ai模型相关
     'kokoro-fastapi' {
         docker run -d --name kokoro-fastapi-dev `
-        $commonParams `
-        --gpus all -p 38880:8880 `
-        --restart=$RestartPolicy `
-        ghcr.io/remsky/kokoro-fastapi-gpu:latest
+            $commonParams `
+            --gpus all -p 38880:8880 `
+            --restart=$RestartPolicy `
+            ghcr.io/remsky/kokoro-fastapi-gpu:latest
     }
     'kokoro-fastapi-cpu' {
         docker run -d --name kokoro-fastapi-dev `
-        $commonParams `
-        --gpus all -p 38880:8880 `
-        --restart=$RestartPolicy `
-        ghcr.io/remsky/kokoro-fastapi-cpu:latest
+            $commonParams `
+            --gpus all -p 38880:8880 `
+            --restart=$RestartPolicy `
+            ghcr.io/remsky/kokoro-fastapi-cpu:latest
     }
     'cadvisor' {
         docker run -d --name cadvisor-dev `
@@ -225,7 +225,7 @@ switch ($ServiceName) {
     }
     'noco' {
         docker run -d --name noco-dev `
-           $commonParams `
+            $commonParams `
             -p 35080:8080 `
             -v $DataPath/nocodb:/usr/app/data/ `
             --restart=$RestartPolicy `
