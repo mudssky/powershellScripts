@@ -193,7 +193,14 @@ switch ($ServiceName) {
         $commonParams `
         --gpus all -p 38880:8880 `
         --restart=$RestartPolicy `
-        ghcr.io/remsky/kokoro-fastapi-gpu:v0.2.2
+        ghcr.io/remsky/kokoro-fastapi-gpu:latest
+    }
+    'kokoro-fastapi-cpu' {
+        docker run -d --name kokoro-fastapi-dev `
+        $commonParams `
+        --gpus all -p 38880:8880 `
+        --restart=$RestartPolicy `
+        ghcr.io/remsky/kokoro-fastapi-cpu:latest
     }
     'cadvisor' {
         docker run -d --name cadvisor-dev `
