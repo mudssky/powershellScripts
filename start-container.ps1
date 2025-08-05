@@ -198,7 +198,7 @@ switch ($ServiceName) {
     'kokoro-fastapi-cpu' {
         docker run -d --name kokoro-fastapi-dev `
             $commonParams `
-            --gpus all -p 38880:8880 `
+            -p 38880:8880 `
             --restart=$RestartPolicy `
             ghcr.io/remsky/kokoro-fastapi-cpu:latest
     }
