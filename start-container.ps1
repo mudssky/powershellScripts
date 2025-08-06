@@ -56,7 +56,7 @@
 [CmdletBinding()]
 param (
     [Parameter(Mandatory = $true)]
-    [ValidateSet("minio", "redis", 'postgre', 'etcd', 'nacos', 'rabbitmq', 'mongodb', 'one-api', 'mongodb-replica', 'kokoro-fastapi', 'kokoro-fastapi-cpu', 'cadvisor', 'prometheus', 'noco', 'n8n')]
+    [ValidateSet("minio", "redis", 'postgre', 'etcd', 'nacos', 'rabbitmq', 'mongodb', 'one-api', 'mongodb-replica', 'kokoro-fastapi', 'kokoro-fastapi-cpu', 'cadvisor', 'prometheus', 'noco', 'n8n', 'crawl4ai')]
     [string]$ServiceName, # 更合理的参数名
     
     [ValidateSet("always", "unless-stopped", 'on-failure', 'on-failure:3', 'no')]
@@ -238,5 +238,13 @@ switch ($ServiceName) {
             -v $DataPath/nocodb:/usr/app/data/ `
             --restart=$RestartPolicy `
             nocodb/nocodb:latest
+    }
+    'crawl4ai' {
+        docker run -d --name crawl4ai-dev `
+            $commonParams `
+            -p 11235:11235 `
+            --shm-size=1g `
+            --restart=$RestartPolicy `
+            unclecode/crawl4ai:latest
     }
 }
