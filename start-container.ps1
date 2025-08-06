@@ -56,7 +56,7 @@
 [CmdletBinding()]
 param (
     [Parameter(Mandatory = $true)]
-    [ValidateSet("minio", "redis", 'postgre', 'etcd', 'nacos', 'rabbitmq', 'mongodb', 'one-api', 'mongodb-replica', 'kokoro-fastapi', 'kokoro-fastapi-cpu', 'cadvisor', 'prometheus', 'noco')]
+    [ValidateSet("minio", "redis", 'postgre', 'etcd', 'nacos', 'rabbitmq', 'mongodb', 'one-api', 'mongodb-replica', 'kokoro-fastapi', 'kokoro-fastapi-cpu', 'cadvisor', 'prometheus', 'noco', 'n8n')]
     [string]$ServiceName, # 更合理的参数名
     
     [ValidateSet("always", "unless-stopped", 'on-failure', 'on-failure:3', 'no')]
@@ -96,7 +96,7 @@ switch ($ServiceName) {
     'minio' {
         docker run -d --name minio-dev `
             $commonParams`
-            -p 9000:9000 -p 9001:9001 `
+        -p 9000:9000 -p 9001:9001 `
             -v $DataPath/minio:/bitnami/minio/data `
             -e MINIO_ROOT_USER=$DefaultUser `
             -e MINIO_ROOT_PASSWORD=$DefaultPassword `
@@ -107,12 +107,12 @@ switch ($ServiceName) {
     'redis' {
         docker run -d --name redis-dev `
             $commonParams`
-            -p 6379:6379 --restart=$RestartPolicy redis 
+        -p 6379:6379 --restart=$RestartPolicy redis 
     }
     'postgre' {
         docker run --name postgre-dev -d `
             $commonParams`
-            -p 5432:5432 `
+        -p 5432:5432 `
             $pgHealthCheck `
             -e POSTGRES_PASSWORD=$DefaultPassword `
             -e TZ=Asia/Shanghai `
@@ -129,7 +129,7 @@ switch ($ServiceName) {
     'etcd' {
         docker run --name etcd-dev -d `
             $commonParams`
-            -p 2379:2379 -p 2380:2380 `
+        -p 2379:2379 -p 2380:2380 `
             -e ETCD_ROOT_PASSWORD=$DefaultPassword `
             -e ALLOW_NONE_AUTHENTICATION=yes `
             -e ETCD_ADVERTISE_CLIENT_URLS=http://etcd-server:2379 `
@@ -150,7 +150,7 @@ switch ($ServiceName) {
     'nacos' {
         docker run --name nacos-dev -d `
             $commonParams`
-            -p 8848:8848 `
+        -p 8848:8848 `
             -e MODE=standalone `
             --restart=$RestartPolicy `
             nacos/nacos-server
@@ -159,7 +159,7 @@ switch ($ServiceName) {
     'rabbitmq' {
         docker run -d --name rabbitmq-dev `
             $commonParams`
-            -p 5672:5672 -p 15672:15672 `
+        -p 5672:5672 -p 15672:15672 `
             --restart=$RestartPolicy `
             rabbitmq
     }
@@ -222,6 +222,14 @@ switch ($ServiceName) {
             -p 39090:9090 `
             --restart=$RestartPolicy `
             prom/prometheus
+    }
+    'n8n' {
+        docker run -d --name n8n-dev `
+            $commonParams `
+            -p 35678:5678 `
+            -v $DataPath/n8n:/home/node/.n8n `
+            --restart=$RestartPolicy `
+            docker.n8n.io/n8nio/n8n
     }
     'noco' {
         docker run -d --name noco-dev `
