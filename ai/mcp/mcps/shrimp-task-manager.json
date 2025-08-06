@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "shrimp-task-manager": {
+      "command": "npx",
+      "args": ["-y", "mcp-shrimp-task-manager"],
+      "env": {
+        "DATA_DIR": ".shrimp-data",
+        "TEMPLATES_USE": "zh",
+        "ENABLE_GUI": "true",
+        "WEB_PORT": "36301"
+      }
+    }
+  }
+}
