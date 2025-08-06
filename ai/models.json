@@ -62,6 +62,13 @@
       "size": 0.6,
       "vramRequired": 0.6,
       "skip": false
+    },
+    {
+      "modelId": "gpt-oss",
+      "name": "gpt-oss",
+      "size": 14,
+      "vramRequired": 14,
+      "skip": false
     }
   ]
 }
