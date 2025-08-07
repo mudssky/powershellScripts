@@ -69,6 +69,20 @@
       "size": 14,
       "vramRequired": 14,
       "skip": false
+    },
+    {
+      "modelId": "qwen3:4b-instruct-2507-q4_K_M",
+      "name": "qwen3:4b-instruct-2507-q4_K_M",
+      "size": 4,
+      "vramRequired": 4,
+      "skip": false
+    },
+    {
+      "modelId": "qwen3:4b-thinking-2507-q4_K_M",
+      "name": "qwen3:4b-thinking-2507-q4_K_M",
+      "size": 4,
+      "vramRequired": 4,
+      "skip": false
     }
   ]
 }
