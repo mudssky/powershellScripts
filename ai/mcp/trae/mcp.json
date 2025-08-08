@@ -1,0 +1,94 @@
+{
+  "mcpServers": {
+    "git": {
+      "command": "uvx",
+      "args": ["mcp-server-git"],
+      "fromGalleryId": "modelcontextprotocol.servers_git",
+      "disabled": true
+    },
+    // github mcp， 把github账号交给ai感觉挺危险的，所以暂时不用这个
+    // "github": {
+    //   "command": "docker",
+    //   "args": [
+    //     "run",
+    //     "-i",
+    //     "--rm",
+    //     "-e",
+    //     "GITHUB_PERSONAL_ACCESS_TOKEN",
+    //     "ghcr.io/github/github-mcp-server"
+    //   ],
+    //   "env": {
+    //     "GITHUB_PERSONAL_ACCESS_TOKEN": "<YOUR_TOKEN>"
+    //   }
+    // },
+    // "gitlab": {
+    //   "command": "npx",
+    //   "args": ["-y", "@modelcontextprotocol/server-gitlab"],
+    //   "env": {
+    //     "GITLAB_PERSONAL_ACCESS_TOKEN": "<YOUR_TOKEN>",
+    //     "GITLAB_API_URL": "https://gitlab.com/api/v4" // Optional, for self-hosted instances
+    //   }
+    // },
+    "gitmcp": {
+      "command": "npx",
+      "args": ["mcp-remote", "https://gitmcp.io/docs"],
+      "disabled": true
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"],
+      "env": {
+        "DEFAULT_MINIMUM_TOKENS": "10000"
+      },
+      "fromGalleryId": "upstash.context7"
+    },
+    "promptx": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "-f",
+        "--registry",
+        "https://registry.npmjs.org",
+        "dpml-prompt@beta",
+        "mcp-server"
+      ]
+    },
+    "Playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest"],
+      "env": {},
+      "fromGalleryId": "executeautomation.mcp-playwright",
+      "disabled": true
+    },
+    "mcp-feedback-enhanced": {
+      "command": "uvx",
+      "args": ["mcp-feedback-enhanced@latest"],
+      "timeout": 600,
+      "autoApprove": ["interactive_feedback"]
+    },
+    "Sequential Thinking": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+      "env": {},
+      "fromGalleryId": "modelcontextprotocol.servers_sequentialthinking"
+    },
+    "Memory": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"],
+      "env": {
+        "MEMORY_FILE_PATH": "memory.json"
+      },
+      "fromGalleryId": "modelcontextprotocol.servers_memory"
+    },
+    "shrimp-task-manager": {
+      "command": "npx",
+      "args": ["-y", "mcp-shrimp-task-manager"],
+      "env": {
+        "DATA_DIR": ".shrimp-data",
+        "TEMPLATES_USE": "zh",
+        "ENABLE_GUI": "true",
+        "WEB_PORT": "36601"
+      }
+    }
+  }
+}
