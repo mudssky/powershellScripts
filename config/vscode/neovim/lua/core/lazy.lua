@@ -31,11 +31,11 @@ function M.setup()
 	M.bootstrap()
 
 	-- Setup lazy.nvim
+	local utils = require("utils")
+	local plugin_specs = utils.load_plugin_specs()
+	
 	require("lazy").setup({
-		spec = {
-			-- 导入插件配置
-			{ import = "plugins" },
-		},
+		spec = plugin_specs,
 		-- Configure any other settings here. See the documentation for more details.
 		-- colorscheme that will be used when installing plugins.
 		install = { colorscheme = { "habamax" } },
