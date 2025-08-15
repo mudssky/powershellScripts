@@ -92,15 +92,6 @@ require("lazy").setup({
       },
     },
 
-    -- 文本替换插件
-    {
-      'vim-scripts/ReplaceWithRegister',
-      keys = {
-        { 'gr',  desc = 'Replace with register' },
-        { 'grr', desc = 'Replace line with register' },
-      },
-    },
-
     -- 包围符号操作
     {
       'kylechui/nvim-surround',
