@@ -76,13 +76,17 @@ function M.setup_vscode_keymaps()
 	keymap("n", "<leader>g", vscode("workbench.view.scm"), { desc = "Toggle Git" })
 	keymap("n", "<leader>x", vscode("workbench.view.extensions"), { desc = "Toggle Extensions" })
 
-	-- 代码操作
+	-- 代码操作 - 重新组织以避免键位冲突
 	keymap("n", "<leader>ca", vscode("editor.action.quickFix"), { desc = "Code Action" })
 	keymap("n", "<leader>cr", vscode("editor.action.rename"), { desc = "Rename Symbol" })
 	keymap("n", "<leader>cf", vscode("editor.action.formatDocument"), { desc = "Format Document" })
+
+	-- LSP 导航 - 使用 <leader>l 前缀避免冲突
 	keymap("n", "gd", vscode("editor.action.revealDefinition"), { desc = "Go to Definition" })
-	keymap("n", "gr", vscode("editor.action.goToReferences"), { desc = "Go to References" })
-	keymap("n", "gi", vscode("editor.action.goToImplementation"), { desc = "Go to Implementation" })
+	keymap("n", "<leader>lr", vscode("editor.action.goToReferences"), { desc = "LSP References" })
+	keymap("n", "<leader>li", vscode("editor.action.goToImplementation"), { desc = "LSP Implementation" })
+	keymap("n", "<leader>lt", vscode("editor.action.goToTypeDefinition"), { desc = "LSP Type Definition" })
+	keymap("n", "<leader>ld", vscode("editor.action.revealDefinition"), { desc = "LSP Definition" })
 
 	-- 书签相关功能
 	keymap("n", "<leader>bt", vscode("bookmarks.toggle"), { desc = "Toggle Bookmark" })
@@ -116,19 +120,27 @@ function M.setup_neovim_keymaps()
 		keymap("n", "<leader>fb", telescope_builtin.buffers, { desc = "Find Buffers" })
 		keymap("n", "<leader>fh", telescope_builtin.help_tags, { desc = "Find Help" })
 		keymap("n", "<leader>fr", telescope_builtin.oldfiles, { desc = "Recent Files" })
-		keymap("n", "gr", telescope_builtin.lsp_references, { desc = "Go to References" })
+		-- LSP 导航 - 使用 <leader>l 前缀避免冲突
+		keymap("n", "<leader>lr", telescope_builtin.lsp_references, { desc = "LSP References" })
 	else
 		-- 如果 Telescope 不可用，使用基本的 Neovim 命令
 		keymap("n", "<leader>ff", "<cmd>find<CR>", { desc = "Find Files" })
-		keymap("n", "gr", vim.lsp.buf.references, { desc = "Go to References" })
+		-- LSP 导航 - 使用 <leader>l 前缀避免冲突
+		keymap("n", "<leader>lr", vim.lsp.buf.references, { desc = "LSP References" })
 	end
 
 	-- 代码操作 - 使用 LSP 功能（如果可用）
 	keymap("n", "<leader>ca", vim.lsp.buf.code_action, { desc = "Code Action" })
 	keymap("n", "<leader>cr", vim.lsp.buf.rename, { desc = "Rename Symbol" })
 	keymap("n", "<leader>cf", vim.lsp.buf.format, { desc = "Format Document" })
+
+	-- LSP 导航 - 重新组织以避免键位冲突
 	keymap("n", "gd", vim.lsp.buf.definition, { desc = "Go to Definition" })
-	keymap("n", "gi", vim.lsp.buf.implementation, { desc = "Go to Implementation" })
+	keymap("n", "<leader>li", vim.lsp.buf.implementation, { desc = "LSP Implementation" })
+	keymap("n", "<leader>lt", vim.lsp.buf.type_definition, { desc = "LSP Type Definition" })
+	keymap("n", "<leader>ld", vim.lsp.buf.definition, { desc = "LSP Definition" })
+	keymap("n", "<leader>lh", vim.lsp.buf.hover, { desc = "LSP Hover" })
+	keymap("n", "<leader>ls", vim.lsp.buf.signature_help, { desc = "LSP Signature Help" })
 
 	-- 终端操作
 	keymap("n", "<leader>t", "<cmd>terminal<CR>", { desc = "Open Terminal" })
