@@ -304,6 +304,12 @@
         "cliName": "hexyl",
         "description": "终端查看16进制",
         "command": "cargo install hexyl"
+      },
+      {
+        "name": "stylua",
+        "cliName": "stylua",
+        "description": "Lua代码格式化工具",
+        "command": "cargo install stylua"
       }
     ],
     "homebrew": [
