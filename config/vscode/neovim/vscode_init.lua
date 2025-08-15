@@ -119,7 +119,8 @@ require("lazy").setup({
           -- 添加你需要支持的语言
           ensure_installed = {
             "c", "lua", "vim", "vimdoc", "javascript", "typescript",
-            "python", "rust", "go", "bash", "json", "yaml", "html", "css"
+            "python", "rust", "go", "bash", "json", "yaml", "html", "css", "markdown"
+          , "powershell", "xml", "prisma"
           },
 
           -- 自动安装解析器
