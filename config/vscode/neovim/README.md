@@ -44,7 +44,23 @@
 
 ### 配置安装
 
-1. **使用提供的 PowerShell 脚本**
+1. **调整vscode neovim 插件 vscode配置**
+vim 默认的一些ctrl快捷键，不如vscode原生的好用，更习惯。
+比如ctrl+c,ctrl+v ,这些快捷键让vscode来处理
+
+```jsonc
+{
+  // 将这些 Ctrl 快捷键组合发送给 Neovim 在 Normal 模式下处理
+  "vscode-neovim.ctrlKeysForNormalMode": [
+    "v" // Ctrl+v: 可视化块模式
+  ],
+  // 将这些 Ctrl 快捷键组合发送给 Neovim 在 Insert 模式下处理
+  "vscode-neovim.ctrlKeysForInsertMode": []
+}
+
+```
+
+2. **使用提供的 PowerShell 脚本**
 
    ```powershell
    # 在当前目录运行脚本
@@ -57,7 +73,7 @@
    .\setup-neovim-config.ps1 -Force
    ```
 
-2. **手动安装**
+3. **手动安装**
 
    ```powershell
    # 创建配置目录
