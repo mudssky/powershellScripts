@@ -1,7 +1,35 @@
 -- -----------------------------------------------------------------------------
--- 文件: init.lua
--- 描述: 用于 VSCode Neovim 的配置
+-- 文件: vscode_init.lua
+-- 描述: 用于 VSCode Neovim 的优化配置
+-- 作者: mudssky
+-- 更新: 2024
 -- -----------------------------------------------------------------------------
+-- 定义空配置对象
+local config = {
+  -- 只在vscode中生效
+  onlyWorkInVscode = false
+
+}
+
+
+
+-- VSCode 环境检测
+if (not vim.g.vscode) and config.onlyWorkInVscode then
+  -- 如果不在 VSCode 环境中，则不加载此配置
+  vim.notify("当前环境不是 VSCode，不加载配置", vim.log.levels.INFO, {
+    title = "配置状态",
+    timeout = 2000,
+  })
+  return
+end
+
+-- 配置加载成功提示
+vim.defer_fn(function()
+  vim.notify("✅ VSCode Neovim 配置已成功加载！", vim.log.levels.INFO, {
+    title = "配置状态",
+    timeout = 3000,
+  })
+end, 100)
 
 -- 1. leader键设置
 -- 注意: 必须在加载插件之前设置
@@ -10,7 +38,7 @@
 -- vim.g.maplocalleader  = '\\'
 
 -- 2. 基础 Vim/Neovim 选项
-vim.opt.clipboard = 'unnamedplus'  -- 对应 "vim.useSystemClipboard": true (使用系统剪贴板)
+vim.opt.clipboard = 'unnamedplus' -- 对应 "vim.useSystemClipboard": true (使用系统剪贴板)
 vim.opt.hlsearch = true           -- 对应 "vim.hlsearch": true (高亮所有搜索项)
 vim.opt.incsearch = true          -- 对应 "vim.incsearch": true (输入时即时搜索)
 vim.opt.ignorecase = true         -- 搜索时忽略大小写
@@ -27,7 +55,7 @@ if not (vim.uv or vim.loop).fs_stat(lazypath) then
   if vim.v.shell_error ~= 0 then
     vim.api.nvim_echo({
       { "Failed to clone lazy.nvim:\n", "ErrorMsg" },
-      { out, "WarningMsg" },
+      { out,                            "WarningMsg" },
       { "\nPress any key to exit..." },
     }, true, {})
     vim.fn.getchar()
@@ -39,66 +67,184 @@ vim.opt.rtp:prepend(lazypath)
 
 -- Setup lazy.nvim
 require("lazy").setup({
-    spec = {
-      -- 插件列表
-      {
-        -- 对应 "vim.easymotion": true。flash.nvim 是更现代化的选择
-        'folke/flash.nvim',
-        event = 'VeryLazy',
-        opts = {},
-        -- (可选) 如果你还想用 easymotion 的经典按键
-        keys = {
-          { 's', mode = { 'n', 'x', 'o' }, function() require('flash').jump() end, desc = 'Flash Jump' },
+  spec = {
+    -- 快速跳转插件
+    {
+      'folke/flash.nvim',
+      event = 'VeryLazy',
+      opts = {
+        modes = {
+          char = {
+            enabled = true,
+            jump_labels = true,
+          },
         },
       },
-      {
-        -- 对应 "vim.replaceWithRegister": true
-        'vim-scripts/ReplaceWithRegister',
+      keys = {
+        { 's', mode = { 'n', 'x', 'o' }, function() require('flash').jump() end,       desc = 'Flash Jump' },
+        { 'S', mode = { 'n', 'x', 'o' }, function() require('flash').treesitter() end, desc = 'Flash Treesitter' },
       },
     },
-    -- Configure any other settings here. See the documentation for more details.
-    -- colorscheme that will be used when installing plugins.
-    install = { colorscheme = { "habamax" } },
-    -- automatically check for plugin updates
-    checker = { enabled = true },
-  })
+
+    -- 文本替换插件
+    {
+      'vim-scripts/ReplaceWithRegister',
+      keys = {
+        { 'gr',  desc = 'Replace with register' },
+        { 'grr', desc = 'Replace line with register' },
+      },
+    },
+
+    -- 包围符号操作
+    {
+      'kylechui/nvim-surround',
+      event = 'VeryLazy',
+      opts = {},
+    },
+
+    -- 智能注释
+    {
+      'numToStr/Comment.nvim',
+      event = 'VeryLazy',
+      opts = {},
+      keys = {
+        { 'gcc', desc = 'Comment line' },
+        { 'gc',  mode = 'v',           desc = 'Comment selection' },
+      },
+    },
+
+    -- 增强的文本对象
+    {
+      'echasnovski/mini.ai',
+      event = 'VeryLazy',
+      opts = function()
+        local ai = require('mini.ai')
+        return {
+          n_lines = 500,
+          custom_textobjects = {
+            o = ai.gen_spec.treesitter({
+              a = { '@block.outer', '@conditional.outer', '@loop.outer' },
+              i = { '@block.inner', '@conditional.inner', '@loop.inner' },
+            }, {}),
+            f = ai.gen_spec.treesitter({ a = '@function.outer', i = '@function.inner' }, {}),
+            c = ai.gen_spec.treesitter({ a = '@class.outer', i = '@class.inner' }, {}),
+          },
+        }
+      end,
+    },
+
+    -- 键位提示（可选，VSCode 已有 WhichKey）
+    {
+      'folke/which-key.nvim',
+      event = 'VeryLazy',
+      opts = {
+        plugins = { spelling = true },
+        defaults = {},
+      },
+    },
+  },
+  -- Configure any other settings here. See the documentation for more details.
+  -- colorscheme that will be used when installing plugins.
+  install = { colorscheme = { "habamax" } },
+  -- automatically check for plugin updates
+  checker = { enabled = true },
+  -- 性能优化
+  performance = {
+    rtp = {
+      disabled_plugins = {
+        "gzip",
+        "matchit",
+        "matchparen",
+        "netrwPlugin",
+        "tarPlugin",
+        "tohtml",
+        "tutor",
+        "zipPlugin",
+      },
+    },
+  },
+})
 
 
 -- 4. 键位映射 (Keymaps)
 local keymap = vim.keymap.set
 local opts = { noremap = true, silent = true }
 
+-- =============================================
+-- 基础键位映射
+-- =============================================
+
 -- 插入模式
--- 对应 "before": ["j", "j"], "after": ["<Esc>"]
+-- 快速退出插入模式
 keymap('i', 'jj', '<Esc>', opts)
 
 -- 普通模式
--- 对应 "<leader>n" 取消高亮
+-- 取消搜索高亮
 keymap('n', '<leader>n', '<cmd>nohlsearch<CR>', { desc = 'Clear search highlight' })
 
--- 调用vscode命令
--- 对应 "<space>" 触发 which-key (这是与 VSCode 交互的关键)
--- 我们通过 Neovim 调用 VSCode 的命令
-keymap('n', '<space>', function()
-    require('vscode').action('whichkey.show')
-  end, { noremap = true, silent = true, desc = 'Show WhichKey' })
+-- 更好的行移动（处理自动换行的情况）
+keymap('n', 'j', 'gj', opts)
+keymap('n', 'k', 'gk', opts)
 
--- 书签相关功能 (同样是调用 VSCode 命令)
-keymap('n', '<leader>bt', function()
-    require('vscode').action('bookmarks.toggle')
-  end, { noremap = true, silent = true, desc = 'Toggle Bookmark' })
-
-keymap('n', '<leader>bl', function()
-    require('vscode').action('bookmarks.listFromAllFiles')
-  end, { noremap = true, silent = true, desc = 'List Bookmarks' })
+-- 窗口导航
+keymap('n', '<C-h>', '<C-w>h', opts)
+keymap('n', '<C-j>', '<C-w>j', opts)
+keymap('n', '<C-k>', '<C-w>k', opts)
+keymap('n', '<C-l>', '<C-w>l', opts)
 
 -- 可视模式
--- 对应 "<space>" 触发 which-key
-keymap('v', '<space>', function()
-    require('vscode').action('whichkey.show')
-  end, { noremap = true, silent = true, desc = 'Show WhichKey' })
-
--- 对应 ">" 和 "<" 调整缩进
--- Neovim 在可视模式下默认就有这个功能，但为了保证选中状态，可以这样映射
+-- 保持缩进选择
 keymap('v', '>', '>gv', opts)
 keymap('v', '<', '<gv', opts)
+
+-- 移动选中的行
+keymap('v', 'J', ":m '>+1<CR>gv=gv", opts)
+keymap('v', 'K', ":m '<-2<CR>gv=gv", opts)
+
+-- =============================================
+-- VSCode 集成键位映射
+-- =============================================
+
+-- 调用 VSCode 命令的辅助函数
+local function vscode(command)
+  return function()
+    require('vscode').action(command)
+  end
+end
+
+-- WhichKey 集成
+keymap('n', '<space>', vscode('whichkey.show'), { desc = 'Show WhichKey' })
+keymap('v', '<space>', vscode('whichkey.show'), { desc = 'Show WhichKey' })
+
+-- 文件操作
+keymap('n', '<leader>w', vscode('workbench.action.files.save'), { desc = 'Save File' })
+keymap('n', '<leader>ff', vscode('workbench.action.quickOpen'), { desc = 'Find Files' })
+keymap('n', '<leader>fg', vscode('workbench.action.findInFiles'), { desc = 'Find in Files' })
+keymap('n', '<leader>fs', vscode('workbench.action.gotoSymbol'), { desc = 'Find Symbols' })
+
+-- 编辑器操作
+keymap('n', '<leader>e', vscode('workbench.view.explorer'), { desc = 'Toggle Explorer' })
+keymap('n', '<leader>g', vscode('workbench.view.scm'), { desc = 'Toggle Git' })
+keymap('n', '<leader>x', vscode('workbench.view.extensions'), { desc = 'Toggle Extensions' })
+
+-- 代码操作
+keymap('n', '<leader>ca', vscode('editor.action.quickFix'), { desc = 'Code Action' })
+keymap('n', '<leader>cr', vscode('editor.action.rename'), { desc = 'Rename Symbol' })
+keymap('n', '<leader>cf', vscode('editor.action.formatDocument'), { desc = 'Format Document' })
+keymap('n', 'gd', vscode('editor.action.revealDefinition'), { desc = 'Go to Definition' })
+keymap('n', 'gr', vscode('editor.action.goToReferences'), { desc = 'Go to References' })
+keymap('n', 'gi', vscode('editor.action.goToImplementation'), { desc = 'Go to Implementation' })
+
+-- 书签相关功能
+keymap('n', '<leader>bt', vscode('bookmarks.toggle'), { desc = 'Toggle Bookmark' })
+keymap('n', '<leader>bl', vscode('bookmarks.listFromAllFiles'), { desc = 'List Bookmarks' })
+
+-- 终端操作
+keymap('n', '<leader>t', vscode('workbench.action.terminal.toggleTerminal'), { desc = 'Toggle Terminal' })
+
+-- 面板操作
+keymap('n', '<leader>p', vscode('workbench.action.togglePanel'), { desc = 'Toggle Panel' })
+
+-- 注释操作（使用 Comment.nvim 插件，但也提供 VSCode 命令作为备选）
+keymap('n', '<leader>/', vscode('editor.action.commentLine'), { desc = 'Toggle Comment' })
+keymap('v', '<leader>/', vscode('editor.action.commentLine'), { desc = 'Toggle Comment' })
