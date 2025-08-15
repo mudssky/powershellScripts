@@ -17,13 +17,13 @@ return {
 			-- 配置选项
 		})
 
-		-- 键位映射
-		wk.register({
-			["<leader>f"] = { name = "查找" },
-			["<leader>g"] = { name = "Git" },
-			["<leader>l"] = { name = "LSP" },
-			["<leader>t"] = { name = "终端" },
-			["<leader>w"] = { name = "窗口" },
+		-- 注册键位映射组 (新格式)
+		wk.add({
+			{ "<leader>f", group = "查找" },
+			{ "<leader>g", group = "Git" },
+			{ "<leader>l", group = "LSP" },
+			{ "<leader>t", group = "终端" },
+			{ "<leader>w", group = "窗口" },
 		})
 	end,
 }
