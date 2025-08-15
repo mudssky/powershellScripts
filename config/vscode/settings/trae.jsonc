@@ -1,0 +1,7 @@
+{
+  // 语言不用配置
+  //   "AI.chatLanguage": "简体中文",
+  "AI.toolcall.confirmMode": "autoRun",
+  "trae.tab.enableAutoImport": true,
+  "trae.tab.enableAutoRename": true
+}
