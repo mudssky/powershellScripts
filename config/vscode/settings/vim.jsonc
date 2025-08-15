@@ -125,22 +125,6 @@
   // 自动切换，会在离开插入模式时禁用输入法
   // 需要安装切换输入法的命令行插件，不是很方便。
   // "vim.autoSwitchInputMethod.enable": true,
-  // ### whichkey 相关配置
-  // "whichkey.bindingOverrides": [
-  //   {
-  //     "keys": "j",
-  //     "name": "jump,join",
-  //     "type": "bindings",
-  //     "bindings": [
-  //       {
-  //         "key": "l",
-  //         "name": "jump or select to a line (easymotion)",
-  //         "type": "command",
-  //         "command": "vim.",
-  //       }
-  //     ]
-  //   }
-  // ],
   // To improve performance,
   "extensions.experimental.affinity": {
     "vscodevim.vim": 1

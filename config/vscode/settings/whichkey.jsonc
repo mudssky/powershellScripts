@@ -1,0 +1,148 @@
+{
+  //========== 下面是whichKey相关配置 ==========
+  // ### whichkey 相关配置
+  "whichkey.bindings": [
+    {
+      "key": "w",
+      "name": "保存文件",
+      "type": "command",
+      "command": "workbench.action.files.save"
+    },
+    {
+      "key": "f",
+      "name": "查找...",
+      "type": "bindings",
+      "bindings": [
+        {
+          "key": "f",
+          "name": "查找文件",
+          "type": "command",
+          "command": "workbench.action.quickOpen"
+        },
+        {
+          "key": "g",
+          "name": "在文件中查找",
+          "type": "command",
+          "command": "workbench.action.findInFiles"
+        },
+        {
+          "key": "s",
+          "name": "查找符号",
+          "type": "command",
+          "command": "workbench.action.gotoSymbol"
+        }
+      ]
+    },
+    {
+      "key": "e",
+      "name": "切换资源管理器",
+      "type": "command",
+      "command": "workbench.view.explorer"
+    },
+    {
+      "key": "g",
+      "name": "切换 Git",
+      "type": "command",
+      "command": "workbench.view.scm"
+    },
+    {
+      "key": "x",
+      "name": "切换扩展",
+      "type": "command",
+      "command": "workbench.view.extensions"
+    },
+    {
+      "key": "c",
+      "name": "代码...",
+      "type": "bindings",
+      "bindings": [
+        {
+          "key": "a",
+          "name": "代码操作",
+          "type": "command",
+          "command": "editor.action.quickFix"
+        },
+        {
+          "key": "r",
+          "name": "重命名符号",
+          "type": "command",
+          "command": "editor.action.rename"
+        },
+        {
+          "key": "f",
+          "name": "格式化文档",
+          "type": "command",
+          "command": "editor.action.formatDocument"
+        }
+      ]
+    },
+    {
+      "key": "l",
+      "name": "LSP...",
+      "type": "bindings",
+      "bindings": [
+        {
+          "key": "r",
+          "name": "查找引用",
+          "type": "command",
+          "command": "editor.action.goToReferences"
+        },
+        {
+          "key": "i",
+          "name": "转到实现",
+          "type": "command",
+          "command": "editor.action.goToImplementation"
+        },
+        {
+          "key": "t",
+          "name": "转到类型定义",
+          "type": "command",
+          "command": "editor.action.goToTypeDefinition"
+        },
+        {
+          "key": "d",
+          "name": "转到定义",
+          "type": "command",
+          "command": "editor.action.revealDefinition"
+        }
+      ]
+    },
+    {
+      "key": "b",
+      "name": "书签/buffer",
+      "type": "bindings",
+      "bindings": [
+        {
+          "key": "t",
+          "name": "切换书签",
+          "type": "command",
+          "command": "bookmarks.toggle"
+        },
+        {
+          "key": "l",
+          "name": "列出所有书签",
+          "type": "command",
+          "command": "bookmarks.listFromAllFiles"
+        }
+      ]
+    },
+    {
+      "key": "t",
+      "name": "切换终端",
+      "type": "command",
+      "command": "workbench.action.terminal.toggleTerminal"
+    },
+    {
+      "key": "p",
+      "name": "切换面板",
+      "type": "command",
+      "command": "workbench.action.togglePanel"
+    },
+    {
+      "key": "/",
+      "name": "切换注释",
+      "type": "command",
+      "command": "editor.action.commentLine"
+    }
+  ]
+}
