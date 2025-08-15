@@ -146,6 +146,42 @@ require("lazy").setup({
         defaults = {},
       },
     },
+
+    -- Telescope 模糊查找插件（主要用于非 VSCode 环境）
+    {
+      'nvim-telescope/telescope.nvim',
+      tag = '0.1.8',
+      cond = not config.isVscodeEnv, -- 只在非 VSCode 环境中加载
+      dependencies = {
+        'nvim-lua/plenary.nvim',
+        {
+          'nvim-telescope/telescope-fzf-native.nvim',
+          build = 'make',
+          cond = function()
+            return vim.fn.executable 'make' == 1
+          end,
+        },
+      },
+      config = function()
+        local telescope = require('telescope')
+        local actions = require('telescope.actions')
+
+        telescope.setup({
+          defaults = {
+            mappings = {
+              i = {
+                ['<C-k>'] = actions.move_selection_previous,
+                ['<C-j>'] = actions.move_selection_next,
+                ['<C-q>'] = actions.send_selected_to_qflist + actions.open_qflist,
+              },
+            },
+          },
+        })
+
+        -- 加载 fzf 扩展（如果可用）
+        pcall(telescope.load_extension, 'fzf')
+      end,
+    },
   },
   -- Configure any other settings here. See the documentation for more details.
   -- colorscheme that will be used when installing plugins.
@@ -258,16 +294,31 @@ else
   -- 非 VSCode 环境的替代键位映射
   -- 文件操作 - 使用 Neovim 内置功能
   keymap('n', '<leader>w', '<cmd>write<CR>', { desc = 'Save File' })
-  keymap('n', '<leader>ff', '<cmd>find ', { desc = 'Find Files' })
-  
+
+  -- 尝试加载 Telescope 并设置键位映射
+  local has_telescope, telescope_builtin = pcall(require, 'telescope.builtin')
+  if has_telescope then
+    -- Telescope 文件和搜索功能
+    keymap('n', '<leader>ff', telescope_builtin.find_files, { desc = 'Find Files' })
+    keymap('n', '<leader>fg', telescope_builtin.live_grep, { desc = 'Find in Files' })
+    keymap('n', '<leader>fs', telescope_builtin.lsp_document_symbols, { desc = 'Find Symbols' })
+    keymap('n', '<leader>fb', telescope_builtin.buffers, { desc = 'Find Buffers' })
+    keymap('n', '<leader>fh', telescope_builtin.help_tags, { desc = 'Find Help' })
+    keymap('n', '<leader>fr', telescope_builtin.oldfiles, { desc = 'Recent Files' })
+    keymap('n', 'gr', telescope_builtin.lsp_references, { desc = 'Go to References' })
+  else
+    -- 如果 Telescope 不可用，使用基本的 Neovim 命令
+    keymap('n', '<leader>ff', '<cmd>find<CR>', { desc = 'Find Files' })
+    keymap('n', 'gr', vim.lsp.buf.references, { desc = 'Go to References' })
+  end
+
   -- 代码操作 - 使用 LSP 功能（如果可用）
   keymap('n', '<leader>ca', vim.lsp.buf.code_action, { desc = 'Code Action' })
   keymap('n', '<leader>cr', vim.lsp.buf.rename, { desc = 'Rename Symbol' })
   keymap('n', '<leader>cf', vim.lsp.buf.format, { desc = 'Format Document' })
   keymap('n', 'gd', vim.lsp.buf.definition, { desc = 'Go to Definition' })
-  keymap('n', 'gr', vim.lsp.buf.references, { desc = 'Go to References' })
   keymap('n', 'gi', vim.lsp.buf.implementation, { desc = 'Go to Implementation' })
-  
+
   -- 终端操作
   keymap('n', '<leader>t', '<cmd>terminal<CR>', { desc = 'Open Terminal' })
 end
