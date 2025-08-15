@@ -42,6 +42,12 @@ function M.setup()
 	-- 默认leader 键为\，所以不用配
 	-- vim.g.mapleader = '\\'
 	-- vim.g.maplocalleader  = '\\'
+	-- vscode环境用which key插件，非vscode我们用空格
+	if not M.config.isVscodeEnv then
+		-- 设置 leader 键
+		vim.g.mapleader = " "
+		vim.g.maplocalleader = " "
+	end
 
 	-- 基础 Vim/Neovim 选项
 	vim.opt.clipboard = "unnamedplus" -- 对应 "vim.useSystemClipboard": true (使用系统剪贴板)
