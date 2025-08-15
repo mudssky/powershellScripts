@@ -89,7 +89,10 @@ function Test-Administrator {
 function Start-ElevatedProcess {
     <#
     .SYNOPSIS
-        以管理员权限重新启动脚本
+        以管理员权限重新启动脚本，支持错误诊断和智能暂停
+    .DESCRIPTION
+        创建包装脚本来执行提权操作，包含完整的错误处理、日志记录和智能暂停机制。
+        只有在出错时才会暂停窗口，正常情况下不影响用户体验。
     #>
     param(
         [string]$ScriptPath,
@@ -99,13 +102,132 @@ function Start-ElevatedProcess {
     Write-Host "🔐 需要管理员权限来创建软链接..." -ForegroundColor Yellow
     Write-Host "正在请求权限提升..." -ForegroundColor Cyan
     
+    # 生成唯一的临时文件名
+    $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+    $logFile = Join-Path $env:TEMP "neovim-setup-$timestamp.log"
+    $wrapperScript = Join-Path $env:TEMP "neovim-setup-wrapper-$timestamp.ps1"
+    
+    # 创建包装脚本内容
+    $wrapperContent = @"
+# Neovim 配置安装脚本 - 提权包装器
+# 自动生成于: $(Get-Date)
+
+`$ErrorActionPreference = 'Continue'
+`$logFile = '$logFile'
+`$exitCode = 0
+
+try {
+    # 开始记录会话
+    Start-Transcript -Path `$logFile -Append -Force
+    Write-Host "=== 开始执行提权脚本 ===" -ForegroundColor Cyan
+    Write-Host "时间: `$(Get-Date)" -ForegroundColor Gray
+    Write-Host "脚本: $ScriptPath" -ForegroundColor Gray
+    Write-Host "参数: $Arguments" -ForegroundColor Gray
+    Write-Host "" 
+    
+    # 执行原始脚本
+    Write-Host "🚀 执行配置安装脚本..." -ForegroundColor Cyan
+    & "$ScriptPath" $Arguments
+    `$exitCode = `$LASTEXITCODE
+    
+    Write-Host ""
+    if (`$exitCode -eq 0) {
+        Write-Host "✅ 脚本执行成功!" -ForegroundColor Green
+        Write-Host "配置安装已完成，窗口将自动关闭" -ForegroundColor Gray
+    } else {
+        Write-Host "❌ 脚本执行失败，退出代码: `$exitCode" -ForegroundColor Red
+        Write-Host "请查看上方的错误信息" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "按任意键关闭窗口..." -ForegroundColor Yellow
+        `$null = `$Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+    }
+}
+catch {
+    `$exitCode = 1
+    Write-Host ""
+    Write-Host "❌ 执行过程中发生未处理的错误:" -ForegroundColor Red
+    Write-Host "错误信息: `$(`$_.Exception.Message)" -ForegroundColor Red
+    Write-Host "错误位置: `$(`$_.InvocationInfo.ScriptName)::`$(`$_.InvocationInfo.ScriptLineNumber)" -ForegroundColor Yellow
+    
+    if (`$_.ScriptStackTrace) {
+        Write-Host "调用堆栈:" -ForegroundColor Yellow
+        Write-Host `$_.ScriptStackTrace -ForegroundColor Gray
+    }
+    
+    Write-Host ""
+    Write-Host "按任意键关闭窗口..." -ForegroundColor Yellow
+    `$null = `$Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+}
+finally {
+    Write-Host "=== 脚本执行结束 ===" -ForegroundColor Cyan
+    Stop-Transcript -ErrorAction SilentlyContinue
+    exit `$exitCode
+}
+"@
+    
     try {
-        Start-Process -FilePath "pwsh" -ArgumentList "-ExecutionPolicy Bypass -File `"$ScriptPath`" $Arguments" -Verb RunAs -Wait
-        return $true
+        # 写入包装脚本
+        Write-Verbose "创建临时包装脚本: $wrapperScript"
+        Set-Content -Path $wrapperScript -Value $wrapperContent -Encoding UTF8 -Force
+        
+        # 执行包装脚本
+        Write-Host "启动提权窗口..." -ForegroundColor Cyan
+        $process = Start-Process -FilePath "pwsh" -ArgumentList "-ExecutionPolicy Bypass -File `"$wrapperScript`"" -Verb RunAs -Wait -PassThru
+        
+        # 检查执行结果
+        $success = ($process.ExitCode -eq 0)
+        
+        # 读取并分析日志
+        if (Test-Path $logFile) {
+            Write-Verbose "读取执行日志: $logFile"
+            $logContent = Get-Content $logFile -Raw -ErrorAction SilentlyContinue
+            
+            # 检查是否有错误或警告
+            if ($logContent -and ($logContent -match "❌|错误|失败|Error|Exception|WARNING" -or -not $success)) {
+                Write-Host ""
+                Write-Host "📋 执行日志摘要:" -ForegroundColor Yellow
+                Write-Host "─" * 50 -ForegroundColor Gray
+                
+                # 提取关键信息
+                $lines = $logContent -split "`n" | Where-Object { $_.Trim() -ne "" }
+                $importantLines = $lines | Where-Object { 
+                    $_ -match "✅|❌|⚠️|🔐|📦|🔍|错误|成功|失败|Error|Exception|WARNING" 
+                } | Select-Object -Last 10
+                
+                foreach ($line in $importantLines) {
+                    Write-Host $line.Trim() -ForegroundColor Gray
+                }
+                
+                Write-Host "─" * 50 -ForegroundColor Gray
+                
+                if (-not $success) {
+                    Write-Host "💡 提示: 如需查看完整日志，请检查: $logFile" -ForegroundColor Cyan
+                }
+            }
+        }
+        
+        return $success
     }
     catch {
-        Write-Error "❌ 权限提升失败: $($_.Exception.Message)"
+        Write-Error "❌ 权限提升过程失败: $($_.Exception.Message)"
         return $false
+    }
+    finally {
+        # 清理临时文件
+        Start-Sleep -Milliseconds 500  # 短暂延迟确保文件不被占用
+        
+        if (Test-Path $wrapperScript) {
+            Remove-Item $wrapperScript -Force -ErrorAction SilentlyContinue
+            Write-Verbose "已清理包装脚本: $wrapperScript"
+        }
+        
+        # 只在成功时清理日志文件，失败时保留用于诊断
+        if ($success -and (Test-Path $logFile)) {
+            Remove-Item $logFile -Force -ErrorAction SilentlyContinue
+            Write-Verbose "已清理日志文件: $logFile"
+        } elseif (Test-Path $logFile) {
+            Write-Verbose "保留日志文件用于诊断: $logFile"
+        }
     }
 }
 
@@ -235,7 +357,8 @@ $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 # 设置源文件和目标路径
 $sourceConfigPath = if ([System.IO.Path]::IsPathRooted($SourceConfig)) {
     $SourceConfig
-} else {
+}
+else {
     Join-Path $scriptRoot $SourceConfig
 }
 $targetConfigPath = Join-Path $TargetDir "init.lua"
@@ -284,7 +407,8 @@ if (-not (Test-Administrator)) {
     if (Start-ElevatedProcess -ScriptPath $MyInvocation.MyCommand.Path -Arguments $arguments) {
         Write-Host "✅ 脚本执行完成" -ForegroundColor Green
         exit 0
-    } else {
+    }
+    else {
         exit 1
     }
 }
@@ -309,7 +433,8 @@ if (-not (Test-Path $TargetDir)) {
         Write-Error "❌ 创建目录失败: $($_.Exception.Message)"
         exit 1
     }
-} else {
+}
+else {
     Write-Host "✅ 目标目录已存在" -ForegroundColor Green
 }
 
@@ -318,7 +443,8 @@ if (Test-Path $targetConfigPath) {
     if ($Force) {
         Write-Host "⚠️  目标文件已存在，将被覆盖" -ForegroundColor Yellow
         Remove-Item $targetConfigPath -Force
-    } else {
+    }
+    else {
         Write-Host "⚠️  目标文件已存在: $targetConfigPath" -ForegroundColor Yellow
         $response = Read-Host "是否覆盖现有文件? (y/N)"
         if ($response -notmatch '^[Yy]') {
@@ -361,7 +487,8 @@ if ($InstallPlugins) {
     # 安装 lazy.nvim
     if (-not (Install-LazyNvim)) {
         Write-Warning "⚠️  lazy.nvim 安装失败，跳过插件安装"
-    } else {
+    }
+    else {
         # 安装插件
         Install-Plugins -ConfigPath $targetConfigPath
     }
@@ -388,8 +515,8 @@ Write-Host "🔍 验证安装..." -ForegroundColor Cyan
 if (Test-Path $targetConfigPath) {
     $linkInfo = Get-Item $targetConfigPath
     $linkType = if ($linkInfo.LinkType -eq "SymbolicLink") { "符号链接" }
-                elseif ($linkInfo.LinkType -eq "HardLink") { "硬链接" }
-                else { "普通文件" }
+    elseif ($linkInfo.LinkType -eq "HardLink") { "硬链接" }
+    else { "普通文件" }
     
     Write-Host "✅ 安装验证成功" -ForegroundColor Green
     Write-Host "   类型: $linkType" -ForegroundColor Gray
@@ -399,7 +526,8 @@ if (Test-Path $targetConfigPath) {
     if ($linkInfo.Target) {
         Write-Host "   目标: $($linkInfo.Target)" -ForegroundColor Gray
     }
-} else {
+}
+else {
     Write-Error "❌ 验证失败: 目标文件不存在"
     exit 1
 }
