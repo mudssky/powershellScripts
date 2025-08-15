@@ -1,4 +1,5 @@
 {
+  //========== 下面是trea相关配置 ==========
   // 语言不用配置
   //   "AI.chatLanguage": "简体中文",
   "AI.toolcall.confirmMode": "autoRun",

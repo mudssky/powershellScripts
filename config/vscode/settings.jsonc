@@ -1,8 +1,9 @@
-{//========== ahk ==========
+{
+  //========== ahk ==========
   "[ahk]": {
     "editor.defaultFormatter": "mark-wiemer.vscode-autohotkey-plus-plus"
   },
-//========== dart ==========
+  //========== dart ==========
   // dart官方推荐配置
   "[dart]": {
     "editor.formatOnSave": true,
@@ -15,7 +16,7 @@
     "editor.wordBasedSuggestions": "off"
   },
   "dart.openDevTools": "flutter",
-//========== editor ==========
+  //========== editor ==========
   "editor.formatOnSave": true,
   "editor.formatOnPaste": true,
   "editor.formatOnType": false,
@@ -68,7 +69,7 @@
   // "files.autoGuessEncoding": false,
   //========== debug ==========
   "debug.openDebug": "openOnDebugBreak",
-//========== extensions ==========
+  //========== extensions ==========
   // xml插件
   "redhat.telemetry.enabled": false,
   // better comments插件
@@ -126,7 +127,7 @@
   //   Codegeex
   "Codegeex.CandidateNum": "2 (medium)",
   "Codegeex.Privacy": false,
-//========== frontend ==========
+  //========== frontend ==========
   "javascript.updateImportsOnFileMove.enabled": "always",
   "typescript.updateImportsOnFileMove.enabled": "always",
   // 避免css被关联到postcss
@@ -168,7 +169,7 @@
   "[dockerfile]": {
     "editor.defaultFormatter": "ms-azuretools.vscode-docker"
   },
-//========== git ==========
+  //========== git ==========
   "git.enableSmartCommit": true,
   "gitlens.views.worktrees.files.layout": "list",
   "gitlens.gitCommands.skipConfirmations": [
@@ -177,17 +178,17 @@
     "switch:command",
     "stash-apply:command"
   ],
-//========== Golang ==========
+  //========== Golang ==========
   "go.useLanguageServer": true,
   "go.toolsManagement.autoUpdate": true,
-//========== julia ==========
+  //========== julia ==========
   "terminal.integrated.commandsToSkipShell": ["language-julia.interrupt"],
   "julia.enableTelemetry": false,
   "julia.symbolCacheDownload": true,
   "[julia]": {
     "editor.defaultFormatter": "julialang.language-julia"
   },
-//========== markdown ==========
+  //========== markdown ==========
   "markdown-preview-enhanced.enableScriptExecution": true,
   "markdown-preview-enhanced.liveUpdate": true,
   "markdown-preview-enhanced.enableHTML5Embed": true,
@@ -201,13 +202,13 @@
     },
     "editor.defaultFormatter": "DavidAnson.vscode-markdownlint"
   },
-// 将这些 Ctrl 快捷键组合发送给 Neovim 在 Normal 模式下处理
+  // 将这些 Ctrl 快捷键组合发送给 Neovim 在 Normal 模式下处理
   "vscode-neovim.ctrlKeysForNormalMode": [
     "v" // Ctrl+v: 可视化块模式
   ],
   // 将这些 Ctrl 快捷键组合发送给 Neovim 在 Insert 模式下处理
   "vscode-neovim.ctrlKeysForInsertMode": [],
-//========== python ==========
+  //========== python ==========
   "workbench.editorAssociations": {
     "*.ipynb": "jupyter-notebook",
     "{git,gitlens}:/**/*.{md,csv,svg}": "default"
@@ -220,7 +221,7 @@
     "jupyter-notebook": "left"
   },
   "jupyter.askForKernelRestart": false,
-//========== terminal ==========
+  //========== terminal ==========
   "terminal.integrated.defaultProfile.windows": "PowerShell",
   "terminal.integrated.fontFamily": "'FiraCode NF Retina', 'JetBrains Mono', 'FiraCode Nerd Font', 'FiraCode Nerd Font Mono','Cascadia Mono'",
   "terminal.integrated.defaultProfile.linux": "zsh",
@@ -250,7 +251,13 @@
   "[powershell]": {
     "editor.defaultFormatter": "ms-vscode.powershell"
   },
-//========== 下面是vscodeVim和whichKey相关配置 ==========
+  //========== 下面是trea相关配置 ==========
+  // 语言不用配置
+  //   "AI.chatLanguage": "简体中文",
+  "AI.toolcall.confirmMode": "autoRun",
+  "trae.tab.enableAutoImport": true,
+  "trae.tab.enableAutoRename": true,
+  //========== 下面是vscodeVim和whichKey相关配置 ==========
   // 两个 <leader> 配合其他移动，搜索操作触发
   "vim.easymotion": true,
   // 搜索时显示下一个匹配
@@ -395,4 +402,5 @@
   // To improve performance,
   "extensions.experimental.affinity": {
     "vscodevim.vim": 1
-  }}
+  }
+}
