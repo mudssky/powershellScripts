@@ -22,8 +22,11 @@ return {
 			{ "<leader>f", group = "查找" },
 			{ "<leader>g", group = "Git" },
 			{ "<leader>l", group = "LSP" },
+			{ "<leader>s", group = "包围符号" },
 			{ "<leader>t", group = "终端" },
 			{ "<leader>w", group = "窗口" },
+			{ "<leader>c", group = "代码" },
+			{ "<leader>b", group = "缓冲区" },
 		})
 	end,
 }
