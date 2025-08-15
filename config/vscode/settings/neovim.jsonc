@@ -1,0 +1,8 @@
+{
+  // 将这些 Ctrl 快捷键组合发送给 Neovim 在 Normal 模式下处理
+  "vscode-neovim.ctrlKeysForNormalMode": [
+    "v" // Ctrl+v: 可视化块模式
+  ],
+  // 将这些 Ctrl 快捷键组合发送给 Neovim 在 Insert 模式下处理
+  "vscode-neovim.ctrlKeysForInsertMode": []
+}
