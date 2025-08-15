@@ -398,7 +398,7 @@
     },
     {
       "key": "f",
-      "name": "查找...",
+      "name": "查找",
       "type": "bindings",
       "bindings": [
         {
@@ -441,7 +441,7 @@
     },
     {
       "key": "c",
-      "name": "代码...",
+      "name": "代码",
       "type": "bindings",
       "bindings": [
         {
@@ -466,7 +466,7 @@
     },
     {
       "key": "l",
-      "name": "LSP...",
+      "name": "LSP",
       "type": "bindings",
       "bindings": [
         {
