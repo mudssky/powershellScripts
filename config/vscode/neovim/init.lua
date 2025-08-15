@@ -6,15 +6,15 @@
 -- -----------------------------------------------------------------------------
 
 -- 设置 leader 键
--- vim.g.mapleader = ' '
--- vim.g.maplocalleader = ' '
+vim.g.mapleader = ' '
+vim.g.maplocalleader = ' '
 
 -- 设置 Nerd Font 支持
 vim.g.have_nerd_font = true
 
 -- 加载核心配置
-require("core.options") -- 基础选项配置
-require("core.keymaps") -- 键位映射配置
+require("core.options")      -- 基础选项配置
+require("core.keymaps")      -- 键位映射配置
 require("core.lazy").setup() -- lazy.nvim 插件管理器配置
 
 -- 插件配置通过 lazy.nvim 自动加载 plugins/ 目录下的所有文件
