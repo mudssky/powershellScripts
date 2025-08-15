@@ -33,7 +33,7 @@ function M.setup()
 	-- Setup lazy.nvim
 	local utils = require("utils")
 	local plugin_specs = utils.load_plugin_specs()
-	
+
 	require("lazy").setup({
 		spec = plugin_specs,
 		-- Configure any other settings here. See the documentation for more details.

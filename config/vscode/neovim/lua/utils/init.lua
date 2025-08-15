@@ -45,11 +45,11 @@ M.load_plugin_specs = function()
 	-- 获取插件配置目录的绝对路径
 	local config_path = vim.fn.fnamemodify(debug.getinfo(2, "S").source:sub(2), ":p:h:h")
 	local plugins_path = config_path .. "/plugins"
-	
+
 	-- 手动加载所有插件配置
 	local plugin_specs = {}
 	local plugin_files = vim.fn.glob(plugins_path .. "/*.lua", false, true)
-	
+
 	for _, file in ipairs(plugin_files) do
 		local plugin_name = vim.fn.fnamemodify(file, ":t:r")
 		local ok, plugin_config = pcall(dofile, file)
@@ -59,7 +59,7 @@ M.load_plugin_specs = function()
 			vim.notify("Failed to load plugin: " .. plugin_name, vim.log.levels.WARN)
 		end
 	end
-	
+
 	return plugin_specs
 end
 
