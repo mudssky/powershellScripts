@@ -208,6 +208,12 @@
         "cliName": "yazi",
         "description": "终端文件管理器",
         "command": "scoop install yazi"
+      },
+      {
+        "name": "difftastic",
+        "cliName": "difft",
+        "description": "结构化差异工具",
+        "command": "scoop install difftastic"
       }
     ],
     "winget": [
