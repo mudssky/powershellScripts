@@ -118,7 +118,35 @@ require("lazy").setup({
         { 'gc',  mode = 'v',           desc = 'Comment selection' },
       },
     },
+    {
+      'nvim-treesitter/nvim-treesitter',
+      -- 在原生环境中，Treesitter 非常核心，建议尽早加载
+      event = { "BufReadPost", "BufNewFile" },
+      build = ':TSUpdate',
+      config = function()
+        require('nvim-treesitter.configs').setup({
+          -- 添加你需要支持的语言
+          ensure_installed = {
+            "c", "lua", "vim", "vimdoc", "javascript", "typescript",
+            "python", "rust", "go", "bash", "json", "yaml", "html", "css"
+          },
 
+          -- 自动安装解析器
+          sync_install = false,
+          auto_install = true,
+
+          -- 核心！只在非 VSCode 环境中启用高亮
+          highlight = {
+            enable = not config.isVscodeEnv,
+          },
+
+          -- 其他模块可以根据需要开启，比如缩进
+          indent = {
+            enable = true,
+          }
+        })
+      end,
+    },
     -- 增强的文本对象
     {
       'echasnovski/mini.ai',
