@@ -201,6 +201,12 @@
     },
     "editor.defaultFormatter": "DavidAnson.vscode-markdownlint"
   },
+// 将这些 Ctrl 快捷键组合发送给 Neovim 在 Normal 模式下处理
+  "vscode-neovim.ctrlKeysForNormalMode": [
+    "v" // Ctrl+v: 可视化块模式
+  ],
+  // 将这些 Ctrl 快捷键组合发送给 Neovim 在 Insert 模式下处理
+  "vscode-neovim.ctrlKeysForInsertMode": [],
 //========== python ==========
   "workbench.editorAssociations": {
     "*.ipynb": "jupyter-notebook",
@@ -216,7 +222,7 @@
   "jupyter.askForKernelRestart": false,
 //========== terminal ==========
   "terminal.integrated.defaultProfile.windows": "PowerShell",
-  "terminal.integrated.fontFamily": "FiraCode NF Retina, Fira Code Retina, FiraCode Nerd Font, FiraCode Nerd Font Mono, Fira Code",
+  "terminal.integrated.fontFamily": "'FiraCode NF Retina', 'JetBrains Mono', 'FiraCode Nerd Font', 'FiraCode Nerd Font Mono','Cascadia Mono'",
   "terminal.integrated.defaultProfile.linux": "zsh",
   "terminal.integrated.profiles.windows": {
     "PowerShell": {
