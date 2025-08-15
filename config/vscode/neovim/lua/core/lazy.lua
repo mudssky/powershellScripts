@@ -41,6 +41,7 @@ function M.setup()
 		install = { colorscheme = { "habamax" } },
 		-- automatically check for plugin updates
 		checker = { enabled = true },
+		rocks = { enabled = false },
 		-- 性能优化
 		performance = {
 			rtp = {
