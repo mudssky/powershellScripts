@@ -42,6 +42,12 @@
     ],
     "scoop": [
       {
+        "name": "zig",
+        "cliName": "zig",
+        "description": "Zig 编程语言",
+        "command": "scoop install zig"
+      },
+      {
         "name": "gping",
         "cliName": "gping",
         "description": "带图表的ping工具",
