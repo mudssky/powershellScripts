@@ -1,20 +1,22 @@
 -- -----------------------------------------------------------------------------
 -- 文件: vscode_init.lua
--- 描述: 用于 VSCode Neovim 的优化配置
+-- 描述: 兼容 VSCode Neovim 和普通 Neovim 的优化配置
+--       在 VSCode 环境中提供 VSCode 集成功能
+--       在普通 Neovim 环境中提供标准 LSP 和内置功能
 -- 作者: mudssky
 -- 更新: 2024
 -- -----------------------------------------------------------------------------
 -- 定义空配置对象
 local config = {
   -- 只在vscode中生效
-  onlyWorkInVscode = false
-
+  onlyWorkInVscode = false,
+  isVscodeEnv = vim.g.vscode
 }
 
 
 
 -- VSCode 环境检测
-if (not vim.g.vscode) and config.onlyWorkInVscode then
+if (not config.isVscodeEnv) and config.onlyWorkInVscode then
   -- 如果不在 VSCode 环境中，则不加载此配置
   vim.notify("当前环境不是 VSCode，不加载配置", vim.log.levels.INFO, {
     title = "配置状态",
@@ -25,7 +27,8 @@ end
 
 -- 配置加载成功提示
 vim.defer_fn(function()
-  vim.notify("✅ VSCode Neovim 配置已成功加载！", vim.log.levels.INFO, {
+  local message = config.isVscodeEnv and "✅ VSCode Neovim 配置已成功加载！" or "✅ Neovim 配置已成功加载！"
+  vim.notify(message, vim.log.levels.INFO, {
     title = "配置状态",
     timeout = 3000,
   })
@@ -133,10 +136,11 @@ require("lazy").setup({
       end,
     },
 
-    -- 键位提示（可选，VSCode 已有 WhichKey）
+    -- 键位提示（在非 VSCode 环境中更有用，VSCode 已有 WhichKey）
     {
       'folke/which-key.nvim',
       event = 'VeryLazy',
+      cond = not config.isVscodeEnv, -- 只在非 VSCode 环境中加载
       opts = {
         plugins = { spelling = true },
         defaults = {},
@@ -205,46 +209,65 @@ keymap('v', 'K', ":m '<-2<CR>gv=gv", opts)
 -- VSCode 集成键位映射
 -- =============================================
 
--- 调用 VSCode 命令的辅助函数
-local function vscode(command)
-  return function()
-    require('vscode').action(command)
+-- 只在 VSCode 环境中设置 VSCode 特定的键位映射
+if config.isVscodeEnv then
+  -- 调用 VSCode 命令的辅助函数
+  local function vscode(command)
+    return function()
+      require('vscode').action(command)
+    end
   end
+
+  -- WhichKey 集成
+  keymap('n', '<space>', vscode('whichkey.show'), { desc = 'Show WhichKey' })
+  keymap('v', '<space>', vscode('whichkey.show'), { desc = 'Show WhichKey' })
+
+  -- 文件操作
+  keymap('n', '<leader>w', vscode('workbench.action.files.save'), { desc = 'Save File' })
+  keymap('n', '<leader>ff', vscode('workbench.action.quickOpen'), { desc = 'Find Files' })
+  keymap('n', '<leader>fg', vscode('workbench.action.findInFiles'), { desc = 'Find in Files' })
+  keymap('n', '<leader>fs', vscode('workbench.action.gotoSymbol'), { desc = 'Find Symbols' })
+
+  -- 编辑器操作
+  keymap('n', '<leader>e', vscode('workbench.view.explorer'), { desc = 'Toggle Explorer' })
+  keymap('n', '<leader>g', vscode('workbench.view.scm'), { desc = 'Toggle Git' })
+  keymap('n', '<leader>x', vscode('workbench.view.extensions'), { desc = 'Toggle Extensions' })
+
+  -- 代码操作
+  keymap('n', '<leader>ca', vscode('editor.action.quickFix'), { desc = 'Code Action' })
+  keymap('n', '<leader>cr', vscode('editor.action.rename'), { desc = 'Rename Symbol' })
+  keymap('n', '<leader>cf', vscode('editor.action.formatDocument'), { desc = 'Format Document' })
+  keymap('n', 'gd', vscode('editor.action.revealDefinition'), { desc = 'Go to Definition' })
+  keymap('n', 'gr', vscode('editor.action.goToReferences'), { desc = 'Go to References' })
+  keymap('n', 'gi', vscode('editor.action.goToImplementation'), { desc = 'Go to Implementation' })
+
+  -- 书签相关功能
+  keymap('n', '<leader>bt', vscode('bookmarks.toggle'), { desc = 'Toggle Bookmark' })
+  keymap('n', '<leader>bl', vscode('bookmarks.listFromAllFiles'), { desc = 'List Bookmarks' })
+
+  -- 终端操作
+  keymap('n', '<leader>t', vscode('workbench.action.terminal.toggleTerminal'), { desc = 'Toggle Terminal' })
+
+  -- 面板操作
+  keymap('n', '<leader>p', vscode('workbench.action.togglePanel'), { desc = 'Toggle Panel' })
+
+  -- 注释操作（使用 Comment.nvim 插件，但也提供 VSCode 命令作为备选）
+  keymap('n', '<leader>/', vscode('editor.action.commentLine'), { desc = 'Toggle Comment' })
+  keymap('v', '<leader>/', vscode('editor.action.commentLine'), { desc = 'Toggle Comment' })
+else
+  -- 非 VSCode 环境的替代键位映射
+  -- 文件操作 - 使用 Neovim 内置功能
+  keymap('n', '<leader>w', '<cmd>write<CR>', { desc = 'Save File' })
+  keymap('n', '<leader>ff', '<cmd>find ', { desc = 'Find Files' })
+  
+  -- 代码操作 - 使用 LSP 功能（如果可用）
+  keymap('n', '<leader>ca', vim.lsp.buf.code_action, { desc = 'Code Action' })
+  keymap('n', '<leader>cr', vim.lsp.buf.rename, { desc = 'Rename Symbol' })
+  keymap('n', '<leader>cf', vim.lsp.buf.format, { desc = 'Format Document' })
+  keymap('n', 'gd', vim.lsp.buf.definition, { desc = 'Go to Definition' })
+  keymap('n', 'gr', vim.lsp.buf.references, { desc = 'Go to References' })
+  keymap('n', 'gi', vim.lsp.buf.implementation, { desc = 'Go to Implementation' })
+  
+  -- 终端操作
+  keymap('n', '<leader>t', '<cmd>terminal<CR>', { desc = 'Open Terminal' })
 end
-
--- WhichKey 集成
-keymap('n', '<space>', vscode('whichkey.show'), { desc = 'Show WhichKey' })
-keymap('v', '<space>', vscode('whichkey.show'), { desc = 'Show WhichKey' })
-
--- 文件操作
-keymap('n', '<leader>w', vscode('workbench.action.files.save'), { desc = 'Save File' })
-keymap('n', '<leader>ff', vscode('workbench.action.quickOpen'), { desc = 'Find Files' })
-keymap('n', '<leader>fg', vscode('workbench.action.findInFiles'), { desc = 'Find in Files' })
-keymap('n', '<leader>fs', vscode('workbench.action.gotoSymbol'), { desc = 'Find Symbols' })
-
--- 编辑器操作
-keymap('n', '<leader>e', vscode('workbench.view.explorer'), { desc = 'Toggle Explorer' })
-keymap('n', '<leader>g', vscode('workbench.view.scm'), { desc = 'Toggle Git' })
-keymap('n', '<leader>x', vscode('workbench.view.extensions'), { desc = 'Toggle Extensions' })
-
--- 代码操作
-keymap('n', '<leader>ca', vscode('editor.action.quickFix'), { desc = 'Code Action' })
-keymap('n', '<leader>cr', vscode('editor.action.rename'), { desc = 'Rename Symbol' })
-keymap('n', '<leader>cf', vscode('editor.action.formatDocument'), { desc = 'Format Document' })
-keymap('n', 'gd', vscode('editor.action.revealDefinition'), { desc = 'Go to Definition' })
-keymap('n', 'gr', vscode('editor.action.goToReferences'), { desc = 'Go to References' })
-keymap('n', 'gi', vscode('editor.action.goToImplementation'), { desc = 'Go to Implementation' })
-
--- 书签相关功能
-keymap('n', '<leader>bt', vscode('bookmarks.toggle'), { desc = 'Toggle Bookmark' })
-keymap('n', '<leader>bl', vscode('bookmarks.listFromAllFiles'), { desc = 'List Bookmarks' })
-
--- 终端操作
-keymap('n', '<leader>t', vscode('workbench.action.terminal.toggleTerminal'), { desc = 'Toggle Terminal' })
-
--- 面板操作
-keymap('n', '<leader>p', vscode('workbench.action.togglePanel'), { desc = 'Toggle Panel' })
-
--- 注释操作（使用 Comment.nvim 插件，但也提供 VSCode 命令作为备选）
-keymap('n', '<leader>/', vscode('editor.action.commentLine'), { desc = 'Toggle Comment' })
-keymap('v', '<leader>/', vscode('editor.action.commentLine'), { desc = 'Toggle Comment' })
