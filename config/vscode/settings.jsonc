@@ -385,7 +385,8 @@
   // "vim.autoSwitchInputMethod.enable": true,
   // To improve performance,
   "extensions.experimental.affinity": {
-    "vscodevim.vim": 1
+    "vscodevim.vim": 1,
+    "asvetliakov.vscode-neovim": 1
   },
   //========== 下面是whichKey相关配置 ==========
   // ### whichkey 相关配置
@@ -398,7 +399,7 @@
     },
     {
       "key": "f",
-      "name": "查找",
+      "name": "查找...",
       "type": "bindings",
       "bindings": [
         {
@@ -441,7 +442,7 @@
     },
     {
       "key": "c",
-      "name": "代码",
+      "name": "代码...",
       "type": "bindings",
       "bindings": [
         {
@@ -466,7 +467,7 @@
     },
     {
       "key": "l",
-      "name": "LSP",
+      "name": "LSP...",
       "type": "bindings",
       "bindings": [
         {
