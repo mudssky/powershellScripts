@@ -48,10 +48,10 @@ return {
 			{ "<leader>g", group = "Git" },
 			{ "<leader>l", group = "LSP" },
 			{ "<leader>s", group = "Search/Surround" },
-			{ "<leader>t", group = "终端" },
-			{ "<leader>w", group = "窗口" },
-			{ "<leader>c", group = "代码" },
-			{ "<leader>b", group = "缓冲区" },
+			{ "<leader>t", group = "Terminal" },
+			{ "<leader>w", group = "Window" },
+			{ "<leader>c", group = "Code" },
+			{ "<leader>b", group = "Buffer" },
 		})
 		-- 因为是 whichkey相关快捷键，所以直接加这里
 		vim.keymap.set("n", "<leader>?", function()
