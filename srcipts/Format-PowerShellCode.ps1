@@ -3,32 +3,42 @@
     使用 Invoke-Formatter 命令格式化 PowerShell 代码文件
 
 .DESCRIPTION
-    此脚本支持格式化单个 PowerShell 文件或递归格式化目录中的所有 PowerShell 文件。
+    使用 PSScriptAnalyzer 的 Invoke-Formatter 命令格式化 PowerShell 代码文件。
+    支持格式化单个文件、多个文件或整个目录（可选递归）。
     支持的文件类型包括：.ps1, .psm1, .psd1
+    特别适用于 lint-staged 等工具的多文件批量处理。
 
 .PARAMETER Path
-    要格式化的文件或目录路径
+    要格式化的文件或目录路径。支持多个路径，可以通过位置参数传递。
 
 .PARAMETER Recurse
-    当 Path 为目录时，是否递归处理子目录中的文件
+    递归处理子目录中的 PowerShell 文件。
 
 .PARAMETER Settings
-    PSScriptAnalyzer 设置文件路径，用于自定义格式化规则
+    PSScriptAnalyzer 设置文件的路径。如果未指定，将使用默认设置。
 
-.PARAMETER WhatIf
-    显示将要格式化的文件，但不实际执行格式化操作
-
-.EXAMPLE
-    .\Format-PowerShellCode.ps1 -Path "C:\Scripts\MyScript.ps1"
-    格式化单个 PowerShell 文件
+.PARAMETER ShowOnly
+    显示将要格式化的文件列表，但不实际执行格式化操作。
 
 .EXAMPLE
-    .\Format-PowerShellCode.ps1 -Path "C:\Scripts" -Recurse
+    .\Format-PowerShellCode.ps1 script.ps1
+    格式化单个文件
+
+.EXAMPLE
+    .\Format-PowerShellCode.ps1 script1.ps1 script2.psm1 module.psd1
+    格式化多个文件
+
+.EXAMPLE
+    .\Format-PowerShellCode.ps1 "C:\Scripts" -Recurse
     递归格式化目录中的所有 PowerShell 文件
 
 .EXAMPLE
-    .\Format-PowerShellCode.ps1 -Path "C:\Scripts" -Recurse -ShowOnly
-    显示将要格式化的文件列表，但不实际执行
+    .\Format-PowerShellCode.ps1 script1.ps1 script2.psm1 -ShowOnly
+    显示将要格式化的多个文件，但不实际执行
+
+.EXAMPLE
+    # lint-staged 配置示例
+    pwsh -File ./scripts/Format-PowerShellCode.ps1
 
 .OUTPUTS
     System.String
@@ -42,9 +52,8 @@
 
 [CmdletBinding(SupportsShouldProcess)]
 param(
-    [Parameter(Mandatory = $true, Position = 0, HelpMessage = "要格式化的文件或目录路径")]
-    [ValidateNotNullOrEmpty()]
-    [string]$Path,
+    [Parameter(Position = 0, ValueFromRemainingArguments = $true, HelpMessage = "要格式化的文件或目录路径（支持多个文件）")]
+    [string[]]$Path,
     
     [Parameter(HelpMessage = "递归处理子目录")]
     [switch]$Recurse,
@@ -55,6 +64,13 @@ param(
     [Parameter(HelpMessage = "显示将要格式化的文件，但不实际执行")]
     [switch]$ShowOnly
 )
+
+# 验证是否有路径参数
+if (-not $Path -or $Path.Count -eq 0) {
+    Write-Error "请提供要格式化的文件或目录路径"
+    Write-Host "使用方法: .\\Format-PowerShellCode.ps1 file1.ps1 file2.psm1" -ForegroundColor Yellow
+    exit 1
+}
 
 # 检查 PSScriptAnalyzer 模块是否已安装
 function Test-ModuleInstalled {
@@ -191,26 +207,48 @@ function Main {
         return
     }
     
-    # 验证路径
-    if (-not (Test-Path -Path $Path)) {
-        Write-Error "指定的路径不存在: $Path"
-        return
+    $allFilesToFormat = @()
+    
+    # 处理每个传入的路径
+    foreach ($singlePath in $Path) {
+        # 验证路径
+        if (-not (Test-Path -Path $singlePath)) {
+            Write-Warning "指定的路径不存在: $singlePath"
+            continue
+        }
+        
+        # 直接处理单个文件或使用 Get-PowerShellFiles 处理目录
+        if (Test-Path -Path $singlePath -PathType Leaf) {
+            # 单个文件 - 直接检查扩展名
+            $fileInfo = Get-Item -Path $singlePath
+            if ($fileInfo.Extension -in @('.ps1', '.psm1', '.psd1')) {
+                $allFilesToFormat += $fileInfo.FullName
+            }
+            else {
+                Write-Warning "文件 $singlePath 不是支持的 PowerShell 文件类型"
+            }
+        }
+        else {
+            # 目录 - 使用现有函数
+            $filesToFormat = Get-PowerShellFiles -Path $singlePath -Recurse $Recurse.IsPresent
+            $allFilesToFormat += $filesToFormat
+        }
     }
     
-    # 获取要处理的文件列表
-    $filesToFormat = Get-PowerShellFiles -Path $Path -Recurse $Recurse.IsPresent
+    # 去重
+    $allFilesToFormat = $allFilesToFormat | Sort-Object -Unique
     
-    if ($filesToFormat.Count -eq 0) {
+    if ($allFilesToFormat.Count -eq 0) {
         Write-Warning "在指定路径中未找到 PowerShell 文件"
         return
     }
     
-    Write-Host "找到 $($filesToFormat.Count) 个 PowerShell 文件" -ForegroundColor Cyan
+    Write-Host "找到 $($allFilesToFormat.Count) 个 PowerShell 文件" -ForegroundColor Cyan
     
     # ShowOnly 模式：只显示文件列表
     if ($ShowOnly) {
         Write-Host "将要格式化的文件:" -ForegroundColor Yellow
-        foreach ($file in $filesToFormat) {
+        foreach ($file in $allFilesToFormat) {
             Write-Host "  - $file" -ForegroundColor Gray
         }
         return
@@ -220,7 +258,7 @@ function Main {
     $successCount = 0
     $failCount = 0
     
-    foreach ($file in $filesToFormat) {
+    foreach ($file in $allFilesToFormat) {
         if ($PSCmdlet.ShouldProcess($file, "格式化 PowerShell 文件")) {
             if (Format-SingleFile -FilePath $file -SettingsPath $Settings) {
                 $successCount++
