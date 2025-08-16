@@ -143,7 +143,7 @@ function M.setup_neovim_keymaps()
 	keymap("n", "<leader>ls", vim.lsp.buf.signature_help, { desc = "LSP Signature Help" })
 
 	-- 终端操作
-	keymap("n", "<leader>t", "<cmd>terminal<CR>", { desc = "Open Terminal" })
+	keymap("n", "<leader>to", "<cmd>terminal<CR>", { desc = "Open Terminal" })
 end
 
 return M
