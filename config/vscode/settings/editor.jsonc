@@ -13,7 +13,7 @@
   //   "strings": true
   // },
   "editor.inlineSuggest.enabled": true,
-  "editor.fontFamily": "'JetBrains Mono','FiraCode NF Retina', 'FiraCode NF','Fira Code',Iosevka, Consolas, 'Cascadia Code', 'Courier New', 'Source Code Pro'",
+  "editor.fontFamily": "'FiraCode Nerd Font','JetBrains Mono Nerd Font','Times New Roman','JetBrains Mono','Cascadia Mono','Iosevka', 'Consolas', 'Cascadia Code', 'Courier New', 'Source Code Pro'",
   "editor.fontSize": 13,
   "editor.lineHeight": 1.2,
   "editor.fontLigatures": true,
