@@ -13,20 +13,49 @@ return {
 	cond = not utils.is_vscode(),
 	config = function()
 		local wk = require("which-key")
+		-- 设置 Neovim 的 timeoutlen，对于 which-key 至关重要
+		vim.o.timeout = true
+		vim.o.timeoutlen = 300
+
 		wk.setup({
-			-- 配置选项
+			-- 窗口和布局配置
+			-- win = {
+			-- 	border = "rounded", -- 窗口边框样式
+			-- 	padding = { 1, 2 }, -- 窗口内边距
+			-- },
+			-- 禁用内置插件提示，让界面更干净 (可按需开启)
+			-- plugins = {
+			-- 	marks = false,
+			-- 	registers = false,
+			-- 	spelling = {
+			-- 		enabled = false,
+			-- 	},
+			-- 	presets = {
+			-- 		operators = false,
+			-- 		motions = false,
+			-- 		text_objects = false,
+			-- 		windows = false,
+			-- 		nav = false,
+			-- 		z = false,
+			-- 		g = false,
+			-- 	},
+			-- }
 		})
 
-		-- 注册键位映射组 (新格式)
+		-- 注册键位映射组
 		wk.add({
-			{ "<leader>f", group = "查找" },
+			{ "<leader>f", group = "Find" },
 			{ "<leader>g", group = "Git" },
 			{ "<leader>l", group = "LSP" },
-			{ "<leader>s", group = "包围符号" },
+			{ "<leader>s", group = "Search/Surround" },
 			{ "<leader>t", group = "终端" },
 			{ "<leader>w", group = "窗口" },
 			{ "<leader>c", group = "代码" },
 			{ "<leader>b", group = "缓冲区" },
 		})
+		-- 因为是 whichkey相关快捷键，所以直接加这里
+		vim.keymap.set("n", "<leader>?", function()
+			require("which-key").show({ global = false })
+		end, { desc = "Buffer Local Keymaps (which-key)" })
 	end,
 }
