@@ -153,10 +153,21 @@ function M.setup_neovim_keymaps()
 		desc = "[S]ource [L]ua config", -- 快捷键的描述，方便以后查找
 	})
 	-- 重载配置，并且同步lazy.nvim的插件，其他配置都会重载
-	keymap("n", "<Leader>R", "<cmd>luafile $MYVIMRC | Lazy sync<cr>", {
+	-- 定义一个函数来执行重载和同步操作
+	local function reload_config_and_sync_plugins()
+		-- 检查 $MYVIMRC 是否存在
+		if vim.env.MYVIMRC and vim.fn.filereadable(vim.env.MYVIMRC) == 1 then
+			vim.cmd("luafile " .. vim.env.MYVIMRC) -- .. 是 Lua 中字符串连接符
+			vim.cmd("Lazy sync")
+			vim.notify("配置已重载，插件已同步", vim.log.levels.INFO) -- (可选) 添加一个通知
+		else
+			vim.notify("错误: $MYVIMRC 变量未设置或文件不可读", vim.log.levels.ERROR)
+		end
+	end
+	keymap("n", "<Leader>R", reload_config_and_sync_plugins, {
 		noremap = true,
 		silent = true,
-		desc = "[R]eload config and Sync Lazy plugins", -- 快捷键的描述
+		desc = "[R]eload config and Sync Lazy plugins",
 	})
 end
 
