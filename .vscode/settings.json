@@ -3,5 +3,8 @@
     "C:\\Program Files\\Neovim\\share\\nvim\\runtime\\lua"
   ],
   "Lua.diagnostics.globals": ["vim"],
-  "editor.defaultFormatter": "biomejs.biome"
+  "editor.defaultFormatter": "biomejs.biome",
+  "[lua]": {
+    "editor.defaultFormatter": "sumneko.lua"
+  }
 }
