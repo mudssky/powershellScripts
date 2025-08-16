@@ -1,0 +1,21 @@
+{
+  "name": "powershell-scripts",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepare": "husky",
+    "format:pwsh": "pwsh -File ./srcipts/Format-PowerShellCode.ps1 -Path . -Recurse",
+    "format:biome": "biome format --write .",
+    "format": "pnpm format:pwsh"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@biomejs/biome": "^2.2.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.1.5"
+  }
+}

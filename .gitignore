@@ -23,3 +23,5 @@ env.ps1
 backup
 
 macEnableProxy.ps1
+
+node_modules
