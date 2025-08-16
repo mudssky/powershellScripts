@@ -51,36 +51,35 @@ function M.setup()
 
 	-- 基础 Vim/Neovim 选项
 	vim.opt.clipboard = "unnamedplus" -- 对应 "vim.useSystemClipboard": true (使用系统剪贴板)
-	vim.opt.hlsearch = true        -- 对应 "vim.hlsearch": true (高亮所有搜索项)
-	vim.opt.incsearch = true       -- 对应 "vim.incsearch": true (输入时即时搜索)
-	vim.opt.ignorecase = true      -- 搜索时忽略大小写
-	vim.opt.smartcase = true       -- 如果搜索词包含大写字母，则不忽略大小写
-	vim.opt.wrap = false           -- 关闭自动换行
-
+	vim.opt.hlsearch = true -- 对应 "vim.hlsearch": true (高亮所有搜索项)
+	vim.opt.incsearch = true -- 对应 "vim.incsearch": true (输入时即时搜索)
+	vim.opt.ignorecase = true -- 搜索时忽略大小写
+	vim.opt.smartcase = true -- 如果搜索词包含大写字母，则不忽略大小写
+	vim.opt.wrap = false -- 关闭自动换行
 
 	-- =============================================
 	-- 根据操作系统自动配置 Shell
 	-- =============================================
 
-	if vim.fn.has('win32') then
+	if vim.fn.has("win32") then
 		-- Windows 系统
 		-- 使用 PowerShell 作为默认 Shell
-		vim.opt.shell = 'pwsh'
+		vim.opt.shell = "pwsh"
 
 		-- 重要的！为 PowerShell 配置正确的参数，否则 :! 命令会出问题
-		vim.opt.shellcmdflag = '-NoLogo -NoProfile -ExecutionPolicy Bypass -Command '
-		vim.opt.shellredir = '-join string | Out-File -Encoding utf8 %s'
-		vim.opt.shellpipe = '2>&1 | %s'
-		vim.opt.shellquote = ''
-		vim.opt.shellxquote = ''
-	elseif vim.fn.has('macunix') then
+		vim.opt.shellcmdflag = "-NoLogo -NoProfile -ExecutionPolicy Bypass -Command "
+		vim.opt.shellredir = "-join string | Out-File -Encoding utf8 %s"
+		vim.opt.shellpipe = "2>&1 | %s"
+		vim.opt.shellquote = ""
+		vim.opt.shellxquote = ""
+	elseif vim.fn.has("macunix") then
 		-- macOS 系统
 		-- zsh 是现代 macOS 的默认 shell
-		vim.opt.shell = 'zsh'
-	elseif vim.fn.has('unix') then
+		vim.opt.shell = "zsh"
+	elseif vim.fn.has("unix") then
 		-- Linux 及其他 Unix-like 系统
 		-- bash 是一个非常安全和普遍的默认选择
-		vim.opt.shell = 'bash'
+		vim.opt.shell = "bash"
 	end
 end
 
