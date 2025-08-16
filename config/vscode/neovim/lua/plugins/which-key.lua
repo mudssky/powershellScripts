@@ -52,6 +52,7 @@ return {
 			{ "<leader>w", group = "Window" },
 			{ "<leader>c", group = "Code" },
 			{ "<leader>b", group = "Buffer" },
+			{ "<leader>s", group = "Source" },
 		})
 		-- 因为是 whichkey相关快捷键，所以直接加这里
 		vim.keymap.set("n", "<leader>?", function()

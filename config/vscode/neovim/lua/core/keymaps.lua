@@ -144,6 +144,20 @@ function M.setup_neovim_keymaps()
 
 	-- 终端操作
 	keymap("n", "<leader>to", "<cmd>terminal<CR>", { desc = "Open Terminal" })
+
+	-- Source
+	-- 重载lua配置，除了lazy.nvim的插件，其他配置都会重载
+	keymap("n", "<Leader>sl", "<cmd>luafile $MYVIMRC<cr>", {
+		noremap = true,
+		silent = true,
+		desc = "[S]ource [L]ua config", -- 快捷键的描述，方便以后查找
+	})
+	-- 重载配置，并且同步lazy.nvim的插件，其他配置都会重载
+	keymap("n", "<Leader>R", "<cmd>luafile $MYVIMRC | Lazy sync<cr>", {
+		noremap = true,
+		silent = true,
+		desc = "[R]eload config and Sync Lazy plugins", -- 快捷键的描述
+	})
 end
 
 return M
