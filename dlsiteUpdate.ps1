@@ -34,7 +34,7 @@ $spiderPath = 'D:\coding\Projects\python\python3Spiders\dlsiteSpider'
 
 if (-not (Test-Path $spiderPath)) {
     Write-Host -ForegroundColor red ('{} is not exist' -f $spiderPath)
-    Exit 1
+    exit 1
 }
 Set-Location $spiderPath
 Invoke-Expression (pdm venv activate)

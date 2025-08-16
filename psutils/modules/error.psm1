@@ -41,7 +41,7 @@ function Debug-CommandExecution {
         [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
         [string]$CommandName,
         
-        [ValidateSet('Silent','Normal','Verbose')]
+        [ValidateSet('Silent', 'Normal', 'Verbose')]
         [string]$Verbosity = 'Normal'
     )
 

@@ -3,7 +3,7 @@
 
 
 function Test-PortOccupation {
-	<#
+    <#
 .SYNOPSIS
     检查指定的 TCP 端口是否被占用。
 
@@ -27,24 +27,24 @@ function Test-PortOccupation {
 
 #>
 
-	[CmdletBinding()]
-	param (
-		[int]$Port
-	)
-	# 检查端口占用情况
-	# 获取使用指定端口的TCP连接
-	$tcpConnection = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue | Where-Object { $_.State -ne "TimeWait" }
+    [CmdletBinding()]
+    param (
+        [int]$Port
+    )
+    # 检查端口占用情况
+    # 获取使用指定端口的TCP连接
+    $tcpConnection = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue | Where-Object { $_.State -ne "TimeWait" }
 
-	if ($tcpConnection) {
-		return $true
-	}
-	else {
-		return $false
-	}
+    if ($tcpConnection) {
+        return $true
+    }
+    else {
+        return $false
+    }
 }
 
 function Get-PortProcess {
-	<#
+    <#
 .SYNOPSIS
     获取占用指定 TCP 端口的进程信息。
 
@@ -68,38 +68,38 @@ function Get-PortProcess {
 
 #>
 
-	[CmdletBinding()]
-	param (
-		[int]$Port
-	)
+    [CmdletBinding()]
+    param (
+        [int]$Port
+    )
 	
-	# 获取使用指定端口的TCP连接
-	$tcpConnection = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue | Where-Object { $_.State -ne "TimeWait" }
+    # 获取使用指定端口的TCP连接
+    $tcpConnection = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue | Where-Object { $_.State -ne "TimeWait" }
 
-	if ($tcpConnection) {
-		# 获取进程详细信息
-		$process = Get-Process -Id $tcpConnection.OwningProcess -ErrorAction SilentlyContinue
+    if ($tcpConnection) {
+        # 获取进程详细信息
+        $process = Get-Process -Id $tcpConnection.OwningProcess -ErrorAction SilentlyContinue
 		
-		# 创建自定义对象返回进程信息
-		$result = [PSCustomObject]@{
-			Port = $Port
-			ProcessId = $tcpConnection.OwningProcess
-			ProcessName = $process.Name
-			Path = $process.Path
-			CommandLine = $process.CommandLine
-		}
+        # 创建自定义对象返回进程信息
+        $result = [PSCustomObject]@{
+            Port        = $Port
+            ProcessId   = $tcpConnection.OwningProcess
+            ProcessName = $process.Name
+            Path        = $process.Path
+            CommandLine = $process.CommandLine
+        }
 		
-		return $result
-	}
-	else {
-		return $null
-	}
+        return $result
+    }
+    else {
+        return $null
+    }
 }
 
 
 
 function Wait-ForURL {
-	<#
+    <#
 .SYNOPSIS
     测试指定的 URL 是否可达。
 
@@ -137,43 +137,43 @@ function Wait-ForURL {
 
 #>
 	
-	[CmdletBinding()]
-	param (
-		[string]$DevToolsUrl = "http://localhost:9222/json", # DevTools 协议的 JSON 端点
-		[int]$Timeout = 30, # 超时时间（秒）
-		[int]$Interval = 2,    # 检查间隔（秒）
-		[bool]$ShowOutput = $false # 是否显示输出信息
-	)
+    [CmdletBinding()]
+    param (
+        [string]$DevToolsUrl = "http://localhost:9222/json", # DevTools 协议的 JSON 端点
+        [int]$Timeout = 30, # 超时时间（秒）
+        [int]$Interval = 2,    # 检查间隔（秒）
+        [bool]$ShowOutput = $false # 是否显示输出信息
+    )
 
-	# 等待url可访问。可以用于debug时等待浏览器DevTools地址生效。
-	# 在vscode preLaunchTask 中设置powershell job，其中可以等待到devtools地址生效后，执行web自动化脚本。
+    # 等待url可访问。可以用于debug时等待浏览器DevTools地址生效。
+    # 在vscode preLaunchTask 中设置powershell job，其中可以等待到devtools地址生效后，执行web自动化脚本。
 
-	$startTime = Get-Date
+    $startTime = Get-Date
 
-	while ($true) {
-		try {
-			$response = Invoke-RestMethod -Uri $DevToolsUrl -Method Get -TimeoutSec $Interval
-			if ($response) {
-				if ($ShowOutput) {
-					Write-Host "浏览器已启动并响应 $DevToolsUrl" -ForegroundColor Green
-				}
-				return $true
-			}
-		}
-		catch {
-			# 连接失败时不做任何处理
-		}
+    while ($true) {
+        try {
+            $response = Invoke-RestMethod -Uri $DevToolsUrl -Method Get -TimeoutSec $Interval
+            if ($response) {
+                if ($ShowOutput) {
+                    Write-Host "浏览器已启动并响应 $DevToolsUrl" -ForegroundColor Green
+                }
+                return $true
+            }
+        }
+        catch {
+            # 连接失败时不做任何处理
+        }
 
-		$elapsedTime = (Get-Date) - $startTime
-		if ($elapsedTime.TotalSeconds -ge $Timeout) {
-			if ($ShowOutput) {
-				Write-Host "等待超时。$DevToolsUrl 未响应。" -ForegroundColor Yellow
-			}
-			return $false
-		}
+        $elapsedTime = (Get-Date) - $startTime
+        if ($elapsedTime.TotalSeconds -ge $Timeout) {
+            if ($ShowOutput) {
+                Write-Host "等待超时。$DevToolsUrl 未响应。" -ForegroundColor Yellow
+            }
+            return $false
+        }
 
-		Start-Sleep -Seconds $Interval
-	}
+        Start-Sleep -Seconds $Interval
+    }
 }
 
 

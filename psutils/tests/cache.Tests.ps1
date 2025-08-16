@@ -158,7 +158,7 @@ Describe "Invoke-WithCache" {
     Context "复杂数据类型测试" {
         It "应该能够缓存复杂对象" {
             $complexObject = @{
-                Name = "Test"
+                Name   = "Test"
                 Values = @(1, 2, 3)
                 Nested = @{
                     Property = "Value"
@@ -283,9 +283,9 @@ Describe "Invoke-WithCache" {
         
         It "XML缓存应该能够缓存复杂对象" {
             $complexObject = @{
-                Name = "TestObject"
+                Name    = "TestObject"
                 Numbers = @(1, 2, 3)
-                Date = Get-Date "2024-01-01"
+                Date    = Get-Date "2024-01-01"
             }
             
             $scriptBlock = { $complexObject }

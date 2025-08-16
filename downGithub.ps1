@@ -25,16 +25,16 @@
 #>
 [CmdletBinding()]
 param (
-	[Parameter(Mandatory = $true)]
-	$UserName = '',
-	# 下载执行的路径
-	[string]
-	$Path = '.',
-	[switch]
-	$WithDate
-	# 纯备份场景不需要工作区
-	# [switch]
-	# $OnlyBackup
+    [Parameter(Mandatory = $true)]
+    $UserName = '',
+    # 下载执行的路径
+    [string]
+    $Path = '.',
+    [switch]
+    $WithDate
+    # 纯备份场景不需要工作区
+    # [switch]
+    # $OnlyBackup
 )
 	
 # $repos = Invoke-RestMethod -Uri "https://api.github.com/users/$UserName/repos" -Headers @{ "User-Agent" = "Mozilla/5.0" }
@@ -106,11 +106,11 @@ $ghRepos = gh repo list $UserName --json 'name,url,sshUrl' --limit 1000 --source
 #   viewerSubscription
 #   watchers
 $finalRepos = $ghRepos | ForEach-Object {
-	# 创建新对象并添加必要的属性
-	[PSCustomObject]@{
-		name      = $_.name
-		clone_url = $_.url
-	}
+    # 创建新对象并添加必要的属性
+    [PSCustomObject]@{
+        name      = $_.name
+        clone_url = $_.url
+    }
 }
 
 $finalRepos
@@ -118,66 +118,66 @@ $finalRepos
 $folderMame = $UserName
 
 if ($WithDate) {
-	$dateString = Get-Date -Format "yyyyMMdd"
-	$folderMame = "$dateString-$UserName"
+    $dateString = Get-Date -Format "yyyyMMdd"
+    $folderMame = "$dateString-$UserName"
 }
 
 
 $repoParentPath = Join-Path $Path $folderMame
 
 if (-not (Test-Path $repoParentPath)) {
-	New-Item -ItemType Directory -Force -Path $repoParentPath
+    New-Item -ItemType Directory -Force -Path $repoParentPath
 }
 function updateRepo {
-	param(
-		[string]$Path
-	)
-	# 检查是否为 Git 仓库
-	if (-not (Test-Path (Join-Path $Path ".git"))) {
-		Write-Error "目录 '$Path' 不是 Git 仓库！"
-		return
-	}
-	try {
-		# 使用 -C 直接指定路径，避免切换目录
-		git -C $Path fetch --all --prune
-		Write-Host "仓库 '$Path' 更新成功。" -ForegroundColor Green
-	}
-	catch {
-		Write-Error "更新仓库 '$Path' 时出错: $_"
-	}
-	# Push-Location $Path
-	# try {
-	# 	git fetch --all
-	# 	git remote update
-	# }
-	# finally {
-	# 	Pop-Location
-	# }
+    param(
+        [string]$Path
+    )
+    # 检查是否为 Git 仓库
+    if (-not (Test-Path (Join-Path $Path ".git"))) {
+        Write-Error "目录 '$Path' 不是 Git 仓库！"
+        return
+    }
+    try {
+        # 使用 -C 直接指定路径，避免切换目录
+        git -C $Path fetch --all --prune
+        Write-Host "仓库 '$Path' 更新成功。" -ForegroundColor Green
+    }
+    catch {
+        Write-Error "更新仓库 '$Path' 时出错: $_"
+    }
+    # Push-Location $Path
+    # try {
+    # 	git fetch --all
+    # 	git remote update
+    # }
+    # finally {
+    # 	Pop-Location
+    # }
 }
 
 $totalRepos = $finalRepos.Count
 $currentRepo = 0
 
 foreach ($repo in $finalRepos) {
-	$currentRepo++
-	$repoName = $repo.name
-	$repoUrl = $repo.clone_url
-	$repoPath = "$repoParentPath\$repoName"
+    $currentRepo++
+    $repoName = $repo.name
+    $repoUrl = $repo.clone_url
+    $repoPath = "$repoParentPath\$repoName"
     
-	# 显示进度
-	Write-Progress -Activity "正在处理仓库" -Status "$currentRepo/$totalRepos - $repoName" `
-		-PercentComplete (($currentRepo / $totalRepos) * 100) `
-		-CurrentOperation "正在下载/更新仓库"
+    # 显示进度
+    Write-Progress -Activity "正在处理仓库" -Status "$currentRepo/$totalRepos - $repoName" `
+        -PercentComplete (($currentRepo / $totalRepos) * 100) `
+        -CurrentOperation "正在下载/更新仓库"
     
-	# 检查是否已经存在该目录
-	if (-not (Test-Path -Path $repoPath)) {
-		gh repo clone $repoUrl $repoPath
-		updateRepo -Path $repoPath
-	}
-	else {
-		Write-Output "Repository '$repoName' already exists, updating..."
-		updateRepo -Path $repoPath
-	}
+    # 检查是否已经存在该目录
+    if (-not (Test-Path -Path $repoPath)) {
+        gh repo clone $repoUrl $repoPath
+        updateRepo -Path $repoPath
+    }
+    else {
+        Write-Output "Repository '$repoName' already exists, updating..."
+        updateRepo -Path $repoPath
+    }
 }
 
 # 完成后清除进度条

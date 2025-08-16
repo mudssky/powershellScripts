@@ -1,5 +1,5 @@
 param(
-	[switch]$LoadStartup
+    [switch]$LoadStartup
 )
 
 . $PSScriptRoot/loadModule.ps1
@@ -9,28 +9,28 @@ param(
 
 # 注意要设置一下ps1脚本的打开方式,用powershell或者pwsh打开,不然脚本无法正常执行.
 function StartSdWebUI() {
-	[CmdLetBinding()]
-	param()
-	$webuiPath = 'C:\AI\stable-diffusion\stable-diffusion-webui'
-	Set-Location $webuiPath
-	# 1.激活虚拟环境
-	Write-Host '激活虚拟环境'
-	& "$webuiPath\venv\Scripts\activate.ps1"
-	# 2.运行批处理启动
-	Write-Host '运行启动bat'
-	& "$webuiPath\webui-user.ps1"
+    [CmdLetBinding()]
+    param()
+    $webuiPath = 'C:\AI\stable-diffusion\stable-diffusion-webui'
+    Set-Location $webuiPath
+    # 1.激活虚拟环境
+    Write-Host '激活虚拟环境'
+    & "$webuiPath\venv\Scripts\activate.ps1"
+    # 2.运行批处理启动
+    Write-Host '运行启动bat'
+    & "$webuiPath\webui-user.ps1"
 }
 if (-not $LoadStartup) {
-	StartSdWebUI
+    StartSdWebUI
 }
 $startupPath = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup"
 
 if ($LoadStartup) {
 	
-	$filename = Split-Path -Path $PSCommandPath  -Leaf
-	$newpath = Join-Path -Path $startupPath -ChildPath $filename.Replace('.ps1', '.lnk')
-	# New-Item -Path $newpath -ItemType SymbolicLink -Value $PSCommandPath
-	New-Shortcut -Path $PSCommandPath -Destination $newpath
+    $filename = Split-Path -Path $PSCommandPath  -Leaf
+    $newpath = Join-Path -Path $startupPath -ChildPath $filename.Replace('.ps1', '.lnk')
+    # New-Item -Path $newpath -ItemType SymbolicLink -Value $PSCommandPath
+    New-Shortcut -Path $PSCommandPath -Destination $newpath
 
 }
 

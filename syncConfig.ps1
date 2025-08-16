@@ -34,17 +34,17 @@
 
 [CmdletBinding()]
 param(
-	[ValidateSet('backup', 'restore', 'list')]
-	[string]$Mode = 'backup'
-	# [string]$configDir = "$env:USERPROFILE/AppData/Local/Programs/PixPin/Config
+    [ValidateSet('backup', 'restore', 'list')]
+    [string]$Mode = 'backup'
+    # [string]$configDir = "$env:USERPROFILE/AppData/Local/Programs/PixPin/Config
 )
 
 
 # 这里我们用ps1作为配置文件目录的配置文件
 # 这样方便用后缀名来过滤
 if ( -not ( Test-Path   __sync.ps1)) {
-	Write-Host '__sync.ps1 not found in current path'
-	exit 1
+    Write-Host '__sync.ps1 not found in current path'
+    exit 1
 }
 # 导入变量
 . ./__sync.ps1
@@ -53,14 +53,14 @@ if ( -not ( Test-Path   __sync.ps1)) {
 
 
 switch ($Mode) {
-	'backup' {
-		Copy-Item -Recurse -Force $configDir/*  -Destination ./
-	}
-	'restore' {
-		Copy-Item -Recurse -Force ./*  -Destination $configDir
-	}
-	'list' {
-		Get-ChildItem $configDir
-		Get-ChildItem ./
-	}
+    'backup' {
+        Copy-Item -Recurse -Force $configDir/*  -Destination ./
+    }
+    'restore' {
+        Copy-Item -Recurse -Force ./*  -Destination $configDir
+    }
+    'list' {
+        Get-ChildItem $configDir
+        Get-ChildItem ./
+    }
 }

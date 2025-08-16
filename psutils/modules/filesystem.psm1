@@ -397,7 +397,8 @@ function Test-GitignoreMatch {
                     if ($Item.PSIsContainer -and ($relativePath -eq $cleanPattern -or $relativePath -like "$cleanPattern/*")) {
                         return $true
                     }
-                } else {
+                }
+                else {
                     # 文件或目录规则
                     if ($relativePath -eq $cleanPattern -or $relativePath -like "$cleanPattern/*" -or $Item.Name -eq $cleanPattern) {
                         return $true

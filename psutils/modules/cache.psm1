@@ -479,7 +479,7 @@ function Invoke-WithCache {
                 return [string]$content.TrimEnd("\r\n")
             }
             else {
-                return Import-CliXml -Path $cacheFile
+                return Import-Clixml -Path $cacheFile
             }
         }
         catch {
@@ -522,7 +522,7 @@ function Invoke-WithCache {
                 }
                 else {
                     # XML格式：使用Export-CliXml保存复杂对象
-                    $result | Export-CliXml -Path $cacheFile
+                    $result | Export-Clixml -Path $cacheFile
                     $script:CacheStats.Writes++
                     # 返回原始结果
                     return $result

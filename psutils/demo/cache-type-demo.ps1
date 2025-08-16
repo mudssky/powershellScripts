@@ -37,12 +37,12 @@ Write-Host "   适用于：复杂PowerShell对象，保持完整数据类型"
 
 # XML 缓存 - 复杂对象
 $complexData = @{
-    Name = "演示数据"
+    Name    = "演示数据"
     Numbers = @(1, 2, 3, 4, 5)
-    Date = Get-Date
-    Nested = @{
+    Date    = Get-Date
+    Nested  = @{
         Property = "嵌套属性"
-        Values = @("A", "B", "C")
+        Values   = @("A", "B", "C")
     }
 }
 

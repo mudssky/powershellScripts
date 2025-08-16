@@ -44,11 +44,12 @@ foreach ($key in $testKeys) {
         Start-Sleep -Milliseconds 100  # 模拟耗时操作
         if ($key -like "*text*") {
             "这是文本缓存测试数据 - $(Get-Date)"
-        } else {
+        }
+        else {
             @{
-                Timestamp = Get-Date
+                Timestamp    = Get-Date
                 ProcessCount = (Get-Process).Count
-                Key = $key
+                Key          = $key
             }
         }
     }

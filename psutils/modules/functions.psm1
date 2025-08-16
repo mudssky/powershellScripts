@@ -24,10 +24,10 @@
     历史命令文件路径: $env:USERPROFILE\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt
 #>
 function Get-HistoryCommandRank([int]$top = 10) {
- $count = 0; Get-Content  $env:USERPROFILE\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt | 
- ForEach-Object { ($_ -split ' ')[0]; $count += 1 } | 
- Group-Object | Sort-Object -Property Count  -Descending  -Top $top |
-	Format-Table -Property Name, Count, @{Label = "Percentage"; Expression = { '{0:p2}' -f ($_.Count / $count) } } -AutoSize
+    $count = 0; Get-Content  $env:USERPROFILE\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt | 
+        ForEach-Object { ($_ -split ' ')[0]; $count += 1 } | 
+        Group-Object | Sort-Object -Property Count  -Descending  -Top $top |
+        Format-Table -Property Name, Count, @{Label = "Percentage"; Expression = { '{0:p2}' -f ($_.Count / $count) } } -AutoSize
 }
 
 # 获取脚本执行目录
@@ -50,9 +50,9 @@ function Get-HistoryCommandRank([int]$top = 10) {
     用途: 方便脚本内部进行路径管理和资源引用。
 #>
 function Get-ScriptFolder() {
-	$currentScriptPath = $MyInvocation.MyCommand.Definition
-	$currentScriptFolder = Split-Path  -Parent   $currentScriptPath 
-	return $currentScriptFolder
+    $currentScriptPath = $MyInvocation.MyCommand.Definition
+    $currentScriptFolder = Split-Path  -Parent   $currentScriptPath 
+    return $currentScriptFolder
 }
 
 
@@ -76,7 +76,7 @@ function Get-ScriptFolder() {
     需要预先安装Python和IPython (`pip install ipython`).
 #>
 function Start-Ipython () {
-	python -m IPython
+    python -m IPython
 }
 
 <#
@@ -98,10 +98,10 @@ function Start-Ipython () {
     如果模块已安装，则会强制重新安装。
 #>
 function Start-PSReadline() {
-	# 安装
-	Install-Module -Name PSReadLine -AllowClobber -Force
-	# 开启基于历史记录的智能提示
-	Set-PSReadLineOption -PredictionSource History
+    # 安装
+    Install-Module -Name PSReadLine -AllowClobber -Force
+    # 开启基于历史记录的智能提示
+    Set-PSReadLineOption -PredictionSource History
 }
 
 
@@ -135,29 +135,29 @@ function Start-PSReadline() {
     此函数仅适用于Windows操作系统。
 #>
 function New-Shortcut {
-	[CmdletBinding()]
-	param (
-		# 需要创建快捷方式的目标路径
-		[Parameter(Mandatory = $true, Position = 0)]
-		[string]$Path,
-		[Parameter(Mandatory = $true, Position = 1)]
-		[string]$Destination 
-	)
+    [CmdletBinding()]
+    param (
+        # 需要创建快捷方式的目标路径
+        [Parameter(Mandatory = $true, Position = 0)]
+        [string]$Path,
+        [Parameter(Mandatory = $true, Position = 1)]
+        [string]$Destination 
+    )
 	
-	begin {
+    begin {
 	
-	}
+    }
 	
-	process {
-		$shell = New-Object -ComObject "WScript.Shell"
-		$link = $shell.CreateShortcut($Destination)
-		$link.TargetPath = $Path
-		$link.Save()
-	}
+    process {
+        $shell = New-Object -ComObject "WScript.Shell"
+        $link = $shell.CreateShortcut($Destination)
+        $link.TargetPath = $Path
+        $link.Save()
+    }
 	
-	end {
+    end {
 		
-	}
+    }
 }
 
 
@@ -190,21 +190,21 @@ function New-Shortcut {
     此函数会覆盖同名的现有脚本。
 #>
 function Set-Script {
-	[CmdletBinding()]
-	param (
-		[string]$key , # 脚本名
-		[string]$value,
-		[string]$path # package.json路径
-	)
+    [CmdletBinding()]
+    param (
+        [string]$key , # 脚本名
+        [string]$value,
+        [string]$path # package.json路径
+    )
 	
-	$jsonMap = Get-Content $path | ConvertFrom-Json -AsHashtable
-	if ($jsonMap.scripts.ContainsKey($key)) {
-		$jsonMap.scripts.$key = $value
-	}
-	else {
-		$jsonMap.scripts.Add($key, $value)
-	}
-	ConvertTo-Json $jsonMap -Depth 100 | Out-File $path
+    $jsonMap = Get-Content $path | ConvertFrom-Json -AsHashtable
+    if ($jsonMap.scripts.ContainsKey($key)) {
+        $jsonMap.scripts.$key = $value
+    }
+    else {
+        $jsonMap.scripts.Add($key, $value)
+    }
+    ConvertTo-Json $jsonMap -Depth 100 | Out-File $path
 
 }
 
@@ -243,36 +243,36 @@ function Set-Script {
     输入的版本字符串必须严格遵循 "X.Y.Z" 的格式，否则将报错。
 #>
 function Update-Semver {
-	[CmdletBinding()]
-	param (
-		[Parameter(Mandatory = $true)]
-		[string]$Version,	# 版本字符串
-		[ValidateSet('major', 'minor', 'patch')]
-		[string]$UpdateType = 'patch'     
-	)
-	$regexPattern = "^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$"
-	$regexResult = $Version -match $regexPattern
-	if (-not $regexResult) {
-		Write-Error "无法解析SemVer版本字符串"
-		return 
-	}
-	# 从正则表达式匹配结果中获取版本号各部分
-	$majorVersion = [int]$matches["major"]
-	$minorVersion = [int]$matches["minor"]
-	$patchVersion = [int]$matches["patch"]
-	switch ($UpdateType) {
-		'major' {
-			$majorVersion++
-		}
-		'minor' {
-			$minorVersion++
-		}
-		'patch' {
-			$patchVersion++
-		}
-	}
-	$newVersion = "$($majorVersion).$($minorVersion).$($patchVersion)"
-	return $newVersion
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$Version,	# 版本字符串
+        [ValidateSet('major', 'minor', 'patch')]
+        [string]$UpdateType = 'patch'     
+    )
+    $regexPattern = "^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$"
+    $regexResult = $Version -match $regexPattern
+    if (-not $regexResult) {
+        Write-Error "无法解析SemVer版本字符串"
+        return 
+    }
+    # 从正则表达式匹配结果中获取版本号各部分
+    $majorVersion = [int]$matches["major"]
+    $minorVersion = [int]$matches["minor"]
+    $patchVersion = [int]$matches["patch"]
+    switch ($UpdateType) {
+        'major' {
+            $majorVersion++
+        }
+        'minor' {
+            $minorVersion++
+        }
+        'patch' {
+            $patchVersion++
+        }
+    }
+    $newVersion = "$($majorVersion).$($minorVersion).$($patchVersion)"
+    return $newVersion
 }
 
 
@@ -304,18 +304,18 @@ function Update-Semver {
     用途: 方便在脚本中显示文件大小，提高可读性。
 #>
 function Get-FormatLength($length) {
-	if ($length -gt 1gb) {
-		return  "$( "{0:f2}" -f  $length/1gb)GB"
-	}
-	elseif ($length -gt 1mb) {
-		return  "$( "{0:f2}" -f  $length/1mb)MB"
-	}
-	elseif ($length -gt 1kb) {
-		return  "$( "{0:f2}" -f  $length/1kb)KB"
-	}
-	else {
-		return "$length B"
-	}    
+    if ($length -gt 1gb) {
+        return  "$( "{0:f2}" -f  $length/1gb)GB"
+    }
+    elseif ($length -gt 1mb) {
+        return  "$( "{0:f2}" -f  $length/1mb)MB"
+    }
+    elseif ($length -gt 1kb) {
+        return  "$( "{0:f2}" -f  $length/1kb)KB"
+    }
+    else {
+        return "$length B"
+    }    
 }
 
 
@@ -351,18 +351,18 @@ function Get-FormatLength($length) {
     由于PowerShell中最大的数字类型是Int64，此函数处理的最大数字为2^63 - 1。
 #>
 function Get-NeedBinaryDigit($number) {
-	# 由于powershell中最大的数字就是int64,2左移62位的时候就溢出了，所以最大比较到2左移61位。也就是2的62次方，2的63次方就会溢出int64
-	# int64 有64位，其中一位是符号位， 所以表达的最大数就是 2的63次方-1（最高位下标是63）
-	if ($number -gt ([int64]::MaxValue)) {
-		Write-Host -ForegroundColor Red "the number is exceed the area of int64"
-	}
-	else {
-		for ($i = 62; $i -gt 0; $i -= 1) {
-			if ( ([int64](1) -shl $i) -lt $number) {
-				return ($i + 1)
-			}
-		}
-	}
+    # 由于powershell中最大的数字就是int64,2左移62位的时候就溢出了，所以最大比较到2左移61位。也就是2的62次方，2的63次方就会溢出int64
+    # int64 有64位，其中一位是符号位， 所以表达的最大数就是 2的63次方-1（最高位下标是63）
+    if ($number -gt ([int64]::MaxValue)) {
+        Write-Host -ForegroundColor Red "the number is exceed the area of int64"
+    }
+    else {
+        for ($i = 62; $i -gt 0; $i -= 1) {
+            if ( ([int64](1) -shl $i) -lt $number) {
+                return ($i + 1)
+            }
+        }
+    }
 }
 
 <#
@@ -393,11 +393,11 @@ function Get-NeedBinaryDigit($number) {
     请注意，如果原始哈希表的值不唯一，反转后可能会丢失数据。
 #>
 function Get-ReversedMap($map) {
-	$reversedMap = @{}
-	foreach ($key in $inputMap.Keys) {
-		$reversedMap[$inputMap[$key]] = $key
-	}
-	return $reversedMap
+    $reversedMap = @{}
+    foreach ($key in $inputMap.Keys) {
+        $reversedMap[$inputMap[$key]] = $key
+    }
+    return $reversedMap
 }
 
 

@@ -1,7 +1,7 @@
 
 
 function Get-Dotenv {
-	<#
+    <#
 	.SYNOPSIS
 		解析dotenv内容为键值对保存到map中
 	.DESCRIPTION
@@ -21,22 +21,22 @@ function Get-Dotenv {
 		用途: 用于从 .env 文件中读取配置。
 	#>
 	
-	[CmdletBinding()]
-	param (
-		# dotenv文件路径
-		[Parameter(Mandatory = $true)]
-		[string]$Path
-	)
-	$content = Get-Content $Path
-	$pairs = @{}
-	foreach ($line in $content) {
-		if ($line -match '^\s*([^=]+)=(.*)') {
-			$key = $Matches[1].Trim()
-			$value = $Matches[2].Trim()
-			$pairs[$key] = $value
-		}
-	}
-	return $pairs
+    [CmdletBinding()]
+    param (
+        # dotenv文件路径
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+    $content = Get-Content $Path
+    $pairs = @{}
+    foreach ($line in $content) {
+        if ($line -match '^\s*([^=]+)=(.*)') {
+            $key = $Matches[1].Trim()
+            $value = $Matches[2].Trim()
+            $pairs[$key] = $value
+        }
+    }
+    return $pairs
 }
 
 
@@ -44,7 +44,7 @@ function Get-Dotenv {
 
 # 载入.env格式文件到环境变量
 function Install-Dotenv {
-	<#
+    <#
 	.SYNOPSIS
 		加载dotenv文件到环境变量
 	.DESCRIPTION
@@ -75,65 +75,65 @@ function Install-Dotenv {
 	#>
 	
 	
-	[CmdletBinding()]
-	param (
-		# dotenv文件路径
-		# [Parameter(Mandatory = $true)]
-		[string]$Path,	
+    [CmdletBinding()]
+    param (
+        # dotenv文件路径
+        # [Parameter(Mandatory = $true)]
+        [string]$Path,	
 
-		# Machine: 表示系统级环境变量。对所有用户和进程可见，需要管理员权限。
-		# User: 表示用户级环境变量。对当前用户和所有该用户的进程可见。
-		# Process: 表示进程级环境变量。仅对当前PowerShell进程可见。
-		# 环境变量的类型
-		[ValidateSet('Machine', 'User', 'Process')]
-		[string]$EnvTarget = 'User'
-	)
+        # Machine: 表示系统级环境变量。对所有用户和进程可见，需要管理员权限。
+        # User: 表示用户级环境变量。对当前用户和所有该用户的进程可见。
+        # Process: 表示进程级环境变量。仅对当前PowerShell进程可见。
+        # 环境变量的类型
+        [ValidateSet('Machine', 'User', 'Process')]
+        [string]$EnvTarget = 'User'
+    )
 
-	$defaultEnvFileList = @('.env.local', '.env')
-	Write-Debug "开始查找默认环境变量文件，当前路径: $Path"
-	if (-not( Test-Path -LiteralPath $Path)) {
-		$foundDefaultFile = $false
-		# 判断默认环境变量文件
-		Write-Debug "开始检查默认环境变量文件列表: $($defaultEnvFileList -join ', ')"
-		foreach ($defaultEnvFilePath in $defaultEnvFileList) {
-			Write-Debug "正在检查文件: $defaultEnvFilePath"
-			if (Test-Path -LiteralPath $defaultEnvFilePath) {
-				$Path = $defaultEnvFilePath
-				$foundDefaultFile = $true
-				Write-Debug "找到默认环境变量文件: $defaultEnvFilePath"
-				break
-			}
-		}
+    $defaultEnvFileList = @('.env.local', '.env')
+    Write-Debug "开始查找默认环境变量文件，当前路径: $Path"
+    if (-not( Test-Path -LiteralPath $Path)) {
+        $foundDefaultFile = $false
+        # 判断默认环境变量文件
+        Write-Debug "开始检查默认环境变量文件列表: $($defaultEnvFileList -join ', ')"
+        foreach ($defaultEnvFilePath in $defaultEnvFileList) {
+            Write-Debug "正在检查文件: $defaultEnvFilePath"
+            if (Test-Path -LiteralPath $defaultEnvFilePath) {
+                $Path = $defaultEnvFilePath
+                $foundDefaultFile = $true
+                Write-Debug "找到默认环境变量文件: $defaultEnvFilePath"
+                break
+            }
+        }
 		
-		if (-not $foundDefaultFile) {
-			Write-Error "env文件不存在: $Path"
-			Write-Debug "未找到任何默认环境变量文件"
-			return
-		} 
+        if (-not $foundDefaultFile) {
+            Write-Error "env文件不存在: $Path"
+            Write-Debug "未找到任何默认环境变量文件"
+            return
+        } 
 
 	
-	}
-	$envTargetMap = @{
-		'Machine' = [System.EnvironmentVariableTarget]::Machine
-		'User'    = [System.EnvironmentVariableTarget]::User
-		'Process' = [System.EnvironmentVariableTarget]::Process
-	}
+    }
+    $envTargetMap = @{
+        'Machine' = [System.EnvironmentVariableTarget]::Machine
+        'User'    = [System.EnvironmentVariableTarget]::User
+        'Process' = [System.EnvironmentVariableTarget]::Process
+    }
 
-	$envPairs = Get-Dotenv -Path $Path
+    $envPairs = Get-Dotenv -Path $Path
 	
-	foreach ($pair in $envPairs.GetEnumerator()) {
-		$target = $envTargetMap[$EnvTarget]
-		Write-Debug "正在设置环境变量: $($pair.key) = $($pair.value) (目标: $EnvTarget)"
-		[System.Environment]::SetEnvironmentVariable($pair.key, $pair.value, $target)
-		Write-Verbose "set env $($pair.key) = $($pair.value) to $EnvTarget"
-		Write-Debug "成功设置环境变量: $($pair.key)"
-	}	
+    foreach ($pair in $envPairs.GetEnumerator()) {
+        $target = $envTargetMap[$EnvTarget]
+        Write-Debug "正在设置环境变量: $($pair.key) = $($pair.value) (目标: $EnvTarget)"
+        [System.Environment]::SetEnvironmentVariable($pair.key, $pair.value, $target)
+        Write-Verbose "set env $($pair.key) = $($pair.value) to $EnvTarget"
+        Write-Debug "成功设置环境变量: $($pair.key)"
+    }	
 }
 
 
 
 function Import-EnvPath {
-	<#
+    <#
 	.SYNOPSIS
 		重新加载环境变量中的PATH
 	.DESCRIPTION
@@ -160,102 +160,102 @@ function Import-EnvPath {
 		合并模式下，系统级PATH优先于用户级PATH
 	#>
 
-	[CmdletBinding()]
-	param (
-		[ValidateSet('Machine', 'User', 'All', "Process")]
-		[string]$EnvTarget = 'All'
-	)	
+    [CmdletBinding()]
+    param (
+        [ValidateSet('Machine', 'User', 'All', "Process")]
+        [string]$EnvTarget = 'All'
+    )	
 
-	Write-Debug "开始重新加载PATH，模式: $EnvTarget"
-	Write-Debug "当前PATH长度: $($env:Path.Length) 字符"
+    Write-Debug "开始重新加载PATH，模式: $EnvTarget"
+    Write-Debug "当前PATH长度: $($env:Path.Length) 字符"
 	
-	switch ($EnvTarget) {
-		'Machine' {
-			$newPath = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
-			Write-Debug "系统级PATH长度: $($newPath.Length) 字符"
-			Write-Debug "系统级PATH内容: $newPath"
-			$env:Path = $newPath
-			Write-Verbose "已重新加载系统级PATH"
-		}
-		'User' {
-			$newPath = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::User)
-			Write-Debug "用户级PATH长度: $($newPath.Length) 字符"
-			Write-Debug "用户级PATH内容: $newPath"
-			$env:Path = $newPath
-			Write-Verbose "已重新加载用户级PATH"
-		}
-		'Process' {
-			# [System.EnvironmentVariableTarget]::Process 获取的是当前这个 PowerShell 进程已经拥有的 Path 变量。所以，$newPath 的值和执行这行代码之前的 $env:Path 的值是完全一样的。
-			# 这是一个无用操作
-			$newPath = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Process)
-			Write-Debug "进程级PATH长度: $($newPath.Length) 字符"
-			Write-Debug "进程级PATH内容: $newPath"
-			$env:Path = $newPath
-			Write-Verbose "已重新加载进程级PATH"
-		}
-		'All' {
-			# 获取系统级和用户级PATH
-			$machinePath = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
-			$userPath = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::User)
+    switch ($EnvTarget) {
+        'Machine' {
+            $newPath = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
+            Write-Debug "系统级PATH长度: $($newPath.Length) 字符"
+            Write-Debug "系统级PATH内容: $newPath"
+            $env:Path = $newPath
+            Write-Verbose "已重新加载系统级PATH"
+        }
+        'User' {
+            $newPath = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::User)
+            Write-Debug "用户级PATH长度: $($newPath.Length) 字符"
+            Write-Debug "用户级PATH内容: $newPath"
+            $env:Path = $newPath
+            Write-Verbose "已重新加载用户级PATH"
+        }
+        'Process' {
+            # [System.EnvironmentVariableTarget]::Process 获取的是当前这个 PowerShell 进程已经拥有的 Path 变量。所以，$newPath 的值和执行这行代码之前的 $env:Path 的值是完全一样的。
+            # 这是一个无用操作
+            $newPath = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Process)
+            Write-Debug "进程级PATH长度: $($newPath.Length) 字符"
+            Write-Debug "进程级PATH内容: $newPath"
+            $env:Path = $newPath
+            Write-Verbose "已重新加载进程级PATH"
+        }
+        'All' {
+            # 获取系统级和用户级PATH
+            $machinePath = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
+            $userPath = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::User)
 			
-			Write-Debug "系统级PATH长度: $($machinePath.Length) 字符`n"
-			Write-Debug "用户级PATH长度: $($userPath.Length) 字符"
-			Write-Debug "系统级PATH: $machinePath"
-			Write-Debug "用户级PATH: $userPath"
+            Write-Debug "系统级PATH长度: $($machinePath.Length) 字符`n"
+            Write-Debug "用户级PATH长度: $($userPath.Length) 字符"
+            Write-Debug "系统级PATH: $machinePath"
+            Write-Debug "用户级PATH: $userPath"
 			
-			# 合并PATH，系统级在前，用户级在后，并去除重复项
-			$allPaths = @()
+            # 合并PATH，系统级在前，用户级在后，并去除重复项
+            $allPaths = @()
 			
-			# 添加系统级PATH
-			if ($machinePath) {
-				$machinePaths = $machinePath -split ';' | Where-Object { $_.Trim() -ne '' }
-				Write-Debug "系统级PATH分割后数量: $($machinePaths.Count)"
-				$allPaths += $machinePaths
-			}
-			# 添加用户级PATH
-			if ($userPath) {
-				$userPaths = $userPath -split ';' | Where-Object { $_.Trim() -ne '' }
-				Write-Debug "用户级PATH分割后数量: $($userPaths.Count)"
-				$allPaths += $userPaths
-			}
+            # 添加系统级PATH
+            if ($machinePath) {
+                $machinePaths = $machinePath -split ';' | Where-Object { $_.Trim() -ne '' }
+                Write-Debug "系统级PATH分割后数量: $($machinePaths.Count)"
+                $allPaths += $machinePaths
+            }
+            # 添加用户级PATH
+            if ($userPath) {
+                $userPaths = $userPath -split ';' | Where-Object { $_.Trim() -ne '' }
+                Write-Debug "用户级PATH分割后数量: $($userPaths.Count)"
+                $allPaths += $userPaths
+            }
 			
-			Write-Debug "合并前总PATH数量: $($allPaths.Count)"
+            Write-Debug "合并前总PATH数量: $($allPaths.Count)"
 			
-			# 去除重复项，保持顺序（系统级优先）
-			$uniquePaths = @()
-			$seenPaths = @{}
-			$duplicateCount = 0
+            # 去除重复项，保持顺序（系统级优先）
+            $uniquePaths = @()
+            $seenPaths = @{}
+            $duplicateCount = 0
 			
-			foreach ($path in $allPaths) {
-				$normalizedPath = $path.Trim().TrimEnd('\').ToLower()
-				if (-not $seenPaths.ContainsKey($normalizedPath) -and $normalizedPath -ne '') {
-					$uniquePaths += $path.Trim()
-					$seenPaths[$normalizedPath] = $true
-					Write-Debug "添加唯一路径: $($path.Trim())"
-				}
-				else {
-					$duplicateCount++
-					Write-Debug "跳过重复路径: $($path.Trim())"
-				}
-			}
+            foreach ($path in $allPaths) {
+                $normalizedPath = $path.Trim().TrimEnd('\').ToLower()
+                if (-not $seenPaths.ContainsKey($normalizedPath) -and $normalizedPath -ne '') {
+                    $uniquePaths += $path.Trim()
+                    $seenPaths[$normalizedPath] = $true
+                    Write-Debug "添加唯一路径: $($path.Trim())"
+                }
+                else {
+                    $duplicateCount++
+                    Write-Debug "跳过重复路径: $($path.Trim())"
+                }
+            }
 			
-			Write-Debug "去重后唯一PATH数量: $($uniquePaths.Count)"
-			Write-Debug "跳过的重复PATH数量: $duplicateCount"
+            Write-Debug "去重后唯一PATH数量: $($uniquePaths.Count)"
+            Write-Debug "跳过的重复PATH数量: $duplicateCount"
 			
-			$finalPath = $uniquePaths -join ';'
-			Write-Debug "最终PATH长度: $($finalPath.Length) 字符"
-			$env:Path = $finalPath
-			Write-Verbose "已重新加载合并的系统级和用户级PATH，共 $($uniquePaths.Count) 个唯一路径，去除了 $duplicateCount 个重复项"
-		}
-	}
+            $finalPath = $uniquePaths -join ';'
+            Write-Debug "最终PATH长度: $($finalPath.Length) 字符"
+            $env:Path = $finalPath
+            Write-Verbose "已重新加载合并的系统级和用户级PATH，共 $($uniquePaths.Count) 个唯一路径，去除了 $duplicateCount 个重复项"
+        }
+    }
 	
-	Write-Debug "PATH重新加载完成，最终长度: $($env:Path.Length) 字符"
-	Write-Host "PATH已重新加载" -ForegroundColor Green
+    Write-Debug "PATH重新加载完成，最终长度: $($env:Path.Length) 字符"
+    Write-Host "PATH已重新加载" -ForegroundColor Green
 }
 
 
 function Set-EnvPath {
-	<#
+    <#
 	.SYNOPSIS
 		设置环境变量path,直接整个替换
 	.DESCRIPTION
@@ -269,33 +269,33 @@ function Set-EnvPath {
 		Explanation of the function or its result. You can include multiple examples with additional .EXAMPLE lines
 
 	#>
-	[CmdletBinding()]
-	param (
-		[Parameter(Mandatory = $true)]
-		[string]
-		# 这里是Path的值
-		$PathStr,
-		[ValidateSet('Machine', 'User', 'Process')]
-		[string]$EnvTarget = 'User'
-	)
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]
+        # 这里是Path的值
+        $PathStr,
+        [ValidateSet('Machine', 'User', 'Process')]
+        [string]$EnvTarget = 'User'
+    )
 	
-	begin {
-		Write-Host 	"current env path:$env:Path"
-	}
+    begin {
+        Write-Host 	"current env path:$env:Path"
+    }
 	
-	process {
-		[Environment]::SetEnvironmentVariable("Path", $PathStr, $EnvTarget)
-	}
+    process {
+        [Environment]::SetEnvironmentVariable("Path", $PathStr, $EnvTarget)
+    }
 	
-	end {
-		# 导入环境变量
-		Import-Envpath -EnvTarget User
-	}
+    end {
+        # 导入环境变量
+        Import-Envpath -EnvTarget User
+    }
 }
 
 
 function Add-EnvPath {
-	<#
+    <#
 	.SYNOPSIS
 		设置环境变量path,增加一个新的path
 	.DESCRIPTION
@@ -309,34 +309,34 @@ function Add-EnvPath {
 		获取当前用户的Path环境变量值
 
 	#>
-	[CmdletBinding()]
-	param (
-		[Parameter(Mandatory = $true)]
-		[string]
-		$Path,
-		[ValidateSet('Machine', 'User', 'Process')]
-		[string]$EnvTarget = 'User'
-	)
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]
+        $Path,
+        [ValidateSet('Machine', 'User', 'Process')]
+        [string]$EnvTarget = 'User'
+    )
 	
-	begin {
+    begin {
 		
-	}
+    }
 	
-	process {
-		$absPath = Resolve-Path $Path
-		$newPath = $Env:Path + ";$absPath"
+    process {
+        $absPath = Resolve-Path $Path
+        $newPath = $Env:Path + ";$absPath"
 
-		Set-EnvPath -PathStr $newPath -EnvTarget $EnvTarget
-	}
+        Set-EnvPath -PathStr $newPath -EnvTarget $EnvTarget
+    }
 	
-	end {
-		# 导入环境变量
-		Import-Envpath -EnvTarget User
-	}
+    end {
+        # 导入环境变量
+        Import-Envpath -EnvTarget User
+    }
 }
 
 function Get-EnvParam {
-	<#
+    <#
 	.SYNOPSIS
 	获取环境变量中的参数，ParamName不指定时获取Path。可以指定EnvTarget 'Machine', 'User', 'Process
 	.DESCRIPTION
@@ -350,35 +350,35 @@ function Get-EnvParam {
 		Explanation of the function or its result. You can include multiple examples with additional .EXAMPLE lines
 
 	#>
-	[CmdletBinding()]
-	param (
-		[string]
-		$ParamName = 'Path',
-		[ValidateSet('Machine', 'User', 'Process')]
-		[string]$EnvTarget = 'User'
-	)
+    [CmdletBinding()]
+    param (
+        [string]
+        $ParamName = 'Path',
+        [ValidateSet('Machine', 'User', 'Process')]
+        [string]$EnvTarget = 'User'
+    )
 	
-	begin {
+    begin {
 		
-		Write-Debug "current env path: $env:Path"
-	}
-	process {
-		try {
-			$value = [Environment]::GetEnvironmentVariable($ParamName, $EnvTarget)
-			if ($value -eq $null) {
-				Write-Warning "环境变量 $ParamName 未找到或未设置。"
-			}
-			return $value
-		}
-		catch {
-			Write-Error "获取环境变量 $ParamName 时出错: $_"
-		}
-	}
+        Write-Debug "current env path: $env:Path"
+    }
+    process {
+        try {
+            $value = [Environment]::GetEnvironmentVariable($ParamName, $EnvTarget)
+            if ($value -eq $null) {
+                Write-Warning "环境变量 $ParamName 未找到或未设置。"
+            }
+            return $value
+        }
+        catch {
+            Write-Error "获取环境变量 $ParamName 时出错: $_"
+        }
+    }
 	
 }
 
 function Remove-FromEnvPath {
-	<#
+    <#
 	.SYNOPSIS
 		从环境变量path移除一个path
 	.DESCRIPTION
@@ -392,37 +392,37 @@ function Remove-FromEnvPath {
 		Explanation of the function or its result. You can include multiple examples with additional .EXAMPLE lines
 
 	#>
-	[CmdletBinding()]
-	param (
-		[Parameter(Mandatory = $true)]
-		[string]
-		$Path,
-		[ValidateSet('Machine', 'User', 'Process')]
-		[string]$EnvTarget = 'User'
-	)
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]
+        $Path,
+        [ValidateSet('Machine', 'User', 'Process')]
+        [string]$EnvTarget = 'User'
+    )
 	
-	begin {
+    begin {
 		
-	}
+    }
 	
-	process {
-		$removePath = Resolve-Path $Path
-		$pathList = $env:Path -split ';'
-		Write-Host "remove path:$removePath"
-		if ($pathList -contains $removePath) {
-			$newPathList = $pathList | Where-Object { $_ -ne $removePath }
-			$newPath = $newPathList -join ';'
-			Set-EnvPath -PathStr $newPath -EnvTarget $EnvTarget
-		}
-		else {
-			Write-Error "path not found in path env"
-		}
-	}
+    process {
+        $removePath = Resolve-Path $Path
+        $pathList = $env:Path -split ';'
+        Write-Host "remove path:$removePath"
+        if ($pathList -contains $removePath) {
+            $newPathList = $pathList | Where-Object { $_ -ne $removePath }
+            $newPath = $newPathList -join ';'
+            Set-EnvPath -PathStr $newPath -EnvTarget $EnvTarget
+        }
+        else {
+            Write-Error "path not found in path env"
+        }
+    }
 	
-	end {
-		# 导入环境变量
-		Import-Envpath -EnvTarget User
-	}
+    end {
+        # 导入环境变量
+        Import-Envpath -EnvTarget User
+    }
 }
 
 Export-ModuleMember -Function Get-Dotenv, Install-Dotenv, Import-EnvPath, Set-EnvPath, Add-EnvPath, Get-EnvParam, Remove-FromEnvPath

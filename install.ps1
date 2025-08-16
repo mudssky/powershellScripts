@@ -33,7 +33,8 @@ if (-not (Test-Administrator)) {
         Write-Host "脚本已取消执行" -ForegroundColor Red
         exit 1
     }
-} else {
+}
+else {
     Write-Host "已检测到管理员权限" -ForegroundColor Green
 }
 
@@ -42,7 +43,8 @@ if (-not (Get-Module -ListAvailable -Name Pester)) {
     Write-Host "正在安装 Pester 模块..." -ForegroundColor Yellow
     Install-Module -Name Pester -Force
     Write-Host "Pester 模块安装完成" -ForegroundColor Green
-} else {
+}
+else {
     Write-Host "Pester 模块已安装，跳过安装" -ForegroundColor Green
 }
 

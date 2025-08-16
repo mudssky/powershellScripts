@@ -35,7 +35,8 @@ function Test-StarshipInit {
             Start-Sleep -Milliseconds 800
             "# Starship prompt configuration`nInvoke-Expression (&starship init powershell)"
         }
-    } else {
+    }
+    else {
         # 直接执行，不使用缓存
         Start-Sleep -Milliseconds 800
         return "# Starship prompt configuration`nInvoke-Expression (&starship init powershell)"
@@ -54,7 +55,8 @@ function Test-ZoxideInit {
             Start-Sleep -Milliseconds 600
             "# Zoxide directory navigation`nSet-Alias z __zoxide_z"
         }
-    } else {
+    }
+    else {
         # 直接执行，不使用缓存
         Start-Sleep -Milliseconds 600
         return "# Zoxide directory navigation`nSet-Alias z __zoxide_z"
@@ -72,24 +74,25 @@ function Test-ComplexConfig {
             # 模拟复杂配置处理
             Start-Sleep -Milliseconds 1200
             @{
-                Modules = @('PSReadLine', 'posh-git', 'Terminal-Icons')
-                Settings = @{
+                Modules   = @('PSReadLine', 'posh-git', 'Terminal-Icons')
+                Settings  = @{
                     Theme = 'Dark'
-                    Font = 'Cascadia Code'
-                    Size = 12
+                    Font  = 'Cascadia Code'
+                    Size  = 12
                 }
                 Timestamp = Get-Date
             }
         }
-    } else {
+    }
+    else {
         # 直接执行，不使用缓存
         Start-Sleep -Milliseconds 1200
         return @{
-            Modules = @('PSReadLine', 'posh-git', 'Terminal-Icons')
-            Settings = @{
+            Modules   = @('PSReadLine', 'posh-git', 'Terminal-Icons')
+            Settings  = @{
                 Theme = 'Dark'
-                Font = 'Cascadia Code'
-                Size = 12
+                Font  = 'Cascadia Code'
+                Size  = 12
             }
             Timestamp = Get-Date
         }
@@ -114,7 +117,8 @@ function Measure-Performance {
         
         if ($i -eq 1) {
             Write-Host "    第 $i 次: $($stopwatch.ElapsedMilliseconds) ms" -ForegroundColor Gray
-        } else {
+        }
+        else {
             Write-Host "    第 $i 次: $($stopwatch.ElapsedMilliseconds) ms" -ForegroundColor Green
         }
     }
@@ -125,10 +129,10 @@ function Measure-Performance {
     
     return @{
         TestName = $TestName
-        Times = $times
-        Average = $avgTime
-        Minimum = $minTime
-        Maximum = $maxTime
+        Times    = $times
+        Average  = $avgTime
+        Minimum  = $minTime
+        Maximum  = $maxTime
     }
 }
 

@@ -18,4 +18,4 @@
     显示清理的文件路径和总数统计
 #>
 $num = 0; Get-ChildItem -Force -Recurse | ForEach-Object { $num++; if ($_.Name.EndsWith('.torrent')) { "clean : $($_.FullName)"; Remove-Item -Force -LiteralPath $_.FullName } } ; "fileCounts:$num"
-$urlnum = 0; Get-ChildItem -Force -Recurse | ForEach-Object { $num++; if ($_.Name.EndsWith('.url')) { "clean : $($_.FullName)"; Remove-Item -Force -LiteralPath $_.FullName } } ; "fileCounts:$urlnum"; pause
+$urlnum = 0; Get-ChildItem -Force -Recurse | ForEach-Object { $num++; if ($_.Name.EndsWith('.url')) { "clean : $($_.FullName)"; Remove-Item -Force -LiteralPath $_.FullName } } ; "fileCounts:$urlnum"; Pause

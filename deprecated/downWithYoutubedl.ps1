@@ -3,18 +3,18 @@
 downWithYoutubedl.ps1 -startNum 0 -paramStr '-i' 
 #>
 param(
-[int]$startNum = 0,
-[int]$endNum=-1,
-[string]$paramStr = ''
+    [int]$startNum = 0,
+    [int]$endNum = -1,
+    [string]$paramStr = ''
 )
 
 $str = Get-Clipboard;
 $linkList = $str.Split('')
-# endNum的默认值是-1，也就是不启用，此时endNum为默认值就是列表长度
-if ($endNum -eq -1){
+# endNum锟斤拷默锟斤拷值锟斤拷-1锟斤拷也锟斤拷锟角诧拷锟斤拷锟矫ｏ拷锟斤拷时endNum为默锟斤拷值锟斤拷锟斤拷锟叫憋拷锟斤拷锟斤拷
+if ($endNum -eq -1) {
     $endNum = $linkList.Length
 }
-for($i=$startNum;$i -lt $endNum;$i+=1){
+for ($i = $startNum; $i -lt $endNum; $i += 1) {
     Write-Host -ForegroundColor Green "downloading link $($linkList[$i]),$($i-$startNum+1) of $($endNum - $startNum) "
     youtube-dl $paramStr  $linkList[$i]
 }

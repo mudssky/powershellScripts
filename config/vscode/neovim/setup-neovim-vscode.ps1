@@ -54,10 +54,12 @@ function Get-NeovimConfigPath {
     if ($IsWindows -or $env:OS -eq "Windows_NT") {
         # Windows: %LOCALAPPDATA%\nvim
         return Join-Path $env:LOCALAPPDATA "nvim"
-    } elseif ($IsMacOS) {
+    }
+    elseif ($IsMacOS) {
         # macOS: ~/.config/nvim
         return Join-Path $env:HOME ".config/nvim"
-    } else {
+    }
+    else {
         # Linux: ~/.config/nvim
         return Join-Path $env:HOME ".config/nvim"
     }
@@ -190,9 +192,9 @@ end
         Write-ColorOutput "  Lua路径: $luaPath" "White"
         
         return @{
-            Success = $true
+            Success     = $true
             InitLuaPath = $neovimInitLuaPath
-            BackupPath = $backupPath
+            BackupPath  = $backupPath
         }
     }
     catch {
@@ -236,7 +238,8 @@ try {
         
         if ($result.Success) {
             Show-Usage -InitLuaPath $result.InitLuaPath -BackupPath $result.BackupPath
-        } else {
+        }
+        else {
             Write-ColorOutput "配置设置失败" "Red"
             exit 1
         }

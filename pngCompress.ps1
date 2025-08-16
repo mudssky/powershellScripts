@@ -36,35 +36,35 @@
     支持自定义压缩质量和缩放参数
 #>
 param(
-   # 需要压缩的图片阈值大小，小于这个数值的图片不进行压缩
-   [string]$targetPath = '.',
-   [int]$limitSize = 10mb,
-   [string]$paramStr = '-codec libwebp -pix_fmt yuv420p -vf scale=iw:ih  -lossless 0 -quality 75',
-   # 其实不用多设置，默认的设置就是最好的，默认压制出来的就是yuv420p
-   #[string]$paramStr='-codec libwebp  -vf scale=iw:ih  -lossless 0 -quality 75',
-   [switch]$noDelete
+    # 需要压缩的图片阈值大小，小于这个数值的图片不进行压缩
+    [string]$targetPath = '.',
+    [int]$limitSize = 10mb,
+    [string]$paramStr = '-codec libwebp -pix_fmt yuv420p -vf scale=iw:ih  -lossless 0 -quality 75',
+    # 其实不用多设置，默认的设置就是最好的，默认压制出来的就是yuv420p
+    #[string]$paramStr='-codec libwebp  -vf scale=iw:ih  -lossless 0 -quality 75',
+    [switch]$noDelete
 )
 
 #只压缩png格式的图片，先检索目录下的png图片
 $count = 0
 Get-ChildItem -Recurse -LiteralPath $targetPath | Where-Object { $_.Extension -eq '.png' } | ForEach-Object {
-   if ($_.Length -gt $limitSize) {
-      Write-Host -ForegroundColor Green "detect large png picture : $($_.FullName) size:$($_.Length/1mb) "
+    if ($_.Length -gt $limitSize) {
+        Write-Host -ForegroundColor Green "detect large png picture : $($_.FullName) size:$($_.Length/1mb) "
      
-      $newfullname = $_.FullName.Substring(0, $_.FullName.Length - 4) + '.webp'
-      Invoke-Expression "ffmpeg.exe -i '$($_.FullName)'  $paramStr  '$($newfullname)'"
-      # ffmpeg.exe -i $_.FullName  $paramStr  ($_.FullName.Substring(0,$_.FullName.Length-4)+'.webp')
+        $newfullname = $_.FullName.Substring(0, $_.FullName.Length - 4) + '.webp'
+        Invoke-Expression "ffmpeg.exe -i '$($_.FullName)'  $paramStr  '$($newfullname)'"
+        # ffmpeg.exe -i $_.FullName  $paramStr  ($_.FullName.Substring(0,$_.FullName.Length-4)+'.webp')
 
-      if ((Test-Path -LiteralPath $newfullname) -and (-not $noDelete)) {
-         Remove-Item -LiteralPath $_.FullName
-         Write-Host -ForegroundColor yellow "delete $($_.FullName) complete "
-         $count++
-      }
-      else {
-         Write-Host -ForegroundColor red "not find the source file or no delete "
-         #break
-      }
-   }
+        if ((Test-Path -LiteralPath $newfullname) -and (-not $noDelete)) {
+            Remove-Item -LiteralPath $_.FullName
+            Write-Host -ForegroundColor yellow "delete $($_.FullName) complete "
+            $count++
+        }
+        else {
+            Write-Host -ForegroundColor red "not find the source file or no delete "
+            #break
+        }
+    }
 }
 
 Write-Host -ForegroundColor  Green   "compress $count  png files  complete"

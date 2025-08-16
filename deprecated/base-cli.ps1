@@ -10,21 +10,21 @@ param(
 function checkErr([string]$commandName) {
     if (-not $?) {
         # 输出执行失败信息
-        write-host -ForegroundColor Red  ('checkErr: {0} exctute failed' -f $commandName)
+        Write-Host -ForegroundColor Red  ('checkErr: {0} exctute failed' -f $commandName)
         throw('{0} error found' -f $commandName)
         exit 1
     }
     else {
         # 上条命令执行成功后输出消息
-        write-host -ForegroundColor Green  ('checkErr: {0} exctute successful' -f $commandName)
+        Write-Host -ForegroundColor Green  ('checkErr: {0} exctute successful' -f $commandName)
     }
 }
 function createAndInitProject([string]$projectName) {
     trap {
-        write-host -ForegroundColor Red  'createAndInitProject failed' 
+        Write-Host -ForegroundColor Red  'createAndInitProject failed' 
         break
     }
-    if (-not (test-path -LiteralPath $projectName)) {
+    if (-not (Test-Path -LiteralPath $projectName)) {
         mkdir $projectName
         Set-Location $projectName
         if ($skipNpmInit) {
@@ -35,7 +35,7 @@ function createAndInitProject([string]$projectName) {
         }
     }
     else {
-        write-host -ForegroundColor Red ('当前目录已经存在{0}，不可重复创建，请cd到目录中执行' -f $projectName)
+        Write-Host -ForegroundColor Red ('当前目录已经存在{0}，不可重复创建，请cd到目录中执行' -f $projectName)
     }
 }
 function initNpm([switch]$skipNpmInit) {
@@ -73,7 +73,7 @@ function setTsconfig {
 # 如果没有eslint 配置文件，使用init进行创建，并且修改js文件使其兼容prettier
 function createEslintConfig {
     trap {
-        write-host -ForegroundColor Red  'createEslintConfig failed' 
+        Write-Host -ForegroundColor Red  'createEslintConfig failed' 
         break
     }
     
@@ -88,7 +88,7 @@ function createEslintConfig {
 }
 function createPrettierConfig {
     # 配置prettier,当前路径没有prettier配置文件才执行
-    if (-not (test-path -path .prettierrc*)) {
+    if (-not (Test-Path -Path .prettierrc*)) {
         '{"semi":false,"singleQuote":true}' | Out-File  -Encoding utf8 .prettierrc.json
     }
 }
@@ -118,7 +118,7 @@ function installLintAndPrettier {
 # 安装husky lint-staged
 function installGithooks {
     trap {
-        write-host -ForegroundColor Red  'installGithooks failed' 
+        Write-Host -ForegroundColor Red  'installGithooks failed' 
         break
     }
     npm install --save-dev husky lint-staged
@@ -161,7 +161,7 @@ else {
 # 安装typescript本地开发依赖
 installTypeScript
 # 如果没有tsconfig,创建一个默认的
-if (-not (test-path -path tsconfig.json)) {
+if (-not (Test-Path -Path tsconfig.json)) {
     setTsconfig
 }
 installLintAndPrettier -needStyleLint=$needStyleLint

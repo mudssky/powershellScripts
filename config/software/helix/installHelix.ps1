@@ -15,15 +15,15 @@ Import-Module -Name $modulePath -Verbose:$false
 
 
 if (-not (Test-EXEProgram 'hx') ) {
-	scoop install helix
+    scoop install helix
 }
 else {
-	Write-Host "Helix is already installed"
+    Write-Host "Helix is already installed"
 }
 
 $configFolder = "$env:APPDATA/helix"
 if (-not (Test-Path $configFolder)) {
-	mkdir  $configFolder
+    mkdir  $configFolder
 }
 
 

@@ -37,11 +37,11 @@ param(
 )
 $inputExtCounts = 0
 Get-ChildItem -Recurse -Force | 
-ForEach-Object { if ($_.name.EndsWith('.' + $inputExt)) {
-        $inputExtCounts++; ffmpeg -i $_.FullName  ($_.FullName.TrimEnd($inputExt) + $outputExt); if ($deleteSource) {
-            Remove-Item -Force -LiteralPath $_.FullName; "convert and deleted: $($_.Fullname)"
+    ForEach-Object { if ($_.name.EndsWith('.' + $inputExt)) {
+            $inputExtCounts++; ffmpeg -i $_.FullName  ($_.FullName.TrimEnd($inputExt) + $outputExt); if ($deleteSource) {
+                Remove-Item -Force -LiteralPath $_.FullName; "convert and deleted: $($_.Fullname)"
+            }
         }
     }
-}
 
-Write-Host -ForegroundColor Green  "$inputExt counts:$inputExtCounts"; pause
+Write-Host -ForegroundColor Green  "$inputExt counts:$inputExtCounts"; Pause

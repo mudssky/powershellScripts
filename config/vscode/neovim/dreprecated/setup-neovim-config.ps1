@@ -225,7 +225,8 @@ finally {
         if ($success -and (Test-Path $logFile)) {
             Remove-Item $logFile -Force -ErrorAction SilentlyContinue
             Write-Verbose "已清理日志文件: $logFile"
-        } elseif (Test-Path $logFile) {
+        }
+        elseif (Test-Path $logFile) {
             Write-Verbose "保留日志文件用于诊断: $logFile"
         }
     }

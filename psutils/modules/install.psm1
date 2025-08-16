@@ -179,7 +179,8 @@ function Install-PackageManagerApps() {
             $isInstalled = if ($appInfo.filterCli) {
                 # 如果配置中指定仅检测CLI，则只检测命令行程序
                 Test-ApplicationInstalled -AppName $cliName -FilterCli $true
-            } else {
+            }
+            else {
                 # 默认检测所有类型（命令行和应用程序）
                 Test-ApplicationInstalled -AppName $cliName
             }

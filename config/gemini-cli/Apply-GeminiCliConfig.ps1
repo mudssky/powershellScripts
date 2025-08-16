@@ -12,7 +12,7 @@
 #>
 function Apply-GeminiCliConfig {
     [CmdletBinding()]
-    Param()
+    param()
 
     # 定义源文件路径
 
@@ -22,9 +22,11 @@ function Apply-GeminiCliConfig {
     $homeDirectory = ""
     if ($IsWindows) {
         $homeDirectory = $env:USERPROFILE
-    } elseif ($IsLinux -or $IsMacOS) {
+    }
+    elseif ($IsLinux -or $IsMacOS) {
         $homeDirectory = $env:HOME
-    } else {
+    }
+    else {
         Write-Error "不支持的操作系统。"
         return
     }
@@ -53,7 +55,8 @@ function Apply-GeminiCliConfig {
     try {
         Copy-Item -Path $sourceFilePath -Destination $destinationFilePath -Force -ErrorAction Stop
         Write-Host "配置文件已成功复制到: $destinationFilePath" -ForegroundColor Green
-    } catch {
+    }
+    catch {
         Write-Error "复制文件时发生错误: $($_.Exception.Message)"
     }
 }

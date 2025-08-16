@@ -47,7 +47,7 @@ if (-not $script:ExeProgramCache) {
 #>
 function Test-EXEProgram() {
     [CmdletBinding()]
-    Param
+    param
     (	
         [Parameter(Mandatory = $true, 
             ValueFromPipeline = $true,
@@ -253,7 +253,7 @@ function Test-PathHasExe {
     if ($item.PSIsContainer) {
         # 目录的情况
         # 遍历单层文件判断是否有可执行文件
-        $exeList = Get-ChildItem -Path $Path -File -ErrorAction SilentlyContinue | where-object { $_.Extension -in '.exe', '.cmd', '.bat', '.ps1' } 
+        $exeList = Get-ChildItem -Path $Path -File -ErrorAction SilentlyContinue | Where-Object { $_.Extension -in '.exe', '.cmd', '.bat', '.ps1' } 
         if ($exeList.Count -gt 0) {
             Write-Debug "the path $Path has exe file $($_.FullName)"
             return $true

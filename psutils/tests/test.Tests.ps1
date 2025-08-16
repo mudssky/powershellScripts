@@ -14,7 +14,7 @@ Describe "Test-EXEProgram 函数测试" {
 
 Describe "Test-ArrayNotNull 函数测试" {
     It "非空数组返回true" {
-        Test-ArrayNotNull -array @(1,2,3) | Should -Be $true
+        Test-ArrayNotNull -array @(1, 2, 3) | Should -Be $true
     }
 
     It "空数组返回false" {

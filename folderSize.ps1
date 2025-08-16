@@ -24,7 +24,7 @@
 #>
 
 param(
-	[string]$path = '.'
+    [string]$path = '.'
 )
 $count = 0;
 $folderSize = 0;

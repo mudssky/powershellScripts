@@ -52,7 +52,8 @@ $allFunctions = Find-PSUtilsFunction -ShowDetails
 if ($allFunctions.Count -gt 5) {
     $allFunctions | Select-Object -First 5
     Write-Host "... 还有 $($allFunctions.Count - 5) 个函数" -ForegroundColor Gray
-} else {
+}
+else {
     $allFunctions
 }
 Write-Host ""

@@ -52,16 +52,16 @@ webpCompress.ps1 -lossless -noDelete
 # [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingInvokeExpression', '', Scope='Function')]
 # [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '', Scope='Function')] # 这个规则很蠢会误判
 param(
-   # 需要压缩的图片阈值大小，小于这个数值的图片不进行压缩
-   [string]$targetPath = '.',
-   [int]$limitSize = 3mb,
-   [string]$paramStr = ' ',
-   # [string]$paramStr='-codec libwebp -pix_fmt yuv420p -vf scale=iw:ih  -lossless 0 -quality 75',
-   # 其实不用多设置，默认的设置就是最好的，默认压制出来的就是yuv420p
-   #[string]$paramStr='-codec libwebp  -vf scale=iw:ih  -lossless 0 -quality 75',
-   [string]$ffmpegloglevel = 'warning',
-   [switch]$noDelete,
-   [switch]$lossless
+    # 需要压缩的图片阈值大小，小于这个数值的图片不进行压缩
+    [string]$targetPath = '.',
+    [int]$limitSize = 3mb,
+    [string]$paramStr = ' ',
+    # [string]$paramStr='-codec libwebp -pix_fmt yuv420p -vf scale=iw:ih  -lossless 0 -quality 75',
+    # 其实不用多设置，默认的设置就是最好的，默认压制出来的就是yuv420p
+    #[string]$paramStr='-codec libwebp  -vf scale=iw:ih  -lossless 0 -quality 75',
+    [string]$ffmpegloglevel = 'warning',
+    [switch]$noDelete,
+    [switch]$lossless
 
 )
 
@@ -69,9 +69,9 @@ param(
 $count = 0
 $supportExt = '.png', '.bmp', '.tif', '.jpg'
 if ($lossless) {
-   # -q 在无损压缩的时候会影响压缩的时间，默认也是75，设为100最好，但是为了减少电脑运算负担，这里不做改动
-   $paramStr += ' -lossless 1 '
-   $limitSize = 0
+    # -q 在无损压缩的时候会影响压缩的时间，默认也是75，设为100最好，但是为了减少电脑运算负担，这里不做改动
+    $paramStr += ' -lossless 1 '
+    $limitSize = 0
 }
 # ffmpeg 的log等级有
 # "quiet"
@@ -86,23 +86,23 @@ if ($lossless) {
 
 
 Get-ChildItem -Recurse -LiteralPath $targetPath | Where-Object { $_.Extension -in $supportExt } | ForEach-Object {
-   if ($_.Length -gt $limitSize) {
-      Write-Host -ForegroundColor Green "detect large png picture : $($_.FullName) size:$($_.Length/1mb)mb "
+    if ($_.Length -gt $limitSize) {
+        Write-Host -ForegroundColor Green "detect large png picture : $($_.FullName) size:$($_.Length/1mb)mb "
 
-      $newfullname = $_.FullName.Substring(0, $_.FullName.Length - 4) + '.webp'
-      Invoke-Expression "ffmpeg.exe  -loglevel $ffmpegloglevel  -i '$($_.FullName)'  $paramStr  '$($newfullname)'"
-      # ffmpeg.exe -i $_.FullName  $paramStr  ($_.FullName.Substring(0,$_.FullName.Length-4)+'.webp')
+        $newfullname = $_.FullName.Substring(0, $_.FullName.Length - 4) + '.webp'
+        Invoke-Expression "ffmpeg.exe  -loglevel $ffmpegloglevel  -i '$($_.FullName)'  $paramStr  '$($newfullname)'"
+        # ffmpeg.exe -i $_.FullName  $paramStr  ($_.FullName.Substring(0,$_.FullName.Length-4)+'.webp')
 
-      if ((Test-Path -LiteralPath $newfullname) -and (-not $noDelete)) {
-         Remove-Item -Force -LiteralPath $_.FullName
-         Write-Host -ForegroundColor yellow "delete $($_.FullName) complete "
-         $count++
-      }
-      else {
-         Write-Host -ForegroundColor red "not find the source file or no delete "
-         #break
-      }
-   }
+        if ((Test-Path -LiteralPath $newfullname) -and (-not $noDelete)) {
+            Remove-Item -Force -LiteralPath $_.FullName
+            Write-Host -ForegroundColor yellow "delete $($_.FullName) complete "
+            $count++
+        }
+        else {
+            Write-Host -ForegroundColor red "not find the source file or no delete "
+            #break
+        }
+    }
 }
 
 Write-Host -ForegroundColor  Green   "compress $count  picture  complete"

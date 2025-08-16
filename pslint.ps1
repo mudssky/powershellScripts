@@ -33,7 +33,7 @@
     使用自定义配置文件进行代码分析
     支持递归分析目录结构
 #>
-Param(
+param(
     [string]$Path = '.',
     [string]$ConfigPath = "$PSScriptRoot\.vscode\analyzersettings.psd1",
     [switch]$Install

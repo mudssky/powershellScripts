@@ -24,13 +24,13 @@ function Get-GpuInfo {
     try {
         # 尝试使用nvidia-smi检测NVIDIA GPU
         try {
-            $nvidiaInfo = nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>$null
+            $nvidiaInfo = nvidia-smi --query-gpu=memory.total --format=csv, noheader, nounits 2>$null
             if ($nvidiaInfo -and $nvidiaInfo.Trim() -ne "") {
                 $totalVramMB = [int]($nvidiaInfo | Select-Object -First 1)
                 $totalVramGB = [math]::Round($totalVramMB / 1024, 1)
                 return @{
-                    HasGpu = $true
-                    VramGB = $totalVramGB
+                    HasGpu  = $true
+                    VramGB  = $totalVramGB
                     GpuType = "NVIDIA"
                 }
             }
@@ -130,8 +130,8 @@ function Get-GpuInfo {
             if ($estimatedVram -gt 0) {
                 Write-Warning "无法准确检测AMD GPU显存，根据型号 '$gpuName' 估算为 ${estimatedVram}GB"
                 return @{
-                    HasGpu = $true
-                    VramGB = $estimatedVram
+                    HasGpu  = $true
+                    VramGB  = $estimatedVram
                     GpuType = $gpuName
                 }
             }
@@ -139,16 +139,16 @@ function Get-GpuInfo {
         
         # 没有检测到独立GPU
         return @{
-            HasGpu = $false
-            VramGB = 0
+            HasGpu  = $false
+            VramGB  = 0
             GpuType = "None"
         }
     }
     catch {
         Write-Warning "GPU检测失败: $($_.Exception.Message)"
         return @{
-            HasGpu = $false
-            VramGB = 0
+            HasGpu  = $false
+            VramGB  = 0
             GpuType = "Unknown"
         }
     }
@@ -190,7 +190,7 @@ function Get-SystemMemoryInfo {
                 $availableMemoryGB = [math]::Round(($availableMemory * 1KB) / 1GB, 1)
                 
                 return @{
-                    TotalGB = $totalMemoryGB
+                    TotalGB     = $totalMemoryGB
                     AvailableGB = $availableMemoryGB
                 }
             }
@@ -226,7 +226,7 @@ function Get-SystemMemoryInfo {
                     $availableMemoryGB = [math]::Round($availableMemoryBytes / 1GB, 1)
                     
                     return @{
-                        TotalGB = $totalMemoryGB
+                        TotalGB     = $totalMemoryGB
                         AvailableGB = $availableMemoryGB
                     }
                 }
@@ -236,7 +236,7 @@ function Get-SystemMemoryInfo {
                     $totalMemoryBytes = sysctl -n hw.memsize
                     $totalMemoryGB = [math]::Round([long]$totalMemoryBytes / 1GB, 1)
                     return @{
-                        TotalGB = $totalMemoryGB
+                        TotalGB     = $totalMemoryGB
                         AvailableGB = [math]::Round($totalMemoryGB * 0.7, 1)  # 估算可用内存为总内存的70%
                     }
                 }
@@ -280,7 +280,7 @@ function Get-SystemMemoryInfo {
                     }
                     
                     return @{
-                        TotalGB = $totalMemoryGB
+                        TotalGB     = $totalMemoryGB
                         AvailableGB = $availableMemoryGB
                     }
                 }
@@ -294,7 +294,7 @@ function Get-SystemMemoryInfo {
                             $availableMemoryMB = [long]$matches[3]
                             
                             return @{
-                                TotalGB = [math]::Round($totalMemoryMB / 1KB, 1)
+                                TotalGB     = [math]::Round($totalMemoryMB / 1KB, 1)
                                 AvailableGB = [math]::Round($availableMemoryMB / 1KB, 1)
                             }
                         }
@@ -307,7 +307,7 @@ function Get-SystemMemoryInfo {
             default {
                 Write-Warning "不支持的操作系统: $osType"
                 return @{
-                    TotalGB = 0
+                    TotalGB     = 0
                     AvailableGB = 0
                 }
             }
@@ -316,7 +316,7 @@ function Get-SystemMemoryInfo {
     catch {
         Write-Warning "内存信息获取失败: $($_.Exception.Message)"
         return @{
-            TotalGB = 0
+            TotalGB     = 0
             AvailableGB = 0
         }
     }
