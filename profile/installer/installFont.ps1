@@ -1,4 +1,3 @@
 scoop bucket add nerd-fonts
-scoop install firacode
-
-# choco install firacode
+scoop install FiraCode
+scoop install JetBrains-Mono
