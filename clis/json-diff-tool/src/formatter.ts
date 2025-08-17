@@ -9,7 +9,7 @@
 import chalk from 'chalk'
 import Table from 'cli-table3'
 import * as yaml from 'js-yaml'
-import { DiffResult, DiffType, OutputFormat } from './types'
+import { type DiffResult, DiffType, OutputFormat } from './types'
 
 /**
  * 输出格式化器类
@@ -229,8 +229,10 @@ export class OutputFormatter {
       // 显示节点名称和差异
       if (node.diffs.length > 0) {
         const diff = node.diffs[0] // 取第一个差异作为代表
-        const typeSymbol = this.getTypeSymbol(diff.type)
-        const coloredSymbol = this.colorizeByType(typeSymbol, diff.type)
+        // biome-ignore lint/style/noNonNullAssertion: <ss>
+        const typeSymbol = this.getTypeSymbol(diff!.type)
+        // biome-ignore lint/style/noNonNullAssertion: <ss>
+        const coloredSymbol = this.colorizeByType(typeSymbol, diff!.type)
         result +=
           nodePrefix +
           coloredSymbol +
@@ -393,7 +395,10 @@ export class OutputFormatter {
     const stats = this.getStatistics(diffs)
 
     let result = '\n' + this.colorize('Summary:', 'stats') + '\n'
-    result += `  Total differences: ${this.colorize(stats.total.toString(), 'info')}\n`
+    result += `  Total differences: ${this.colorize(
+      stats.total.toString(),
+      'info',
+    )}\n`
     result += `  ${this.colorize('Added:', 'added')} ${stats.added}\n`
     result += `  ${this.colorize('Removed:', 'removed')} ${stats.removed}\n`
     result += `  ${this.colorize('Modified:', 'modified')} ${stats.modified}`
@@ -470,6 +475,7 @@ export class OutputFormatter {
    */
   private stripColors(text: string): string {
     // 移除ANSI颜色代码
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: <ss>
     return text.replace(/\u001b\[[0-9;]*m/g, '')
   }
 

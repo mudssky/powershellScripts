@@ -3,7 +3,7 @@
  * 配置测试环境和全局设置
  */
 
-import { expect, vi } from 'vitest'
+import { afterEach, expect, vi } from 'vitest'
 
 // 设置环境变量
 process.env.NODE_ENV = 'test'
@@ -46,6 +46,7 @@ expect.extend({
 // 自定义匹配器：检查是否包含 ANSI 颜色代码
 expect.extend({
   toContainAnsiColors(received: string) {
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: <yanse>
     const ansiRegex = /\u001b\[[0-9;]*m/
     const hasAnsiColors = ansiRegex.test(received)
 

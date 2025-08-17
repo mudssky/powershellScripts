@@ -116,7 +116,8 @@ describe('JsonComparator', () => {
       const obj1 = { value: undefined }
       const obj2 = { value: 'test' }
 
-      const results = comparator.compare([obj1, obj2])
+      // biome-ignore lint/suspicious/noExplicitAny: <allow any>
+      const results = comparator.compare([obj1 as any, obj2])
 
       expect(results).toHaveLength(1)
       expect(results[0]).toMatchObject({

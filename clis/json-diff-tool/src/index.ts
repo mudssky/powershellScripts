@@ -10,8 +10,7 @@
 
 import { Command } from 'commander'
 import * as fs from 'fs/promises'
-import * as path from 'path'
-import { OutputFormat, DiffType, CompareOptions } from './types'
+import { OutputFormat, DiffType, type CompareOptions } from './types'
 import { FileParser } from './parser'
 import { JsonComparator } from './comparator'
 import { OutputFormatter } from './formatter'
@@ -46,7 +45,9 @@ program
       const validFormats = Object.values(OutputFormat)
       if (!validFormats.includes(options.output as OutputFormat)) {
         console.error(
-          `Error: Invalid output format. Valid formats: ${validFormats.join(', ')}`,
+          `Error: Invalid output format. Valid formats: ${validFormats.join(
+            ', ',
+          )}`,
         )
         process.exit(1)
       }
@@ -183,13 +184,16 @@ async function performComparison(options: {
 
     // 输出结果
     const formatter = new OutputFormatter()
-    await formatter.format(filteredResults, options.output, {
+    formatter.format(filteredResults, options.output, {
+      // @ts-expect-error
       files: options.files,
       verbose: options.verbose,
     })
   } catch (error) {
     throw new Error(
-      `Comparison failed: ${error instanceof Error ? error.message : String(error)}`,
+      `Comparison failed: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
     )
   }
 }
