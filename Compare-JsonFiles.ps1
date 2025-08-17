@@ -91,9 +91,6 @@ param(
     [ValidateSet("added", "removed", "modified", "unchanged")]
     [string]$FilterPattern,
     
-    [Parameter(HelpMessage = "显示详细输出信息")]
-    [switch]$Verbose,
-    
     [Parameter(HelpMessage = "递归处理目录")]
     [switch]$Recurse
 )
@@ -239,12 +236,13 @@ end {
             exit 1
         }
         
-        # 确定工具路径
-        $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-        $projectRoot = Split-Path -Parent $scriptRoot
+        $projectRoot = $PSScriptRoot
         $toolPath = Join-Path $projectRoot "clis\json-diff-tool"
         $indexPath = Join-Path $toolPath "src\index.ts"
         
+        Write-Verbose "项目根目录: $projectRoot"
+        Write-Verbose "工具路径: $toolPath"
+        Write-Verbose "索引文件路径: $indexPath"
         if (-not (Test-Path $indexPath)) {
             Write-Error "未找到JSON差异比较工具: $indexPath"
             Write-Host "请确保工具已正确安装在 clis/json-diff-tool/ 目录下" -ForegroundColor Yellow
