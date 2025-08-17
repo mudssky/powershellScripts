@@ -1,0 +1,46 @@
+{
+  "name": "json-diff-tool",
+  "version": "1.0.0",
+  "description": "A command-line tool for comparing JSON, JSONC, and JSON5 files",
+  "main": "dist/index.js",
+  "bin": {
+    "json-diff": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc && node dist/index.js",
+    "clean": "rimraf dist",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest --watch",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "json",
+    "jsonc",
+    "json5",
+    "diff",
+    "compare",
+    "cli"
+  ],
+  "author": "mudssky",
+  "license": "MIT",
+  "dependencies": {
+    "json5": "^2.2.3",
+    "commander": "^11.1.0",
+    "chalk": "^5.3.0",
+    "cli-table3": "^0.6.3",
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.24",
+    "@vitest/coverage-v8": "^1.3.1",
+    "typescript": "^5.3.3",
+    "vitest": "^1.3.1"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
