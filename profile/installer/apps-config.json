@@ -42,6 +42,90 @@
     ],
     "scoop": [
       {
+        "name": "sccache",
+        "cliName": "sccache",
+        "description": "可以用于在不同的工作空间中共享已经构建好的依赖包,提升构建速度",
+        "command": "scoop install sccache"
+      },
+      {
+        "name": "sd",
+        "cliName": "sd",
+        "description": "linux sed命令行的rust实现，执行速度快2倍以上",
+        "command": "scoop install sd"
+      },
+      {
+        "name": "dust",
+        "cliName": "dust",
+        "description": "查看磁盘占用情况",
+        "command": "scoop install du-dust"
+      },
+      {
+        "name": "tokei",
+        "cliName": "tokei",
+        "description": "统计各种语言的代码行数",
+        "command": "scoop install tokei"
+      },
+      {
+        "name": "btm",
+        "cliName": "btm",
+        "description": "rust 版本的top，任务管理器bottom",
+        "command": "scoop install bottom"
+      },
+      {
+        "name": "tldr",
+        "cliName": "tldr",
+        "description": "rust版本tldr 太长不看帮助文档",
+        "command": "scoop install tealdeer"
+      },
+      {
+        "name": "grex",
+        "cliName": "grex",
+        "description": "根据用户输入生成正则表达式",
+        "command": "scoop install grex"
+      },
+      {
+        "name": "zoxide",
+        "cliName": "zoxide",
+        "description": "更智能的cd",
+        "command": "scoop install zoxide"
+      },
+      {
+        "name": "pueue",
+        "cliName": "pueue",
+        "description": "命令行任务管理工具，它可以管理你的长时间运行的命令，支持顺序或并行执行。简单来说，它可以管理一个命令队列。",
+        "command": "scoop install pueue"
+      },
+      {
+        "name": "watchexec",
+        "cliName": "watchexec",
+        "description": "监听到文件变动后执行命令",
+        "command": "scoop install watchexec-cli"
+      },
+      {
+        "name": "cargo-watch",
+        "cliName": "cargo-watch",
+        "description": "监听变动执行cargo操作，和watchexec是同一个开发者",
+        "command": "scoop install cargo-watch"
+      },
+      {
+        "name": "broot",
+        "cliName": "broot",
+        "description": "文件目录管理",
+        "command": "scoop install broot"
+      },
+      {
+        "name": "hexyl",
+        "cliName": "hexyl",
+        "description": "终端查看16进制",
+        "command": "scoop install hexyl"
+      },
+      {
+        "name": "stylua",
+        "cliName": "stylua",
+        "description": "Lua代码格式化工具",
+        "command": "scoop install stylua"
+      },
+      {
         "name": "zig",
         "cliName": "zig",
         "description": "Zig 编程语言",
@@ -242,43 +326,50 @@
         "name": "sccache",
         "cliName": "sccache",
         "description": "可以用于在不同的工作空间中共享已经构建好的依赖包,提升构建速度",
-        "command": "cargo install sccache"
+        "command": "cargo install sccache",
+        "skipInstall": true
       },
       {
         "name": "sd",
         "cliName": "sd",
         "description": "linux sed命令行的rust实现，执行速度快2倍以上",
-        "command": "cargo install sd"
+        "command": "cargo install sd",
+        "skipInstall": true
       },
       {
         "name": "dust",
         "cliName": "dust",
         "description": "查看磁盘占用情况",
-        "command": "cargo install du-dust"
+        "command": "cargo install du-dust",
+        "skipInstall": true
       },
       {
         "name": "tokei",
         "cliName": "tokei",
         "description": "统计各种语言的代码行数",
-        "command": "cargo install tokei"
+        "command": "cargo install tokei",
+        "skipInstall": true
       },
       {
         "name": "btm",
         "cliName": "btm",
         "description": "rust 版本的top，任务管理器bottom",
-        "command": "cargo install bottom"
+        "command": "cargo install bottom",
+        "skipInstall": true
       },
       {
         "name": "tldr",
         "cliName": "tldr",
         "description": "rust版本tldr 太长不看帮助文档",
-        "command": "cargo install tealdeer"
+        "command": "cargo install tealdeer",
+        "skipInstall": true
       },
       {
         "name": "grex",
         "cliName": "grex",
         "description": "根据用户输入生成正则表达式",
-        "command": "cargo install grex"
+        "command": "cargo install grex",
+        "skipInstall": true
       },
       {
         "name": "zoxide",
@@ -291,37 +382,43 @@
         "name": "pueue",
         "cliName": "pueue",
         "description": "命令行任务管理工具，它可以管理你的长时间运行的命令，支持顺序或并行执行。简单来说，它可以管理一个命令队列。",
-        "command": "cargo install --locked pueue"
+        "command": "cargo install --locked pueue",
+        "skipInstall": true
       },
       {
         "name": "watchexec",
         "cliName": "watchexec",
         "description": "监听到文件变动后执行命令",
-        "command": "cargo install --locked watchexec-cli"
+        "command": "cargo install --locked watchexec-cli",
+        "skipInstall": true
       },
       {
         "name": "cargo-watch",
         "cliName": "cargo-watch",
         "description": "监听变动执行cargo操作，和watchexec是同一个开发者",
-        "command": "cargo install cargo-watch"
+        "command": "cargo install cargo-watch",
+        "skipInstall": true
       },
       {
         "name": "broot",
         "cliName": "broot",
         "description": "文件目录管理",
-        "command": "cargo install broot"
+        "command": "cargo install broot",
+        "skipInstall": true
       },
       {
         "name": "hexyl",
         "cliName": "hexyl",
         "description": "终端查看16进制",
-        "command": "cargo install hexyl"
+        "command": "cargo install hexyl",
+        "skipInstall": true
       },
       {
         "name": "stylua",
         "cliName": "stylua",
         "description": "Lua代码格式化工具",
-        "command": "cargo install stylua"
+        "command": "cargo install stylua",
+        "skipInstall": true
       }
     ],
     "homebrew": [
