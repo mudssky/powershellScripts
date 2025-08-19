@@ -220,6 +220,12 @@
         "cliName": "neovide",
         "description": "Neovim的GUI前端",
         "command": "scoop install neovide"
+      },
+      {
+        "name": "neovim",
+        "cliName": "nvim",
+        "description": "现代化的 Vim 文本编辑器",
+        "command": "scoop install neovim"
       }
     ],
     "winget": [
