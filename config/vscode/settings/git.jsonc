@@ -1,11 +1,27 @@
 {
   //========== git ==========
+  // 没有暂存的更改时提交所有更改
   "git.enableSmartCommit": true,
+  // auto fetch 同时开始多个项目的时候，可能会造成卡顿
+  "git.autofetch": false,
+  "git.confirmSync": false,
   "gitlens.views.worktrees.files.layout": "list",
   "gitlens.gitCommands.skipConfirmations": [
     "fetch:command",
     "stash-push:command",
     "switch:command",
     "stash-apply:command"
-  ]
+  ],
+  "gitlens.views.scm.grouped.views": {
+    "commits": false,
+    "branches": true,
+    "remotes": true,
+    "stashes": false,
+    "tags": true,
+    "worktrees": true,
+    "contributors": true,
+    "repositories": false,
+    "searchAndCompare": false,
+    "launchpad": false
+  }
 }
