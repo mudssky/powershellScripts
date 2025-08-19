@@ -30,7 +30,7 @@
   //   "strings": true
   // },
   "editor.inlineSuggest.enabled": true,
-  "editor.fontFamily": "'JetBrains Mono','FiraCode NF Retina', 'FiraCode NF','Fira Code',Iosevka, Consolas, 'Cascadia Code', 'Courier New', 'Source Code Pro'",
+  "editor.fontFamily": "'FiraCode Nerd Font','JetBrains Mono Nerd Font','Times New Roman','JetBrains Mono','Cascadia Mono','Iosevka', 'Consolas', 'Cascadia Code', 'Courier New', 'Source Code Pro'",
   "editor.fontSize": 13,
   "editor.lineHeight": 1.2,
   "editor.fontLigatures": true,
@@ -223,7 +223,8 @@
   "jupyter.askForKernelRestart": false,
   //========== terminal ==========
   "terminal.integrated.defaultProfile.windows": "PowerShell",
-  "terminal.integrated.fontFamily": "'FiraCode NF Retina', 'JetBrains Mono', 'FiraCode Nerd Font', 'FiraCode Nerd Font Mono','Cascadia Mono'",
+  // 字体和编辑器一样就行了
+  // "terminal.integrated.fontFamily": "'FiraCode Nerd Font','JetBrains Mono Nerd Font','JetBrains Mono','Cascadia Mono'",
   "terminal.integrated.defaultProfile.linux": "zsh",
   "terminal.integrated.profiles.windows": {
     "PowerShell": {

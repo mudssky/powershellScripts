@@ -1,0 +1,7 @@
+{
+  "name": "test1",
+  "value": 100,
+  "nested": {
+    "property": "original"
+  }
+}
