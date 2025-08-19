@@ -5,7 +5,8 @@
         "name": "bat",
         "cliName": "bat",
         "description": "cat的替代品",
-        "command": "choco install bat -y"
+        "command": "choco install bat -y",
+        "skipInstall": true
       },
       {
         "name": "twinkle-tray",
@@ -25,19 +26,22 @@
         "name": "fd",
         "cliName": "fd",
         "description": "搜索用的命令行工具",
-        "command": "choco install fd -y"
+        "command": "choco install fd -y",
+        "skipInstall": true
       },
       {
         "name": "lsd",
         "cliName": "lsd",
         "description": "代替linux的ls命令",
-        "command": "choco install lsd -y"
+        "command": "choco install lsd -y",
+        "skipInstall": true
       },
       {
         "name": "hyperfine",
         "cliName": "hyperfine",
         "description": "命令行跑分工具",
-        "command": "choco install hyperfine -y"
+        "command": "choco install hyperfine -y",
+        "skipInstall": true
       }
     ],
     "scoop": [
@@ -310,6 +314,30 @@
         "cliName": "nvim",
         "description": "现代化的 Vim 文本编辑器",
         "command": "scoop install neovim"
+      },
+      {
+        "name": "bat",
+        "cliName": "bat",
+        "description": "cat的替代品",
+        "command": "scoop install bat"
+      },
+      {
+        "name": "fd",
+        "cliName": "fd",
+        "description": "搜索用的命令行工具",
+        "command": "scoop install fd"
+      },
+      {
+        "name": "lsd",
+        "cliName": "lsd",
+        "description": "代替linux的ls命令",
+        "command": "scoop install lsd"
+      },
+      {
+        "name": "hyperfine",
+        "cliName": "hyperfine",
+        "description": "命令行跑分工具",
+        "command": "scoop install hyperfine"
       }
     ],
     "winget": [
