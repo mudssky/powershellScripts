@@ -61,7 +61,7 @@
         "name": "dust",
         "cliName": "dust",
         "description": "查看磁盘占用情况",
-        "command": "scoop install du-dust"
+        "command": "scoop install dust"
       },
       {
         "name": "tokei",
@@ -103,7 +103,7 @@
         "name": "watchexec",
         "cliName": "watchexec",
         "description": "监听到文件变动后执行命令",
-        "command": "scoop install watchexec-cli"
+        "command": "scoop install watchexec"
       },
       {
         "name": "cargo-watch",
