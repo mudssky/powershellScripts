@@ -631,6 +631,18 @@
         "cliName": "neovide",
         "description": "Neovim的GUI前端",
         "command": "brew install --cask neovide"
+      },
+      {
+        "name": "font-fira-code-nerd-font",
+        "cliName": "font-fira-code-nerd-font",
+        "description": "Fira Code Nerd Font",
+        "command": "brew install --cask font-fira-code-nerd-font"
+      },
+      {
+        "name": "font-jetbrains-mono-nerd-font",
+        "cliName": "font-jetbrains-mono-nerd-font",
+        "description": "JetBrains Mono Nerd Font",
+        "command": "brew install --cask font-jetbrains-mono-nerd-font"
       }
     ]
   }
