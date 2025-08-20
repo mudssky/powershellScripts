@@ -1,4 +1,8 @@
-
+[CmdletBinding()]
+param (
+    [ValidateSet('vscode', 'trae')]
+    [string]$Mode = 'vscode'
+)
 
 <#
 .SYNOPSIS
@@ -36,7 +40,7 @@ function Get-JsoncInnerContent {
     [CmdletBinding()]
     param (
         [string]$Path,
-        [string]$JsoncString   
+        [string]$JsoncString
     )
 
     if ($Path) {
@@ -59,9 +63,23 @@ function Get-JsoncInnerContent {
 }
 
 $settingsList = [System.Collections.Generic.List[string]]::new()
-Get-ChildItem -Recurse  -Filter *.jsonc   -Path $PSScriptRoot/settings | ForEach-Object {
-    $jsoncString = Get-JsoncInnerContent -Path $_.FullName;
-    $settingsList.Add($jsoncString)
+switch ($Mode) {
+    'vscode' { 
+        Get-ChildItem -Recurse  -Filter *.jsonc   -Path $PSScriptRoot/settings | ForEach-Object {
+            $jsoncString = Get-JsoncInnerContent -Path $_.FullName;
+            $settingsList.Add($jsoncString)
+        }
+    }
+    'trae' {
+     
+        Get-ChildItem -Recurse  -Filter *.jsonc   -Path $PSScriptRoot/settings | ForEach-Object {
+            $jsoncString = Get-JsoncInnerContent -Path $_.FullName;
+            $settingsList.Add($jsoncString)
+        } 
+    }
+    Default {}
 }
+
+
 $newSettings = ($settingsList -join "`n").TrimEnd(",")
 "{$newSettings}" | Set-Content -Path $PSScriptRoot/settings.jsonc
