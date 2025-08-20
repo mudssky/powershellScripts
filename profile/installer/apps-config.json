@@ -587,7 +587,8 @@
         "name": "dust",
         "cliName": "dust",
         "description": "查看磁盘占用情况",
-        "command": "brew install du-dust"
+        "command": "brew install du-dust",
+        "skipInstall": true
       },
       {
         "name": "duf",
@@ -618,6 +619,18 @@
         "cliName": "btm",
         "description": "rust 版本的top，任务管理器bottom",
         "command": "brew install bottom"
+      },
+      {
+        "name": "neovim",
+        "cliName": "nvim",
+        "description": "现代化的 Vim 文本编辑器",
+        "command": "brew install neovim"
+      },
+      {
+        "name": "neovide",
+        "cliName": "neovide",
+        "description": "Neovim的GUI前端",
+        "command": "brew install --cask neovide"
       }
     ]
   }
