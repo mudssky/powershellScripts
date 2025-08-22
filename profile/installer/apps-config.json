@@ -148,6 +148,12 @@
         "command": "scoop install lazydocker"
       },
       {
+        "name": "nvm",
+        "cliName": "nvm",
+        "description": "node版本管理",
+        "command": "scoop install nvm"
+      },
+      {
         "name": "fnm",
         "cliName": "fnm",
         "description": "nvm的rust替代，跨平台node版本管理",
