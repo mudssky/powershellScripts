@@ -463,6 +463,16 @@
     ],
     "homebrew": [
       {
+        "name": "fnm",
+        "cliName": "fnm",
+        "description": "快速切换node版本",
+        "command": "brew install fnm",
+        "supportOs": [
+          "macOS",
+          "linux"
+        ]
+      },
+      {
         "name": "powershell",
         "cliName": "pwsh",
         "description": "powershell",
