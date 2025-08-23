@@ -533,7 +533,8 @@
       {
         "name": "docker",
         "cliName": "docker",
-        "description": "linux docker",
+        "description": "linux docker，系统级工具，不适合用homebrew 安装",
+        "skipInstall": true,
         "command": "brew install  docker",
         "supportOs": [
           "linux"
@@ -552,8 +553,9 @@
       {
         "name": "ffmpeg",
         "cliName": "ffmpeg",
-        "description": "音视频处理工具",
+        "description": "音视频处理工具,系统级工具，不推荐homebrew安装",
         "command": "brew install ffmpeg",
+        "skipInstall": true,
         "supportOs": [
           "linux",
           "macOS"
