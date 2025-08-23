@@ -160,6 +160,12 @@
         "command": "scoop install fnm"
       },
       {
+        "name": "bun",
+        "cliName": "bun",
+        "description": "node的替代，跨平台node版本管理",
+        "command": "scoop install bun"
+      },
+      {
         "name": "git",
         "cliName": "git",
         "description": "版本控制系统",
@@ -763,6 +769,20 @@
         "supportOs": [
           "macOS"
         ]
+      }
+    ],
+    "npm": [
+      {
+        "name": "gemini-cli",
+        "cliName": "gemini",
+        "description": "gemini的命令行工具",
+        "command": "npm install -g @google/gemini-cli"
+      },
+      {
+        "name": "qwen-coder",
+        "cliName": "qwen",
+        "description": "qwen的命令行工具",
+        "command": "npm install -g @qwen-code/qwen-code@latest"
       }
     ]
   }
