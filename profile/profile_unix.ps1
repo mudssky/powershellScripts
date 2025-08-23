@@ -3,21 +3,21 @@
 
 <#
 .SYNOPSIS
-    macOS PowerShell 环境配置脚本
+    linux/macOS PowerShell 环境配置脚本
 
 .DESCRIPTION
-    初始化 macOS 下的 PowerShell 环境，包括加载模块、初始化开发工具等。
+    初始化 linux/macOS 下的 PowerShell 环境，包括加载模块、初始化开发工具等。
     支持将配置加载到 PowerShell 配置文件中。
 
 .PARAMETER LoadProfile
     是否将当前脚本路径写入到 PowerShell 配置文件中，以便每次启动时自动加载
 
 .EXAMPLE
-    ./profile_mac.ps1
+    ./profile_unix.ps1
     仅初始化当前会话的环境
 
 .EXAMPLE
-    ./profile_mac.ps1 -LoadProfile
+    ./profile_unix.ps1 -LoadProfile
     初始化环境并将配置写入 PowerShell 配置文件
 
 .NOTES
