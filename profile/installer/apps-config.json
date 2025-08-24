@@ -784,7 +784,7 @@
         "name": "rustdesk",
         "cliName": "rustdesk",
         "description": "远程桌面",
-        "command": "yay -S rustdesk"
+        "command": "yay -S rustdesk-bin"
       }
     ]
   }
