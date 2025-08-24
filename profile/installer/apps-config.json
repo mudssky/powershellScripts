@@ -722,6 +722,24 @@
         "cliName": "kitty",
         "description": "跨平台GPU加速终端模拟器",
         "command": "sudo pacman -S kitty"
+      },
+      {
+        "name": "neovim",
+        "cliName": "nvim",
+        "description": "modified version of Vim",
+        "command": "sudo pacman -S neovim"
+      },
+      {
+        "name": "git",
+        "cliName": "git",
+        "description": "Git",
+        "command": "sudo pacman -S git"
+      },
+      {
+        "name": "github-cli",
+        "cliName": "gh",
+        "description": "github cli",
+        "command": "sudo pacman -S github-cli"
       }
     ],
     "yay": [
