@@ -65,7 +65,10 @@ function Initialize-Environment {
             Write-Warning "加载环境变量脚本时出错: $($_.Exception.Message)"
         }
     }
-    
+    # 添加 Linuxbrew bin 目录到 PATH
+    if (Test-Path -Path "/home/linuxbrew/.linuxbrew/bin"){
+        $env:PATH += ":/home/linuxbrew/.linuxbrew/bin/"
+    }
     # 初始化开发工具
     Write-Verbose "初始化开发工具"
     $tools = @{
