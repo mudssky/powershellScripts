@@ -773,6 +773,18 @@
         "cliName": "pwsh",
         "description": "powershell二进制版",
         "command": "yay -S powershell-bin"
+      },
+      {
+        "name": "cherry studio",
+        "cliName": "cherry-studio",
+        "description": "cherry-studio 支持多服务商集成的 AI 对话客户端",
+        "command": "yay -S cherry-studio"
+      },
+      {
+        "name": "rustdesk",
+        "cliName": "rustdesk",
+        "description": "远程桌面",
+        "command": "yay -S rustdesk"
       }
     ]
   }
