@@ -495,7 +495,8 @@
         "cliName": "go",
         "description": "golang",
         "command": "brew install go",
-        "supportOs": ["macOS", "linux"]
+        "supportOs": ["macOS", "linux"],
+        "skipInstall": true
       },
       {
         "name": "dockdoor",
@@ -740,6 +741,18 @@
         "cliName": "gh",
         "description": "github cli",
         "command": "sudo pacman -S github-cli"
+      },
+      {
+        "name": "imagemagick",
+        "cliName": "magick",
+        "description": "图像处理工具",
+        "command": "sudo pacman -S imagemagick"
+      },
+      {
+        "name": "less",
+        "cliName": "less",
+        "description": "less",
+        "command": "sudo pacman -S less"
       }
     ],
     "yay": [
