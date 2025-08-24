@@ -13,3 +13,8 @@ sudo pacman -S fcitx5 fcitx5-configtool fcitx5-gtk fcitx5-qt fcitx5-chinese-addo
 # XMODIFIERS DEFAULT=@im=fcitx
 # SDL_IM_MODULE DEFAULT=fcitx
 # GLFW_IM_MODULE DEFAULT=ibus
+
+
+# 默认切换输入法的快捷键是 Ctrl+Space
+# 可以使用下面而命令，在全局选项中配置切换快捷键
+# fcitx5-configtool 
