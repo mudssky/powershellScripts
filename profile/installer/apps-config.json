@@ -716,6 +716,12 @@
         "cliName": "firefox",
         "description": "火狐浏览器",
         "command": "sudo pacman -S firefox"
+      },
+      {
+        "name": "kitty",
+        "cliName": "kitty",
+        "description": "跨平台GPU加速终端模拟器",
+        "command": "sudo pacman -S kitty"
       }
     ],
     "yay": [
