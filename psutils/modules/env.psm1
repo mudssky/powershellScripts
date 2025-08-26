@@ -479,12 +479,12 @@ function Sync-PathFromBash {
 
             # 遍历并显示将要添加的每一个路径
             foreach ($path in $missingPaths) {
-                Write-Host "  -> 正在添加: $path" -ForegroundColor Green
+                Write-Information "  -> 正在添加: $path" -ForegroundColor Green
             }
 
             # 将新路径追加到现有的 PowerShell PATH 后面
             $env:PATH = "$($env:PATH)$separator$pathsToAdd"
-            Write-Host "PowerShell PATH 已成功更新！" -ForegroundColor Green
+            Write-Information "PowerShell PATH 已成功更新！" -ForegroundColor Green
         } else {
             Write-Verbose "Power-Shell 的 PATH 与 Bash 完全同步，无需操作。"
         }
