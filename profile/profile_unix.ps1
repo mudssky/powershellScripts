@@ -69,6 +69,9 @@ function Initialize-Environment {
     if (Test-Path -Path "/home/linuxbrew/.linuxbrew/bin"){
         $env:PATH += ":/home/linuxbrew/.linuxbrew/bin/"
     }
+    if($IsLinux){
+        Sync-PathFromBash
+    }
     # 初始化开发工具
     Write-Verbose "初始化开发工具"
     $tools = @{
