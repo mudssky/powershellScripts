@@ -96,7 +96,7 @@
         # 缓存管理模块 (cache.psm1)
         'Invoke-WithCache', 'Clear-ExpiredCache', 'Get-CacheStats',
         # 环境管理模块 (env.psm1)
-        'Get-Dotenv', 'Install-Dotenv', 'Import-EnvPath', 'Set-EnvPath', 'Add-EnvPath', 'Get-EnvParam', 'Remove-FromEnvPath',
+        'Get-Dotenv', 'Install-Dotenv', 'Import-EnvPath', 'Set-EnvPath', 'Add-EnvPath', 'Get-EnvParam', 'Remove-FromEnvPath','Sync-PathFromBash'
         # 错误处理模块 (error.psm1)
         'Debug-CommandExecution',
         # 文件系统模块 (filesystem.psm1)

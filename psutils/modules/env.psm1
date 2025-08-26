@@ -425,4 +425,74 @@ function Remove-FromEnvPath {
     }
 }
 
-Export-ModuleMember -Function Get-Dotenv, Install-Dotenv, Import-EnvPath, Set-EnvPath, Add-EnvPath, Get-EnvParam, Remove-FromEnvPath
+
+
+
+function Sync-PathFromBash {
+    <#
+    .SYNOPSIS
+        Compares the PATH from a Bash login shell with the current PowerShell PATH
+        and appends any missing paths to the PowerShell session.
+    .DESCRIPTION
+        This function is designed for running PowerShell on Linux/macOS.
+        It invokes a Bash login shell (`bash -l`) to reliably get the fully
+        configured PATH environment variable. It then compares this with the
+        current PowerShell session's PATH and adds any paths that are present
+        in Bash but missing in PowerShell.
+    .EXAMPLE
+        Sync-PathFromBash -Verbose
+        This will run the sync and provide detailed output on which paths were found
+        and which were added.
+    #>
+    [CmdletBinding()]
+    param()
+
+    try {
+        Write-Verbose "正在从 Bash 登录 Shell 中获取 PATH..."
+        # 使用 'bash -l' 确保加载了 ~/.profile 或 ~/.bash_profile
+        # '-c' 表示执行后面的命令
+        $bashPathOutput = bash -l -c 'echo $PATH'
+        if ($LASTEXITCODE -ne 0) {
+            Write-Warning "无法从 Bash 获取 PATH。Bash 可能未安装或存在配置错误。"
+            return
+        }
+
+        # 获取跨平台的路径分隔符 (Linux/macOS 上是 ':')
+        $separator = [System.IO.Path]::PathSeparator
+
+        # 将 Bash 和 PowerShell 的 PATH 字符串拆分为数组，并过滤掉空条目
+        $bashPaths = $bashPathOutput.Split($separator, [System.StringSplitOptions]::RemoveEmptyEntries)
+        $psPaths = $env:PATH.Split($separator, [System.StringSplitOptions]::RemoveEmptyEntries)
+
+        Write-Verbose "从 Bash 中找到的路径: $($bashPaths.Count) 个"
+        Write-Verbose "当前 PowerShell 中的路径: $($psPaths.Count) 个"
+
+        # 使用 Compare-Object 找出只存在于 Bash PATH 中的路径
+        # ReferenceObject 是基准，DifferenceObject 是要比较的对象
+        $missingPaths = Compare-Object -ReferenceObject $psPaths -DifferenceObject $bashPaths -PassThru | Where-Object { $_ -ne $null }
+
+        if ($missingPaths.Count -gt 0) {
+            Write-Host "发现 $($missingPaths.Count) 个需要从 Bash 同步的路径。" -ForegroundColor Yellow
+
+            # 将找到的缺失路径连接成一个字符串
+            $pathsToAdd = $missingPaths -join $separator
+
+            # 遍历并显示将要添加的每一个路径
+            foreach ($path in $missingPaths) {
+                Write-Host "  -> 正在添加: $path" -ForegroundColor Green
+            }
+
+            # 将新路径追加到现有的 PowerShell PATH 后面
+            $env:PATH = "$($env:PATH)$separator$pathsToAdd"
+            Write-Host "PowerShell PATH 已成功更新！" -ForegroundColor Green
+        } else {
+            Write-Verbose "Power-Shell 的 PATH 与 Bash 完全同步，无需操作。"
+        }
+    }
+    catch {
+        Write-Error "同步 PATH 时发生错误: $_"
+    }
+}
+
+
+Export-ModuleMember -Function Get-Dotenv, Install-Dotenv,Import-EnvPath, Set-EnvPath, Add-EnvPath, Get-EnvParam, Remove-FromEnvPath,Sync-PathFromBash
