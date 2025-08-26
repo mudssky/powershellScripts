@@ -1,45 +1,13 @@
 [wsl2]
-memory=20GB                   #限制最大内存
-processors=8                  #限制线程数
-localhostforwarding=true
-nestedVirtualization=true
-guiApplications=true
-
-
-[experimental]
-autoMemoryReclaim=gradual  # gradual  | dropcache | disabled
+# 推荐: 设置为镜像模式，与主机共享网络，解决大部分网络问题
 networkingMode=mirrored
-# 原来是按照 /etc/resolv.conf中的服务器地址查找dns的，默认是本机，且会被本机防火墙拦截
-# 开启这个选项可以解决这个问题
-dnsTunneling=true
-firewall=true
-autoProxy=true
-# 使用稀疏vhd减少空间占用
-sparseVhd=true
+# 关键: 限制内存使用，防止 WSL 吃掉所有内存。建议为主机物理内存的 25%-50%
+memory=16GB 
+# 关键: 限制 CPU 核心数，建议为主机逻辑核心数的 50%
+processors=4 
+# 保持默认即可，允许从 Windows 通过 localhost:port 访问 WSL 服务
+# localhostForwarding=true
 
-# [boot]
-# command="service redis-server start"
-
-
-[network]
-# 取消自动生成dns文件，
-# 默认生成的dns server是本地ip，那样实测走不了clash
-# 这里关掉，然后设置google dns
-generateResolvConf = false
-
-; 配置导入后，后续的操作
-; sudo vi /etc/resolv.conf
-; nameserver 8.8.8.8
-; sudo apt-get update
-; sudo apt-get install gh
-; gh auth login
-; mkdir env
-; cd env
-; gh repo clone mudssky/powershellScripts
-; 之后执行code用vscode的终端来操作比较方便
-; code
-; cd linux/ubuntu
-; bash installEnv.sh
-; 上一步安装了zsh
-; zsh install.sh
-
+# 这个需要在/ect/wsl.conf中添加,也就是wsl内的配置
+# [network]
+# generateResolvConf=false

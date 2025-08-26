@@ -1,0 +1,50 @@
+; 这个是mirrored 模式刚出的配置，现在不应该用了
+[wsl2]
+memory=20GB                   #限制最大内存
+processors=8                  #限制线程数
+; ：此为默认设置，它能确保您可以在 Windows 的浏览器中通过 localhost 访问在 WSL2 中运行的网络服务
+localhostforwarding=true
+; 允许在 WSL2 内部再次运行虚拟机,win11上默认为true
+nestedVirtualization=true
+; 可以用wslg运行图形程序
+guiApplications=true
+
+
+[experimental]
+; WSL2 在空闲时自动将缓存的内存逐渐释放回给 Windows 
+autoMemoryReclaim=gradual  # gradual  | dropcache | disabled
+networkingMode=mirrored
+# 原来是按照 /etc/resolv.conf中的服务器地址查找dns的，默认是本机，且会被本机防火墙拦截
+# 开启这个选项可以解决这个问题
+dnsTunneling=true
+firewall=true
+autoProxy=true
+# 使用稀疏vhd减少空间占用
+sparseVhd=true
+
+# [boot]
+# command="service redis-server start"
+
+
+[network]
+# 取消自动生成dns文件，
+# 默认生成的dns server是本地ip，那样实测走不了clash
+# 这里关掉，然后设置google dns
+; generateResolvConf = false
+
+; 配置导入后，后续的操作
+; sudo vi /etc/resolv.conf
+; nameserver 8.8.8.8
+; sudo apt-get update
+; sudo apt-get install gh
+; gh auth login
+; mkdir env
+; cd env
+; gh repo clone mudssky/powershellScripts
+; 之后执行code用vscode的终端来操作比较方便
+; code
+; cd linux/ubuntu
+; bash installEnv.sh
+; 上一步安装了zsh
+; zsh install.sh
+
