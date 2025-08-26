@@ -1,3 +1,9 @@
+# 导入操作系统检测模块
+$osModulePath = Join-Path $PSScriptRoot "os.psm1"
+if (Test-Path $osModulePath) {
+    Import-Module $osModulePath -Force
+}
+
 function Test-ModuleInstalled {
     <#
     .SYNOPSIS
@@ -80,6 +86,7 @@ function Install-RequiredModule {
 .DESCRIPTION
     此函数支持通过多种包管理器（如 Chocolatey、Scoop、Winget、Cargo、Homebrew、APT）
     批量安装应用程序。支持从配置文件或配置对象中读取应用列表，并自动生成安装命令。
+    支持根据操作系统筛选应用程序。
 
 .PARAMETER PackageManager
     包管理器名称，支持：choco、scoop、winget、cargo、homebrew、apt
@@ -91,13 +98,24 @@ function Install-RequiredModule {
     配置文件路径，默认为 "$PSScriptRoot/apps-config.json"
     配置文件格式参考：/Users/mudssky/projects/powershellScripts/profile/installer/apps-config.json
 
-.EXAMPLE
-    Install-PackageManagerApps -PackageManager "scoop" -ConfigPath "./apps-config.json"
-    从配置文件安装 Scoop 应用
+.PARAMETER FilterByOS
+    是否根据当前操作系统筛选应用程序，默认为 $true
+
+.PARAMETER TargetOS
+    目标操作系统，用于筛选应用程序。如果未指定，则使用当前操作系统
+    支持的值：Windows、Linux、macOS
 
 .EXAMPLE
-    Install-PackageManagerApps -PackageManager "choco" -ConfigObject $configObj
-    从配置对象安装 Chocolatey 应用
+    Install-PackageManagerApps -PackageManager "scoop" -ConfigPath "./apps-config.json"
+    从配置文件安装 Scoop 应用，自动根据当前操作系统筛选
+
+.EXAMPLE
+    Install-PackageManagerApps -PackageManager "choco" -ConfigObject $configObj -FilterByOS $false
+    从配置对象安装 Chocolatey 应用，不进行操作系统筛选
+
+.EXAMPLE
+    Install-PackageManagerApps -PackageManager "homebrew" -TargetOS "macOS"
+    安装 Homebrew 应用，仅安装支持 macOS 的应用
 
 .NOTES
     配置文件格式示例：
@@ -109,7 +127,8 @@ function Install-RequiredModule {
             "cliName": "git",
             "description": "版本控制系统",
             "command": "scoop install git",
-            "skipInstall": false
+            "skipInstall": false,
+            "supportOs": ["Windows", "Linux", "macOS"]
           }
         ]
       }
@@ -121,6 +140,7 @@ function Install-RequiredModule {
     - description: 应用描述（可选）
     - command: 安装命令（可选，未配置时自动生成）
     - skipInstall: 是否跳过安装（可选，默认 false）
+    - supportOs: 支持的操作系统列表（可选，如果未指定则不进行筛选）
 #>
 function Install-PackageManagerApps() {
     [CmdletBinding(SupportsShouldProcess)]
@@ -132,9 +152,28 @@ function Install-PackageManagerApps() {
         [PSCustomObject]$ConfigObject,
 		
         [Parameter(ParameterSetName = 'ConfigPath')]
-        [string]$ConfigPath = "$PSScriptRoot/apps-config.json"
+        [string]$ConfigPath = "$PSScriptRoot/apps-config.json",
+        
+        [Parameter()]
+        [bool]$FilterByOS = $true,
+        
+        [Parameter()]
+        [ValidateSet("Windows", "Linux", "macOS")]
+        [string]$TargetOS
     )
 	
+    # 获取目标操作系统
+    if ($FilterByOS) {
+        if ([string]::IsNullOrWhiteSpace($TargetOS)) {
+            # 如果未指定目标操作系统，则使用当前操作系统
+            $TargetOS = Get-OperatingSystem
+            Write-Verbose "自动检测到当前操作系统: $TargetOS"
+        }
+        else {
+            Write-Verbose "使用指定的目标操作系统: $TargetOS"
+        }
+    }
+    
     # 根据参数集确定安装列表
     if ($PSCmdlet.ParameterSetName -eq 'ConfigObject') {
         $InstallList = $ConfigObject.packageManagers.$PackageManager
@@ -151,6 +190,27 @@ function Install-PackageManagerApps() {
     if (-not $InstallList) {
         Write-Warning "未找到 $PackageManager 的应用配置"
         return
+    }
+    
+    # 根据操作系统筛选应用
+    if ($FilterByOS) {
+        $originalCount = @($InstallList).Count
+        $InstallList = $InstallList | Where-Object {
+            # 如果应用没有 supportOs 字段，则不进行筛选
+            if (-not $_.supportOs) {
+                return $true
+            }
+            # 检查当前操作系统是否在支持列表中
+            return $_.supportOs -contains $TargetOS
+        }
+        
+        $filteredCount = @($InstallList).Count
+        Write-Verbose "操作系统筛选: 原始应用数量 $originalCount，筛选后应用数量 $filteredCount"
+        
+        if ($filteredCount -eq 0) {
+            Write-Warning "经过操作系统筛选后，没有找到适用于 $TargetOS 的 $PackageManager 应用"
+            return
+        }
     }
 	
     Write-Host "开始检查 $PackageManager 应用..." -ForegroundColor Green

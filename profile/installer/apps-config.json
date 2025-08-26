@@ -148,10 +148,22 @@
         "command": "scoop install lazydocker"
       },
       {
+        "name": "nvm",
+        "cliName": "nvm",
+        "description": "node版本管理",
+        "command": "scoop install nvm"
+      },
+      {
         "name": "fnm",
         "cliName": "fnm",
         "description": "nvm的rust替代，跨平台node版本管理",
         "command": "scoop install fnm"
+      },
+      {
+        "name": "bun",
+        "cliName": "bun",
+        "description": "node的替代，跨平台node版本管理",
+        "command": "scoop install bun"
       },
       {
         "name": "git",
@@ -451,137 +463,175 @@
     ],
     "homebrew": [
       {
+        "name": "fnm",
+        "cliName": "fnm",
+        "description": "快速切换node版本",
+        "command": "brew install fnm",
+        "supportOs": ["macOS", "linux"]
+      },
+      {
         "name": "powershell",
         "cliName": "pwsh",
         "description": "powershell",
         "command": "brew install powershell",
-        "supportOs": ["macOS"]
+        "supportOs": ["macOS", "linux"]
       },
       {
         "name": "pyenv",
         "cliName": "pyenv",
         "description": "python版本管理工具",
-        "command": "brew install pyenv"
+        "command": "brew install pyenv",
+        "supportOs": ["macOS", "linux"]
       },
       {
         "name": "xz",
         "cliName": "xz",
         "description": "xz压缩工具",
-        "command": "brew install xz"
+        "command": "brew install xz",
+        "supportOs": ["macOS", "linux"]
       },
       {
         "name": "go",
         "cliName": "go",
         "description": "golang",
-        "command": "brew install go"
+        "command": "brew install go",
+        "supportOs": ["macOS", "linux"],
+        "skipInstall": true
       },
       {
         "name": "dockdoor",
         "cliName": "dockdoor",
         "description": "macOS 的窗口预览和 Alt-Tab",
-        "command": "brew install --cask dockdoor"
+        "command": "brew install --cask dockdoor",
+        "supportOs": ["macOS"]
       },
       {
         "name": "docker",
         "cliName": "docker",
         "description": "macOS的docker可视化工具",
-        "command": "brew install --cask docker"
+        "command": "brew install --cask docker",
+        "supportOs": ["macOS"]
+      },
+      {
+        "name": "docker",
+        "cliName": "docker",
+        "description": "linux docker，系统级工具，不适合用homebrew 安装",
+        "skipInstall": true,
+        "command": "brew install  docker",
+        "supportOs": ["linux"]
       },
       {
         "name": "yazi",
         "cliName": "yazi",
         "description": "终端文件管理器",
-        "command": "brew install yazi"
+        "command": "brew install yazi",
+        "supportOs": ["linux", "macOS"]
       },
       {
         "name": "ffmpeg",
         "cliName": "ffmpeg",
-        "description": "音视频处理工具",
-        "command": "brew install ffmpeg"
+        "description": "音视频处理工具,系统级工具，不推荐homebrew安装",
+        "command": "brew install ffmpeg",
+        "skipInstall": true,
+        "supportOs": ["linux", "macOS"]
       },
       {
         "name": "sevenzip",
         "cliName": "sevenzip",
         "description": "7zip压缩工具",
-        "command": "brew install sevenzip"
+        "command": "brew install sevenzip",
+        "supportOs": ["linux", "macOS"]
       },
       {
         "name": "jq",
         "cliName": "jq",
         "description": "命令行JSON处理工具",
-        "command": "brew install jq"
+        "command": "brew install jq",
+        "supportOs": ["linux", "macOS"]
       },
       {
         "name": "poppler",
         "cliName": "pdfinfo",
         "description": "PDF处理工具集",
-        "command": "brew install poppler"
+        "command": "brew install poppler",
+        "supportOs": ["linux", "macOS"]
       },
       {
         "name": "fd",
         "cliName": "fd",
         "description": "快速文件搜索工具",
-        "command": "brew install fd"
+        "command": "brew install fd",
+        "supportOs": ["linux", "macOS"]
       },
       {
         "name": "ripgrep",
         "cliName": "rg",
         "description": "快速文本搜索工具",
-        "command": "brew install ripgrep"
+        "command": "brew install ripgrep",
+        "supportOs": ["linux", "macOS"]
       },
       {
         "name": "fzf",
         "cliName": "fzf",
         "description": "模糊查找工具",
-        "command": "brew install fzf"
+        "command": "brew install fzf",
+        "supportOs": ["linux", "macOS"]
       },
       {
         "name": "zoxide",
         "cliName": "zoxide",
         "description": "智能目录跳转工具",
-        "command": "brew install zoxide"
+        "command": "brew install zoxide",
+        "supportOs": ["linux", "macOS"]
       },
       {
         "name": "resvg",
         "cliName": "resvg",
         "description": "SVG渲染工具",
-        "command": "brew install resvg"
+        "command": "brew install resvg",
+        "supportOs": ["linux", "macOS"]
       },
       {
         "name": "imagemagick",
         "cliName": "magick",
         "description": "图像处理工具",
-        "command": "brew install imagemagick"
+        "command": "brew install imagemagick",
+        "supportOs": ["linux", "macOS"]
       },
       {
         "name": "font-symbols-only-nerd-font",
         "cliName": "font-symbols-only-nerd-font",
         "description": "Nerd Font符号字体",
-        "command": "brew install --cask font-symbols-only-nerd-font"
+        "command": "brew install --cask font-symbols-only-nerd-font",
+        "supportOs": ["macOS"]
       },
       {
         "name": "jordanbaird-ice",
         "cliName": "jordanbaird-ice",
         "description": "macOS 菜单栏管理工具",
-        "command": "brew install --cask jordanbaird-ice"
+        "command": "brew install --cask jordanbaird-ice",
+        "supportOs": ["macOS"]
       },
       {
         "name": "hammerspoon",
         "cliName": "hammerspoon",
         "description": "macOS 自动化工具",
-        "command": "brew install --cask hammerspoon"
+        "command": "brew install --cask hammerspoon",
+        "supportOs": ["macOS"]
       },
       {
         "name": "starship",
         "cliName": "starship",
         "description": "跨平台shell提示符",
-        "command": "brew install starship"
+        "command": "brew install starship",
+        "supportOs": ["linux", "macOS"]
       },
       {
         "name": "bat",
         "cliName": "bat",
         "description": "cat的替代品",
-        "command": "brew install bat"
+        "command": "brew install bat",
+        "supportOs": ["linux", "macOS"]
       },
       {
         "name": "dust",
@@ -594,55 +644,147 @@
         "name": "duf",
         "cliName": "duf",
         "description": "磁盘使用情况工具",
-        "command": "brew install duf"
+        "command": "brew install duf",
+        "supportOs": ["linux", "macOS"]
       },
       {
         "name": "lazygit",
         "cliName": "lazygit",
         "description": "git的TUI界面",
-        "command": "brew install lazygit"
+        "command": "brew install lazygit",
+        "supportOs": ["linux", "macOS"]
       },
       {
         "name": "yq",
         "cliName": "yq",
         "description": "YAML/JSON处理器",
-        "command": "brew install yq"
-      },
-      {
-        "name": "nvim",
-        "cliName": "nvim",
-        "description": "Neovim",
-        "command": "brew install neovim"
+        "command": "brew install yq",
+        "supportOs": ["linux", "macOS"]
       },
       {
         "name": "bottom",
         "cliName": "btm",
         "description": "rust 版本的top，任务管理器bottom",
-        "command": "brew install bottom"
+        "command": "brew install bottom",
+        "supportOs": ["linux", "macOS"]
       },
       {
         "name": "neovim",
         "cliName": "nvim",
         "description": "现代化的 Vim 文本编辑器",
-        "command": "brew install neovim"
+        "command": "brew install neovim",
+        "supportOs": ["linux", "macOS"]
       },
       {
         "name": "neovide",
         "cliName": "neovide",
         "description": "Neovim的GUI前端",
-        "command": "brew install --cask neovide"
+        "command": "brew install --cask neovide",
+        "supportOs": ["macOS"]
       },
       {
         "name": "font-fira-code-nerd-font",
         "cliName": "font-fira-code-nerd-font",
         "description": "Fira Code Nerd Font",
-        "command": "brew install --cask font-fira-code-nerd-font"
+        "command": "brew install --cask font-fira-code-nerd-font",
+        "supportOs": ["macOS"]
       },
       {
         "name": "font-jetbrains-mono-nerd-font",
         "cliName": "font-jetbrains-mono-nerd-font",
         "description": "JetBrains Mono Nerd Font",
-        "command": "brew install --cask font-jetbrains-mono-nerd-font"
+        "command": "brew install --cask font-jetbrains-mono-nerd-font",
+        "supportOs": ["macOS"]
+      }
+    ],
+    "npm": [
+      {
+        "name": "gemini-cli",
+        "cliName": "gemini",
+        "description": "gemini的命令行工具",
+        "command": "npm install -g @google/gemini-cli"
+      },
+      {
+        "name": "qwen-coder",
+        "cliName": "qwen",
+        "description": "qwen的命令行工具",
+        "command": "npm install -g @qwen-code/qwen-code@latest"
+      }
+    ],
+    "pacman": [
+      {
+        "name": "firefox",
+        "cliName": "firefox",
+        "description": "火狐浏览器",
+        "command": "sudo pacman -S firefox"
+      },
+      {
+        "name": "kitty",
+        "cliName": "kitty",
+        "description": "跨平台GPU加速终端模拟器",
+        "command": "sudo pacman -S kitty"
+      },
+      {
+        "name": "neovim",
+        "cliName": "nvim",
+        "description": "modified version of Vim",
+        "command": "sudo pacman -S neovim"
+      },
+      {
+        "name": "git",
+        "cliName": "git",
+        "description": "Git",
+        "command": "sudo pacman -S git"
+      },
+      {
+        "name": "github-cli",
+        "cliName": "gh",
+        "description": "github cli",
+        "command": "sudo pacman -S github-cli"
+      },
+      {
+        "name": "imagemagick",
+        "cliName": "magick",
+        "description": "图像处理工具",
+        "command": "sudo pacman -S imagemagick"
+      },
+      {
+        "name": "less",
+        "cliName": "less",
+        "description": "less",
+        "command": "sudo pacman -S less"
+      }
+    ],
+    "yay": [
+      {
+        "name": "visual-studio-code-bin",
+        "cliName": "code",
+        "description": "微软官方的商业版vscode",
+        "command": "yay -S visual-studio-code-bin"
+      },
+      {
+        "name": "google-chrome",
+        "cliName": "google-chrome-stable",
+        "description": "谷歌浏览器",
+        "command": "yay -S google-chrome"
+      },
+      {
+        "name": "powershell",
+        "cliName": "pwsh",
+        "description": "powershell二进制版",
+        "command": "yay -S powershell-bin"
+      },
+      {
+        "name": "cherry studio",
+        "cliName": "cherry-studio",
+        "description": "cherry-studio 支持多服务商集成的 AI 对话客户端",
+        "command": "yay -S cherry-studio"
+      },
+      {
+        "name": "rustdesk",
+        "cliName": "rustdesk",
+        "description": "远程桌面",
+        "command": "yay -S rustdesk-bin"
       }
     ]
   }
