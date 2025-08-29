@@ -486,7 +486,7 @@ function Sync-PathFromBash {
             $env:PATH = "$($env:PATH)$separator$pathsToAdd"
             Write-Information "PowerShell PATH 已成功更新！" 
         } else {
-            Write-Verbose "Power-Shell 的 PATH 与 Bash 完全同步，无需操作。"
+            Write-Information "Power-Shell 的 PATH 与 Bash 完全同步，无需操作。"
         }
     }
     catch {
