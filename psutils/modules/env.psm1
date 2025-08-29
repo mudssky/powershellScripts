@@ -448,7 +448,7 @@ function Sync-PathFromBash {
     param()
 
     try {
-        Write-Verbose "正在从 Bash 登录 Shell 中获取 PATH..."
+        Write-Information "正在从 Bash 登录 Shell 中获取 PATH..."
         # 使用 'bash -l' 确保加载了 ~/.profile 或 ~/.bash_profile
         # '-c' 表示执行后面的命令
         $bashPathOutput = bash -l -c 'echo $PATH'
@@ -464,27 +464,27 @@ function Sync-PathFromBash {
         $bashPaths = $bashPathOutput.Split($separator, [System.StringSplitOptions]::RemoveEmptyEntries)
         $psPaths = $env:PATH.Split($separator, [System.StringSplitOptions]::RemoveEmptyEntries)
 
-        Write-Verbose "从 Bash 中找到的路径: $($bashPaths.Count) 个"
-        Write-Verbose "当前 PowerShell 中的路径: $($psPaths.Count) 个"
+        Write-Information "从 Bash 中找到的路径: $($bashPaths.Count) 个"
+        Write-Information "当前 PowerShell 中的路径: $($psPaths.Count) 个"
 
         # 使用 Compare-Object 找出只存在于 Bash PATH 中的路径
         # ReferenceObject 是基准，DifferenceObject 是要比较的对象
         $missingPaths = Compare-Object -ReferenceObject $psPaths -DifferenceObject $bashPaths -PassThru | Where-Object { $_ -ne $null }
 
         if ($missingPaths.Count -gt 0) {
-            Write-Host "发现 $($missingPaths.Count) 个需要从 Bash 同步的路径。" -ForegroundColor Yellow
+            Write-Information "发现 $($missingPaths.Count) 个需要从 Bash 同步的路径。" 
 
             # 将找到的缺失路径连接成一个字符串
             $pathsToAdd = $missingPaths -join $separator
 
             # 遍历并显示将要添加的每一个路径
             foreach ($path in $missingPaths) {
-                Write-Information "  -> 正在添加: $path" -ForegroundColor Green
+                Write-Information "  -> 正在添加: $path" 
             }
 
             # 将新路径追加到现有的 PowerShell PATH 后面
             $env:PATH = "$($env:PATH)$separator$pathsToAdd"
-            Write-Information "PowerShell PATH 已成功更新！" -ForegroundColor Green
+            Write-Information "PowerShell PATH 已成功更新！" 
         } else {
             Write-Verbose "Power-Shell 的 PATH 与 Bash 完全同步，无需操作。"
         }
