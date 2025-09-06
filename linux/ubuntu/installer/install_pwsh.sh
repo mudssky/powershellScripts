@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# 判断pwsh是否已安装
+if command -v pwsh &> /dev/null
+then
+    echo "pwsh found, skip install"
+    exit 0
+fi
 
 ###################################
 # Prerequisites
