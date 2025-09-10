@@ -56,18 +56,30 @@
 [CmdletBinding()]
 param (
     [Parameter(Mandatory = $true)]
-    [ValidateSet("minio", "redis", 'postgre', 'etcd', 'nacos', 'rabbitmq', 'mongodb', 'one-api', 'mongodb-replica', 'kokoro-fastapi', 'kokoro-fastapi-cpu', 'cadvisor', 'prometheus', 'noco', 'n8n', 'crawl4ai')]
+    [ValidateSet("minio", "redis", 'postgre', 'etcd', 'nacos', 'rabbitmq', 'mongodb', 'one-api', 'mongodb-replica', 'kokoro-fastapi', 
+        'kokoro-fastapi-cpu', 'cadvisor', 'prometheus', 'noco', 'n8n', 'crawl4ai', 'pageSpy')]
     [string]$ServiceName, # 更合理的参数名
     
     [ValidateSet("always", "unless-stopped", 'on-failure', 'on-failure:3', 'no')]
     [string]$RestartPolicy = 'unless-stopped', # 更明确的参数名
     
-    [string]$DataPath = "C:/docker_data"  ,# 允许自定义数据目录
+    [string]$DataPath   ,# 允许自定义数据目录
     [string]$DefaultUser = "root",  # 默认用户名
     [string]$DefaultPassword = "12345678"  # 默认密码
 )
   
-
+# 设置默认 docker 映射路径
+if (!$DataPath) {
+    if ($IsWindows) {
+        $DataPath = = "C:/docker_data"
+    }
+    elseif ($IsLinux) {
+        $DataPath = "/var/lib/docker_data"
+    }
+    elseif ($IsMacOS) {
+        $DataPath = "/Volumes/Data/docker_data"
+    }
+}
 # 可以添加统一网络配置
 # $networkName = "dev-net"
 # if (-not (docker network ls -q -f name="$networkName")) {
@@ -246,5 +258,15 @@ switch ($ServiceName) {
             --shm-size=1g `
             --restart=$RestartPolicy `
             unclecode/crawl4ai:latest
+    }
+    "pageSpy" {
+        docker run -d --name pageSpy-dev `
+            $commonParams `
+            -p 6752:6752 `
+            --restart=$RestartPolicy `
+            -v $DataPath/pageSpy/log:/app/log `
+            -v $DataPath/pageSpy/data:/app/data `
+            ghcr.io/huolalatech/page-spy-web:latest
+
     }
 }
