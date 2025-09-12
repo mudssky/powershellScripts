@@ -5,8 +5,8 @@ install_brew() {
     # Warning: /home/linuxbrew/.linuxbrew/bin is not in your PATH.
     # 检查环境变量，不存在则进行配置
     if [ -z "$(echo $PATH | grep /home/linuxbrew/.linuxbrew/bin)" ]; then
-        echo >> /home/mudssky/.bashrc
-        echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> /home/mudssky/.bashrc
+        echo >> ~/.bashrc
+        echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> ~/.bashrc
         eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
     fi
 }
