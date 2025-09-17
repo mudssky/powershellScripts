@@ -35,6 +35,87 @@ param(
 # 加载自定义模块
 . $PSScriptRoot/loadModule.ps1
 
+# 自定义别名配置
+$userAlias = @(
+    [PSCustomObject]@{
+        cliName     = 'dust'
+        aliasName   = 'du'
+        aliasValue  = 'dust'
+        description = 'dust 是一个用于清理磁盘空间的命令行工具。它可以扫描指定目录并显示占用空间较大的文件和目录，以便用户确定是否删除它们。'
+    }
+    [PSCustomObject]@{
+        cliName     = 'duf'
+        aliasName   = 'df'
+        aliasValue  = 'duf'
+        description = 'df 是 du 的别名，用于显示目录内容。'
+    }
+    [PSCustomObject]@{
+        cliName     = 'zoxide'
+        aliasName   = 'zq'
+        aliasValue  = ''
+        description = 'zoxide query 用于查询zoxide的数据库，显示最近访问的目录。'
+        command     = 'zoxide query'
+
+    }
+    [PSCustomObject]@{
+        cliName     = 'zoxide'
+        aliasName   = 'za'
+        aliasValue  = ''
+        description = 'zoxide add 用于将当前目录添加到zoxide的数据库中，以便下次快速访问。'
+        command     = 'zoxide add'
+    }
+    [PSCustomObject]@{
+        cliName     = 'zoxide'
+        aliasName   = 'zr'
+        aliasValue  = 'zoxide'
+        description = '如果你不希望某个目录再出现在 zoxide 的候选项中'
+        command     = 'zoxide remove'
+
+    }
+    # scoop下载下来就是btm，不用设置别名
+    # [PSCustomObject]@{
+    # 	cliName     = 'bottom'
+    # 	aliasName   = 'btm'
+    # 	aliasValue  = 'bottom'
+    # 	description = 'bottom 是一个用于显示系统资源使用情况的命令行工具。它可以实时显示CPU、内存、磁盘和网络等系统资源的使用情况，帮助用户监控系统性能。'
+    # }
+)
+function Set-AliasProfile {
+    [CmdletBinding()]
+    param (
+        [PSCustomObject]$userAlias = $userAlias
+    )
+    begin {
+    }
+	
+    process {
+        # 设置PowerShell别名
+        Write-Verbose "设置PowerShell别名"
+        Set-CustomAlias -Name ise -Value powershell_ise  -AliasDespPrefix $AliasDespPrefix -Scope Global
+        Set-CustomAlias -Name ipython -Value Start-Ipython  -AliasDespPrefix $AliasDespPrefix  -Scope Global
+        foreach ($alias in $userAlias) {
+            if ($alias.command) {
+                Write-Verbose "别名 $($alias.aliasName) 已设置函数，执行函数创建"
+                $scriptBlock = [scriptblock]::Create("$($alias.command) `$args")
+                New-Item -Path "Function:Global:$($alias.aliasName)" -Value $scriptBlock -Force  | Out-Null
+                Write-Verbose "已创建函数: $($alias.name)"
+                continue
+            }
+            # 设置别名时，PowerShell 不需要目标命令当前就存在。它只在你使用该别名时才会去解析命令。因此，可以安全地移除所有 Test-ExeProgram 检查。
+            # if (Test-ExeProgram -Name $alias.cliName) {
+            Set-CustomAlias -Name $alias.aliasName -Value $alias.aliasValue -Description $alias.description -AliasDespPrefix $AliasDespPrefix -Scope Global
+            Write-Verbose "已设置别名: $($alias.aliasName) -> $($alias.aliasValue)"
+        }
+        # else {
+        # 	Write-Warning "未找到 $($alias.cliName) 命令，无法设置别名: $($alias.aliasName)"
+        # }
+	
+    }
+	
+    end {
+		
+    }
+}
 function Initialize-Environment {
     <#
     .SYNOPSIS
@@ -66,10 +147,10 @@ function Initialize-Environment {
         }
     }
     # 添加 Linuxbrew bin 目录到 PATH
-    if (Test-Path -Path "/home/linuxbrew/.linuxbrew/bin"){
+    if (Test-Path -Path "/home/linuxbrew/.linuxbrew/bin") {
         $env:PATH += ":/home/linuxbrew/.linuxbrew/bin/"
     }
-    if($IsLinux){
+    if ($IsLinux) {
         Sync-PathFromBash
     }
     # 初始化开发工具
@@ -117,6 +198,7 @@ function Initialize-Environment {
         }
     }
     
+    Set-AliasProfile
     Write-Verbose "PowerShell 环境初始化完成"
     
     # 设置自定义别名
