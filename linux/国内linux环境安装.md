@@ -59,5 +59,7 @@ fnm use 22
 
 ```bash
 curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
+# sudo sh get-docker.sh
+# 指定国内镜像安装
+sudo sh ./get-docker.sh --mirror Aliyun  
 ```
