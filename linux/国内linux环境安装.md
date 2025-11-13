@@ -2,22 +2,18 @@
 
 使用chsrc项目可以换各种系统源和软件源
 
-https://github.com/RubyMetric/chsrc
+<https://github.com/RubyMetric/chsrc>
 
 ```
 curl -LO https://gitee.com/RubyMetric/chsrc/releases/download/pre/chsrc_latest-1_amd64.deb
 sudo apt install ./chsrc_latest-1_amd64.deb
 ```
 
-
-
-
-
 ## 2.安装homebrew
 
 可以用清华的homebrew源安装
 
-https://mirrors.tuna.tsinghua.edu.cn/help/homebrew/
+<https://mirrors.tuna.tsinghua.edu.cn/help/homebrew/>
 
 在终端输入以下几行命令设置环境变量：
 
@@ -57,3 +53,11 @@ fnm use 22
 
 ```
 
+## 4. docker安装
+
+可以用官网的安装脚本
+
+```bash
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+```
