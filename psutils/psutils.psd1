@@ -85,6 +85,7 @@
         'modules\os.psm1',
         'modules\proxy.psm1',
         'modules\pwsh.psm1',
+        'modules\git.psm1',
         'modules\string.psm1',
         'modules\test.psm1',
         'modules\win.psm1',
@@ -96,7 +97,7 @@
         # 缓存管理模块 (cache.psm1)
         'Invoke-WithCache', 'Clear-ExpiredCache', 'Get-CacheStats',
         # 环境管理模块 (env.psm1)
-        'Get-Dotenv', 'Install-Dotenv', 'Import-EnvPath', 'Set-EnvPath', 'Add-EnvPath', 'Get-EnvParam', 'Remove-FromEnvPath','Sync-PathFromBash'
+        'Get-Dotenv', 'Install-Dotenv', 'Import-EnvPath', 'Set-EnvPath', 'Add-EnvPath', 'Get-EnvParam', 'Remove-FromEnvPath', 'Sync-PathFromBash'
         # 错误处理模块 (error.psm1)
         'Debug-CommandExecution',
         # 文件系统模块 (filesystem.psm1)
@@ -128,7 +129,9 @@
         # Windows 系统模块 (win.psm1)
         'Add-Startup', 'New-Shortcut',
         # 包装器模块 (wrapper.psm1)
-        'Set-CustomAlias', 'Get-CustomAlias'
+        'Set-CustomAlias', 'Get-CustomAlias',
+        # Git 工具模块 (git.psm1)
+        'Get-GitIgnorePatterns', 'New-7ZipExcludeArgs'
     )
 
     # 要从此模块导出的 Cmdlet，为获得最佳性能，请不要使用通配符，如果没有要导出的 Cmdlet，请使用空数组
