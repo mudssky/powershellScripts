@@ -63,3 +63,52 @@ curl -fsSL https://get.docker.com -o get-docker.sh
 # 指定国内镜像安装
 sudo sh ./get-docker.sh --mirror Aliyun  
 ```
+
+### docker镜像配置
+
+docker容器也要配置镜像源,或者你也可以准备好一个配置好的容器，到时候直接拉取
+
+#### linux容器换源
+
+下面演示的是更换清华镜像源
+
+```dockerfile
+ARG APT_MIRROR=https://mirrors.tuna.tsinghua.edu.cn
+ARG APT_SECURITY_MIRROR=https://mirrors.tuna.tsinghua.edu.cn
+# 换源操作
+RUN set -eux; \
+    codename="$(. /etc/os-release && echo "$VERSION_CODENAME")"; \
+    echo "配置APT镜像源..."; \
+    if [ -f /etc/apt/sources.list ]; then \
+      cp /etc/apt/sources.list /etc/apt/sources.list.bak; \
+    fi; \
+    if [ -f /etc/apt/sources.list.d/debian.sources ]; then \
+      mv /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list.d/debian.sources.bak; \
+    fi; \
+    cat > /etc/apt/sources.list <<EOF
+deb ${APT_MIRROR}/debian/ ${codename} main contrib non-free non-free-firmware
+deb-src ${APT_MIRROR}/debian/ ${codename} main contrib non-free non-free-firmware
+deb ${APT_SECURITY_MIRROR}/debian-security/ ${codename}-security main contrib non-free non-free-firmware
+deb ${APT_MIRROR}/debian/ ${codename}-updates main contrib non-free non-free-firmware
+EOF
+```
+
+#### uv 换源
+
+uv 安装,uv使用官方的安装脚本也会下载不下来
+
+```dockerfile
+# 通过清华 TUNA PyPI 镜像安装 uv（官方支持从 PyPI 安装）
+RUN python -m pip install --no-cache-dir -i https://pypi.tuna.tsinghua.edu.cn/simple uv
+
+```
+
+通过环境变量配置uv下载时的源地址
+
+```
+# 配置 uv 默认索引与下载容错
+ENV UV_DEFAULT_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple \
+    UV_HTTP_TIMEOUT=60 \
+    UV_HTTP_RETRIES=5 \
+    UV_CACHE_DIR=/app/.cache/uv
+```
