@@ -112,3 +112,7 @@ ENV UV_DEFAULT_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple \
     UV_HTTP_RETRIES=5 \
     UV_CACHE_DIR=/app/.cache/uv
 ```
+
+#### ai换源prompt
+
+参考这个文档，给dockerfile换源
