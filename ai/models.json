@@ -64,7 +64,7 @@
       "skip": false
     },
     {
-      "modelId": "qwen3-embedding",
+      "modelId": "qwen3-embedding:0.6b",
       "name": "qwen3-embedding:0.6b",
       "size": 0.6,
       "vramRequired": 2,
@@ -75,20 +75,20 @@
       "name": "gpt-oss",
       "size": 14,
       "vramRequired": 14,
-      "skip": false
+      "skip": true
     },
     {
-      "modelId": "qwen3:4b-instruct-2507-q4_K_M",
-      "name": "qwen3:4b-instruct-2507-q4_K_M",
+      "modelId": "qwen3:4b",
+      "name": "qwen3:4b",
       "size": 4,
       "vramRequired": 4,
       "skip": false
     },
     {
-      "modelId": "qwen3:4b-thinking-2507-q4_K_M",
-      "name": "qwen3:4b-thinking-2507-q4_K_M",
-      "size": 4,
-      "vramRequired": 4,
+      "modelId": "qwen3-coder",
+      "name": "qwen3-coder:30b",
+      "size": 19,
+      "vramRequired": 16,
       "skip": false
     }
   ]
