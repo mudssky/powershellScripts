@@ -5,7 +5,7 @@
       "name": "bge-m3",
       "size": 2,
       "vramRequired": 2,
-      "skip": false
+      "skip": true
     },
     {
       "modelId": "qwen3:8b",
@@ -57,10 +57,17 @@
       "skip": false
     },
     {
-      "modelId": "dengcao/Qwen3-Embedding-0.6B:F16",
-      "name": "Qwen3-Embedding-0.6B:F16",
+      "modelId": "qwen3-embedding",
+      "name": "qwen3-embedding",
+      "size": 8,
+      "vramRequired": 8,
+      "skip": false
+    },
+    {
+      "modelId": "qwen3-embedding",
+      "name": "qwen3-embedding:0.6b",
       "size": 0.6,
-      "vramRequired": 0.6,
+      "vramRequired": 2,
       "skip": false
     },
     {
