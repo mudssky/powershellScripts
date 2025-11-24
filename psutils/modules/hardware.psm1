@@ -28,11 +28,25 @@ function Get-GpuInfo {
         switch ($osType) {
             "Windows" {
                 try {
+                    $csv = nvidia-smi --query-gpu=name, memory.total --format=csv, noheader, nounits 2>$null
+                    if ($csv -and $csv.Trim() -ne "") {
+                        $maxMB = 0
+                        $selName = "NVIDIA"
+                        foreach ($line in @($csv)) {
+                            $m = [regex]::Match($line, "^(.*?),\s*(\d+)")
+                            if ($m.Success) { $name = $m.Groups[1].Value.Trim(); $mb = [int]$m.Groups[2].Value; if ($mb -gt $maxMB) { $maxMB = $mb; $selName = $name } }
+                        }
+                        if ($maxMB -gt 0) {
+                            $totalVramGB = [math]::Round($maxMB / 1024, 1)
+                            return @{ HasGpu = $true; VramGB = $totalVramGB; GpuType = "NVIDIA"; GpuModel = $selName }
+                        }
+                    }
+
                     $nvidiaInfo = nvidia-smi --query-gpu=memory.total --format=csv, noheader, nounits 2>$null
                     if ($nvidiaInfo -and $nvidiaInfo.Trim() -ne "") {
                         $totalVramMB = [int]($nvidiaInfo | Select-Object -First 1)
                         $totalVramGB = [math]::Round($totalVramMB / 1024, 1)
-                        return @{ HasGpu = $true; VramGB = $totalVramGB; GpuType = "NVIDIA" }
+                        return @{ HasGpu = $true; VramGB = $totalVramGB; GpuType = "NVIDIA"; GpuModel = "NVIDIA" }
                     }
                 }
                 catch { Write-Verbose "NVIDIA GPU检测失败: $($_.Exception.Message)" }
@@ -74,20 +88,38 @@ function Get-GpuInfo {
                     }
                     if ($estimatedVram -gt 0) {
                         Write-Warning "无法准确检测AMD GPU显存，根据型号 '$gpuName' 估算为 ${estimatedVram}GB"
-                        return @{ HasGpu = $true; VramGB = $estimatedVram; GpuType = $gpuName }
+                        return @{ HasGpu = $true; VramGB = $estimatedVram; GpuType = $gpuName; GpuModel = $gpuName }
                     }
                 }
-                return @{ HasGpu = $false; VramGB = 0; GpuType = "None" }
+                return @{ HasGpu = $false; VramGB = 0; GpuType = "None"; GpuModel = "None" }
             }
 
             "Linux" {
                 try {
+                    $csv = nvidia-smi --query-gpu=name, memory.total --format=csv, noheader, nounits 2>$null
+                    if ($csv -and $csv.Trim() -ne "") {
+                        $maxMB = 0
+                        $selName = "NVIDIA"
+                        foreach ($line in @($csv)) {
+                            $m = [regex]::Match($line, "^(.*?),\s*(\d+)")
+                            if ($m.Success) { $name = $m.Groups[1].Value.Trim(); $mb = [int]$m.Groups[2].Value; if ($mb -gt $maxMB) { $maxMB = $mb; $selName = $name } }
+                        }
+                        if ($maxMB -gt 0) { return @{ HasGpu = $true; VramGB = [math]::Round($maxMB / 1024, 1); GpuType = "NVIDIA"; GpuModel = $selName } }
+                    }
+
                     $memOnly = nvidia-smi --query-gpu=memory.total --format=csv, noheader, nounits 2>$null
                     if ($memOnly) {
                         $values = @($memOnly | Where-Object { $_ -match "^\s*\d+" } | ForEach-Object { [int]($_.Trim()) })
                         if (@($values).Count -gt 0) {
                             $mb = ($values | Measure-Object -Maximum).Maximum
-                            return @{ HasGpu = $true; VramGB = [math]::Round($mb / 1024, 1); GpuType = "NVIDIA" }
+                            $model = "NVIDIA"
+                            $list = nvidia-smi -L 2>$null
+                            if ($list) {
+                                $first = ($list | Select-Object -First 1)
+                                $nm = [regex]::Match($first, "GPU\s*\d+:\s*(.+?)(\s*\(|$)")
+                                if ($nm.Success) { $model = $nm.Groups[1].Value.Trim() }
+                            }
+                            return @{ HasGpu = $true; VramGB = [math]::Round($mb / 1024, 1); GpuType = "NVIDIA"; GpuModel = $model }
                         }
                     }
 
@@ -96,13 +128,20 @@ function Get-GpuInfo {
                         $m = ($qmem | Select-String -Pattern "Total\s*:\s*(\d+)\s*MiB")
                         if ($m) {
                             $mb = [int]$m.Matches[0].Groups[1].Value
-                            return @{ HasGpu = $true; VramGB = [math]::Round($mb / 1024, 1); GpuType = "NVIDIA" }
+                            $model = "NVIDIA"
+                            $list = nvidia-smi -L 2>$null
+                            if ($list) {
+                                $first = ($list | Select-Object -First 1)
+                                $nm = [regex]::Match($first, "GPU\s*\d+:\s*(.+?)(\s*\(|$)")
+                                if ($nm.Success) { $model = $nm.Groups[1].Value.Trim() }
+                            }
+                            return @{ HasGpu = $true; VramGB = [math]::Round($mb / 1024, 1); GpuType = "NVIDIA"; GpuModel = $model }
                         }
                     }
 
-                    return @{ HasGpu = $false; VramGB = 0; GpuType = "None" }
+                    return @{ HasGpu = $false; VramGB = 0; GpuType = "None"; GpuModel = "None" }
                 }
-                catch { return @{ HasGpu = $false; VramGB = 0; GpuType = "Unknown" } }
+                catch { return @{ HasGpu = $false; VramGB = 0; GpuType = "Unknown"; GpuModel = "Unknown" } }
             }
 
             "macOS" {
@@ -122,7 +161,7 @@ function Get-GpuInfo {
                         }
                         if ($maxMB -gt 0) {
                             $totalVramGB = [math]::Round($maxMB / 1024, 1)
-                            return @{ HasGpu = $true; VramGB = $totalVramGB; GpuType = $gpuNameSel }
+                            return @{ HasGpu = $true; VramGB = $totalVramGB; GpuType = "NVIDIA"; GpuModel = $gpuNameSel }
                         }
                     }
 
@@ -130,22 +169,22 @@ function Get-GpuInfo {
                     if ($nvidiaInfo -and $nvidiaInfo.Trim() -ne "") {
                         $totalVramMB = [int]($nvidiaInfo | Select-Object -First 1)
                         $totalVramGB = [math]::Round($totalVramMB / 1024, 1)
-                        return @{ HasGpu = $true; VramGB = $totalVramGB; GpuType = "NVIDIA" }
+                        return @{ HasGpu = $true; VramGB = $totalVramGB; GpuType = "NVIDIA"; GpuModel = "NVIDIA" }
                     }
                 }
                 catch { Write-Verbose "NVIDIA GPU检测失败: $($_.Exception.Message)" }
-                return @{ HasGpu = $false; VramGB = 0; GpuType = "None" }
+                return @{ HasGpu = $false; VramGB = 0; GpuType = "None"; GpuModel = "None" }
             }
 
             default {
                 Write-Warning "未知操作系统，无法检测GPU: $osType"
-                return @{ HasGpu = $false; VramGB = 0; GpuType = "Unknown" }
+                return @{ HasGpu = $false; VramGB = 0; GpuType = "Unknown"; GpuModel = "Unknown" }
             }
         }
     }
     catch {
         Write-Warning "GPU检测失败: $($_.Exception.Message)"
-        return @{ HasGpu = $false; VramGB = 0; GpuType = "Unknown" }
+        return @{ HasGpu = $false; VramGB = 0; GpuType = "Unknown"; GpuModel = "Unknown" }
     }
 }
 
