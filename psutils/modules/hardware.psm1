@@ -82,75 +82,50 @@ function Get-GpuInfo {
 
             "Linux" {
                 try {
-                    $nvidiaInfo = nvidia-smi --query-gpu=memory.total --format=csv, noheader, nounits 2>$null
-                    if ($nvidiaInfo -and $nvidiaInfo.Trim() -ne "") {
-                        $totalVramMB = [int]($nvidiaInfo | Select-Object -First 1)
-                        $totalVramGB = [math]::Round($totalVramMB / 1024, 1)
-                        return @{ HasGpu = $true; VramGB = $totalVramGB; GpuType = "NVIDIA" }
-                    }
-                }
-                catch { Write-Verbose "NVIDIA GPU检测失败: $($_.Exception.Message)" }
-
-                try {
-                    $vramBytesPath = Get-ChildItem -ErrorAction SilentlyContinue /sys/class/drm/card*/device/mem_info_vram_total | Select-Object -First 1
-                    if ($vramBytesPath) {
-                        $bytes = Get-Content $vramBytesPath.FullName -ErrorAction SilentlyContinue | Select-Object -First 1
-                        if ($bytes -and $bytes.Trim() -ne "") {
-                            $vramGB = [math]::Round(([double]$bytes) / 1GB, 1)
-                            return @{ HasGpu = $true; VramGB = $vramGB; GpuType = "AMD" }
+                    $memOnly = nvidia-smi --query-gpu=memory.total --format=csv, noheader, nounits 2>$null
+                    if ($memOnly) {
+                        $values = @($memOnly | Where-Object { $_ -match "^\s*\d+" } | ForEach-Object { [int]($_.Trim()) })
+                        if (@($values).Count -gt 0) {
+                            $mb = ($values | Measure-Object -Maximum).Maximum
+                            return @{ HasGpu = $true; VramGB = [math]::Round($mb / 1024, 1); GpuType = "NVIDIA" }
                         }
                     }
-                }
-                catch { Write-Verbose "AMD sysfs 显存读取失败: $($_.Exception.Message)" }
 
-                try {
-                    $amdSmi = amd-smi --showmeminfo vram 2>$null
-                    if ($amdSmi) {
-                        $match = ($amdSmi | Select-String -Pattern "Total VRAM Memory .*?:\s*(\d+)")
-                        if ($match) {
-                            $bytes = [double]$match.Matches[0].Groups[1].Value
-                            $vramGB = [math]::Round($bytes / 1GB, 1)
-                            return @{ HasGpu = $true; VramGB = $vramGB; GpuType = "AMD" }
+                    $qmem = nvidia-smi -q -d MEMORY 2>$null
+                    if ($qmem) {
+                        $m = ($qmem | Select-String -Pattern "Total\s*:\s*(\d+)\s*MiB")
+                        if ($m) {
+                            $mb = [int]$m.Matches[0].Groups[1].Value
+                            return @{ HasGpu = $true; VramGB = [math]::Round($mb / 1024, 1); GpuType = "NVIDIA" }
                         }
                     }
-                }
-                catch { Write-Verbose "amd-smi 获取失败: $($_.Exception.Message)" }
 
-                try {
-                    $rocmJson = rocm-smi --showmeminfo vram --json 2>$null
-                    if ($rocmJson) {
-                        $obj = $rocmJson | ConvertFrom-Json -ErrorAction SilentlyContinue
-                        if ($obj) {
-                            $bytes = ($obj | Select-Object -ExpandProperty total -ErrorAction SilentlyContinue)
-                            if ($bytes) {
-                                $vramGB = [math]::Round(([double]$bytes) / 1GB, 1)
-                                return @{ HasGpu = $true; VramGB = $vramGB; GpuType = "AMD" }
-                            }
-                        }
-                    }
+                    return @{ HasGpu = $false; VramGB = 0; GpuType = "None" }
                 }
-                catch { Write-Verbose "rocm-smi 获取失败: $($_.Exception.Message)" }
-
-                try {
-                    $drivers = Get-ChildItem -ErrorAction SilentlyContinue /sys/class/drm/card*/device/driver | ForEach-Object { Split-Path -Leaf (Get-Item $_).Target }
-                    if ($drivers -and ($drivers -contains "i915")) {
-                        return @{ HasGpu = $true; VramGB = 0; GpuType = "Intel" }
-                    }
-                    else {
-                        $lspci = lspci 2>$null
-                        if ($lspci -and ($lspci | Select-String -SimpleMatch "Intel")) {
-                            return @{ HasGpu = $true; VramGB = 0; GpuType = "Intel" }
-                        }
-                    }
-                }
-                catch { Write-Verbose "Intel 检测失败: $($_.Exception.Message)" }
-
-                Write-Warning "无法在Linux准确检测AMD/Intel显存，返回保守结果"
-                return @{ HasGpu = $false; VramGB = 0; GpuType = "None" }
+                catch { return @{ HasGpu = $false; VramGB = 0; GpuType = "Unknown" } }
             }
 
             "macOS" {
                 try {
+                    $nvidiaInfoCombined = nvidia-smi --query-gpu=name, memory.total --format=csv, noheader, nounits 2>$null
+                    if ($nvidiaInfoCombined -and $nvidiaInfoCombined.Trim() -ne "") {
+                        $lines = @($nvidiaInfoCombined)
+                        $maxMB = 0
+                        $gpuNameSel = "NVIDIA"
+                        foreach ($line in $lines) {
+                            $m = [regex]::Match($line, "^(.*?),\s*(\d+)")
+                            if ($m.Success) {
+                                $name = $m.Groups[1].Value.Trim()
+                                $mb = [int]$m.Groups[2].Value
+                                if ($mb -gt $maxMB) { $maxMB = $mb; $gpuNameSel = $name }
+                            }
+                        }
+                        if ($maxMB -gt 0) {
+                            $totalVramGB = [math]::Round($maxMB / 1024, 1)
+                            return @{ HasGpu = $true; VramGB = $totalVramGB; GpuType = $gpuNameSel }
+                        }
+                    }
+
                     $nvidiaInfo = nvidia-smi --query-gpu=memory.total --format=csv, noheader, nounits 2>$null
                     if ($nvidiaInfo -and $nvidiaInfo.Trim() -ne "") {
                         $totalVramMB = [int]($nvidiaInfo | Select-Object -First 1)
