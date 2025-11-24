@@ -12,16 +12,61 @@
     - 支持从JSON配置文件读取模型列表
     - 支持skip参数跳过指定模型
 
+.PARAMETER ListOnly
+    仅列出符合条件的“计划下载”模型，不实际下载。适合预览资源评估结果。
+
+.PARAMETER ConfigPath
+    模型配置文件路径（JSON），默认使用脚本目录下的 `models.json`。
+
+.PARAMETER CpuMaxModelGB
+    CPU模式下允许的最大模型大小（GB）。超过该值的模型在无GPU时不下载。
+
+.PARAMETER MemoryMultiplier
+    CPU模式内存建议系数：建议内存 = 模型大小 × 系数。用于判定系统内存是否足够。
+
+.PARAMETER MinVramGB
+    有GPU时的最低显存下限（GB），用于规范化显存值，避免过低估计。
+
+.PARAMETER Provider
+    下载提供者命令名称，例如 `ollama`。需确保该命令已安装可用。
+
+.PARAMETER Skip
+    额外跳过的模型名称或ID（数组）。与配置项中的 `skip: true` 合并处理。
+
+.PARAMETER OutputPath
+    在 `-ListOnly` 模式下，将计划下载列表导出为 JSON 到该路径。
+
 .EXAMPLE
     .\downloadModels.ps1
     运行脚本自动检测系统资源并下载合适的模型
+
+.EXAMPLE
+    .\downloadModels.ps1 -ListOnly -Verbose -OutputPath ./plan.json
+    仅列出计划下载的模型并导出为 JSON，显示详细评估信息。
+
+.EXAMPLE
+    .\downloadModels.ps1 -CpuMaxModelGB 10 -MemoryMultiplier 1.3 -Skip qwen3:14b
+    调整策略并跳过指定模型，便于在不同机器上复用脚本。
+
+.EXAMPLE
+    .\downloadModels.ps1 -WhatIf -Confirm
+    安全演练下载流程，触发确认但不实际执行拉取。
 #>
 
 
-[CmdletBinding()]
+[CmdletBinding(SupportsShouldProcess = $true)]
 param(
-    [switch]$ListOnly
+    [switch]$ListOnly,
+    [string]$ConfigPath = (Join-Path $PSScriptRoot 'models.json'),
+    [double]$CpuMaxModelGB = 8,
+    [double]$MemoryMultiplier = 1.5,
+    [double]$MinVramGB = 8,
+    [string]$Provider = 'ollama',
+    [string[]]$Skip = @(),
+    [string]$OutputPath
 )
+Set-StrictMode -Version Latest
+$DEFAULTS = @{ CpuMaxModelGB = $CpuMaxModelGB; MemoryMultiplier = $MemoryMultiplier; MinVramGB = $MinVramGB }
 # 导入硬件检测模块和操作系统检测模块
 Import-Module "$PSScriptRoot\..\psutils\index.psm1" -Force
 
@@ -30,11 +75,21 @@ function Write-ProgressMessage {
         [string]$Message,
         [string]$Color = 'White'
     )
-    if (-not $ListOnly) {
-        Write-Host $Message -ForegroundColor $Color
-    }
-    elseif ($VerbosePreference -eq 'Continue') {
-        Write-Verbose $Message
+    if (-not $ListOnly) { Write-Host $Message -ForegroundColor $Color }
+    elseif ($VerbosePreference -eq 'Continue') { Write-Verbose $Message }
+}
+
+function Write-Log {
+    param(
+        [ValidateSet('Info', 'Warn', 'Error', 'Verbose')] [string]$Level,
+        [string]$Message,
+        [string]$Color = 'White'
+    )
+    switch ($Level) {
+        'Info' { if (-not $ListOnly) { Write-Host $Message -ForegroundColor $Color } else { Write-Verbose $Message } }
+        'Warn' { Write-Warning $Message }
+        'Error' { Write-Error $Message }
+        'Verbose' { Write-Verbose $Message }
     }
 }
 
@@ -50,16 +105,38 @@ function Write-ProgressMessage {
     返回模型配置数组
 #>
 function Get-ModelListFromConfig {
-    $configPath = Join-Path $PSScriptRoot "models.json"
-    
-    if (-not (Test-Path $configPath)) {
-        Write-Error "配置文件不存在: $configPath"
+    <#
+    .SYNOPSIS
+        加载并校验模型配置
+    .DESCRIPTION
+        读取 JSON 配置，校验必填字段并为缺失字段提供合理默认值或估算；返回标准化对象数组。
+    .PARAMETER ConfigPath
+        配置文件路径
+    .OUTPUTS
+        PSCustomObject[]，字段：name, modelId, size, vramRequired, skip
+    #>
+    param([string]$ConfigPath)
+    if (-not (Test-Path $ConfigPath)) {
+        Write-Error "配置文件不存在: $ConfigPath"
         return @()
     }
-    
     try {
-        $config = Get-Content $configPath -Raw | ConvertFrom-Json
-        return $config.models
+        $config = Get-Content $ConfigPath -Raw | ConvertFrom-Json -ErrorAction Stop
+        $raw = @($config.models)
+        $result = @()
+        foreach ($m in $raw) {
+            $name = $m.name
+            $id = $m.modelId
+            if ([string]::IsNullOrWhiteSpace($name) -or [string]::IsNullOrWhiteSpace($id)) {
+                Write-Warning "模型项缺少必填字段，已跳过"
+                continue
+            }
+            $size = if ($null -ne $m.size -and $m.size -gt 0) { [double]$m.size } else { $CpuMaxModelGB }
+            $vram = if ($null -ne $m.vramRequired -and $m.vramRequired -ge 0) { [double]$m.vramRequired } else { [math]::Max(4, [int]([double]$size / 2)) }
+            $skipFlag = [bool]$m.skip
+            $result += [pscustomobject]@{ name = $name; modelId = $id; size = $size; vramRequired = $vram; skip = $skipFlag }
+        }
+        return $result
     }
     catch {
         Write-Error "读取配置文件失败: $($_.Exception.Message)"
@@ -90,42 +167,139 @@ function Test-ModelCanDownload {
     param(
         [hashtable]$Model,
         [hashtable]$GpuInfo,
-        [hashtable]$MemoryInfo
+        [hashtable]$MemoryInfo,
+        [hashtable]$Policy
     )
     
 
-    $modelMemoryGB = if ($Model.Size ) { $Model.Size } else { 8 }
+    $modelMemoryGB = if ($Model.Size ) { [double]$Model.Size } else { [double]$Policy.CpuMaxModelGB }
     $modelVramGB = if ($Model.VramRequired) { $Model.VramRequired } else { 4 }
     
     if ($GpuInfo.HasGpu) {
         # 有GPU时检查显存
-        if ($GpuInfo.VramGB -ge $modelVramGB) {
-            Write-ProgressMessage "✓ 模型 $($Model.Name) 可以使用GPU运行 (需要显存: ${modelVramGB}GB, 可用显存: $($GpuInfo.VramGB)GB)" 'Green'
-            return $true
-        }
-        else {
-            Write-ProgressMessage "✗ 模型 $($Model.Name) 显存不足 (需要显存: ${modelVramGB}GB, 可用显存: $($GpuInfo.VramGB)GB)" 'Red'
-            return $false
-        }
+        return ($GpuInfo.VramGB -ge $modelVramGB)
     }
     else {
         # 无GPU时限制下载小于8GB的模型，并检查系统内存
-        if ($modelMemoryGB -gt 8) {
-            Write-ProgressMessage "✗ 模型 $($Model.Name) 过大，无GPU时不建议下载 (模型大小: ${modelMemoryGB}GB > 8GB限制)" 'Red'
-            return $false
-        }
-        
-        # 检查系统内存是否足够（建议至少有模型大小的1.5倍内存）
-        $requiredMemory = $modelMemoryGB * 1.5
-        if ($MemoryInfo.TotalGB -ge $requiredMemory) {
-            Write-ProgressMessage "✓ 模型 $($Model.Name) 可以使用CPU运行 (需要内存: ${modelMemoryGB}GB, 建议内存: ${requiredMemory}GB, 可用内存: $($MemoryInfo.AvailableGB)GB)" 'Green'
-            return $true
-        }
-        else {
-            Write-ProgressMessage "✗ 模型 $($Model.Name) 系统内存不足 (建议: ${requiredMemory}GB, 可用内存: $($MemoryInfo.AvailableGB)GB)" 'Red'
-            return $false
+        if ($modelMemoryGB -gt [double]$Policy.CpuMaxModelGB) { return $false }
+        $requiredMemory = $modelMemoryGB * [double]$Policy.MemoryMultiplier
+        return ($MemoryInfo.TotalGB -ge $requiredMemory)
+    }
+}
+
+function Preprocess-Resources {
+    <#
+    .SYNOPSIS
+        根据操作系统规范化资源信息
+    .DESCRIPTION
+        macOS 走统一内存路径：以系统内存估算显存；其他系统强制应用最低显存下限。
+    .PARAMETER GpuInfo
+        GPU信息哈希表
+    .PARAMETER MemoryInfo
+        内存信息哈希表
+    .PARAMETER OsType
+        操作系统类型（Get-OperatingSystem）
+    .PARAMETER Policy
+        策略字典（包含 MinVramGB）
+    .OUTPUTS
+        规范化后的 GPU 信息哈希表
+    #>
+    param(
+        [hashtable]$GpuInfo,
+        [hashtable]$MemoryInfo,
+        [string]$OsType,
+        [hashtable]$Policy
+    )
+    if ($OsType -eq 'macOS') {
+        Write-ProgressMessage '检测到macOS系统，使用系统内存作为显存计算基准' 'Yellow'
+        $GpuInfo.VramGB = [math]::Max(0, $MemoryInfo.TotalGB - 2)
+        $GpuInfo.HasGpu = $true
+    }
+    else {
+        $GpuInfo.VramGB = [math]::Max($GpuInfo.VramGB, $Policy.MinVramGB)
+    }
+    return $GpuInfo
+}
+
+function Select-EligibleModels {
+    <#
+    .SYNOPSIS
+        结合跳过规则与资源评估，生成可下载列表
+    .DESCRIPTION
+        将原始模型配置转为供下载阶段使用的精简对象，并统计跳过数（在主流程中处理）。
+    .PARAMETER Models
+        原始模型配置数组
+    .PARAMETER GpuInfo
+        GPU信息
+    .PARAMETER MemoryInfo
+        内存信息
+    .PARAMETER Policy
+        策略字典
+    .PARAMETER Skip
+        额外跳过的模型名称或ID
+    .OUTPUTS
+        PSCustomObject[]，字段：Name, Id, SizeGB, VramGB
+    #>
+    param(
+        [object[]]$Models,
+        [hashtable]$GpuInfo,
+        [hashtable]$MemoryInfo,
+        [hashtable]$Policy,
+        [string[]]$Skip
+    )
+    $eligible = @()
+    foreach ($m in $Models) {
+        if ($m.skip -or ($Skip -and ($Skip -contains $m.name -or $Skip -contains $m.modelId))) { continue }
+        $ht = @{ Name = $m.name; Size = $m.size; VramRequired = $m.vramRequired; ModelId = $m.modelId }
+        if (Test-ModelCanDownload -Model $ht -GpuInfo $GpuInfo -MemoryInfo $MemoryInfo -Policy $DEFAULTS) {
+            $eligible += [pscustomobject]@{ Name = $m.name; Id = $m.modelId; SizeGB = $m.size; VramGB = $m.vramRequired }
         }
     }
+    return $eligible
+}
+
+function Invoke-ModelDownload {
+    [CmdletBinding(SupportsShouldProcess = $true)]
+    <#
+    .SYNOPSIS
+        执行模型下载并内置失败重试与确认语义
+    .DESCRIPTION
+        使用提供者命令拉取模型，失败最多重试3次（指数退避）。支持 `-WhatIf/-Confirm`。
+    .PARAMETER Models
+        可下载模型列表（Select-EligibleModels 输出）
+    .PARAMETER Provider
+        提供者命令名称（如 ollama）。需本机可用。
+    .OUTPUTS
+        哈希表：Downloaded（成功数）、Failed（失败数）
+    #>
+    param(
+        [object[]]$Models,
+        [string]$Provider
+    )
+    $ok = 0; $fail = 0
+    if (-not (Get-Command $Provider -ErrorAction SilentlyContinue)) {
+        Write-Error "命令不可用: $Provider。请先安装或配置环境。"
+        return @{ Downloaded = $ok; Failed = $fail }
+    }
+    foreach ($m in $Models) {
+        if ($PSCmdlet.ShouldProcess($m.Name, "Pull model via provider $Provider")) {
+            $attempt = 0
+            while ($attempt -lt 3) {
+                try {
+                    & $Provider pull $m.Id
+                    if ($LASTEXITCODE -eq 0) { $ok++; break }
+                    $attempt++
+                    Start-Sleep -Seconds ([math]::Pow(2, $attempt))
+                }
+                catch {
+                    $attempt++
+                    Start-Sleep -Seconds ([math]::Pow(2, $attempt))
+                }
+            }
+            if ($attempt -ge 3) { $fail++ }
+        }
+    }
+    return @{ Downloaded = $ok; Failed = $fail }
 }
 
 # 主程序开始
@@ -139,20 +313,10 @@ Write-ProgressMessage "操作系统: $osType" 'White'
 # 获取系统信息
 $gpuInfo = Get-GpuInfo
 $memoryInfo = Get-SystemMemoryInfo
-
-# macOS系统特殊处理：使用系统内存作为显存计算基准
-if ($osType -eq "macOS") {
-    Write-ProgressMessage "检测到macOS系统，使用系统内存作为显存计算基准" 'Yellow'
-    $gpuInfo.VramGB = $memoryInfo.TotalGB - 2
-    $gpuInfo.HasGpu = $true  # 将macOS视为有GPU（使用统一内存架构）
-}
-else {
-    # 其他系统最小显存按照8GB
-    $gpuInfo.VramGB = [math]::max($gpuInfo.VramGB, 8)
-}
+$gpuInfo = Preprocess-Resources -GpuInfo $gpuInfo -MemoryInfo $memoryInfo -OsType $osType -Policy $DEFAULTS
 
 # 从配置文件加载模型列表
-$modelList = Get-ModelListFromConfig
+$modelList = Get-ModelListFromConfig -ConfigPath $ConfigPath
 if ($modelList.Count -eq 0) {
     Write-Error "无法加载模型配置，脚本退出"
     exit 1
@@ -166,86 +330,34 @@ if ($gpuInfo.HasGpu) {
 }
 Write-ProgressMessage "系统内存: $($memoryInfo.TotalGB)GB (可用: $($memoryInfo.AvailableGB)GB)" 'White'
 
-# 检查并下载模型
 Write-ProgressMessage "`n开始检查模型..." 'Cyan'
-$downloadedCount = 0
-$skippedCount = 0
-if ($ListOnly) { $plannedCount = 0; $plannedModels = @() }
-
-foreach ($model in $modelList) {
-    Write-ProgressMessage "`n检查模型: $($model.name)" 'Yellow'
-    
-    # 检查是否设置了skip参数
-    if ($model.skip -eq $true) {
-        Write-ProgressMessage "⏭ 模型 $($model.name) 已设置为跳过" 'Gray'
-        $skippedCount++
-        continue
-    }
-    
-    # 转换为hashtable格式以兼容现有函数
-    $modelHashtable = @{
-        Name         = $model.name
-        Size         = $model.size
-        VramRequired = $model.vramRequired
-        ModelId      = $model.modelId
-    }
-    
-    if (Test-ModelCanDownload -Model $modelHashtable -GpuInfo $gpuInfo -MemoryInfo $memoryInfo) {
-        if ($ListOnly) {
-            Write-ProgressMessage "将会下载模型: $($model.name) (ID: $($model.modelId), 大小: $($model.size)GB, 显存需求: $($model.vramRequired)GB)" 'Green'
-            $plannedCount++
-            $plannedModels += [pscustomobject]@{ Name = $model.name; Id = $model.modelId; SizeGB = $model.size; VramGB = $model.vramRequired }
-        }
-        else {
-            Write-Host "正在下载模型: $($model.name)..." -ForegroundColor Cyan
-            try {
-                ollama pull $model.modelId
-                if ($LASTEXITCODE -eq 0) {
-                    Write-Host "✓ 模型 $($model.name) 下载成功" -ForegroundColor Green
-                    $downloadedCount++
-                }
-                else {
-                    Write-Host "✗ 模型 $($model.name) 下载失败" -ForegroundColor Red
-                    $skippedCount++
-                }
-            }
-            catch {
-                Write-Host "✗ 模型 $($model.name) 下载出错: $($_.Exception.Message)" -ForegroundColor Red
-                $skippedCount++
-            }
-        }
-    }
-    else {
-        Write-ProgressMessage "跳过模型: $($model.name)" 'Yellow'
-        $skippedCount++
-    }
-}
+$eligible = Select-EligibleModels -Models $modelList -GpuInfo $gpuInfo -MemoryInfo $memoryInfo -Policy $DEFAULTS -Skip $Skip
+$skippedCount = (@($modelList).Count - @($eligible).Count)
 
 # 显示总结
 if ($ListOnly) {
     Write-Host "`n=== 计划下载列表 ===" -ForegroundColor Cyan
-    Write-Host "提示: 使用不下载模式仅列出符合条件的模型" -ForegroundColor White
-    Write-Host "计划下载: $plannedCount 个模型" -ForegroundColor Green
-    if ($plannedCount -gt 0) {
-        foreach ($item in $plannedModels) {
-            Write-Host "- $($item.Name) (ID: $($item.Id), 大小: $($item.SizeGB)GB, 显存需求: $($item.VramGB)GB)" -ForegroundColor Green
-        }
+    Write-Host "计划下载: $(@($eligible).Count) 个模型" -ForegroundColor Green
+    foreach ($item in $eligible) {
+        Write-Host "- $($item.Name) (ID: $($item.Id), 大小: $($item.SizeGB)GB, 显存需求: $($item.VramGB)GB)" -ForegroundColor Green
     }
+    if ($OutputPath) { $eligible | ConvertTo-Json -Depth 4 | Set-Content -Path $OutputPath }
     Write-Host "跳过模型: $skippedCount 个模型" -ForegroundColor Yellow
 }
 else {
+    $invokeWhatIf = $PSBoundParameters.ContainsKey('WhatIf')
+    $result = Invoke-ModelDownload -Models $eligible -Provider $Provider -WhatIf:$invokeWhatIf
     Write-Host "`n=== 下载完成 ===" -ForegroundColor Cyan
-    Write-Host "成功下载: $downloadedCount 个模型" -ForegroundColor Green
-    Write-Host "跳过模型: $skippedCount 个模型" -ForegroundColor Yellow
+    Write-Host "成功下载: $($result.Downloaded) 个模型" -ForegroundColor Green
+    Write-Host "跳过/失败: $($skippedCount + $result.Failed) 个模型" -ForegroundColor Yellow
 }
 
-if (-not $ListOnly -and $downloadedCount -eq 0) {
+if (-not $ListOnly -and $eligible.Count -eq 0) {
     Write-Host "`n建议:" -ForegroundColor Yellow
     if (-not $gpuInfo.HasGpu) {
-        Write-Host "- 考虑升级显卡以支持更大的模型" -ForegroundColor White
-        Write-Host "- 或增加系统内存以运行更多CPU模型" -ForegroundColor White
+        Write-Host "- 考虑升级显卡或增加系统内存" -ForegroundColor White
     }
     else {
-        Write-Host "- 考虑升级显卡显存以支持更大的模型" -ForegroundColor White
+        Write-Host "- 考虑升级显存以支持更大的模型" -ForegroundColor White
     }
 }
