@@ -103,179 +103,48 @@ $pgHealthCheck = @(
 )
 
 
-switch ($ServiceName) {
+function Get-ComposeServiceNames {
+    param(
+        [string]$ComposePath,
+        [string]$ReplicaComposePath
+    )
+    $names = @()
+    if (Test-Path $ComposePath) {
+        $inServices = $false
+        foreach ($line in Get-Content -LiteralPath $ComposePath) {
+            if ($line -match '^\s*services:\s*$') { $inServices = $true; continue }
+            if ($inServices) {
+                if ($line -match '^\s{2}([A-Za-z0-9\-_]+):\s*$') { $names += $Matches[1]; continue }
+                if ($line -match '^\S') { $inServices = $false }
+            }
+        }
+    }
+    $result = @($names | Sort-Object -Unique)
+    if (Test-Path $ReplicaComposePath) { $result += 'mongodb-replica' }
+    $result | Sort-Object -Unique
+}
 
-    'minio' {
-        docker run -d --name minio-dev `
-            $commonParams`
-        -p 9000:9000 -p 9001:9001 `
-            -v $DataPath/minio:/bitnami/minio/data `
-            -e MINIO_ROOT_USER=$DefaultUser `
-            -e MINIO_ROOT_PASSWORD=$DefaultPassword `
-            --restart=$RestartPolicy `
-            bitnami/minio
-    }
-     
-    'redis' {
-        docker run -d --name redis-dev `
-            $commonParams`
-        -p 6379:6379 --restart=$RestartPolicy redis 
-    }
-    'postgre' {
-        docker run --name postgre-dev -d `
-            $commonParams`
-        -p 5432:5432 `
-            $pgHealthCheck `
-            -e POSTGRES_PASSWORD=$DefaultPassword `
-            -e TZ=Asia/Shanghai `
-            -v $DataPath/postgresql/data:/var/lib/postgresql/data `
-            --restart=$RestartPolicy `
-            postgres
 
-        # 创建nestAdmin表
-        # docker exec -it postgre-dev ` psql -U postgres `
-        #     -c "CREATE DATABASE nestAdmin"
-        
-    }
-    # 其他服务同样添加$commonParams参数
-    'etcd' {
-        docker run --name etcd-dev -d `
-            $commonParams`
-        -p 2379:2379 -p 2380:2380 `
-            -e ETCD_ROOT_PASSWORD=$DefaultPassword `
-            -e ALLOW_NONE_AUTHENTICATION=yes `
-            -e ETCD_ADVERTISE_CLIENT_URLS=http://etcd-server:2379 `
-            --restart=$RestartPolicy `
-            bitnami/etcd
-
-        # docker run --name etcd-dev -d -p 2379:2379 `
-        #     -p 2380:2380 `
-        #     -e ETCD_ROOT_PASSWORD=123456 `
-        #     -e ETCDCTL_USER=root `
-        #     -e ETCDCTL_PASSWORD=123456 `
-        #     bitnami/etcd
-       
-
-        # docker login -u mudssky
-        # 需要去docker个人页面获取token登录才能拉取
-    }
-    'nacos' {
-        docker run --name nacos-dev -d `
-            $commonParams`
-        -p 8848:8848 `
-            -e MODE=standalone `
-            --restart=$RestartPolicy `
-            nacos/nacos-server
-    }
-
-    'rabbitmq' {
-        docker run -d --name rabbitmq-dev `
-            $commonParams`
-        -p 5672:5672 -p 15672:15672 `
-            --restart=$RestartPolicy `
-            rabbitmq
-    }
-    'mongodb' {
-        docker run -d --name mongodb-dev `
-            $commonParams `
-            -p 27017:27017 `
-            -v $DataPath/mongodb:/data/db `
-            --restart=$RestartPolicy `
-            mongo:8
-    }
-    
-    'mongodb-replica' {
-        $env:DOCKER_DATA_PATH = $DataPath
-        $env:MONGO_USER = $DefaultUser
-        $env:MONGO_PASSWORD = $DefaultPassword
-        docker-compose  -p mongo-repl-dev -f dockerfiles/compose/mongo-repl.compose.yml up -d
-    }
-    'one-api' {
-        docker run -d  --name one-api-dev `
-            $commonParams `
-            -p 39010:3000 `
-            -e TZ=Asia/Shanghai `
-            -v $DataPath/one-api:/data `
-            --restart=$RestartPolicy `
-            justsong/one-api
-    }
-    # ai模型相关
-    'kokoro-fastapi' {
-        docker run -d --name kokoro-fastapi-dev `
-            $commonParams `
-            --gpus all -p 38880:8880 `
-            --restart=$RestartPolicy `
-            ghcr.io/remsky/kokoro-fastapi-gpu:latest
-    }
-    'kokoro-fastapi-cpu' {
-        docker run -d --name kokoro-fastapi-dev `
-            $commonParams `
-            -p 38880:8880 `
-            --restart=$RestartPolicy `
-            ghcr.io/remsky/kokoro-fastapi-cpu:latest
-    }
-    'cadvisor' {
-        docker run -d --name cadvisor-dev `
-            $commonParams `
-            -p 38181:8080 `
-            --volume=/:/rootfs:ro `
-            --volume=/var/run:/var/run:ro `
-            --volume=/sys:/sys:ro `
-            --volume=/var/lib/docker/:/var/lib/docker:ro `
-            --volume=/dev/disk/:/dev/disk:ro `
-            --privileged `
-            --device=/dev/kmsg `
-            --restart=$RestartPolicy `
-            gcr.io/cadvisor/cadvisor:$VERSION
-    }
-    'prometheus' {
-        docker run -d --name prometheus-dev `
-            $commonParams `
-            -p 39090:9090 `
-            --restart=$RestartPolicy `
-            prom/prometheus
-    }
-    'new-api' {
-        docker run -d --name new-api-dev `
-            $commonParams `
-            -p 3000:3000 `
-            -e TZ=Asia/Shanghai `
-            -v $DataPath/new-api:/data `
-            --restart=$RestartPolicy `
-            calciumion/new-api:latest
-    }
-    'n8n' {
-        docker run -d --name n8n-dev `
-            $commonParams `
-            -p 35678:5678 `
-            -v $DataPath/n8n:/home/node/.n8n `
-            --restart=$RestartPolicy `
-            docker.n8n.io/n8nio/n8n
-    }
-    'noco' {
-        docker run -d --name noco-dev `
-            $commonParams `
-            -p 35080:8080 `
-            -v $DataPath/nocodb:/usr/app/data/ `
-            --restart=$RestartPolicy `
-            nocodb/nocodb:latest
-    }
-    'crawl4ai' {
-        docker run -d --name crawl4ai-dev `
-            $commonParams `
-            -p 11235:11235 `
-            --shm-size=1g `
-            --restart=$RestartPolicy `
-            unclecode/crawl4ai:latest
-    }
-    "pageSpy" {
-        docker run -d --name pageSpy-dev `
-            $commonParams `
-            -p 6752:6752 `
-            --restart=$RestartPolicy `
-            -v $DataPath/pageSpy/log:/app/log `
-            -v $DataPath/pageSpy/data:/app/data `
-            ghcr.io/huolalatech/page-spy-web:latest
-
+${env:DATA_PATH} = $DataPath
+${env:DEFAULT_USER} = $DefaultUser
+${env:DEFAULT_PASSWORD} = $DefaultPassword
+${env:RESTART_POLICY} = $RestartPolicy
+$composeDir = Join-Path $PSScriptRoot "config/dockerfiles/compose"
+$composePath = Join-Path $composeDir "docker-compose.yml"
+$mongoReplComposePath = Join-Path $composeDir "mongo-repl.compose.yml"
+if ($ServiceName -eq 'mongodb-replica' -and (Test-Path $mongoReplComposePath)) {
+    $env:DOCKER_DATA_PATH = $DataPath
+    $env:MONGO_USER = $DefaultUser
+    $env:MONGO_PASSWORD = $DefaultPassword
+    docker compose -p mongo-repl-dev -f $mongoReplComposePath up -d
+    return
+}
+if (Test-Path $composePath) {
+    $available = Get-ComposeServiceNames -ComposePath $composePath -ReplicaComposePath $mongoReplComposePath
+    if ($available -contains $ServiceName) {
+        docker compose -f $composePath --profile $ServiceName up -d
+        return
     }
 }
+
+throw "未找到可用的容器配置: $ServiceName"

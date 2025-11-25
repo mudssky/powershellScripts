@@ -1,0 +1,252 @@
+services:
+  redis:
+    image: redis:latest
+    container_name: redis-dev
+    restart: ${RESTART_POLICY:-unless-stopped}
+    ports: ["6379:6379"]
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    profiles: ["redis"]
+
+  postgre:
+    image: postgres:latest
+    container_name: postgre-dev
+    restart: ${RESTART_POLICY:-unless-stopped}
+    environment:
+      POSTGRES_PASSWORD: ${DEFAULT_PASSWORD:-12345678}
+      TZ: "Asia/Shanghai"
+    ports: ["5432:5432"]
+    volumes:
+      - "${DATA_PATH}/postgresql/data:/var/lib/postgresql/data"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    profiles: ["postgre"]
+
+  minio:
+    image: bitnami/minio:latest
+    container_name: minio-dev
+    restart: ${RESTART_POLICY:-unless-stopped}
+    environment:
+      MINIO_ROOT_USER: ${DEFAULT_USER:-root}
+      MINIO_ROOT_PASSWORD: ${DEFAULT_PASSWORD:-12345678}
+    ports: ["9000:9000", "9001:9001"]
+    volumes:
+      - "${DATA_PATH}/minio:/bitnami/minio/data"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    profiles: ["minio"]
+
+  mongodb:
+    image: mongo:8
+    container_name: mongodb-dev
+    restart: ${RESTART_POLICY:-unless-stopped}
+    ports: ["27017:27017"]
+    volumes:
+      - "${DATA_PATH}/mongodb:/data/db"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    profiles: ["mongodb"]
+
+  etcd:
+    image: bitnami/etcd:latest
+    container_name: etcd-dev
+    restart: ${RESTART_POLICY:-unless-stopped}
+    environment:
+      ETCD_ROOT_PASSWORD: ${DEFAULT_PASSWORD:-12345678}
+      ALLOW_NONE_AUTHENTICATION: "yes"
+      ETCD_ADVERTISE_CLIENT_URLS: "http://etcd-server:2379"
+    ports: ["2379:2379", "2380:2380"]
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    profiles: ["etcd"]
+
+  nacos:
+    image: nacos/nacos-server:latest
+    container_name: nacos-dev
+    restart: ${RESTART_POLICY:-unless-stopped}
+    environment:
+      MODE: standalone
+    ports: ["8848:8848"]
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    profiles: ["nacos"]
+
+  rabbitmq:
+    image: rabbitmq:latest
+    container_name: rabbitmq-dev
+    restart: ${RESTART_POLICY:-unless-stopped}
+    ports: ["5672:5672", "15672:15672"]
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    profiles: ["rabbitmq"]
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus-dev
+    restart: ${RESTART_POLICY:-unless-stopped}
+    ports: ["39090:9090"]
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    profiles: ["prometheus"]
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: n8n-dev
+    restart: ${RESTART_POLICY:-unless-stopped}
+    ports: ["35678:5678"]
+    volumes:
+      - "${DATA_PATH}/n8n:/home/node/.n8n"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    profiles: ["n8n"]
+
+  noco:
+    image: nocodb/nocodb:latest
+    container_name: noco-dev
+    restart: ${RESTART_POLICY:-unless-stopped}
+    ports: ["35080:8080"]
+    volumes:
+      - "${DATA_PATH}/nocodb:/usr/app/data"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    profiles: ["noco"]
+
+  crawl4ai:
+    image: unclecode/crawl4ai:latest
+    container_name: crawl4ai-dev
+    restart: ${RESTART_POLICY:-unless-stopped}
+    ports: ["11235:11235"]
+    shm_size: "1g"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    profiles: ["crawl4ai"]
+
+  pageSpy:
+    image: ghcr.io/huolalatech/page-spy-web:latest
+    container_name: pageSpy-dev
+    restart: ${RESTART_POLICY:-unless-stopped}
+    ports: ["6752:6752"]
+    volumes:
+      - "${DATA_PATH}/pageSpy/log:/app/log"
+      - "${DATA_PATH}/pageSpy/data:/app/data"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    profiles: ["pageSpy"]
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor-dev
+    restart: ${RESTART_POLICY:-unless-stopped}
+    ports: ["38181:8080"]
+    volumes:
+      - "/:/rootfs:ro"
+      - "/var/run:/var/run:ro"
+      - "/sys:/sys:ro"
+      - "/var/lib/docker/:/var/lib/docker:ro"
+      - "/dev/disk/:/dev/disk:ro"
+    privileged: true
+    devices:
+      - "/dev/kmsg:/dev/kmsg"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    profiles: ["cadvisor"]
+
+  one-api:
+    image: justsong/one-api:latest
+    container_name: one-api-dev
+    restart: ${RESTART_POLICY:-unless-stopped}
+    environment:
+      TZ: "Asia/Shanghai"
+    ports: ["39010:3000"]
+    volumes:
+      - "${DATA_PATH}/one-api:/data"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    profiles: ["one-api"]
+
+  new-api:
+    image: calciumion/new-api:latest
+    container_name: new-api-dev
+    restart: ${RESTART_POLICY:-unless-stopped}
+    environment:
+      TZ: "Asia/Shanghai"
+    ports: ["39020:3000"]
+    volumes:
+      - "${DATA_PATH}/new-api:/data"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    profiles: ["new-api"]
+
+  kokoro-fastapi-cpu:
+    image: ghcr.io/remsky/kokoro-fastapi-cpu:latest
+    container_name: kokoro-fastapi-dev
+    restart: ${RESTART_POLICY:-unless-stopped}
+    ports: ["38880:8880"]
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    profiles: ["kokoro-fastapi-cpu"]
+
+  kokoro-fastapi:
+    image: ghcr.io/remsky/kokoro-fastapi-gpu:latest
+    container_name: kokoro-fastapi-gpu-dev
+    restart: ${RESTART_POLICY:-unless-stopped}
+    ports: ["38880:8880"]
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    profiles: ["kokoro-fastapi"]
