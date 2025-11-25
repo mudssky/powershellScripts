@@ -120,6 +120,23 @@ function Initialize-DataPath {
     catch { return $Path }
 }
 
+function Get-DefaultProjectName {
+    param(
+        [string]$ServiceName,
+        [string]$ProjectNameInput
+    )
+    $name = $ProjectNameInput
+    if ([string]::IsNullOrWhiteSpace($name)) {
+        if (-not [string]::IsNullOrWhiteSpace(${env:COMPOSE_PROJECT_NAME})) { $name = ${env:COMPOSE_PROJECT_NAME} }
+    }
+    if ([string]::IsNullOrWhiteSpace($name)) {
+        if (-not [string]::IsNullOrWhiteSpace($ServiceName)) { $name = ("dev-" + $ServiceName) } else { $name = "compose" }
+    }
+    $normalized = ($name.ToLower() -replace '[^a-z0-9\-]', '-')
+    if ($normalized.Length -gt 40) { $normalized = $normalized.Substring(0, 40) }
+    return $normalized
+}
+
 $DataPath = Initialize-DataPath -Path $DataPath
 # 可以添加统一网络配置
 # $networkName = "dev-net"
@@ -229,6 +246,8 @@ ${env:DATA_PATH} = $DataPath
 ${env:DEFAULT_USER} = $DefaultUser
 ${env:DEFAULT_PASSWORD} = (Get-PlainTextFromSecure -Secure $DefaultPassword)
 ${env:RESTART_POLICY} = $RestartPolicy
+$projectName = Get-DefaultProjectName -ServiceName $ServiceName -ProjectName $ProjectName
+${env:COMPOSE_PROJECT_NAME} = $projectName
 $composeDir = Join-Path $PSScriptRoot "config/dockerfiles/compose"
 $composePath = Join-Path $composeDir "docker-compose.yml"
 $mongoReplComposePath = Join-Path $composeDir "mongo-repl.compose.yml"
@@ -245,6 +264,7 @@ if ($List) {
     if (Test-Path $composePath) {
         $available = Get-ComposeServiceNames -ComposePath $composePath -ReplicaComposePath $mongoReplComposePath
         $available | ForEach-Object { Write-Output $_ }
+        Write-Output ("默认项目名: " + $projectName)
         return
     }
 }
@@ -254,33 +274,33 @@ if ($ServiceName -eq 'mongodb-replica' -and (Test-Path $mongoReplComposePath)) {
     $env:DOCKER_DATA_PATH = $DataPath
     $env:MONGO_USER = $DefaultUser
     $env:MONGO_PASSWORD = (Get-PlainTextFromSecure -Secure $DefaultPassword)
-    Invoke-DockerCompose -File $mongoReplComposePath -Project 'mongo-repl-dev' -Action 'up -d' -DryRun:$DryRun
-    if (-not $DryRun) { [void](Wait-ServiceHealthy -Service 'mongo1' -Project 'mongo-repl-dev') }
+    Invoke-DockerCompose -File $mongoReplComposePath -Project $projectName -Action 'up -d' -DryRun:$DryRun
+    if (-not $DryRun) { [void](Wait-ServiceHealthy -Service 'mongo1' -Project $projectName) }
     return
 }
 if (Test-Path $composePath) {
     $available = Get-ComposeServiceNames -ComposePath $composePath -ReplicaComposePath $mongoReplComposePath
     if ($Down) {
         if ($ServiceName) {
-            Invoke-DockerCompose -File $composePath -Project $ProjectName -Action 'stop' -Services @($ServiceName) -DryRun:$DryRun
-            Invoke-DockerCompose -File $composePath -Project $ProjectName -Action 'rm -f -s' -Services @($ServiceName) -DryRun:$DryRun
+            Invoke-DockerCompose -File $composePath -Project $projectName -Action 'stop' -Services @($ServiceName) -DryRun:$DryRun
+            Invoke-DockerCompose -File $composePath -Project $projectName -Action 'rm -f -s' -Services @($ServiceName) -DryRun:$DryRun
         }
         else {
-            Invoke-DockerCompose -File $composePath -Project $ProjectName -Action 'down' -DryRun:$DryRun
+            Invoke-DockerCompose -File $composePath -Project $projectName -Action 'down' -DryRun:$DryRun
         }
         return
     }
     if ($Pull) {
-        Invoke-DockerCompose -File $composePath -Project $ProjectName -Profiles @($ServiceName) -Action 'pull' -DryRun:$DryRun
+        Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'pull' -DryRun:$DryRun
         return
     }
     if ($Build) {
-        Invoke-DockerCompose -File $composePath -Project $ProjectName -Profiles @($ServiceName) -Action 'build' -DryRun:$DryRun
+        Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'build' -DryRun:$DryRun
         return
     }
     if ($available -contains $ServiceName) {
-        Invoke-DockerCompose -File $composePath -Project $ProjectName -Profiles @($ServiceName) -Action 'up -d' -DryRun:$DryRun
-        if (-not $DryRun) { [void](Wait-ServiceHealthy -Service $ServiceName -Project $ProjectName) }
+        Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'up -d' -DryRun:$DryRun
+        if (-not $DryRun) { [void](Wait-ServiceHealthy -Service $ServiceName -Project $projectName) }
         return
     }
     else {
