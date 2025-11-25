@@ -57,7 +57,7 @@
 param (
     [Parameter(Mandatory = $true)]
     [ValidateSet("minio", "redis", 'postgre', 'etcd', 'nacos', 'rabbitmq', 'mongodb', 'one-api', 'mongodb-replica', 'kokoro-fastapi', 
-        'kokoro-fastapi-cpu', 'cadvisor', 'prometheus', 'noco', 'n8n', 'crawl4ai', 'pageSpy')]
+        'kokoro-fastapi-cpu', 'cadvisor', 'prometheus', 'noco', 'n8n', 'crawl4ai', 'pageSpy', 'new-api')]
     [string]$ServiceName, # 更合理的参数名
     
     [ValidateSet("always", "unless-stopped", 'on-failure', 'on-failure:3', 'no')]
@@ -71,7 +71,7 @@ param (
 # 设置默认 docker 映射路径
 if (!$DataPath) {
     if ($IsWindows) {
-        $DataPath = = "C:/docker_data"
+        $DataPath = "C:/docker_data"
     }
     elseif ($IsLinux) {
         $DataPath = "/var/lib/docker_data"
@@ -190,7 +190,7 @@ switch ($ServiceName) {
         $env:MONGO_PASSWORD = $DefaultPassword
         docker-compose  -p mongo-repl-dev -f dockerfiles/compose/mongo-repl.compose.yml up -d
     }
-    ‘one-api’ {
+    'one-api' {
         docker run -d  --name one-api-dev `
             $commonParams `
             -p 39010:3000 `
@@ -234,6 +234,15 @@ switch ($ServiceName) {
             -p 39090:9090 `
             --restart=$RestartPolicy `
             prom/prometheus
+    }
+    'new-api' {
+        docker run -d --name new-api-dev `
+            $commonParams `
+            -p 3000:3000 `
+            -e TZ=Asia/Shanghai `
+            -v $DataPath/new-api:/data `
+            --restart=$RestartPolicy `
+            calciumion/new-api:latest
     }
     'n8n' {
         docker run -d --name n8n-dev `
