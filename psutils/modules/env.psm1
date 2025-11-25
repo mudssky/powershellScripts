@@ -485,7 +485,8 @@ function Sync-PathFromBash {
             # 将新路径追加到现有的 PowerShell PATH 后面
             $env:PATH = "$($env:PATH)$separator$pathsToAdd"
             Write-Information "PowerShell PATH 已成功更新！" 
-        } else {
+        }
+        else {
             Write-Information "Power-Shell 的 PATH 与 Bash 完全同步，无需操作。"
         }
     }
@@ -495,4 +496,4 @@ function Sync-PathFromBash {
 }
 
 
-Export-ModuleMember -Function Get-Dotenv, Install-Dotenv,Import-EnvPath, Set-EnvPath, Add-EnvPath, Get-EnvParam, Remove-FromEnvPath,Sync-PathFromBash
+Export-ModuleMember -Function Get-Dotenv, Install-Dotenv, Import-EnvPath, Set-EnvPath, Add-EnvPath, Get-EnvParam, Remove-FromEnvPath, Sync-PathFromBash

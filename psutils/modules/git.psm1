@@ -79,8 +79,8 @@ function New-7ZipExcludeArgs {
     }
 
     $all = @($normalizedBase + $gitPatterns + $normalizedAdditional) |
-    Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
-    Select-Object -Unique
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+        Select-Object -Unique
 
     $excludeArgs = $all | ForEach-Object { "-xr!$_" }
     return $excludeArgs

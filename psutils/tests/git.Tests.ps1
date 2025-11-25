@@ -53,7 +53,7 @@ Describe 'Git 模块函数' {
         }
 
         It '应合并基础、gitignore 和额外排除并去重' {
-            $args = New-7ZipExcludeArgs -GitIgnorePath $gitIgnore -AdditionalExcludes @('dist','build/*.tmp','logs')
+            $args = New-7ZipExcludeArgs -GitIgnorePath $gitIgnore -AdditionalExcludes @('dist', 'build/*.tmp', 'logs')
             ($args) | Should -Not -Be $null
             foreach ($a in $args) { $a | Should -Match '^-xr!.+' }
             $args | Should -Contain '-xr!node_modules'

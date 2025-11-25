@@ -77,7 +77,7 @@ switch ($Mode) {
             $settingsList.Add($jsoncString)
         } 
     }
-    Default {}
+    default {}
 }
 
 

@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "prepare": "husky",
-    "format:pwsh": "pwsh -File ./srcipts/Format-PowerShellCode.ps1 -Path . -Recurse",
+    "format:pwsh": "pwsh -File ./scripts/Format-PowerShellCode.ps1 -Path . -Recurse",
     "format:biome": "biome format --write .",
     "format": "pnpm format:pwsh",
     "pwsh:install": "pwsh -File ./install.ps1",
