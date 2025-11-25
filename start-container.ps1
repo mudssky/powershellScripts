@@ -188,13 +188,9 @@ function Wait-ServiceHealthy {
     $elapsed = 0
     while ($elapsed -lt $TimeoutSec) {
         try {
-            $filterArgs = @('ps', '-q', '--filter', "label=com.docker.compose.service=$Service")
-            if ($Project) { $filterArgs += @('--filter', "label=com.docker.compose.project=$Project") }
-            $mode = Test-DockerAvailable
-            $psArgs = @()
-            if ($mode -eq 'sub') { $psArgs += 'compose' }
-            $psArgs += $filterArgs
-            $ids = if ($mode -eq 'sub') { & docker @psArgs } else { & docker-compose @filterArgs }
+            $psArgs = @('ps', '-q', '--filter', "label=com.docker.compose.service=$Service")
+            if ($Project) { $psArgs += @('--filter', "label=com.docker.compose.project=$Project") }
+            $ids = & docker @psArgs
             if ([string]::IsNullOrWhiteSpace($ids)) { Start-Sleep -Milliseconds 500; continue }
             $inspect = & docker inspect $ids
             if ($inspect -match '"Status":\s*"healthy"') { return $true }
@@ -257,7 +253,7 @@ if ($NetworkName) { New-NetworkIfMissing -Name $NetworkName }
 if ($ServiceName -eq 'mongodb-replica' -and (Test-Path $mongoReplComposePath)) {
     $env:DOCKER_DATA_PATH = $DataPath
     $env:MONGO_USER = $DefaultUser
-    $env:MONGO_PASSWORD = $DefaultPassword
+    $env:MONGO_PASSWORD = (Get-PlainTextFromSecure -Secure $DefaultPassword)
     Invoke-DockerCompose -File $mongoReplComposePath -Project 'mongo-repl-dev' -Action 'up -d' -DryRun:$DryRun
     if (-not $DryRun) { [void](Wait-ServiceHealthy -Service 'mongo1' -Project 'mongo-repl-dev') }
     return
