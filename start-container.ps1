@@ -48,14 +48,30 @@
     .\start-container.ps1 -ServiceName mongodb -RestartPolicy always -DataPath "D:/data"
     启动MongoDB服务并自定义重启策略和数据目录
 
+.EXAMPLE
+    .\start-container.ps1 -List
+    列出可用服务与配置
+
+.EXAMPLE
+    .\start-container.ps1 -ServiceName redis -DryRun
+    以干运行模式打印将执行的命令
+
+.EXAMPLE
+    .\start-container.ps1 -ServiceName redis -Down -DryRun
+    停止并移除指定服务（不执行，仅预览）
+
+.EXAMPLE
+    .\start-container.ps1 -ServiceName redis -Pull -DryRun
+    拉取镜像（不执行，仅预览）
+
 .NOTES
     需要安装Docker
     脚本会自动创建必要的数据目录
     某些服务可能需要额外的配置文件
 #>
-[CmdletBinding()]
+[CmdletBinding(SupportsShouldProcess = $true)]
 param (
-    [Parameter(Mandatory = $true)]
+    [Parameter(Mandatory = $false)]
     [ValidateSet("minio", "redis", 'postgre', 'etcd', 'nacos', 'rabbitmq', 'mongodb', 'one-api', 'mongodb-replica', 'kokoro-fastapi', 
         'kokoro-fastapi-cpu', 'cadvisor', 'prometheus', 'noco', 'n8n', 'crawl4ai', 'pageSpy', 'new-api')]
     [string]$ServiceName, # 更合理的参数名
@@ -65,42 +81,130 @@ param (
     
     [string]$DataPath   ,# 允许自定义数据目录
     [string]$DefaultUser = "root",  # 默认用户名
-    [string]$DefaultPassword = "12345678"  # 默认密码
+    [SecureString]$DefaultPassword = (ConvertTo-SecureString "12345678" -AsPlainText -Force),  # 默认密码（安全）
+    [switch]$List,
+    [switch]$DryRun,
+    [switch]$Down,
+    [switch]$Pull,
+    [switch]$Build,
+    [string]$ProjectName,
+    [string]$NetworkName,
+    [hashtable]$Env,
+    [switch]$UseEnvFile
 )
   
 # 设置默认 docker 映射路径
-if (!$DataPath) {
-    if ($IsWindows) {
-        $DataPath = "C:/docker_data"
-    }
-    elseif ($IsLinux) {
-        $DataPath = "/var/lib/docker_data"
-    }
-    elseif ($IsMacOS) {
-        $DataPath = "/Volumes/Data/docker_data"
-    }
+Set-StrictMode -Version Latest
+
+function Get-PlainTextFromSecure {
+    param([SecureString]$Secure)
+    if ($null -eq $Secure) { return "" }
+    $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Secure)
+    try { return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr) } finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr) }
 }
+
+function Initialize-DataPath {
+    param(
+        [string]$Path
+    )
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        if ($IsWindows) { $Path = "C:\\docker_data" }
+        elseif ($IsLinux) { $Path = "/var/lib/docker_data" }
+        elseif ($IsMacOS) { $Path = "/Volumes/Data/docker_data" }
+    }
+    try {
+        if (-not (Test-Path -LiteralPath $Path)) { New-Item -ItemType Directory -Path $Path -Force | Out-Null }
+        $resolved = (Resolve-Path -LiteralPath $Path).Path
+        return $resolved
+    }
+    catch { return $Path }
+}
+
+$DataPath = Initialize-DataPath -Path $DataPath
 # 可以添加统一网络配置
 # $networkName = "dev-net"
 # if (-not (docker network ls -q -f name="$networkName")) {
 #     docker network create $networkName
 # }
 
-# 使用数组存储日志配置参数
-$commonParams = @(
-    # 日志相关参数
-    "--log-driver", "json-file",
-    "--log-opt", "max-size=10m",
-    "--log-opt", "max-file=3"
-    # 网络配置
-    # "--network","dev-net"
-)
-$pgHealthCheck = @(
-    "--health-cmd", "pg_isready -U postgres",
-    "--health-interval", "10s",
-    "--health-timeout", "5s",
-    "--health-retries", "3"
-)
+function Test-DockerAvailable {
+    $composeSub = $false
+    $legacyCompose = $false
+    if (Get-Command docker -ErrorAction SilentlyContinue) {
+        try {
+            & docker compose version *> $null
+            if ($LASTEXITCODE -eq 0 -or $?) { $composeSub = $true }
+        }
+        catch {}
+    }
+    if (-not $composeSub) {
+        if (Get-Command docker-compose -ErrorAction SilentlyContinue) { $legacyCompose = $true }
+    }
+    if (-not ($composeSub -or $legacyCompose)) { throw "Docker 未安装或 compose 不可用" }
+    if ($composeSub) { return 'sub' } else { return 'legacy' }
+}
+
+function Invoke-DockerCompose {
+    param(
+        [string]$File,
+        [string]$Project,
+        [string[]]$Profiles,
+        [string[]]$Services,
+        [string]$Action,
+        [string[]]$ExtraArgs,
+        [switch]$DryRun
+    )
+    $mode = Test-DockerAvailable
+    $dcArgs = @()
+    if ($mode -eq 'sub') { $dcArgs += 'compose' }
+    if ($File) { $dcArgs += @('-f', $File) }
+    if ($Project) { $dcArgs += @('-p', $Project) }
+    if ($Profiles) { foreach ($p in $Profiles) { $dcArgs += @('--profile', $p) } }
+    if ($Action) { $dcArgs += ($Action -split ' ') }
+    if ($Services) { $dcArgs += $Services }
+    if ($ExtraArgs) { $dcArgs += $ExtraArgs }
+    if ($DryRun) {
+        if ($mode -eq 'sub') { Write-Output ("docker " + ($dcArgs -join ' ')) } else { Write-Output (("docker-compose " + ($dcArgs -join ' '))) }
+        return
+    }
+    if ($mode -eq 'sub') { & docker @dcArgs } else { & docker-compose @dcArgs }
+}
+
+function Get-NetworkExists {
+    param([string]$Name)
+    try { & docker network ls -q -f name=$Name } catch { return $null }
+}
+
+function New-NetworkIfMissing {
+    param([string]$Name)
+    if ([string]::IsNullOrWhiteSpace($Name)) { return }
+    $exists = Get-NetworkExists -Name $Name
+    if ([string]::IsNullOrWhiteSpace($exists)) { try { & docker network create $Name | Out-Null } catch {} }
+}
+
+function Wait-ServiceHealthy {
+    param([string]$Service, [string]$Project, [int]$TimeoutSec = 60)
+    $start = Get-Date
+    $elapsed = 0
+    while ($elapsed -lt $TimeoutSec) {
+        try {
+            $filterArgs = @('ps', '-q', '--filter', "label=com.docker.compose.service=$Service")
+            if ($Project) { $filterArgs += @('--filter', "label=com.docker.compose.project=$Project") }
+            $mode = Test-DockerAvailable
+            $psArgs = @()
+            if ($mode -eq 'sub') { $psArgs += 'compose' }
+            $psArgs += $filterArgs
+            $ids = if ($mode -eq 'sub') { & docker @psArgs } else { & docker-compose @filterArgs }
+            if ([string]::IsNullOrWhiteSpace($ids)) { Start-Sleep -Milliseconds 500; continue }
+            $inspect = & docker inspect $ids
+            if ($inspect -match '"Status":\s*"healthy"') { return $true }
+        }
+        catch {}
+        Start-Sleep -Seconds 1
+        $elapsed = (((Get-Date) - $start).TotalSeconds)
+    }
+    return $false
+}
 
 
 function Get-ComposeServiceNames {
@@ -127,23 +231,65 @@ function Get-ComposeServiceNames {
 
 ${env:DATA_PATH} = $DataPath
 ${env:DEFAULT_USER} = $DefaultUser
-${env:DEFAULT_PASSWORD} = $DefaultPassword
+${env:DEFAULT_PASSWORD} = (Get-PlainTextFromSecure -Secure $DefaultPassword)
 ${env:RESTART_POLICY} = $RestartPolicy
 $composeDir = Join-Path $PSScriptRoot "config/dockerfiles/compose"
 $composePath = Join-Path $composeDir "docker-compose.yml"
 $mongoReplComposePath = Join-Path $composeDir "mongo-repl.compose.yml"
+
+if ($Env) { foreach ($k in $Env.Keys) { ${env:$k} = [string]$Env[$k] } }
+if ($UseEnvFile -and $Env) {
+    $envFile = Join-Path $composeDir ".env"
+    $lines = @()
+    foreach ($k in $Env.Keys) { $lines += ("$k=" + [string]$Env[$k]) }
+    Set-Content -LiteralPath $envFile -Value $lines -Encoding UTF8
+}
+
+if ($List) {
+    if (Test-Path $composePath) {
+        $available = Get-ComposeServiceNames -ComposePath $composePath -ReplicaComposePath $mongoReplComposePath
+        $available | ForEach-Object { Write-Output $_ }
+        return
+    }
+}
+
+if ($NetworkName) { New-NetworkIfMissing -Name $NetworkName }
 if ($ServiceName -eq 'mongodb-replica' -and (Test-Path $mongoReplComposePath)) {
     $env:DOCKER_DATA_PATH = $DataPath
     $env:MONGO_USER = $DefaultUser
     $env:MONGO_PASSWORD = $DefaultPassword
-    docker compose -p mongo-repl-dev -f $mongoReplComposePath up -d
+    Invoke-DockerCompose -File $mongoReplComposePath -Project 'mongo-repl-dev' -Action 'up -d' -DryRun:$DryRun
+    if (-not $DryRun) { [void](Wait-ServiceHealthy -Service 'mongo1' -Project 'mongo-repl-dev') }
     return
 }
 if (Test-Path $composePath) {
     $available = Get-ComposeServiceNames -ComposePath $composePath -ReplicaComposePath $mongoReplComposePath
-    if ($available -contains $ServiceName) {
-        docker compose -f $composePath --profile $ServiceName up -d
+    if ($Down) {
+        if ($ServiceName) {
+            Invoke-DockerCompose -File $composePath -Project $ProjectName -Action 'stop' -Services @($ServiceName) -DryRun:$DryRun
+            Invoke-DockerCompose -File $composePath -Project $ProjectName -Action 'rm -f -s' -Services @($ServiceName) -DryRun:$DryRun
+        }
+        else {
+            Invoke-DockerCompose -File $composePath -Project $ProjectName -Action 'down' -DryRun:$DryRun
+        }
         return
+    }
+    if ($Pull) {
+        Invoke-DockerCompose -File $composePath -Project $ProjectName -Profiles @($ServiceName) -Action 'pull' -DryRun:$DryRun
+        return
+    }
+    if ($Build) {
+        Invoke-DockerCompose -File $composePath -Project $ProjectName -Profiles @($ServiceName) -Action 'build' -DryRun:$DryRun
+        return
+    }
+    if ($available -contains $ServiceName) {
+        Invoke-DockerCompose -File $composePath -Project $ProjectName -Profiles @($ServiceName) -Action 'up -d' -DryRun:$DryRun
+        if (-not $DryRun) { [void](Wait-ServiceHealthy -Service $ServiceName -Project $ProjectName) }
+        return
+    }
+    else {
+        $suggest = @($available | Where-Object { $_ -like "*${ServiceName}*" })
+        if ($suggest.Count -gt 0) { throw "未找到服务: $ServiceName, 是否指: $($suggest -join ', ')" }
     }
 }
 
