@@ -302,6 +302,68 @@ function Invoke-ModelDownload {
     return @{ Downloaded = $ok; Failed = $fail }
 }
 
+function Get-InstalledModels {
+    [CmdletBinding()]
+    param(
+        [string]$Provider
+    )
+    $models = @()
+    if (-not (Get-Command $Provider -ErrorAction SilentlyContinue)) { return $models }
+    try {
+        $output = & $Provider ls
+        $lines = @($output) | Where-Object { $_ -and ($_ -notmatch '^\s*NAME\s+') }
+        foreach ($line in $lines) {
+            $parts = ($line -split '\s+')
+            if ($parts.Count -gt 0) { $models += [pscustomobject]@{ Id = $parts[0] } }
+        }
+    }
+    catch { }
+    return $models
+}
+
+function Select-RemovableModels {
+    [CmdletBinding()]
+    param(
+        [object[]]$Installed,
+        [object[]]$Eligible
+    )
+    $eligibleIds = @($Eligible | ForEach-Object { $_.Id })
+    $toRemove = @()
+    foreach ($m in $Installed) {
+        if ($eligibleIds -notcontains $m.Id) { $toRemove += [pscustomobject]@{ Id = $m.Id } }
+    }
+    return $toRemove
+}
+
+function Invoke-ModelRemoval {
+    [CmdletBinding(SupportsShouldProcess = $true)]
+    param(
+        [object[]]$Models,
+        [string]$Provider
+    )
+    $ok = 0; $fail = 0
+    if (-not (Get-Command $Provider -ErrorAction SilentlyContinue)) { return @{ Removed = $ok; Failed = $fail } }
+    foreach ($m in $Models) {
+        if ($PSCmdlet.ShouldProcess($m.Id, "Remove model via provider $Provider")) {
+            $attempt = 0
+            while ($attempt -lt 3) {
+                try {
+                    & $Provider rm $m.Id
+                    if ($LASTEXITCODE -eq 0) { $ok++; break }
+                    $attempt++
+                    Start-Sleep -Seconds ([math]::Pow(2, $attempt))
+                }
+                catch {
+                    $attempt++
+                    Start-Sleep -Seconds ([math]::Pow(2, $attempt))
+                }
+            }
+            if ($attempt -ge 3) { $fail++ }
+        }
+    }
+    return @{ Removed = $ok; Failed = $fail }
+}
+
 # 主程序开始
 Write-ProgressMessage "=== AI模型下载脚本 ===" 'Cyan'
 Write-ProgressMessage "正在检测系统资源..." 'Yellow'
@@ -334,6 +396,9 @@ Write-ProgressMessage "`n开始检查模型..." 'Cyan'
 $eligible = Select-EligibleModels -Models $modelList -GpuInfo $gpuInfo -MemoryInfo $memoryInfo -Policy $DEFAULTS -Skip $Skip
 $skippedCount = (@($modelList).Count - @($eligible).Count)
 
+$installed = Get-InstalledModels -Provider $Provider
+$toRemove = Select-RemovableModels -Installed $installed -Eligible $eligible
+
 # 显示总结
 if ($ListOnly) {
     Write-Host "`n=== 计划下载列表 ===" -ForegroundColor Cyan
@@ -343,13 +408,19 @@ if ($ListOnly) {
     }
     if ($OutputPath) { $eligible | ConvertTo-Json -Depth 4 | Set-Content -Path $OutputPath }
     Write-Host "跳过模型: $skippedCount 个模型" -ForegroundColor Yellow
+    Write-Host "`n=== 计划删除列表 ===" -ForegroundColor Cyan
+    Write-Host "计划删除: $(@($toRemove).Count) 个模型" -ForegroundColor Red
+    foreach ($r in $toRemove) { Write-Host "- $($r.Id)" -ForegroundColor Red }
 }
 else {
     $invokeWhatIf = $PSBoundParameters.ContainsKey('WhatIf')
     $result = Invoke-ModelDownload -Models $eligible -Provider $Provider -WhatIf:$invokeWhatIf
+    $removeResult = Invoke-ModelRemoval -Models $toRemove -Provider $Provider -WhatIf:$invokeWhatIf
     Write-Host "`n=== 下载完成 ===" -ForegroundColor Cyan
     Write-Host "成功下载: $($result.Downloaded) 个模型" -ForegroundColor Green
     Write-Host "跳过/失败: $($skippedCount + $result.Failed) 个模型" -ForegroundColor Yellow
+    Write-Host "删除完成: $($removeResult.Removed) 个模型" -ForegroundColor Red
+    Write-Host "删除失败: $($removeResult.Failed) 个模型" -ForegroundColor Yellow
 }
 
 if (-not $ListOnly -and $eligible.Count -eq 0) {
