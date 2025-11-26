@@ -281,8 +281,13 @@ function Invoke-ModelDownload {
         Write-Error "命令不可用: $Provider。请先安装或配置环境。"
         return @{ Downloaded = $ok; Failed = $fail }
     }
+    if (-not $ListOnly) {
+        Write-Host "`n=== 下载计划 ===" -ForegroundColor Cyan
+        Write-Host "目标模型: $(@($Models).Count) 个" -ForegroundColor Green
+    }
     foreach ($m in $Models) {
         if ($PSCmdlet.ShouldProcess($m.Name, "Pull model via provider $Provider")) {
+            Write-ProgressMessage "准备下载: $($m.Name) (ID: $($m.Id), 大小: $($m.SizeGB)GB, 显存需求: $($m.VramGB)GB)" 'Green'
             $attempt = 0
             while ($attempt -lt 3) {
                 try {
