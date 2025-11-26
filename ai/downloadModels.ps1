@@ -332,7 +332,7 @@ function Select-RemovableModels {
         [object[]]$Installed,
         [object[]]$Eligible
     )
-    $eligibleIds = @($Eligible | ForEach-Object { $_.Id })
+    $eligibleIds = @(@($Eligible) | Where-Object { $_ -and $_.PSObject.Properties['Id'] } | ForEach-Object { $_.Id })
     $toRemove = @()
     foreach ($m in $Installed) {
         if ($eligibleIds -notcontains $m.Id) { $toRemove += [pscustomobject]@{ Id = $m.Id } }
@@ -422,13 +422,13 @@ else {
     $result = Invoke-ModelDownload -Models $eligible -Provider $Provider -WhatIf:$invokeWhatIf
     $removeResult = Invoke-ModelRemoval -Models $toRemove -Provider $Provider -WhatIf:$invokeWhatIf
     Write-Host "`n=== 下载完成 ===" -ForegroundColor Cyan
-    Write-Host "成功下载: $($result.Downloaded) 个模型" -ForegroundColor Green
-    Write-Host "跳过/失败: $($skippedCount + $result.Failed) 个模型" -ForegroundColor Yellow
-    Write-Host "删除完成: $($removeResult.Removed) 个模型" -ForegroundColor Red
-    Write-Host "删除失败: $($removeResult.Failed) 个模型" -ForegroundColor Yellow
+    Write-Host "成功下载: $($result['Downloaded']) 个模型" -ForegroundColor Green
+    Write-Host "跳过/失败: $($skippedCount + $result['Failed']) 个模型" -ForegroundColor Yellow
+    Write-Host "删除完成: $($removeResult['Removed']) 个模型" -ForegroundColor Red
+    Write-Host "删除失败: $($removeResult['Failed']) 个模型" -ForegroundColor Yellow
 }
 
-if (-not $ListOnly -and $eligible.Count -eq 0) {
+if (-not $ListOnly -and @($eligible).Count -eq 0) {
     Write-Host "`n建议:" -ForegroundColor Yellow
     if (-not $gpuInfo.HasGpu) {
         Write-Host "- 考虑升级显卡或增加系统内存" -ForegroundColor White

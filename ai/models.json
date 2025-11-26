@@ -85,8 +85,8 @@
       "skip": false
     },
     {
-      "modelId": "deepseek-ocr",
-      "name": "deepseek-ocr",
+      "modelId": "deepseek-ocr:latest",
+      "name": "deepseek-ocr:latest",
       "size": 6,
       "vramRequired": 6,
       "skip": false
