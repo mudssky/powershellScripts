@@ -188,3 +188,126 @@ f:write("ok\n")
 f:close()
 ```
 
+## 6. 注释与基本运算符
+
+```lua
+-- 单行注释
+--[[
+多行注释
+]]
+
+-- 算术: + - * / ^ %
+local a, b = 3, 2
+print(a + b, a ^ b, a % b)
+
+-- 比较: < <= > >= == ~= (不等号是 ~=)
+print(a ~= b, a >= b)
+
+-- 拼接: .. ；长度: #
+local s = "lu" .. "a"   -- "lua"
+print(#s)                 -- 3
+```
+
+## 7. 布尔与空值规则（推荐）
+
+```lua
+-- 只有 false 和 nil 为假；0 为真
+print(0 and true)  -- true
+
+-- 默认值惯用法：or
+local input
+local v = input or "default" -- input 为 nil/false 时使用默认值
+
+-- 保护性判断
+if v then print("有值") end
+```
+
+## 8. 字符串常用操作（最小集合）
+
+```lua
+local s = "hello lua"
+local sub = string.sub(s, 1, 5)     -- "hello"
+local pos = string.find(s, "lua")   -- 返回起止位置或 nil
+local replaced = string.gsub(s, "lua", "world")
+local fmt = string.format("%s-%02d", "id", 7) -- "id-07"
+-- 注：字符串不可变；使用 .. 或 string 库生成新字符串
+```
+
+## 9. 函数与方法（: 语法与 self）
+
+```lua
+-- 方法定义与调用（推荐）：: 会自动传入 self
+local T = {}
+function T:new(name)
+  local o = { name = name }
+  setmetatable(o, { __index = self })
+  return o
+end
+function T:say()
+  print(self.name)
+end
+
+local t = T:new("Lua")
+t:say()  -- 等价于 T.say(t)
+
+-- 闭包：捕获外部局部变量
+local function counter()
+  local c = 0
+  return function() c = c + 1; return c end
+end
+local next = counter()
+print(next(), next()) -- 1, 2
+```
+
+## 10. 作用域与块（局部优先）
+
+```lua
+-- 始终优先使用 local，避免污染全局
+local x = 1
+
+-- 块作用域：do ... end
+do
+  local x = 2
+  print(x) -- 2（外层 x 不受影响）
+end
+print(x)   -- 1
+```
+
+## 11. 表的常用模式（数组/字典与实用操作）
+
+```lua
+-- 数组（索引从 1 开始）与字典
+local arr = { "a", "b", "c" }
+local dict = { a = 1, b = 2 }
+
+-- 遍历（推荐：数组用 ipairs，字典用 pairs）
+for i, v in ipairs(arr) do print(i, v) end
+for k, v in pairs(dict)  do print(k, v) end
+
+-- 删除字典键：设为 nil
+dict.a = nil
+
+-- 浅拷贝（常用）：
+local function clone(t)
+  local r = {}
+  for k, v in pairs(t) do r[k] = v end
+  return r
+end
+local dict2 = clone(dict)
+```
+
+## 12. 实用模式与最佳实践
+
+```lua
+-- 保护性断言（加载文件/资源）
+local f = assert(io.open("out.txt", "w"))
+f:write("ok\n")
+f:close()
+
+-- 最小副作用：模块的 require 不应打印或改全局（详见 module.md）
+-- 仅在需要时 require，默认会缓存（再次 require 不会重复执行）
+```
+
+## 13. 交叉引用
+
+- 模块组织与 OOP 细节：参见 `module.md`（标准模板、Class 风格、查找顺序等）。
