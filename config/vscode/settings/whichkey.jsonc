@@ -211,6 +211,12 @@
           "command": "bookmarks.listFromAllFiles"
         },
         {
+          "key": "L",
+          "name": "切换带标签书签",
+          "type": "command",
+          "command": "bookmarks.toggleLabeled"
+        },
+        {
           "key": "n",
           "name": "下一个书签",
           "type": "command",
