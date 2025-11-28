@@ -71,15 +71,13 @@ switch ($Mode) {
         }
     }
     'trae' {
-     
         Get-ChildItem -Recurse  -Filter *.jsonc   -Path $PSScriptRoot/settings | ForEach-Object {
             $jsoncString = Get-JsoncInnerContent -Path $_.FullName;
             $settingsList.Add($jsoncString)
         } 
+       
     }
     default {}
 }
 
-
-$newSettings = ($settingsList -join "`n").TrimEnd(",")
-"{$newSettings}" | Set-Content -Path $PSScriptRoot/settings.jsonc
+"{$newSettings}" | Set-Content -Path $PSScriptRoot/$Mode.settings.jsonc
