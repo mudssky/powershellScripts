@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param (
-    [ValidateSet('vscode', 'trae')]
+    [ValidateSet('vscode', 'trae', 'all')]
     [string]$Mode = 'vscode'
 )
 
@@ -62,22 +62,53 @@ function Get-JsoncInnerContent {
     
 }
 
-$settingsList = [System.Collections.Generic.List[string]]::new()
-switch ($Mode) {
-    'vscode' { 
-        Get-ChildItem -Recurse  -Filter *.jsonc   -Path $PSScriptRoot/settings | ForEach-Object {
-            $jsoncString = Get-JsoncInnerContent -Path $_.FullName;
-            $settingsList.Add($jsoncString)
-        }
+function Get-JoinedSettingsContent {
+    param (
+        [bool]$ExcludeTrae = $false
+    )
+    $settingsList = [System.Collections.Generic.List[string]]::new()
+    $childItemParams = @{ Path = "$PSScriptRoot/settings"; Recurse = $true; Filter = '*.jsonc' }
+    if ($ExcludeTrae) { $childItemParams.Exclude = 'trae.jsonc' }
+    Get-ChildItem @childItemParams | ForEach-Object {
+        $jsoncString = Get-JsoncInnerContent -Path $_.FullName
+        $settingsList.Add($jsoncString)
     }
-    'trae' {
-        Get-ChildItem -Recurse  -Filter *.jsonc   -Path $PSScriptRoot/settings | ForEach-Object {
-            $jsoncString = Get-JsoncInnerContent -Path $_.FullName;
-            $settingsList.Add($jsoncString)
-        } 
-       
-    }
-    default {}
+    if ($settingsList.Count -eq 0) { return '' }
+    return ($settingsList -join "`n")
 }
 
-"{$newSettings}" | Set-Content -Path $PSScriptRoot/$Mode.settings.jsonc
+function Write-SettingsFile {
+    param (
+        [bool]$ExcludeTrae,
+        [string]$TargetPath,
+        [string]$Label
+    )
+    $content = Get-JoinedSettingsContent -ExcludeTrae:$ExcludeTrae
+    if ([string]::IsNullOrWhiteSpace($content)) {
+        Write-Warning "未找到任何 .jsonc 设置文件用于 $Label"
+        $content = ''
+    }
+    "{${content}}" | Set-Content -Path $TargetPath
+    Write-Host "生成完成: $TargetPath" -ForegroundColor Green
+}
+
+function Get-ModeTargets {
+    param (
+        [string]$Mode
+    )
+    switch ($Mode) {
+        'vscode' { return @(@{ Path = "$PSScriptRoot/vscode.settings.jsonc"; ExcludeTrae = $false; Label = 'vscode' }) }
+        'trae' { return @(@{ Path = "$PSScriptRoot/trae.settings.jsonc"; ExcludeTrae = $true; Label = 'trae' }) }
+        'all' {
+            return @(
+                @{ Path = "$PSScriptRoot/vscode.settings.jsonc"; ExcludeTrae = $false; Label = 'vscode' },
+                @{ Path = "$PSScriptRoot/trae.settings.jsonc"; ExcludeTrae = $true; Label = 'trae' }
+            ) 
+        }
+        default { return @() }
+    }
+}
+
+foreach ($t in (Get-ModeTargets -Mode $Mode)) {
+    Write-SettingsFile -ExcludeTrae:$t.ExcludeTrae -TargetPath $t.Path -Label $t.Label
+}
