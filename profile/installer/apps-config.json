@@ -350,6 +350,24 @@
         "cliName": "hyperfine",
         "description": "命令行跑分工具",
         "command": "scoop install hyperfine"
+      },
+      {
+        "name": "gzip",
+        "cliName": "gzip",
+        "description": "压缩/解压工具（GNU gzip）",
+        "command": "scoop install gzip"
+      },
+      {
+        "name": "unzip",
+        "cliName": "unzip",
+        "description": "解压缩工具（Info-ZIP）",
+        "command": "scoop install unzip"
+      },
+      {
+        "name": "wget",
+        "cliName": "wget",
+        "description": "命令行下载工具",
+        "command": "scoop install wget"
       }
     ],
     "winget": [
