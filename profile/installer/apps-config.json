@@ -733,6 +733,12 @@
         "cliName": "claude",
         "description": "claude-code的命令行工具",
         "command": "npm install -g @anthropic-ai/claude-code"
+      },
+      {
+        "name": "openai-codex",
+        "cliName": "codex",
+        "description": "OpenAI Codex 命令行工具",
+        "command": "npm install -g @openai/codex"
       }
     ],
     "pacman": [
