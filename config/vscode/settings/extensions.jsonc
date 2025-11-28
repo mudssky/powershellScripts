@@ -56,5 +56,9 @@
   "GitCommitPlugin.MaxSubjectCharacters": 100,
   //   Codegeex
   "Codegeex.CandidateNum": "2 (medium)",
-  "Codegeex.Privacy": false
+  "Codegeex.Privacy": false,
+  // bookmarks
+  "bookmarks": {
+    "saveBookmarksInProject": true
+  }
 }
