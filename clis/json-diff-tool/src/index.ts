@@ -8,12 +8,12 @@
  * @version 1.0.0
  */
 
+import * as fs from 'node:fs/promises'
 import { Command } from 'commander'
-import * as fs from 'fs/promises'
-import { OutputFormat, DiffType, type CompareOptions } from './types'
-import { FileParser } from './parser'
 import { JsonComparator } from './comparator'
 import { OutputFormatter } from './formatter'
+import { FileParser } from './parser'
+import { type CompareOptions, DiffType, OutputFormat } from './types'
 
 // 创建命令行程序
 const program = new Command()
@@ -30,10 +30,13 @@ program
     'output format (table|json|yaml|tree)',
     'table',
   )
+  .option('--output-file <path>', 'write output to file')
   .option('-u, --show-unchanged', 'show unchanged values', false)
   .option('-i, --ignore-order', 'ignore array order when comparing', false)
   .option('-d, --depth <number>', 'maximum depth for comparison', '10')
   .option('-f, --filter <pattern>', 'filter paths by pattern (regex)')
+  .option('--no-color', 'disable colored output', false)
+  .option('-s, --stats', 'show summary statistics', true)
   .option('-v, --verbose', 'verbose output', false)
   .action(async (files: string[], options) => {
     try {
@@ -56,19 +59,29 @@ program
         process.exit(1)
       }
 
-      // 解析选项
-      const cliOptions = {
+      const cliOptionsBase = {
         files,
         output: options.output as OutputFormat,
-        showUnchanged: options.showUnchanged,
-        ignoreOrder: options.ignoreOrder,
+        showUnchanged: !!options.showUnchanged,
+        ignoreOrder: !!options.ignoreOrder,
         depth: parseInt(options.depth, 10),
-        filter: options.filter,
-        verbose: options.verbose,
+        verbose: !!options.verbose,
+        noColor: !!options.noColor,
+        stats: !!options.stats,
+      }
+
+      const cliOptions = {
+        ...cliOptionsBase,
+        ...(typeof options.filter === 'string' && options.filter
+          ? { filter: options.filter as string }
+          : {}),
+        ...(typeof options.outputFile === 'string' && options.outputFile
+          ? { outputFile: options.outputFile as string }
+          : {}),
       }
 
       // 验证深度参数
-      if (isNaN(cliOptions.depth) || cliOptions.depth < 1) {
+      if (Number.isNaN(cliOptions.depth) || cliOptions.depth < 1) {
         console.error('Error: Depth must be a positive number')
         program.outputHelp()
         process.exit(1)
@@ -87,10 +100,10 @@ program
 
       // 执行比较
       await performComparison(cliOptions)
-    } catch (error) {
+    } catch (_error) {
       console.error(
         'Error:',
-        error instanceof Error ? error.message : String(error),
+        _error instanceof Error ? _error.message : String(_error),
       )
       process.exit(1)
     }
@@ -139,6 +152,9 @@ async function performComparison(options: {
   depth: number
   filter?: string
   verbose: boolean
+  outputFile?: string
+  noColor: boolean
+  stats: boolean
 }): Promise<void> {
   try {
     // 创建解析器和比较器
@@ -181,7 +197,7 @@ async function performComparison(options: {
         filteredResults = JsonComparator.filterResults(filteredResults, {
           pathPattern: filterRegex,
         })
-      } catch (error) {
+      } catch (_error) {
         console.error(`Error: Invalid filter pattern: ${options.filter}`)
         program.outputHelp()
         process.exit(1)
@@ -189,12 +205,22 @@ async function performComparison(options: {
     }
 
     // 输出结果
-    const formatter = new OutputFormatter()
-    formatter.format(filteredResults, options.output, {
-      // @ts-expect-error
-      files: options.files,
-      verbose: options.verbose,
-    })
+    const formatter = new OutputFormatter(!options.noColor)
+    const output = formatter.format(
+      filteredResults,
+      options.output,
+      options.files,
+      options.stats,
+    )
+
+    if (options.outputFile) {
+      await formatter.outputToFile(output, options.outputFile)
+      if (options.verbose) {
+        console.log(`Output written to: ${options.outputFile}`)
+      }
+    } else {
+      console.log(output)
+    }
   } catch (error) {
     throw new Error(
       `Comparison failed: ${

@@ -95,8 +95,8 @@ export interface ParserConfig {
 export interface DiffResult {
   path: string
   type: DiffType
-  oldValue?: JsonValue
-  newValue?: JsonValue
+  oldValue?: JsonValue | undefined
+  newValue?: JsonValue | undefined
   message?: string
 }
 

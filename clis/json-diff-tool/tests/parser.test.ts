@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
+import { promises as fs } from 'node:fs'
+import * as path from 'node:path'
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { FileParser } from '../src/parser'
-import { promises as fs } from 'fs'
-import * as path from 'path'
 
 // 创建测试数据目录
 const testDataDir = path.join(__dirname, 'data')
@@ -17,7 +17,7 @@ describe('FileParser', () => {
     // 创建测试数据目录
     try {
       await fs.mkdir(testDataDir, { recursive: true })
-    } catch (error) {
+    } catch (_error) {
       // 目录可能已存在
     }
 
@@ -48,11 +48,11 @@ describe('FileParser', () => {
       for (const file of filesToClean) {
         try {
           await fs.unlink(path.join(testDataDir, file))
-        } catch (error) {
+        } catch (_error) {
           // 忽略文件不存在的错误
         }
       }
-    } catch (error) {
+    } catch (_error) {
       // 忽略清理错误
     }
   })

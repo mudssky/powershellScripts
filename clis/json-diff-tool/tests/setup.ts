@@ -6,7 +6,7 @@
 import { afterEach, expect, vi } from 'vitest'
 
 // 设置环境变量
-process.env.NODE_ENV = 'test'
+process.env['NODE_ENV'] = 'test'
 
 // 清理所有模拟
 afterEach(() => {
@@ -20,6 +20,7 @@ interface CustomMatchers<R = unknown> {
 }
 
 declare module 'vitest' {
+  // biome-ignore lint/suspicious/noExplicitAny: vitest 类型扩展需与内置声明保持一致
   interface Assertion<T = any> extends CustomMatchers<T> {}
   interface AsymmetricMatchersContaining extends CustomMatchers {}
 }

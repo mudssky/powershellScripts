@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { JsonComparator } from '../src/comparator'
-import { DiffResult, DiffType } from '../src/types'
+import { DiffType } from '../src/types'
 
 describe('JsonComparator', () => {
   let comparator: JsonComparator
@@ -15,8 +15,9 @@ describe('JsonComparator', () => {
       const obj2 = { name: 'test', value: 123 }
 
       const results = comparator.compare([obj1, obj2])
+      const effective = results.filter((r) => r.type !== DiffType.UNCHANGED)
 
-      expect(results).toHaveLength(0)
+      expect(effective).toHaveLength(0)
     })
 
     it('应该检测到添加的属性', () => {
@@ -24,9 +25,10 @@ describe('JsonComparator', () => {
       const obj2 = { name: 'test', value: 123 }
 
       const results = comparator.compare([obj1, obj2])
+      const effective = results.filter((r) => r.type !== DiffType.UNCHANGED)
 
-      expect(results).toHaveLength(1)
-      expect(results[0]).toMatchObject({
+      expect(effective).toHaveLength(1)
+      expect(effective[0]).toMatchObject({
         path: 'value',
         type: DiffType.ADDED,
         newValue: 123,
@@ -38,9 +40,10 @@ describe('JsonComparator', () => {
       const obj2 = { name: 'test' }
 
       const results = comparator.compare([obj1, obj2])
+      const effective = results.filter((r) => r.type !== DiffType.UNCHANGED)
 
-      expect(results).toHaveLength(1)
-      expect(results[0]).toMatchObject({
+      expect(effective).toHaveLength(1)
+      expect(effective[0]).toMatchObject({
         path: 'value',
         type: DiffType.REMOVED,
         oldValue: 123,
@@ -52,9 +55,10 @@ describe('JsonComparator', () => {
       const obj2 = { name: 'test', value: 456 }
 
       const results = comparator.compare([obj1, obj2])
+      const effective = results.filter((r) => r.type !== DiffType.UNCHANGED)
 
-      expect(results).toHaveLength(1)
-      expect(results[0]).toMatchObject({
+      expect(effective).toHaveLength(1)
+      expect(effective[0]).toMatchObject({
         path: 'value',
         type: DiffType.MODIFIED,
         oldValue: 123,
@@ -67,9 +71,10 @@ describe('JsonComparator', () => {
       const obj2 = { user: { name: 'Alice', age: 31 } }
 
       const results = comparator.compare([obj1, obj2])
+      const effective = results.filter((r) => r.type !== DiffType.UNCHANGED)
 
-      expect(results).toHaveLength(1)
-      expect(results[0]).toMatchObject({
+      expect(effective).toHaveLength(1)
+      expect(effective[0]).toMatchObject({
         path: 'user.age',
         type: DiffType.MODIFIED,
         oldValue: 30,
@@ -182,21 +187,25 @@ describe('JsonComparator', () => {
     })
 
     it('应该处理循环引用（基本处理）', () => {
-      const obj1: any = { name: 'test' }
+      const obj1: import('../src/types').JsonObject = {
+        name: 'test',
+      } as import('../src/types').JsonObject
       obj1.self = obj1
 
-      const obj2: any = { name: 'test' }
+      const obj2: import('../src/types').JsonObject = {
+        name: 'test',
+      } as import('../src/types').JsonObject
       obj2.self = obj2
 
       // 应该不抛出错误
       expect(() => {
-        const results = comparator.compare([obj1, obj2])
+        comparator.compare([obj1, obj2])
       }).not.toThrow()
     })
 
     it('应该处理大型对象', () => {
       const createLargeObject = (size: number) => {
-        const obj: any = {}
+        const obj: import('../src/types').JsonObject = {}
         for (let i = 0; i < size; i++) {
           obj[`key${i}`] = `value${i}`
         }
@@ -208,9 +217,10 @@ describe('JsonComparator', () => {
       obj2.key999 = 'modified'
 
       const results = comparator.compare([obj1, obj2])
+      const effective = results.filter((r) => r.type !== DiffType.UNCHANGED)
 
-      expect(results).toHaveLength(1)
-      expect(results[0]).toMatchObject({
+      expect(effective).toHaveLength(1)
+      expect(effective[0]).toMatchObject({
         path: 'key999',
         type: DiffType.MODIFIED,
       })

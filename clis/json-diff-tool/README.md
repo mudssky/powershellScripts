@@ -45,53 +45,36 @@ npm link
 json-diff file1.json file2.json
 
 # 指定输出格式
-json-diff file1.json file2.json --format table
-json-diff file1.json file2.json --format json
-json-diff file1.json file2.json --format yaml
-json-diff file1.json file2.json --format tree
+json-diff file1.json file2.json --output table
+json-diff file1.json file2.json --output json
+json-diff file1.json file2.json --output yaml
+json-diff file1.json file2.json --output tree
 
 # 保存结果到文件
-json-diff file1.json file2.json --output result.json
+json-diff file1.json file2.json --output-file result.txt
 
-# 递归比较目录
-json-diff dir1/ dir2/ --recursive
-
-# 显示统计信息
+# 显示统计信息/禁用颜色
 json-diff file1.json file2.json --stats
-
-# 禁用颜色输出
 json-diff file1.json file2.json --no-color
 ```
 
-### PowerShell 包装脚本
+### Windows 使用说明
 
-项目还提供了 PowerShell 包装脚本，方便在 Windows 环境中使用：
-
-```powershell
-# 使用 PowerShell 脚本
-.\scripts\Compare-JsonFiles.ps1 -File1 "config1.json" -File2 "config2.json"
-
-# 指定输出格式
-.\scripts\Compare-JsonFiles.ps1 -File1 "config1.json" -File2 "config2.json" -Format "table"
-
-# 递归比较目录
-.\scripts\Compare-JsonFiles.ps1 -Directory1 "src" -Directory2 "backup" -Recursive
-
-# 保存到文件
-.\scripts\Compare-JsonFiles.ps1 -File1 "config1.json" -File2 "config2.json" -OutputFile "diff.json"
-```
+在 Windows 11 下，建议使用 PowerShell 7+ 直接运行 `json-diff`，命令与参数与示例一致。
 
 ## 命令行选项
 
 | 选项 | 简写 | 描述 | 默认值 |
 |------|------|------|--------|
-| `--format` | `-f` | 输出格式 (table, json, yaml, tree) | `table` |
-| `--output` | `-o` | 输出文件路径 | - |
-| `--recursive` | `-r` | 递归比较目录 | `false` |
-| `--stats` | `-s` | 显示统计信息 | `false` |
+| `--output <format>` | `-o` | 输出格式 (table\|json\|yaml\|tree) | `table` |
+| `--output-file <path>` | - | 将结果写入文件 | - |
+| `--show-unchanged` | `-u` | 显示未更改的值 | `false` |
+| `--ignore-order` | `-i` | 忽略数组顺序 | `false` |
+| `--depth <number>` | `-d` | 最大比较深度 | `10` |
+| `--filter <pattern>` | `-f` | 路径过滤正则表达式 | - |
+| `--stats` | `-s` | 显示统计信息 | `true` |
 | `--no-color` | - | 禁用颜色输出 | `false` |
-| `--help` | `-h` | 显示帮助信息 | - |
-| `--version` | `-v` | 显示版本信息 | - |
+| `--verbose` | `-v` | 详细输出 | `false` |
 
 ## 输出格式示例
 
@@ -127,10 +110,10 @@ Statistics:
     }
   ],
   "summary": {
-    "total": 4,
     "added": 1,
     "removed": 1,
-    "modified": 2
+    "modified": 2,
+    "unchanged": 0
   }
 }
 ```
@@ -431,10 +414,13 @@ json-diff file1.json file2.json --verbose
 | 选项 | 简写 | 描述 | 默认值 |
 |------|------|------|--------|
 | `--output <format>` | `-o` | 输出格式 (table\|json\|yaml\|tree) | table |
+| `--output-file <path>` | - | 将结果写入文件 | - |
 | `--show-unchanged` | `-u` | 显示未更改的值 | false |
 | `--ignore-order` | `-i` | 忽略数组顺序 | false |
 | `--depth <number>` | `-d` | 最大比较深度 | 10 |
 | `--filter <pattern>` | `-f` | 路径过滤正则表达式 | - |
+| `--stats` | `-s` | 显示统计信息 | true |
+| `--no-color` | - | 禁用颜色输出 | false |
 | `--verbose` | `-v` | 详细输出 | false |
 | `--help` | `-h` | 显示帮助信息 | - |
 | `--version` | `-V` | 显示版本信息 | - |

@@ -5,10 +5,10 @@
  * @author mudssky
  */
 
-import * as fs from 'fs/promises'
-import * as path from 'path'
+import * as fs from 'node:fs/promises'
+import * as path from 'node:path'
 import JSON5 from 'json5'
-import { JsonObject, SupportedFormat } from './types'
+import { type JsonObject, SupportedFormat } from './types'
 
 /**
  * 文件解析器类
@@ -194,6 +194,6 @@ export class FileParser {
    */
   static isSupportedFormat(filePath: string): boolean {
     const ext = path.extname(filePath).toLowerCase()
-    return this.getSupportedExtensions().includes(ext)
+    return FileParser.getSupportedExtensions().includes(ext)
   }
 }

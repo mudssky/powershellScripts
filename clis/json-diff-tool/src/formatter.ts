@@ -91,7 +91,7 @@ export class OutputFormatter {
     let result = table.toString()
 
     if (showStats) {
-      result += '\n' + this.formatStatistics(diffs)
+      result += `\n${this.formatStatistics(diffs)}`
     }
 
     return result
@@ -109,14 +109,30 @@ export class OutputFormatter {
     files: string[] = [],
     showStats: boolean = true,
   ): string {
-    const output: any = {
+    const output: {
+      files: string[]
+      timestamp: string
+      differences: DiffResult[]
+      summary?: {
+        added: number
+        removed: number
+        modified: number
+        unchanged: number
+      }
+    } = {
       files,
       timestamp: new Date().toISOString(),
       differences: diffs,
     }
 
     if (showStats) {
-      output.summary = this.getStatistics(diffs)
+      const stats = this.getStatistics(diffs)
+      output.summary = {
+        added: stats.added,
+        removed: stats.removed,
+        modified: stats.modified,
+        unchanged: stats.unchanged,
+      }
     }
 
     return JSON.stringify(output, null, 2)
@@ -134,14 +150,30 @@ export class OutputFormatter {
     files: string[] = [],
     showStats: boolean = true,
   ): string {
-    const output: any = {
+    const output: {
+      files: string[]
+      timestamp: string
+      differences: DiffResult[]
+      summary?: {
+        added: number
+        removed: number
+        modified: number
+        unchanged: number
+      }
+    } = {
       files,
       timestamp: new Date().toISOString(),
       differences: diffs,
     }
 
     if (showStats) {
-      output.summary = this.getStatistics(diffs)
+      const stats = this.getStatistics(diffs)
+      output.summary = {
+        added: stats.added,
+        removed: stats.removed,
+        modified: stats.modified,
+        unchanged: stats.unchanged,
+      }
     }
 
     return yaml.dump(output, {
@@ -162,14 +194,14 @@ export class OutputFormatter {
       return this.colorize('No differences found.', 'info')
     }
 
-    let result = this.colorize('\nDifferences Tree:', 'header') + '\n'
+    let result = `${this.colorize('\nDifferences Tree:', 'header')}\n`
 
     // 按路径分组构建树形结构
     const tree = this.buildTree(diffs)
     result += this.renderTree(tree)
 
     if (showStats) {
-      result += '\n' + this.formatStatistics(diffs)
+      result += `\n${this.formatStatistics(diffs)}`
     }
 
     return result
@@ -196,7 +228,18 @@ export class OutputFormatter {
             diffs: [],
           })
         }
-        current = current.children.get(part)!
+        const next = current.children.get(part)
+        if (next) {
+          current = next
+        } else {
+          const created: TreeNode = {
+            name: part,
+            children: new Map(),
+            diffs: [],
+          }
+          current.children.set(part, created)
+          current = created
+        }
 
         // 如果是最后一个部分，添加差异
         if (index === parts.length - 1) {
@@ -259,7 +302,7 @@ export class OutputFormatter {
           }
         })
       } else {
-        result += nodePrefix + this.colorize(node.name, 'path') + '\n'
+        result += `${nodePrefix + this.colorize(node.name, 'path')}\n`
       }
     }
 
@@ -357,7 +400,7 @@ export class OutputFormatter {
    * @param highlight 是否高亮显示
    * @returns 格式化后的字符串
    */
-  private formatValue(value: any, highlight: boolean = false): string {
+  private formatValue(value: unknown, highlight: boolean = false): string {
     if (value === undefined) {
       return ''
     }
@@ -394,7 +437,7 @@ export class OutputFormatter {
   formatStatistics(diffs: DiffResult[]): string {
     const stats = this.getStatistics(diffs)
 
-    let result = '\n' + this.colorize('Summary:', 'stats') + '\n'
+    let result = `\n${this.colorize('Summary:', 'stats')}\n`
     result += `  Total differences: ${this.colorize(
       stats.total.toString(),
       'info',
@@ -456,8 +499,8 @@ export class OutputFormatter {
    * @param filePath 输出文件路径
    */
   async outputToFile(content: string, filePath: string): Promise<void> {
-    const fs = await import('fs/promises')
-    const path = await import('path')
+    const fs = await import('node:fs/promises')
+    const path = await import('node:path')
 
     // 确保目录存在
     const dir = path.dirname(filePath)
