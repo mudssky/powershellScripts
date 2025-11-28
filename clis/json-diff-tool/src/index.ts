@@ -22,6 +22,8 @@ program
   .name('json-diff')
   .description('Compare JSON, JSONC, and JSON5 files and show differences')
   .version('1.0.0')
+  .showHelpAfterError()
+  .showSuggestionAfterError()
   .argument('<files...>', 'JSON files to compare (minimum 2 files)')
   .option(
     '-o, --output <format>',
@@ -38,6 +40,7 @@ program
       // 验证文件数量
       if (files.length < 2) {
         console.error('Error: At least 2 files are required for comparison')
+        program.outputHelp()
         process.exit(1)
       }
 
@@ -49,6 +52,7 @@ program
             ', ',
           )}`,
         )
+        program.outputHelp()
         process.exit(1)
       }
 
@@ -66,6 +70,7 @@ program
       // 验证深度参数
       if (isNaN(cliOptions.depth) || cliOptions.depth < 1) {
         console.error('Error: Depth must be a positive number')
+        program.outputHelp()
         process.exit(1)
       }
 
@@ -178,6 +183,7 @@ async function performComparison(options: {
         })
       } catch (error) {
         console.error(`Error: Invalid filter pattern: ${options.filter}`)
+        program.outputHelp()
         process.exit(1)
       }
     }
