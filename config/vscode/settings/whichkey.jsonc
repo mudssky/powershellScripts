@@ -3,53 +3,53 @@
   // ### whichkey 相关配置
   "whichkey.bindings": [
     {
-      "key": "w",
-      "name": "保存文件",
-      "type": "command",
-      "command": "workbench.action.files.save"
-    },
-    {
-      "key": "f",
-      "name": "查找...",
-      "type": "bindings",
-      "bindings": [
-        {
-          "key": "f",
-          "name": "查找文件",
-          "type": "command",
-          "command": "workbench.action.quickOpen"
-        },
-        {
-          "key": "g",
-          "name": "在文件中查找",
-          "type": "command",
-          "command": "workbench.action.findInFiles"
-        },
-        {
-          "key": "s",
-          "name": "查找符号",
-          "type": "command",
-          "command": "workbench.action.gotoSymbol"
-        }
-      ]
-    },
-    {
       "key": "e",
-      "name": "切换资源管理器",
+      "name": "资源管理器",
       "type": "command",
       "command": "workbench.view.explorer"
     },
     {
-      "key": "g",
-      "name": "切换 Git",
-      "type": "command",
-      "command": "workbench.view.scm"
-    },
-    {
-      "key": "x",
-      "name": "切换扩展",
-      "type": "command",
-      "command": "workbench.view.extensions"
+      "key": "b",
+      "name": "缓冲区...",
+      "type": "bindings",
+      "bindings": [
+        {
+          "key": "b",
+          "name": "列出缓冲区",
+          "type": "command",
+          "command": "workbench.action.showAllEditorsByMostRecentlyUsed"
+        },
+        {
+          "key": "d",
+          "name": "关闭缓冲区",
+          "type": "command",
+          "command": "workbench.action.closeActiveEditor"
+        },
+        {
+          "key": "D",
+          "name": "关闭其他缓冲区",
+          "type": "command",
+          "command": "workbench.action.closeOtherEditors"
+        },
+        {
+          "key": "n",
+          "name": "下一个缓冲区",
+          "type": "command",
+          "command": "workbench.action.nextEditor"
+        },
+        {
+          "key": "p",
+          "name": "上一个缓冲区",
+          "type": "command",
+          "command": "workbench.action.previousEditor"
+        },
+        {
+          "key": "s",
+          "name": "分屏缓冲区",
+          "type": "command",
+          "command": "workbench.action.splitEditor"
+        }
+      ]
     },
     {
       "key": "c",
@@ -73,9 +73,145 @@
           "name": "格式化文档",
           "type": "command",
           "command": "editor.action.formatDocument"
+        },
+        {
+          "key": "o",
+          "name": "整理导入",
+          "type": "command",
+          "command": "editor.action.organizeImports"
+        },
+        {
+          "key": "d",
+          "name": "转到定义",
+          "type": "command",
+          "command": "editor.action.revealDefinition"
         }
       ]
     },
+    {
+      "key": "f",
+      "name": "查找...",
+      "type": "bindings",
+      "bindings": [
+        {
+          "key": "f",
+          "name": "查找文件",
+          "type": "command",
+          "command": "workbench.action.quickOpen"
+        },
+        {
+          "key": "g",
+          "name": "全局搜索",
+          "type": "command",
+          "command": "workbench.action.findInFiles"
+        },
+        {
+          "key": "r",
+          "name": "最近文件",
+          "type": "command",
+          "command": "workbench.action.openRecent"
+        },
+        {
+          "key": "b",
+          "name": "切换缓冲区",
+          "type": "command",
+          "command": "workbench.action.showAllEditorsByMostRecentlyUsed"
+        }
+      ]
+    },
+    {
+      "key": "m",
+      "name": "书签...",
+      "type": "bindings",
+      "bindings": [
+        {
+          "key": "t",
+          "name": "切换书签",
+          "type": "command",
+          "command": "bookmarks.toggle"
+        },
+        {
+          "key": "l",
+          "name": "列出所有书签",
+          "type": "command",
+          "command": "bookmarks.listFromAllFiles"
+        },
+        {
+          "key": "n",
+          "name": "下一个书签",
+          "type": "command",
+          "command": "bookmarks.next"
+        },
+        {
+          "key": "p",
+          "name": "上一个书签",
+          "type": "command",
+          "command": "bookmarks.previous"
+        },
+        {
+          "key": "c",
+          "name": "清除本文件书签",
+          "type": "command",
+          "command": "bookmarks.clear"
+        },
+        {
+          "key": "C",
+          "name": "清除所有书签",
+          "type": "command",
+          "command": "bookmarks.clearFromAllFiles"
+        }
+      ]
+    },
+    {
+      "key": "w",
+      "name": "窗口...",
+      "type": "bindings",
+      "bindings": [
+        {
+          "key": "s",
+          "name": "水平分屏",
+          "type": "command",
+          "command": "workbench.action.splitEditorDown"
+        },
+        {
+          "key": "v",
+          "name": "垂直分屏",
+          "type": "command",
+          "command": "workbench.action.splitEditorRight"
+        },
+        {
+          "key": "q",
+          "name": "关闭当前分组",
+          "type": "command",
+          "command": "workbench.action.closeEditorsInGroup"
+        },
+        {
+          "key": "h",
+          "name": "切换到左侧",
+          "type": "command",
+          "command": "workbench.action.focusLeftGroup"
+        },
+        {
+          "key": "l",
+          "name": "切换到右侧",
+          "type": "command",
+          "command": "workbench.action.focusRightGroup"
+        },
+        {
+          "key": "k",
+          "name": "切换到上侧",
+          "type": "command",
+          "command": "workbench.action.focusAboveGroup"
+        },
+        {
+          "key": "j",
+          "name": "切换到下侧",
+          "type": "command",
+          "command": "workbench.action.focusBelowGroup"
+        }
+      ]
+    },
+
     {
       "key": "l",
       "name": "LSP...",
@@ -104,39 +240,151 @@
           "name": "转到定义",
           "type": "command",
           "command": "editor.action.revealDefinition"
+        },
+        {
+          "key": "s",
+          "name": "当前文件符号",
+          "type": "command",
+          "command": "workbench.action.gotoSymbol"
         }
       ]
     },
     {
-      "key": "b",
-      "name": "书签/buffer",
+      "key": "g",
+      "name": "Git...",
       "type": "bindings",
       "bindings": [
         {
-          "key": "t",
-          "name": "切换书签",
+          "key": "g",
+          "name": "打开 SCM 视图",
           "type": "command",
-          "command": "bookmarks.toggle"
+          "command": "workbench.view.scm"
         },
         {
-          "key": "l",
-          "name": "列出所有书签",
+          "key": "c",
+          "name": "提交更改",
           "type": "command",
-          "command": "bookmarks.listFromAllFiles"
+          "command": "git.commit"
+        },
+        {
+          "key": "p",
+          "name": "推送到远端",
+          "type": "command",
+          "command": "git.push"
+        },
+        {
+          "key": "P",
+          "name": "拉取远端",
+          "type": "command",
+          "command": "git.pull"
+        }
+      ]
+    },
+    {
+      "key": "x",
+      "name": "诊断...",
+      "type": "bindings",
+      "bindings": [
+        {
+          "key": "x",
+          "name": "打开问题面板",
+          "type": "command",
+          "command": "workbench.actions.view.problems"
+        },
+        {
+          "key": "n",
+          "name": "下一个问题",
+          "type": "command",
+          "command": "editor.action.marker.next"
+        },
+        {
+          "key": "p",
+          "name": "上一个问题",
+          "type": "command",
+          "command": "editor.action.marker.prev"
         }
       ]
     },
     {
       "key": "t",
-      "name": "切换终端",
-      "type": "command",
-      "command": "workbench.action.terminal.toggleTerminal"
+      "name": "终端...",
+      "type": "bindings",
+      "bindings": [
+        {
+          "key": "t",
+          "name": "切换终端",
+          "type": "command",
+          "command": "workbench.action.terminal.toggleTerminal"
+        },
+        {
+          "key": "n",
+          "name": "新建终端",
+          "type": "command",
+          "command": "workbench.action.terminal.new"
+        },
+        {
+          "key": "k",
+          "name": "关闭终端",
+          "type": "command",
+          "command": "workbench.action.terminal.kill"
+        },
+        {
+          "key": "s",
+          "name": "分屏终端",
+          "type": "command",
+          "command": "workbench.action.terminal.split"
+        }
+      ]
+    },
+    {
+      "key": "T",
+      "name": "切换...",
+      "type": "bindings",
+      "bindings": [
+        {
+          "key": "p",
+          "name": "切换面板",
+          "type": "command",
+          "command": "workbench.action.togglePanel"
+        },
+        {
+          "key": "s",
+          "name": "切换侧边栏",
+          "type": "command",
+          "command": "workbench.action.toggleSidebarVisibility"
+        },
+        {
+          "key": "w",
+          "name": "切换自动换行",
+          "type": "command",
+          "command": "editor.action.toggleWordWrap"
+        },
+        {
+          "key": "m",
+          "name": "切换迷你地图",
+          "type": "command",
+          "command": "editor.action.toggleMinimap"
+        },
+        {
+          "key": "z",
+          "name": "切换禅模式",
+          "type": "command",
+          "command": "workbench.action.toggleZenMode"
+        }
+      ]
     },
     {
       "key": "p",
-      "name": "切换面板",
-      "type": "command",
-      "command": "workbench.action.togglePanel"
+      "name": "插件...",
+      "type": "bindings",
+      "bindings": [
+        {
+          "key": "p",
+          "name": "扩展视图",
+          "type": "command",
+          "command": "workbench.view.extensions"
+        }
+      ]
     },
     {
       "key": "/",
