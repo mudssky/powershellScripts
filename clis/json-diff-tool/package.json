@@ -11,11 +11,18 @@
     "start": "node dist/index.js",
     "dev": "tsc && node dist/index.js",
     "clean": "rimraf dist",
-    "test": "vitest",
+    "test": "vitest run",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest --watch",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "typecheck": "tsc --noEmit",
+    "typecheck:tests": "tsc -p tsconfig.tests.json --noEmit",
+    "biome": "biome check --apply ./src",
+    "biome:fixAll": "biome check --write .",
+    "biome:check": "biome check .",
+    "biome:ci": "biome ci .",
+    "qa": "pnpm run typecheck && pnpm run biome:fixAll && pnpm run test"
   },
   "keywords": [
     "json",
