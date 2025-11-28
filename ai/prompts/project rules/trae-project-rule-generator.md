@@ -25,9 +25,26 @@
     - **Language**: 除非用户特别要求，否则代码注释和解释均使用中文（或用户指定语言）。
 
 2. **🧠 Chain of Thought & Planning (思考与规划)**
-    - 在编写任何代码之前，必须在一个代码块中输出 `<plan>` 标签包裹的计划。
-    - 计划必须使用 Markdown Checkbox (`- [ ]`) 格式。
-    - **必须** 包含 "Impact Analysis" (影响面分析)：列出哪些文件会被修改，哪些组件可能受影响。
+    - 在编写任何代码之前，必须先输出一个“计划”小节，使用原生 Markdown 标题与复选框列表。
+    - 计划必须使用 Markdown 复选框格式 `- [ ]`，逐项列出目标与步骤。
+    - 计划内容中 **必须** 包含 “Impact Analysis（影响面分析）”：明确列出将被修改的文件路径与可能受影响的组件/模块/函数。
+    - 建议使用二级标题 `## Plan` 开启计划小节，并按固定结构编排（见下方模板）。
+
+```md
+## 🧭 Plan
+- [ ] Goals：清晰描述要达成的结果
+- [ ] Steps：
+  - [ ] 步骤 1 …
+  - [ ] 步骤 2 …
+- [ ] Impact Analysis（必须）：
+  - 修改文件：
+    - `path/to/fileA`
+    - `path/to/fileB`
+  - 受影响组件/模块：
+    - `ComponentOrFunctionA`
+    - `ModuleB`
+- [ ] Verification：说明验证策略（lint、type-check、test、OpenPreview 等）
+```
 
 3. **🛠 Tech Stack & Coding Standards (技术与规范)**
     - 明确技术栈版本约束。
