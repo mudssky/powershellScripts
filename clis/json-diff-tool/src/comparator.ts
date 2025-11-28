@@ -44,13 +44,13 @@ export class JsonComparator {
 
     if (objects.length === 2) {
       // 两个对象的直接比较
-      results.push(...this.deepCompare(objects[0], objects[1], ''))
+      results.push(...this.deepCompare(objects[0]!, objects[1]!, ''))
     } else {
       // 多个对象比较：以第一个为基准
-      const baseObject = objects[0]
+      const baseObject = objects[0]!
 
       for (let i = 1; i < objects.length; i++) {
-        const compareResults = this.deepCompare(baseObject, objects[i], '')
+        const compareResults = this.deepCompare(baseObject, objects[i]!, '')
 
         // 为每个比较结果添加文件索引信息
         compareResults.forEach((result) => {
@@ -200,20 +200,22 @@ export class JsonComparator {
 
       if (hasKey1 && hasKey2) {
         // 键在两个对象中都存在，递归比较值
-        results.push(...this.deepCompare(obj1[key], obj2[key], newPath, depth))
+        results.push(
+          ...this.deepCompare(obj1[key]!, obj2[key]!, newPath, depth),
+        )
       } else if (hasKey1 && !hasKey2) {
         // 键在第一个对象中存在，第二个中不存在
         results.push({
           path: newPath,
           type: DiffType.REMOVED,
-          oldValue: obj1[key],
+          oldValue: obj1[key]!,
         })
       } else if (!hasKey1 && hasKey2) {
         // 键在第二个对象中存在，第一个中不存在
         results.push({
           path: newPath,
           type: DiffType.ADDED,
-          newValue: obj2[key],
+          newValue: obj2[key]!,
         })
       }
     }
@@ -239,7 +241,7 @@ export class JsonComparator {
 
     if (this.options.ignoreArrayOrder) {
       // 忽略数组顺序的比较
-      results.push(...this.compareArraysIgnoreOrder(arr1, arr2, path, depth))
+      results.push(...this.compareArraysIgnoreOrder(arr1, arr2, path))
     } else {
       // 按索引顺序比较
       results.push(...this.compareArraysByIndex(arr1, arr2, path, depth))
@@ -270,20 +272,20 @@ export class JsonComparator {
 
       if (i < arr1.length && i < arr2.length) {
         // 两个数组都有该索引的元素
-        results.push(...this.deepCompare(arr1[i], arr2[i], newPath, depth))
+        results.push(...this.deepCompare(arr1[i]!, arr2[i]!, newPath, depth))
       } else if (i < arr1.length) {
         // 第一个数组有该元素，第二个没有
         results.push({
           path: newPath,
           type: DiffType.REMOVED,
-          oldValue: arr1[i],
+          oldValue: arr1[i]!,
         })
       } else {
         // 第二个数组有该元素，第一个没有
         results.push({
           path: newPath,
           type: DiffType.ADDED,
-          newValue: arr2[i],
+          newValue: arr2[i]!,
         })
       }
     }
@@ -303,7 +305,6 @@ export class JsonComparator {
     arr1: JsonValue[],
     arr2: JsonValue[],
     path: string,
-    depth: number,
   ): DiffResult[] {
     const results: DiffResult[] = []
 
@@ -318,7 +319,7 @@ export class JsonComparator {
         results.push({
           path: `${path}[${index}]`,
           type: DiffType.REMOVED,
-          oldValue: arr1[index],
+          oldValue: arr1[index]!,
         })
       }
     })
@@ -329,7 +330,7 @@ export class JsonComparator {
         results.push({
           path: `${path}[${index}]`,
           type: DiffType.ADDED,
-          newValue: arr2[index],
+          newValue: arr2[index]!,
         })
       }
     })

@@ -29,9 +29,6 @@ export class FileParser {
       // 读取文件内容
       const content = await this.readFileContent(filePath)
 
-      // 检测文件格式
-      const format = this.detectFormat(filePath)
-
       // 使用JSON5统一解析所有格式
       const parsed = JSON5.parse(content)
 
@@ -50,7 +47,9 @@ export class FileParser {
     } catch (error) {
       if (error instanceof SyntaxError) {
         throw new Error(
-          `Invalid ${this.detectFormat(filePath).toUpperCase()} syntax in file ${filePath}: ${error.message}`,
+          `Invalid ${this.detectFormat(
+            filePath,
+          ).toUpperCase()} syntax in file ${filePath}: ${error.message}`,
         )
       }
 
@@ -170,7 +169,9 @@ export class FileParser {
       } catch (error) {
         // 重新抛出错误，包含文件路径信息
         throw new Error(
-          `Error parsing file ${filePath}: ${error instanceof Error ? error.message : String(error)}`,
+          `Error parsing file ${filePath}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
         )
       }
     }
