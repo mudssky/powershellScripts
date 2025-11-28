@@ -18,11 +18,12 @@
     "prepublishOnly": "npm run build",
     "typecheck": "tsc --noEmit",
     "typecheck:tests": "tsc -p tsconfig.tests.json --noEmit",
+    "typecheck:fast": "tsgo --noEmit && tsgo -p tsconfig.tests.json --noEmit",
     "biome": "biome check --apply ./src",
     "biome:fixAll": "biome check --write .",
     "biome:check": "biome check .",
     "biome:ci": "biome ci .",
-    "qa": "pnpm run typecheck && pnpm run biome:fixAll && pnpm run test"
+    "qa": "pnpm run typecheck:fast && pnpm run biome:fixAll && pnpm run test"
   },
   "keywords": [
     "json",

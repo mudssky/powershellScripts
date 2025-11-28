@@ -5,8 +5,16 @@
 
 import { afterEach, expect, vi } from 'vitest'
 
+declare global {
+  namespace NodeJS {
+    interface ProcessEnv {
+      NODE_ENV: 'development' | 'production' | 'test'
+    }
+  }
+}
+
 // 设置环境变量
-process.env['NODE_ENV'] = 'test'
+process.env.NODE_ENV = 'test'
 
 // 清理所有模拟
 afterEach(() => {
