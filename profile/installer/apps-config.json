@@ -727,6 +727,12 @@
         "cliName": "qwen",
         "description": "qwen的命令行工具",
         "command": "npm install -g @qwen-code/qwen-code@latest"
+      },
+      {
+        "name": "claude-code",
+        "cliName": "claude",
+        "description": "claude-code的命令行工具",
+        "command": "npm install -g @anthropic-ai/claude-code"
       }
     ],
     "pacman": [
