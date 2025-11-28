@@ -4,5 +4,7 @@
   //   "AI.chatLanguage": "简体中文",
   "AI.toolcall.confirmMode": "autoRun",
   "trae.tab.enableAutoImport": true,
-  "trae.tab.enableAutoRename": true
+  "trae.tab.enableAutoRename": true,
+  "AI.toolcall.v2.ide.mcp.autoRun": "alwaysRun",
+  "AI.toolcall.v2.ide.command.mode": "blacklist"
 }
