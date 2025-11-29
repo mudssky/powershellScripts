@@ -1,5 +1,6 @@
 {
-  "$schema": "https://raw.githubusercontent.com/google-gemini/gemini-cli/main/schemas/settings.schema.json",
+  "theme": "GitHub",
+  "sandbox": "docker",
   "mcpServers": {
     "promptx": {
       "command": "npx",
@@ -25,22 +26,11 @@
       "args": ["mcp-server-git"]
     }
   },
-  "mcp": {
-    "allowed": ["promptx", "context7"]
-  },
-  "tools": {
-    "sandbox": "docker"
-  },
   "telemetry": {
     "enabled": false,
     "target": "local",
     "otlpEndpoint": "http://localhost:4317",
     "logPrompts": true
   },
-  "ui": {
-    "theme": "GitHub"
-  },
-  "privacy": {
-    "usageStatisticsEnabled": true
-  }
+  "usageStatisticsEnabled": true
 }
