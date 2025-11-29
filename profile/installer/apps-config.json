@@ -739,6 +739,12 @@
         "cliName": "codex",
         "description": "OpenAI Codex 命令行工具",
         "command": "npm install -g @openai/codex"
+      },
+      {
+        "name": "tsx",
+        "cliName": "tsx",
+        "description": "Node.js TS 运行器，零配置运行 TypeScript/ESM",
+        "command": "npm install -g tsx"
       }
     ],
     "pacman": [
