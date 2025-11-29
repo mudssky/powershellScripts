@@ -19,7 +19,7 @@
 - 在编写任何代码前，必须在对话中输出以下计划块:
 
 ```markdown
-## plan
+## Plan
 - [ ] **Impact Analysis (影响面分析)**:
     - 修改文件: `script.ps1`, `README.md`
     - 潜在风险: 可能会影响依赖该模块的 CI 流程
