@@ -745,6 +745,12 @@
         "cliName": "tsx",
         "description": "Node.js TS 运行器，零配置运行 TypeScript/ESM",
         "command": "npm install -g tsx"
+      },
+      {
+        "name": "openspec",
+        "cliName": "openspec",
+        "description": "Fission AI OpenSpec tool",
+        "command": "npm install -g @fission-ai/openspec"
       }
     ],
     "pacman": [
