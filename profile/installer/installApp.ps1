@@ -91,7 +91,9 @@ function Install-DevelopmentTools() {
     if (Test-EXEProgram winget) {
         Install-PackageManagerApps -PackageManager "winget" -ConfigPath $ConfigPath
     }
-	
+    if (Test-EXEProgram npm) {
+        Install-PackageManagerApps -PackageManager "npm" -ConfigPath $ConfigPath
+    }
     if (Test-EXEProgram cargo) {
         Install-PackageManagerApps -PackageManager "cargo" -ConfigPath $ConfigPath
     }
