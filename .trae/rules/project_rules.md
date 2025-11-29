@@ -1,190 +1,110 @@
-# PowerShell 脚本项目规则
+# Project Rules: PowerShell Scripts Automation
 
-我们的默认终端是pwsh（powershell 7+），执行较长的命令创建一个ps1脚本来执行。因为长命令有很多引号，容易出错导致命令不执行
-短命令可以使用pwsh -Command来执行，不要用powershell来执行，因为可能调用的是windows默认的powershell，而不是powershell 7+
+## 🚨 Critical Instructions (最高指令)
 
-## 代码风格规范
+1.  **No Laziness (拒绝懒惰)**
+    - 严禁在代码块中使用 `// ... existing code`、`# ... rest of script` 或 `<!-- ... implementation -->`。
+    - **必须** 输出完整、可运行的代码文件内容，即使只修改了一行。
+    - 每一个脚本都必须是生产就绪的 (Production Ready)。
 
-### 命名约定
+2.  **No Hallucination (拒绝幻觉)**
+    - 严禁引入 `package.json` 或当前环境中不存在的依赖/模块。
+    - 如需引入新工具 (e.g., `jq`, `ffmpeg`) 或 PowerShell 模块，必须先请求用户许可，并提供安装指令。
 
-- **函数名**: 使用 Pascal 命名法（如 `Install-RequiredModule`、`Test-ModuleInstalled`）
-- **参数名**: 使用 Pascal 命名法（如 `$ModuleName`、`$PackageManager`）
-- **变量名**: 使用 camelCase 命名法（如 `$appName`、`$cliName`、`$configPath`）
-- **常量**: 使用全大写加下划线（如 `$SCRIPT_ROOT`）
+3.  **Language (语言规范)**
+    - 除非用户明确要求使用英文，否则所有代码注释、文档、Commit Message 和对话解释 **必须使用中文**。
 
-### 代码格式
+## 🧠 Chain of Thought & Planning (思考与规划)
 
-- **缩进**: 使用 4 个空格进行缩进，不使用制表符
-- **大括号**: 开括号与控制语句在同一行，闭括号独占一行
-- **运算符**: 运算符前后添加空格（如 `$a -eq $b`）
-- **参数**: 长参数列表时每个参数独占一行并适当缩进
+在编写或修改任何代码之前，必须在回复的开头使用 `<plan>` 标签输出详细计划：
 
-### 注释规范
-
-- **函数注释**: 必须使用完整的 PowerShell Help 注释格式，包含：
-  - `.SYNOPSIS`: 简短描述
-  - `.DESCRIPTION`: 详细描述
-  - `.PARAMETER`: 每个参数的说明
-  - `.EXAMPLE`: 使用示例
-  - `.OUTPUTS`: 返回值说明（如适用）
-  - `.NOTES`: 额外说明（如适用）
-- **行内注释**: 使用中文进行注释，简洁明了
-- **代码块注释**: 对复杂逻辑进行分段注释说明
-
-### 错误处理
-
-- 使用 `try-catch` 块处理可能的异常
-- 使用 `Write-Warning` 输出警告信息
-- 使用 `Write-Error` 输出错误信息
-- 使用 `Write-Verbose` 输出详细信息
-- 使用 `Write-Host` 配合颜色输出用户友好的状态信息
-
-### 参数验证
-
-- 使用 `[CmdletBinding()]` 启用高级函数特性
-- 使用 `[Parameter()]` 属性定义参数特性
-- 必需参数使用 `Mandatory = $true`
-- 使用参数集 `ParameterSetName` 处理互斥参数
-- 支持 `SupportsShouldProcess` 用于需要确认的操作
-
-## 模块结构规范
-
-### 文件组织
-
-- 主模块文件: `index.psm1`
-- 子模块目录: `modules/`
-- 模块清单: `*.psd1`
-- 测试文件: `tests/` 目录下的 `*.Tests.ps1`
-
-### 模块导出
-
-- 在模块末尾使用 `Export-ModuleMember -Function *` 导出所有函数
-- 或明确指定要导出的函数名
-
-### 依赖管理
-
-- 检查模块是否已安装后再导入
-- 使用 `Install-Module` 安装缺失的依赖
-- 优先使用 `CurrentUser` 作用域安装模块
-
-## 功能实现规范
-
-### 跨平台兼容性
-
-- 支持 Windows、macOS 和 Linux 系统
-- 使用条件判断处理平台特定的逻辑
-- 路径处理使用 PowerShell 内置的路径操作函数
-
-### 包管理器支持
-
-- 支持多种包管理器：choco、scoop、winget、cargo、homebrew、apt
-- 使用 switch 语句处理不同包管理器的命令格式
-- 提供统一的配置文件格式
-
-### 配置文件格式
-
-- 使用 JSON 格式存储配置
-- 支持嵌套结构组织不同类型的配置
-- 提供默认值和可选字段
-- 包含详细的字段说明和示例
-
-## 测试规范
-
-### 测试文件命名
-
-- 测试文件以 `.Tests.ps1` 结尾
-- 测试文件名与被测试模块名对应
-
-### 测试框架
-
-- 使用 Pester 框架进行单元测试
-- 测试覆盖主要功能和边界情况
-- 需要预先考虑支持并行测试
-- 避免输出信息到控制台，因为会影响到测试结果的阅读
-
-### 空值检查
-
-#### **1. 检查一个变量是否就是 `null`**
-
-**做法：** 把 `$null` 放在左边比较。
-
-```powershell
-if ($null -eq $myVar) { ... }
+```markdown
+<plan>
+- [ ] **Impact Analysis (影响面分析)**:
+    - 修改文件: `script.ps1`, `README.md`
+    - 潜在风险: 可能会影响依赖该模块的 CI 流程
+- [ ] **Step 1: Context Gathering**: 确认现有参数定义
+- [ ] **Step 2: Implementation**: 重构参数解析逻辑
+- [ ] **Step 3: Verification**: 运行 Pester 测试确保无回归
+</plan>
 ```
 
-**场景：** 只关心变量是不是 `null`，不关心它是不是空字符串或空数组。
+## 🛠 Tech Stack & Coding Standards (技术与规范)
 
-#### **2. 检查一个字符串是否“没有内容”**
+### 1. Core Stack
+- **PowerShell**: PowerShell 7+ (Core), 遵循 Windows/Linux 跨平台兼容性。
+- **TypeScript (CLI Tools)**: Node.js (LTS), pnpm, Vitest.
+- **Shell**: Bash (for Linux specific tasks).
 
-**做法：** 使用 `[string]::IsNullOrWhiteSpace()`。
+### 2. Naming Convention (命名规范)
+- **PowerShell Functions**: 严格遵循 `Verb-Noun` 格式 (e.g., `Get-SystemInfo`, `Install-App`).
+    - Verbs 必须来自 `Get-Verb` 许可列表。
+- **Variables**:
+    - PowerShell: `PascalCase` (e.g., `$LogFilePath`).
+    - TypeScript: `camelCase` (e.g., `const configPath`).
+- **Files**:
+    - Scripts: `camelCase.ps1` or `PascalCase.ps1` (保持与目录内现有风格一致).
+    - Configs: `kebab-case` or standard tool naming (e.g., `docker-compose.yml`).
 
-```powershell
-if ([string]::IsNullOrWhiteSpace($myString)) { ... }
+### 3. Preferred Patterns (推荐模式)
+- **PowerShell**:
+    - 使用 `[CmdletBinding()]` 和 `param()` 块。
+    - 优先使用 `ErrorActionPreference = 'Stop'` 处理错误。
+    - 使用 `PSCustomObject` 而不是哈希表返回结构化数据。
+- **TypeScript**:
+    - Early Returns (卫语句) 减少嵌套。
+    - 使用 `zod` 或类似库进行运行时校验 (如果项目中已引入)。
+
+### 4. Anti-patterns (禁止模式)
+- **PowerShell**:
+    - 禁止使用 `Write-Host` 输出数据 (仅用于 UI 提示)，数据流应使用 `Write-Output`。
+    - 禁止硬编码绝对路径 (使用 `$PSScriptRoot` 或配置文件)。
+- **TypeScript**:
+    - 禁止使用 `any` 类型。
+    - 禁止在生产代码中保留 `console.log`。
+
+## ⚡ Development Workflow (严格执行流)
+
+### Step 1: Context Gathering (上下文获取)
+- **严禁盲写**。必须先运行 `ls` 确认目录结构，使用 `Read` 读取相关文件 (如 `package.json`, 现有脚本)。
+
+### Step 2: Coding (原子化修改)
+- 每次只专注于解决一个问题。
+- 保持函数短小精悍 (单一职责原则)。
+
+### Step 3: Self-Correction & Verification (自查与验证)
+- **必须** 在代码修改后进行验证：
+    - **PowerShell**: 运行 `PSScriptAnalyzer` (如果可用) 或简单的冒烟测试 (Dry Run).
+        - `Invoke-ScriptAnalyzer -Path .\script.ps1`
+    - **TypeScript**:
+        - `pnpm run typecheck`
+        - `pnpm run biome:check` (自动修复: `pnpm run biome:fixAll`)
+        - `pnpm run test`
+- 如果验证失败，必须自动尝试修复 (最多 3 次)，并在最终回复中报告修复过程。
+
+### Step 4: Documentation (文档更新)
+- 修改脚本参数后，必须更新脚本头部的 `.SYNOPSIS` 和 `.PARAMETER` 注释。
+- 如果引入新功能，必须更新 `README.md`。
+
+## 📝 Documentation & Maintenance
+
+- **Commit Messages**: 遵循 Conventional Commits。
+    - `feat: 新增视频压缩脚本`
+    - `fix: 修复路径空格处理 bug`
+    - `docs: 更新安装文档`
+- **Dependencies**: 任何 `npm` 依赖变更必须同步更新 `package.json`。
+
+## 📂 Project Structure Guide
+
+```text
+root/
+├── clis/               # TypeScript/Node.js CLI 工具
+│   └── json-diff-tool/ # JSON 差异对比工具
+├── config/             # 各种软件的配置文件 (Docker, Git, VSCode...)
+├── docs/               # 项目文档 & Cheatsheets
+├── linux/              # Linux 专用脚本 (Ubuntu, Arch, WSL)
+├── ai/                 # AI 相关配置 & Prompts
+├── .vscode/            # VS Code 工作区设置
+├── install.ps1         # 项目入口安装脚本
+└── README.md           # 项目总览
 ```
-
-**场景：** 需要判断字符串是 `null`、空 (`""`) 还是只有空格。
-
----
-
-#### **3. 检查一个数组或哈希表是否为空**
-
-**做法：** 检查 `.Count` 属性是否为 `0`。
-
-```powershell
-if ($myArray.Count -eq 0) { ... }
-```
-
-**场景：** 确定一个集合里没有任何元素。**切勿**用 `if (-not $myArray)`，因为空数组在布尔判断中是 `true`。
-
----
-
-#### **4. 检查一个变量是 `null` 或空数组**
-
-**做法：** 使用 `@()` 强制转换为数组再检查 `.Count`。
-
-```powershell
-if (@($myVar).Count -eq 0) { ... }
-```
-
-**场景：** 函数可能返回 `null` 或一个空数组，你希望两种情况都当成“空”来处理。
-
----
-
-### **Pester 测试中的规则 (`.Tests.ps1`)**
-
-| 检查目标                  | Pester 断言                                |
-| :------------------------ | :----------------------------------------- |
-| **是 `$null`**            | `($variable) | Should -Be $null`         |
-| **不是 `$null`**          | `($variable) | Should -Not -Be $null`     |
-| **是空数组/空字符串**     | `$variable | Should -BeEmpty`             |
-| **是 `$null` 或空**       | `($variable) | Should -BeNullOrEmpty`     |
-
-**为什么要有括号？** 防止当变量是空数组时，PowerShell 管道“吞掉”它，导致 `Should` 命令收不到任何东西而报错。括号能确保数组对象本身被传递。
-
-## 文档规范
-
-### README 文档
-
-- 提供清晰的项目描述和使用说明
-- 包含安装和配置步骤
-- 提供使用示例
-
-### 代码示例
-
-- 在函数注释中提供实际可运行的示例
-- 示例应覆盖常见使用场景
-- 使用中文注释说明示例的用途
-
-## 安全规范
-
-### 权限控制
-
-- 避免使用管理员权限执行非必要操作
-- 优先使用用户级别的安装和配置
-- 对敏感操作提供确认机制
-
-### 输入验证
-
-- 验证文件路径的有效性
-- 检查配置文件的格式和内容
-- 对用户输入进行适当的清理和验证
