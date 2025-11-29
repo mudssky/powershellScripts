@@ -1,0 +1,72 @@
+{
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"],
+      "env": {
+        "DEFAULT_MINIMUM_TOKENS": "10000"
+      },
+      "fromGalleryId": "upstash.context7",
+      "disabled": false
+    },
+    "git": {
+      "command": "uvx",
+      "args": ["mcp-server-git"],
+      "fromGalleryId": "modelcontextprotocol.servers_git",
+      "disabled": true
+    },
+    "gitmcp": {
+      "command": "npx",
+      "args": ["mcp-remote", "https://gitmcp.io/docs"],
+      "disabled": true
+    },
+    "promptx": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "-f",
+        "--registry",
+        "https://registry.npmjs.org",
+        "dpml-prompt@beta",
+        "mcp-server"
+      ]
+    },
+    "Playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest"],
+      "env": {},
+      "fromGalleryId": "executeautomation.mcp-playwright",
+      "disabled": true
+    },
+    "mcp-feedback-enhanced": {
+      "command": "uvx",
+      "args": ["mcp-feedback-enhanced@latest"],
+      "timeout": 600,
+      "autoApprove": ["interactive_feedback"]
+    },
+    "Sequential Thinking": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+      "env": {},
+      "fromGalleryId": "modelcontextprotocol.servers_sequentialthinking"
+    },
+    "Memory": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"],
+      "env": {
+        "MEMORY_FILE_PATH": "memory.json"
+      },
+      "fromGalleryId": "modelcontextprotocol.servers_memory"
+    },
+    "shrimp-task-manager": {
+      "command": "npx",
+      "args": ["-y", "mcp-shrimp-task-manager"],
+      "env": {
+        "DATA_DIR": ".shrimp-data",
+        "TEMPLATES_USE": "zh",
+        "ENABLE_GUI": "true",
+        "WEB_PORT": "36601"
+      }
+    }
+  }
+}
