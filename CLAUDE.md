@@ -4,11 +4,13 @@
 These instructions are for AI assistants working in this project.
 
 Always open `@/openspec/AGENTS.md` when the request:
+
 - Mentions planning or proposals (words like proposal, spec, change, plan)
 - Introduces new capabilities, breaking changes, architecture shifts, or big performance/security work
 - Sounds ambiguous and you need the authoritative spec before coding
 
 Use `@/openspec/AGENTS.md` to learn:
+
 - How to create and apply change proposals
 - Spec format and conventions
 - Project structure and guidelines
@@ -21,241 +23,160 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## 项目概述
+## 🚨 Critical Instructions (最高指令)
 
-这是一个功能丰富的 PowerShell 脚本集合，提供各种实用工具和自动化解决方案。项目包含：
-- **PSUtils 模块**: 核心 PowerShell 实用工具模块，提供 15 个功能模块
-- **核心脚本**: 系统环境管理、脚本执行器、配置文件同步等
-- **媒体处理工具**: FFmpeg 预设、音视频转换、图片压缩等
-- **系统管理工具**: 文件清理、环境变量管理、代理设置等
-- **开发工具**: 代码格式化、测试、Git 配置等
+1. **No Laziness (拒绝懒惰)**
+    - 严禁在代码块中使用 `// ... existing code`、`# ... rest of script` 或 `<!-- ... implementation -->`。
+    - **必须** 输出完整、可运行的代码文件内容，即使只修改了一行。
+    - 每一个脚本都必须是生产就绪的 (Production Ready)。
 
-## 常用命令
+2. **No Hallucination (拒绝幻觉)**
+    - 严禁引入 `package.json` 或当前环境中不存在的依赖/模块。
+    - 如需引入新工具 (e.g., `jq`, `ffmpeg`) 或 PowerShell 模块，必须先请求用户许可，并提供安装指令。
 
-### 环境设置和安装
-```powershell
-# 运行安装脚本，安装必要的模块和依赖
-.\install.ps1
+3. **Language (语言规范)**
+    - 除非用户明确要求使用英文，否则所有代码注释、文档、Commit Message 和对话解释 **必须使用中文**。
 
-# 初始化项目脚本配置（类似 npm scripts）
-.\runScripts.ps1 -init -TemplateName golang
+## 🧠 Chain of Thought & Planning (思考与规划)
 
-# 启用全局脚本配置
-.\runScripts.ps1 -CommandName build -enableGlobalScripts
+- 在编写任何代码前，必须在对话中输出以下计划块:
+
+```markdown
+## Plan
+- [ ] **Impact Analysis (影响面分析)**:
+    - 修改文件: `script.ps1`, `README.md`
+    - 潜在风险: 可能会影响依赖该模块的 CI 流程
+- [ ] **Step 1: Context Gathering**: 确认现有参数定义
+- [ ] **Step 2: Implementation**: 重构参数解析逻辑
+- [ ] **Step 3: Verification**: 运行 Pester 测试确保无回归
 ```
 
-### 测试
-```powershell
-# 运行所有测试
-pnpm test
+## 🛠 Tech Stack & Coding Standards (技术与规范)
 
-# 运行详细测试输出
-pnpm test:detailed
+### 1. Core Stack
 
-# 使用 Pester 配置运行测试
-pwsh -Command "Invoke-Pester -Configuration ( ./PesterConfiguration.ps1 )"
+- **PowerShell**: PowerShell 7+ (Core), 遵循 Windows/Linux 跨平台兼容性。
+- **TypeScript (CLI Tools)**: Node.js (LTS), pnpm, Vitest.
+- **Shell**: Bash (for Linux specific tasks).
+
+### 2. Naming Convention (命名规范)
+
+- **PowerShell Functions**: 严格遵循 `Verb-Noun` 格式 (e.g., `Get-SystemInfo`, `Install-App`).
+  - Verbs 必须来自 `Get-Verb` 许可列表。
+- **Variables**:
+  - PowerShell: `PascalCase` (e.g., `$LogFilePath`).
+  - TypeScript: `camelCase` (e.g., `const configPath`).
+- **Files**:
+  - Scripts: `camelCase.ps1` or `PascalCase.ps1` (保持与目录内现有风格一致).
+  - Configs: `kebab-case` or standard tool naming (e.g., `docker-compose.yml`).
+
+### 3. Preferred Patterns (推荐模式)
+
+- **PowerShell**:
+  - 使用 `[CmdletBinding()]` 和 `param()` 块。
+  - 优先使用 `ErrorActionPreference = 'Stop'` 处理错误。
+  - 使用 `PSCustomObject` 而不是哈希表返回结构化数据。
+- **TypeScript**:
+  - Early Returns (卫语句) 减少嵌套。
+  - 使用 `zod` 或类似库进行运行时校验 (如果项目中已引入)。
+
+### 4. Anti-patterns (禁止模式)
+
+- **PowerShell**:
+  - 禁止使用 `Write-Host` 输出数据 (仅用于 UI 提示)，数据流应使用 `Write-Output`。
+  - 禁止硬编码绝对路径 (使用 `$PSScriptRoot` 或配置文件)。
+- **TypeScript**:
+  - 禁止使用 `any` 类型。
+  - 禁止在生产代码中保留 `console.log`。
+
+## 📖 Documentation & Commenting Standards (文档与注释规范)
+
+### 1. DocStrings (文档注释)
+
+- **PowerShell**: 所有导出函数必须包含 `.SYNOPSIS`, `.DESCRIPTION`, `.PARAMETER`, `.EXAMPLE`。
+- **TypeScript**: 所有导出函数/类/接口必须包含 JSDoc/TSDoc (`@param`, `@returns`, `@throws`)。
+
+### 2. "Why" over "What" (意图优先)
+
+- ❌ 禁止: `// 循环遍历列表` (描述语法)
+- ✅ 必须: `// 过滤掉未激活用户以防止计费错误` (描述业务意图)
+
+### 3. Complex Logic (复杂逻辑)
+
+- 对于复杂度超过 5 行的逻辑块，必须在代码上方添加解释性注释。
+
+### 4. TODOs (技术债务)
+
+- 所有的技术债务必须标记为 `// TODO(User): [描述]` (TypeScript) 或 `# TODO(User): [描述]` (PowerShell)。
+- 严禁留下未标记的临时代码。
+
+## 🛡️ Maintainability & Coding Principles (可维护性与架构)
+
+### 1. SOLID Principles
+
+- **单一职责 (SRP)**: 如果一个文件超过 200 行，或者一个函数超过 50 行，必须主动提议拆分。
+
+### 2. Error Handling (错误处理)
+
+- **严禁** 使用空的 `try/catch`。
+- 所有的 Promise 必须 handle rejection。
+- 错误信息必须包含上下文，能够追溯到具体的业务流程。
+
+### 3. Naming (命名进阶)
+
+- 变量名必须全拼，禁止无意义的缩写 (e.g., 使用 `userProfile` 而不是 `uP`)。
+- 布尔值变量必须使用 `is`, `has`, `should` 前缀。
+
+### 4. Boy Scout Rule (童子军法则)
+
+- 修改现有代码时，如果你发现了显而易见的 Code Smell (类型断言、魔法数字)，必须顺手修复它。
+
+## ⚡ Development Workflow (严格执行流)
+
+### Step 1: Context Gathering (上下文获取)
+
+- **严禁盲写**。必须先运行 `ls` 确认目录结构，使用 `Read` 读取相关文件 (如 `package.json`, 现有脚本)。
+
+### Step 2: Coding (原子化修改)
+
+- 每次只专注于解决一个问题。
+- 保持函数短小精悍 (单一职责原则)。
+
+### Step 3: Self-Correction & Verification (自查与验证)
+
+- **必须** 在代码修改后进行验证：
+  - **PowerShell**: 运行 `PSScriptAnalyzer` (如果可用) 或简单的冒烟测试 (Dry Run).
+    - `Invoke-ScriptAnalyzer -Path .\script.ps1`
+  - **TypeScript**:
+    - `pnpm run typecheck`
+    - `pnpm run biome:check` (自动修复: `pnpm run biome:fixAll`)
+    - `pnpm run test`
+- 如果验证失败，必须自动尝试修复 (最多 3 次)，并在最终回复中报告修复过程。
+
+### Step 4: Documentation (文档更新)
+
+- 修改脚本参数后，必须更新脚本头部的 `.SYNOPSIS` 和 `.PARAMETER` 注释。
+- 如果引入新功能，必须更新 `README.md`。
+
+## � Release & Maintenance (发布与维护)
+
+- **Commit Messages**: 遵循 Conventional Commits。
+  - `feat: 新增视频压缩脚本`
+  - `fix: 修复路径空格处理 bug`
+  - `docs: 更新安装文档`
+- **Dependencies**: 任何 `npm` 依赖变更必须同步更新 `package.json`。
+
+## 📂 Project Structure Guide
+
+```text
+root/
+├── clis/               # TypeScript/Node.js CLI 工具
+│   └── json-diff-tool/ # JSON 差异对比工具
+├── config/             # 各种软件的配置文件 (Docker, Git, VSCode...)
+├── docs/               # 项目文档 & Cheatsheets
+├── linux/              # Linux 专用脚本 (Ubuntu, Arch, WSL)
+├── ai/                 # AI 相关配置 & Prompts
+├── .vscode/            # VS Code 工作区设置
+├── install.ps1         # 项目入口安装脚本
+└── README.md           # 项目总览
 ```
-
-### 代码格式化和质量检查
-```powershell
-# 格式化 PowerShell 代码
-pnpm format:pwsh
-
-# 格式化 JavaScript/TypeScript 代码
-pnpm format:biome
-
-# 格式化所有代码
-pnpm format
-
-# 运行 lint-staged（通常在 git commit 时自动执行）
-pnpm lint-staged
-```
-
-### 环境变量管理
-```powershell
-# 清理 PATH 环境变量中的无效路径
-.\cleanEnvPath.ps1
-
-# 清理系统级 PATH（需要管理员权限）
-.\cleanEnvPath.ps1 -EnvTarget Machine
-
-# 预览清理操作
-.\cleanEnvPath.ps1 -WhatIf
-
-# 从备份恢复 PATH
-.\restoreEnvPath.ps1 -BackupFilePath "C:\backup\PATH_User_20231201_143022.txt"
-```
-
-### 媒体处理
-```powershell
-# 使用 FFmpeg 预设压制视频
-.\ffmpegPreset.ps1 -path 'input.flv' -preset '720p28'
-
-# 批量处理视频
-ls *.flv | % { .\ffmpegPreset.ps1 -path $_.Name }
-
-# 视频转音频
-.\VideoToAudio.ps1 -InputFile 'video.mp4' -OutputFormat 'mp3'
-```
-
-## 核心模块：PSUtils
-
-PSUtils 是项目的核心模块，提供 15 个功能模块：
-
-```powershell
-# 导入 PSUtils 模块
-Import-Module .\psutils\psutils.psd1
-
-# 查看所有可用函数
-Get-Command -Module psutils
-
-# 搜索模块内函数
-Find-PSUtilsFunction "install" -ShowDetails
-
-# 使用缓存功能提升性能
-$result = Invoke-WithCache -Key "expensive-operation" -ScriptBlock {
-    # 耗时操作
-    Get-Process | Select-Object -First 10
-}
-```
-
-### 主要功能模块
-- **env**: .env 文件处理和环境变量管理
-- **string**: 字符串处理和文本分析
-- **os**: 跨平台操作系统检测
-- **network**: 网络连接测试、端口检查
-- **cache**: 高性能函数结果缓存
-- **install**: PowerShell 模块安装管理
-- **functions**: 通用工具函数
-- **help**: 模块内帮助搜索
-
-## 项目架构
-
-### 目录结构
-```
-powershellScripts/
-├── psutils/                    # 核心工具模块
-│   ├── modules/               # 15个功能模块文件
-│   ├── tests/                 # 单元测试文件
-│   ├── examples/              # 使用示例
-│   └── demo/                 # 演示脚本
-├── scripts/                   # 构建和工具脚本
-├── profile/                   # PowerShell 配置文件
-├── config/                    # 配置文件和设置
-├── ai/                        # AI 相关工具
-├── linux/                     # Linux 特定脚本
-├── macos/                     # macOS 特定脚本
-├── deprecated/                # 已弃用的脚本
-├── templates/                 # 脚本模板
-└── *.ps1                      # 主要功能脚本
-```
-
-### 构建系统
-- **包管理**: 使用 pnpm 作为包管理器
-- **代码格式化**:
-  - PowerShell: 使用 PSScriptAnalyzer 的 Invoke-Formatter
-  - JavaScript/TypeScript: 使用 Biome
-- **测试框架**: Pester，配置文件为 `PesterConfiguration.ps1`
-- **Git 钩子**: 使用 Husky 和 lint-staged
-
-### 配置文件
-- **biome.json**: Biome 格式化配置
-- **PesterConfiguration.ps1**: Pester 测试配置
-- **lint-staged.config.js**: 代码提交前的检查配置
-
-## 开发指南
-
-### 脚本开发规范
-1. **文档**: 每个脚本必须包含完整的帮助文档（.SYNOPSIS, .DESCRIPTION, .EXAMPLE, .NOTES）
-2. **参数**: 使用 `[CmdletBinding()]` 和适当的参数验证
-3. **错误处理**: 包含适当的错误处理和用户提示
-4. **测试**: 为新功能编写 Pester 测试
-
-### 添加新功能
-1. 在 `psutils/modules/` 中添加功能到相应模块
-2. 在 `psutils/tests/` 中添加单元测试
-3. 更新相关文档和示例
-4. 运行测试确保功能正常
-
-### 脚本执行器使用
-项目包含类似 npm scripts 的脚本执行器：
-
-```powershell
-# 初始化项目脚本
-.\runScripts.ps1 -init -TemplateName golang
-
-# 执行定义的命令
-.\runScripts.ps1 -CommandName test
-
-# 列出所有可用命令
-.\runScripts.ps1 -listCommands
-
-# 支持预/后钩子（如 pretest -> test -> posttest）
-```
-
-## 测试和质量保证
-
-### 运行测试
-```powershell
-# 运行所有测试
-pnpm test
-
-# 运行特定模块测试
-Invoke-Pester .\psutils\tests\cache.Tests.ps1
-
-# 生成测试结果报告
-pwsh -Command "Invoke-Pester -Output Detailed"
-```
-
-### 代码质量
-- 所有 PowerShell 代码使用 PSScriptAnalyzer 进行静态分析
-- 支持 lint-staged 进行提交前检查
-- 代码覆盖率分析（排除特定模块）
-- 并行测试执行（最多4个线程）
-
-## 性能优化
-
-### 缓存系统
-PSUtils 提供高性能的缓存功能：
-
-```powershell
-# 使用缓存减少重复计算
-$result = Invoke-WithCache -Key "data" -ScriptBlock { Get-Service }
-
-# 不同缓存类型
-$xmlResult = Invoke-WithCache -Key "data" -CacheType XML -ScriptBlock { @{Object} }
-$textResult = Invoke-WithCache -Key "data" -CacheType Text -ScriptBlock { "String" }
-
-# 缓存管理
-Get-CacheStats -Detailed
-Clear-ExpiredCache
-```
-
-## 跨平台支持
-
-- **Windows**: 主要支持平台，提供完整的 Windows 特定功能
-- **Linux**: 提供基本的 Linux 支持和 WSL2 配置
-- **macOS**: 提供安装脚本和配置管理
-
-## 故障排除
-
-### 执行策略问题
-```powershell
-# 临时绕过执行策略
-powershell -ExecutionPolicy Bypass -File .\scriptName.ps1
-
-# 设置执行策略（管理员权限）
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-```
-
-### 模块安装问题
-```powershell
-# 安装必需的 PowerShell 模块
-Install-Module -Name Pester -Scope CurrentUser
-Install-Module -Name PSScriptAnalyzer -Scope CurrentUser
-```
-
-### 权限问题
-- 某些脚本需要管理员权限（如系统级环境变量修改）
-- 使用 `-WhatIf` 参数预览操作
-- 重要操作会自动创建备份
