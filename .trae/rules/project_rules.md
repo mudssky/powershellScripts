@@ -66,6 +66,48 @@
   - 禁止使用 `any` 类型。
   - 禁止在生产代码中保留 `console.log`。
 
+## 📖 Documentation & Commenting Standards (文档与注释规范)
+
+### 1. DocStrings (文档注释)
+
+- **PowerShell**: 所有导出函数必须包含 `.SYNOPSIS`, `.DESCRIPTION`, `.PARAMETER`, `.EXAMPLE`。
+- **TypeScript**: 所有导出函数/类/接口必须包含 JSDoc/TSDoc (`@param`, `@returns`, `@throws`)。
+
+### 2. "Why" over "What" (意图优先)
+
+- ❌ 禁止: `// 循环遍历列表` (描述语法)
+- ✅ 必须: `// 过滤掉未激活用户以防止计费错误` (描述业务意图)
+
+### 3. Complex Logic (复杂逻辑)
+
+- 对于复杂度超过 5 行的逻辑块，必须在代码上方添加解释性注释。
+
+### 4. TODOs (技术债务)
+
+- 所有的技术债务必须标记为 `// TODO(User): [描述]` (TypeScript) 或 `# TODO(User): [描述]` (PowerShell)。
+- 严禁留下未标记的临时代码。
+
+## 🛡️ Maintainability & Coding Principles (可维护性与架构)
+
+### 1. SOLID Principles
+
+- **单一职责 (SRP)**: 如果一个文件超过 200 行，或者一个函数超过 50 行，必须主动提议拆分。
+
+### 2. Error Handling (错误处理)
+
+- **严禁** 使用空的 `try/catch`。
+- 所有的 Promise 必须 handle rejection。
+- 错误信息必须包含上下文，能够追溯到具体的业务流程。
+
+### 3. Naming (命名进阶)
+
+- 变量名必须全拼，禁止无意义的缩写 (e.g., 使用 `userProfile` 而不是 `uP`)。
+- 布尔值变量必须使用 `is`, `has`, `should` 前缀。
+
+### 4. Boy Scout Rule (童子军法则)
+
+- 修改现有代码时，如果你发现了显而易见的 Code Smell (类型断言、魔法数字)，必须顺手修复它。
+
 ## ⚡ Development Workflow (严格执行流)
 
 ### Step 1: Context Gathering (上下文获取)
@@ -93,7 +135,7 @@
 - 修改脚本参数后，必须更新脚本头部的 `.SYNOPSIS` 和 `.PARAMETER` 注释。
 - 如果引入新功能，必须更新 `README.md`。
 
-## 📝 Documentation & Maintenance
+## � Release & Maintenance (发布与维护)
 
 - **Commit Messages**: 遵循 Conventional Commits。
   - `feat: 新增视频压缩脚本`
