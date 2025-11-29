@@ -1,7 +1,7 @@
 model = "glm-4.6"
 [model_providers.z_ai]
 name = "z.ai - GLM Coding Plan"
-base_url = "https://api.z.ai/api/coding/paas/v4"
+base_url = "https://open.bigmodel.cn/api/coding/paas/v4/"
 env_key = "Z_AI_API_KEY"
 
 [profiles.glm_4_6]
