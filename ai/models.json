@@ -50,14 +50,14 @@
       "skip": false
     },
     {
-      "modelId": "qwen3-coder",
+      "modelId": "qwen3-coder:latest",
       "name": "qwen3-coder",
       "size": 19,
       "vramRequired": 16,
       "skip": false
     },
     {
-      "modelId": "qwen3-embedding",
+      "modelId": "qwen3-embedding:latest",
       "name": "qwen3-embedding",
       "size": 8,
       "vramRequired": 8,

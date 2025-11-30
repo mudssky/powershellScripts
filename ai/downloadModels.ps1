@@ -424,8 +424,8 @@ else {
     Write-Host "`n=== 下载完成 ===" -ForegroundColor Cyan
     Write-Host "成功下载: $($result['Downloaded']) 个模型" -ForegroundColor Green
     Write-Host "跳过/失败: $($skippedCount + $result['Failed']) 个模型" -ForegroundColor Yellow
-    Write-Host "删除完成: $($removeResult['Removed']) 个模型" -ForegroundColor Red
-    Write-Host "删除失败: $($removeResult['Failed']) 个模型" -ForegroundColor Yellow
+    Write-Host "删除完成: $($removeResult.Removed) 个模型" -ForegroundColor Red
+    Write-Host "删除失败: $($removeResult.Failed) 个模型" -ForegroundColor Yellow
 }
 
 if (-not $ListOnly -and @($eligible).Count -eq 0) {
