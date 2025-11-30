@@ -28,28 +28,131 @@ function Get-GpuInfo {
         switch ($osType) {
             "Windows" {
                 try {
-                    $csv = nvidia-smi --query-gpu=name, memory.total --format=csv, noheader, nounits 2>$null
-                    if ($csv -and $csv.Trim() -ne "") {
+                    $nvCmd = (Get-Command nvidia-smi -ErrorAction SilentlyContinue)?.Path
+                    if (-not $nvCmd) {
+                        $defaultNv = "C:\\Program Files\\NVIDIA Corporation\\NVSMI\\nvidia-smi.exe"
+                        if (Test-Path $defaultNv) { $nvCmd = $defaultNv }
+                    }
+
+                    $csvDirect = nvidia-smi --query-gpu=name, memory.total --format=csv, noheader, nounits 2>$null
+                    if ($csvDirect -and $csvDirect.Trim() -ne "") {
                         $maxMB = 0
                         $selName = "NVIDIA"
-                        foreach ($line in @($csv)) {
+                        foreach ($line in @($csvDirect)) {
                             $m = [regex]::Match($line, "^(.*?),\s*(\d+)")
                             if ($m.Success) { $name = $m.Groups[1].Value.Trim(); $mb = [int]$m.Groups[2].Value; if ($mb -gt $maxMB) { $maxMB = $mb; $selName = $name } }
                         }
                         if ($maxMB -gt 0) {
-                            $totalVramGB = [math]::Round($maxMB / 1024, 1)
-                            return @{ HasGpu = $true; VramGB = $totalVramGB; GpuType = "NVIDIA"; GpuModel = $selName }
+                            return @{ HasGpu = $true; VramGB = [math]::Round($maxMB / 1024, 1); GpuType = "NVIDIA"; GpuModel = $selName }
                         }
                     }
 
-                    $nvidiaInfo = nvidia-smi --query-gpu=memory.total --format=csv, noheader, nounits 2>$null
-                    if ($nvidiaInfo -and $nvidiaInfo.Trim() -ne "") {
-                        $totalVramMB = [int]($nvidiaInfo | Select-Object -First 1)
-                        $totalVramGB = [math]::Round($totalVramMB / 1024, 1)
-                        return @{ HasGpu = $true; VramGB = $totalVramGB; GpuType = "NVIDIA"; GpuModel = "NVIDIA" }
+                    $plainOut = nvidia-smi 2>$null
+                    if ($plainOut) {
+                        $mt = ($plainOut | Select-String -Pattern "(\\d+)MiB\s*/\s*(\\d+)MiB")
+                        if ($mt) {
+                            $totalMB = [int]$mt.Matches[0].Groups[2].Value
+                            $modelName = "NVIDIA"
+                            $nameLine = ($plainOut | Select-String -Pattern "NVIDIA GeForce|NVIDIA RTX|GeForce|RTX") | Select-Object -First 1
+                            if ($nameLine) { $modelName = ($nameLine.Matches[0].Value).Trim() }
+                            return @{ HasGpu = $true; VramGB = [math]::Round($totalMB / 1024, 1); GpuType = "NVIDIA"; GpuModel = $modelName }
+                        }
+                    }
+
+                    if ($nvCmd) {
+                        $csv = nvidia-smi --query-gpu=name, memory.total --format=csv, noheader, nounits 2>$null
+                        if ($csv -and $csv.Trim() -ne "") {
+                            $maxMB = 0
+                            $selName = "NVIDIA"
+                            foreach ($line in @($csv)) {
+                                $m = [regex]::Match($line, "^(.*?),\s*(\d+)")
+                                if ($m.Success) { $name = $m.Groups[1].Value.Trim(); $mb = [int]$m.Groups[2].Value; if ($mb -gt $maxMB) { $maxMB = $mb; $selName = $name } }
+                            }
+                            if ($maxMB -gt 0) {
+                                $totalVramGB = [math]::Round($maxMB / 1024, 1)
+                                return @{ HasGpu = $true; VramGB = $totalVramGB; GpuType = "NVIDIA"; GpuModel = $selName }
+                            }
+
+                            try {
+                                $regMaxBytes = 0
+                                $regModel = $null
+                                $regVendor = $null
+                                $videoRoot = 'HKLM:\SYSTEM\CurrentControlSet\Control\Video'
+                                if (Test-Path $videoRoot) {
+                                    $subKeys = Get-ChildItem $videoRoot -ErrorAction SilentlyContinue
+                                    foreach ($sub in $subKeys) {
+                                        $leaf = Join-Path $sub.PSPath '0000'
+                                        if (Test-Path $leaf) {
+                                            $item = Get-ItemProperty -Path $leaf -ErrorAction SilentlyContinue
+                                            $candidates = @('HardwareInformation.qwMemorySize', 'HardwareInformation.MemorySize', 'HardwareInformation.qwMemSize')
+                                            foreach ($name in $candidates) {
+                                                if ($item.PSObject.Properties[$name]) {
+                                                    $val = [long]$item.$name
+                                                    if ($val -gt $regMaxBytes) { $regMaxBytes = $val }
+                                                }
+                                            }
+                                            if (-not $regModel -and $item.PSObject.Properties['DriverDesc']) { $regModel = $item.DriverDesc }
+                                        }
+                                    }
+                                }
+                                if ($regMaxBytes -gt 0) {
+                                    $gpuType = 'Unknown'
+                                    $controllers2 = Get-CimInstance -ClassName Win32_VideoController -ErrorAction SilentlyContinue
+                                    if ($controllers2) {
+                                        $best2 = $controllers2 | Where-Object { $_.PNPDeviceID -match 'VEN_10DE|VEN_1002' -or $_.Name -match 'NVIDIA|AMD|Radeon' } | Sort-Object -Property AdapterRAM -Descending | Select-Object -First 1
+                                        if ($best2) {
+                                            if ($best2.PNPDeviceID -match 'VEN_10DE' -or $best2.Name -match 'NVIDIA') { $gpuType = 'NVIDIA' } elseif ($best2.PNPDeviceID -match 'VEN_1002' -or $best2.Name -match 'AMD|Radeon') { $gpuType = 'AMD' }
+                                            $regModel = $best2.Name
+                                        }
+                                    }
+                                    return @{ HasGpu = $true; VramGB = [math]::Round($regMaxBytes / 1GB, 1); GpuType = $gpuType; GpuModel = $regModel }
+                                }
+                            }
+                            catch { }
+
+                        }
+
+                        $nvidiaInfo = nvidia-smi --query-gpu=memory.total --format=csv, noheader, nounits 2>$null
+                        if ($nvidiaInfo -and $nvidiaInfo.Trim() -ne "") {
+                            $totalVramMB = [int]($nvidiaInfo | Select-Object -First 1)
+                            $totalVramGB = [math]::Round($totalVramMB / 1024, 1)
+                            return @{ HasGpu = $true; VramGB = $totalVramGB; GpuType = "NVIDIA"; GpuModel = "NVIDIA" }
+                        }
+
+                        $qmem = nvidia-smi -q -d MEMORY 2>$null
+                        if ($qmem) {
+                            $m = ($qmem | Select-String -Pattern "Total\s*:\s*(\d+)\s*MiB")
+                            if ($m) {
+                                $mb = [int]$m.Matches[0].Groups[1].Value
+                                $model = "NVIDIA"
+                                $list = nvidia-smi -L 2>$null
+                                if ($list) {
+                                    $first = ($list | Select-Object -First 1)
+                                    $nm = [regex]::Match($first, "GPU\s*\d+:\s*(.+?)(\s*\(|$)")
+                                    if ($nm.Success) { $model = $nm.Groups[1].Value.Trim() }
+                                }
+                                return @{ HasGpu = $true; VramGB = [math]::Round($mb / 1024, 1); GpuType = "NVIDIA"; GpuModel = $model }
+                            }
+                        }
                     }
                 }
                 catch { Write-Verbose "NVIDIA GPU检测失败: $($_.Exception.Message)" }
+
+                $controllers = Get-CimInstance -ClassName Win32_VideoController -ErrorAction SilentlyContinue
+                if ($controllers) {
+                    $discrete = $controllers | Where-Object { $_.PNPDeviceID -match 'VEN_10DE|VEN_1002' -or $_.Name -match 'NVIDIA|AMD|Radeon' }
+                    if ($discrete) {
+                        $best = $discrete | Sort-Object -Property AdapterRAM -Descending | Select-Object -First 1
+                        if ($best) {
+                            $vramGB = 0
+                            if ($best.AdapterRAM -and [double]$best.AdapterRAM -gt 0) { $vramGB = [math]::Round([double]$best.AdapterRAM / 1GB, 1) }
+                            $type = 'Unknown'
+                            if ($best.PNPDeviceID -match 'VEN_10DE' -or $best.Name -match 'NVIDIA') { $type = 'NVIDIA' }
+                            elseif ($best.PNPDeviceID -match 'VEN_1002' -or $best.Name -match 'AMD|Radeon') { $type = 'AMD' }
+                            return @{ HasGpu = $true; VramGB = $vramGB; GpuType = $type; GpuModel = $best.Name }
+                        }
+                    }
+                }
 
                 $amdGpu = Get-WmiObject -Class Win32_VideoController | Where-Object {
                     $_.Name -like "*AMD*" -or $_.Name -like "*Radeon*" -or $_.Name -like "*RX*" -or $_.Name -like "*Vega*" -or $_.Name -like "*RDNA*"
