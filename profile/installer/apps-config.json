@@ -751,12 +751,6 @@
         "cliName": "openspec",
         "description": "Fission AI OpenSpec tool",
         "command": "npm install -g @fission-ai/openspec"
-      },
-      {
-        "name": "tree-sitter-cli",
-        "cliName": "tree-sitter",
-        "description": "Tree-sitter 语法解析器 CLI 工具",
-        "command": "npm install -g tree-sitter-cli"
       }
     ],
     "pacman": [
