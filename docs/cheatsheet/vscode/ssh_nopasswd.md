@@ -1,5 +1,26 @@
 ## VSCode (Win11) SSH 连接 Unix 系统免密登录速查表
 
+### 使用一键脚本（推荐）
+
+**在项目根目录执行：**
+
+```powershell
+./Setup-SshNoPasswd.ps1 -RemoteHost 192.168.x.x -Username your_user
+```
+
+- 默认生成 `ed25519` 密钥，路径 `~/.ssh/id_ed25519`。
+- 自动将公钥追加到远端 `~/.ssh/authorized_keys` 并设置权限。
+- 自动写入本地 `~/.ssh/config`，使用别名 `ssh-192.168.x.x` 连接。
+- 可选参数：
+  - `-Port 22` 端口
+  - `-KeyType ed25519|rsa`
+  - `-KeyPath ~/.ssh/id_ed25519`
+  - `-Alias ssh-your-host`
+  - `-ManageServer $true|$false`
+  - `-DryRun` 仅展示将执行的操作
+
+---
+
 ### 第 1 步：在 Windows 11 (PowerShell / 终端)
 
 **1. 生成 SSH 密钥对**
