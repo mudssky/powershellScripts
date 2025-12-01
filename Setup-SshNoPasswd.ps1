@@ -83,7 +83,9 @@ if ($DryRun) { Write-Output ("HostAlias=" + $aliasToWrite) }
 # 优先使用 ssh-copy-id（Linux/macOS 常见），回退到 ssh 远程命令
 $hasCopyId = [bool](Get-Command ssh-copy-id -ErrorAction SilentlyContinue)
 $login = $Username + '@' + $RemoteHost
-if ($hasCopyId) {
+if ($DryRun) { Write-Output ("IsWindows=" + $isWindows) }
+$preferCopyId = $hasCopyId -and (-not $isWindows)
+if ($preferCopyId) {
     if ($DryRun) {
         Write-Output ("ssh-copy-id -i '" + $pubPath + "' -p " + $Port + " " + $login)
     }
@@ -105,12 +107,12 @@ else {
         }
     }
     else {
-        $remoteCmd = "mkdir -p ~/.ssh; chmod 700 ~/.ssh; echo '" + $pubKeyOutput + "' >> ~/.ssh/authorized_keys; chmod 600 ~/.ssh/authorized_keys"
+        $pipeCmd = "umask 077; mkdir -p ~/.ssh; cat >> ~/.ssh/authorized_keys; chmod 600 ~/.ssh/authorized_keys"
         if ($DryRun) {
-            Write-Output ("ssh -p " + $Port + " " + $login + " " + $remoteCmd)
+            Write-Output ("[PIPE] Get-Content -Raw '" + $pubPath + "' | ssh -p " + $Port + " " + $login + " " + $pipeCmd)
         }
         else {
-            & ssh -p $Port $login $remoteCmd
+            Get-Content -Raw $pubPath | ssh -p $Port $login $pipeCmd
         }
     }
 }
@@ -156,7 +158,7 @@ else {
     if (-not (Test-Path $configFile)) { New-Item -ItemType File -Path $configFile | Out-Null }
     $exists = $false
     if (Test-Path $configFile) {
-        $exists = Select-String -Path $configFile -Pattern ("^Host\s+" + [regex]::Escape($Alias)) -Quiet
+        $exists = Select-String -Path $configFile -Pattern ("^Host\s+" + [regex]::Escape($aliasToWrite)) -Quiet
     }
     if (-not $exists) {
         $entry = "Host " + $aliasToWrite + "`n    HostName " + $RemoteHost + "`n    User " + $Username + "`n    IdentityFile " + $KeyPath + "`n    Port " + $Port + "`n    PreferredAuthentications publickey"
