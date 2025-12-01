@@ -22,6 +22,7 @@
     - cadvisor: 容器监控
     - prometheus: 监控系统
     - noco: 无代码平台
+    - qdrant: 向量数据库
 
 .PARAMETER RestartPolicy
     容器重启策略，默认为'unless-stopped'。可选值：
@@ -73,7 +74,7 @@
 param (
     [Parameter(Mandatory = $false)]
     [ValidateSet("minio", "redis", 'postgre', 'etcd', 'nacos', 'rabbitmq', 'mongodb', 'one-api', 'mongodb-replica', 'kokoro-fastapi', 
-        'kokoro-fastapi-cpu', 'cadvisor', 'prometheus', 'noco', 'n8n', 'crawl4ai', 'pageSpy', 'new-api')]
+        'kokoro-fastapi-cpu', 'cadvisor', 'prometheus', 'noco', 'n8n', 'crawl4ai', 'pageSpy', 'new-api', 'qdrant')]
     [string]$ServiceName, # 更合理的参数名
     
     [ValidateSet("always", "unless-stopped", 'on-failure', 'on-failure:3', 'no')]
