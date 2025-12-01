@@ -18,8 +18,20 @@ else {
 	2.Invoke-Expression (&starship init powershell)'
 }
 
-
-
 if ($loadProfile) {
-    Set-Content -Path $profile  -Value  ". $PSCommandPath"
+    $profileDir = Split-Path -Parent -Path $profile
+    if (-not (Test-Path -LiteralPath $profileDir)) {
+        New-Item -ItemType Directory -Path $profileDir -Force | Out-Null
+    }
+
+    if (Test-Path -LiteralPath $profile) {
+        $current = Get-Content -Path $profile -ErrorAction SilentlyContinue
+        if ($current -notcontains ". $PSCommandPath") {
+            Add-Content -Path $profile -Value ". $PSCommandPath"
+        }
+    }
+    else {
+        New-Item -ItemType File -Path $profile -Force | Out-Null
+        Set-Content -Path $profile -Value ". $PSCommandPath"
+    }
 }
