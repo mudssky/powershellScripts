@@ -65,6 +65,14 @@
     .\start-container.ps1 -ServiceName redis -Pull -DryRun
     拉取镜像（不执行，仅预览）
 
+.EXAMPLE
+    .\start-container.ps1 -ServiceName new-api -Update
+    先拉取最新镜像，再启动服务
+
+.EXAMPLE
+    .\start-container.ps1 -ServiceName new-api -PullAlways
+    在 Compose v2 环境下通过 `up -d --pull always` 拉取并启动；在 legacy 环境自动回退为先拉取后启动
+
 .NOTES
     需要安装Docker
     脚本会自动创建必要的数据目录
@@ -88,6 +96,8 @@ param (
     [switch]$Down,
     [switch]$Pull,
     [switch]$Build,
+    [switch]$Update,
+    [switch]$PullAlways,
     [string]$ProjectName,
     [string]$NetworkName,
     [hashtable]$Env,
@@ -172,12 +182,13 @@ function Invoke-DockerCompose {
         [string[]]$ExtraArgs,
         [switch]$DryRun
     )
-    $mode = Test-DockerAvailable
+    $mode = $null
+    if (-not $DryRun) { $mode = Test-DockerAvailable } else { $mode = 'sub' }
     $dcArgs = @()
     if ($mode -eq 'sub') { $dcArgs += 'compose' }
     if ($File) { $dcArgs += @('-f', $File) }
     if ($Project) { $dcArgs += @('-p', $Project) }
-    if ($Profiles) { foreach ($p in $Profiles) { $dcArgs += @('--profile', $p) } }
+    if ($Profiles) { foreach ($p in $Profiles) { if (-not [string]::IsNullOrWhiteSpace($p)) { $dcArgs += @('--profile', $p) } } }
     if ($Action) { $dcArgs += ($Action -split ' ') }
     if ($Services) { $dcArgs += $Services }
     if ($ExtraArgs) { $dcArgs += $ExtraArgs }
@@ -281,6 +292,25 @@ if ($ServiceName -eq 'mongodb-replica' -and (Test-Path $mongoReplComposePath)) {
 }
 if (Test-Path $composePath) {
     $available = Get-ComposeServiceNames -ComposePath $composePath -ReplicaComposePath $mongoReplComposePath
+    if ($Update) {
+        Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'pull' -DryRun:$DryRun
+        Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'up -d' -DryRun:$DryRun
+        if (-not $DryRun -and $ServiceName) { [void](Wait-ServiceHealthy -Service $ServiceName -Project $projectName) }
+        return
+    }
+    if ($PullAlways) {
+        $modeForUp = Test-DockerAvailable
+        if ($modeForUp -eq 'sub') {
+            Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'up -d' -ExtraArgs @('--pull','always') -DryRun:$DryRun
+            if (-not $DryRun -and $ServiceName) { [void](Wait-ServiceHealthy -Service $ServiceName -Project $projectName) }
+        }
+        else {
+            Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'pull' -DryRun:$DryRun
+            Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'up -d' -DryRun:$DryRun
+            if (-not $DryRun -and $ServiceName) { [void](Wait-ServiceHealthy -Service $ServiceName -Project $projectName) }
+        }
+        return
+    }
     if ($Down) {
         if ($ServiceName) {
             Invoke-DockerCompose -File $composePath -Project $projectName -Action 'stop' -Services @($ServiceName) -DryRun:$DryRun
