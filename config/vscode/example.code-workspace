@@ -10,13 +10,13 @@
     },
     {
       "name": "🖥️web-front",
-      "path":"front"
+      "path":"front1"
     }  ,{
       "name": "⚙️web-admin",
-      "path":"front"
+      "path":"front2"
     } , {
       "name": "📱sweb-mobile",
-      "path":"front"
+      "path":"front3"
     }
   ],
   "settings": {
@@ -38,26 +38,27 @@
     // 搜索性能优化
     "search.useIgnoreFiles": true,
     "search.useGlobalIgnoreFiles": true,
-    "search.exclude": {
-      "**/node_modules": true,
-      "**/dist": true,
-      "**/.next": true,
-      "**/coverage": true,
-      "**/yarn.lock": true,
-      "**/pnpm-lock.yaml": true,
-      "**/package-lock.json": true,
-      "**/.git": true,
-      "**/.DS_Store": true,
-      "**/*.log": true,
-      "**/.idea": true,
-      "**/.vscode": true
-    },
+    // 搜索使用gitignore就不用再列出了
+    // "search.exclude": {
+    //   "**/node_modules": true,
+    //   "**/dist": true,
+    //   "**/.next": true,
+    //   "**/coverage": true,
+    //   "**/yarn.lock": true,
+    //   "**/pnpm-lock.yaml": true,
+    //   "**/package-lock.json": true,
+    //   "**/.git": true,
+    //   "**/.DS_Store": true,
+    //   "**/*.log": true,
+    //   "**/.idea": true,
+    //   "**/.vscode": true
+    // },
     // 禁用遥测 ，减少cpu后台任务
     "telemetry.telemetryLevel": "off",
 
     //优化ts server
     // 默认最大内存可能不够，防止频繁gc可以调大,特别是多个ts项目可能需要更大的内存
-    "typescript.tsserver.maxTsServerMemory": 4096,
+    // "typescript.tsserver.maxTsServerMemory": 4096,
     // 禁用项目诊断，减少内存占用，因为项目中rsbuild已经包含了type check插件了
     "typescript.tsserver.experimental.enableProjectDiagnostics": false,
     // 即使 VS Code 已经忽略 node_modules，TS Server（语言服务器）仍然会扫描和 watch 这些目录
@@ -65,6 +66,9 @@
     "typescript.tsserver.watchOptions": {
       "excludeDirectories": ["node_modules", "dist", "build"]
     },
+     // 禁止自动获取 @types 包，对于已经配置好 package.json 的项目，这通常是多余的网络请求和索引
+    "typescript.disableAutomaticTypeAcquisition": true,
+
     // git 优化
     "git.autofetch": false,
     "git.ignoreSubmodules": true,
@@ -79,7 +83,12 @@
       "typescript",
       "typescriptreact"
     ],
-
+    
+        // 避免把大文件当成代码解析
+    "files.associations": {
+      "*.log": "plaintext", // 强制把日志文件当纯文本，不进行语法高亮分析
+      "*.csv": "plaintext"
+    },
     // peacock改变颜色，便于区分不同项目
     // "workbench.colorCustomizations": {
     //   "activityBar.activeBackground": "#2ecef9",
