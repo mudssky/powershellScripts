@@ -1,0 +1,68 @@
+{
+  "folders": [
+    {
+      "path": "server", // 支持相对路径（推荐）或绝对路径
+      "name": "Backend API" // 【技巧】给文件夹起别名，不影响文件系统
+    },
+    {
+      "path": "client",
+      "name": "Frontend App"
+    }
+  ],
+  "settings": {
+    // 文件监听器忽略，优化内存占用
+    "files.watcherExclude": {
+      "**/node_modules/**": true,
+      "**/dist/**": true,
+      "**/.git/objects/**": true,
+      "**/.git/subtree-cache/**": true,
+      "**/coverage/**": true,
+      "**/.hg/store/**": true,
+      "**/.idea/**": true,
+      "**/.vscode/**": true,
+      "**/.next/**": true,
+      "**/build/**": true,
+      "**/.cache/**": true,
+      "**/tmp/**": true
+    },
+    // 搜索性能优化
+    "search.exclude": {
+      "**/node_modules": true,
+      "**/dist": true,
+      "**/.next": true,
+      "**/coverage": true,
+      "**/yarn.lock": true,
+      "**/pnpm-lock.yaml": true,
+      "**/package-lock.json": true,
+      "**/.git": true,
+      "**/.DS_Store": true,
+      "**/*.log": true,
+      "**/.idea": true,
+      "**/.vscode": true
+    },
+    // peacock改变颜色，便于区分不同项目
+    // "workbench.colorCustomizations": {
+    //   "activityBar.activeBackground": "#2ecef9",
+    //   "activityBar.background": "#2ecef9",
+    //   "activityBar.foreground": "#15202b",
+    //   "activityBar.inactiveForeground": "#15202b99",
+    //   "activityBarBadge.background": "#d906ac",
+    //   "activityBarBadge.foreground": "#e7e7e7",
+    //   "commandCenter.border": "#15202b99",
+    //   "sash.hoverBorder": "#2ecef9",
+    //   "statusBar.background": "#07bced",
+    //   "statusBar.foreground": "#15202b",
+    //   "statusBarItem.hoverBackground": "#0695bb",
+    //   "statusBarItem.remoteBackground": "#07bced",
+    //   "statusBarItem.remoteForeground": "#15202b",
+    //   "titleBar.activeBackground": "#07bced",
+    //   "titleBar.activeForeground": "#15202b",
+    //   "titleBar.inactiveBackground": "#07bced99",
+    //   "titleBar.inactiveForeground": "#15202b99"
+    // },
+    // "peacock.color": "#07bced"
+
+    // 也可以设置不同的主题
+    "workbench.colorTheme": "Catppuccin Latte"
+  }
+}
