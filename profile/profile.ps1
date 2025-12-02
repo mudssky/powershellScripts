@@ -234,6 +234,7 @@ function Initialize-Environment {
     Write-Verbose "设置控制台编码为UTF8"
     $Global:OutputEncoding = [console]::InputEncoding = [console]::OutputEncoding = New-Object System.Text.UTF8Encoding
     $Global:PSDefaultParameterValues["Out-File:Encoding"] = "UTF8"
+    Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
 	
     # 导入PSReadLine模块
     # pwsh 7.x版本以上是自动启用了，所以也不用导入

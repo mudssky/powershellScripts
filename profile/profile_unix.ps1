@@ -198,6 +198,8 @@ function Initialize-Environment {
         }
     }
     
+    # powershell相关配置
+    Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
     Set-AliasProfile
     Write-Verbose "PowerShell 环境初始化完成"
     
