@@ -2,11 +2,21 @@
   "folders": [
     {
       "path": "server", // 支持相对路径（推荐）或绝对路径
-      "name": "Backend API" // 【技巧】给文件夹起别名，不影响文件系统
+      "name": "🔌Backend API" // 【技巧】给文件夹起别名，不影响文件系统
     },
     {
       "path": "client",
-      "name": "Frontend App"
+      "name": "🌐Frontend App"
+    },
+    {
+      "name": "🖥️web-front",
+      "path":"front"
+    }  ,{
+      "name": "⚙️web-admin",
+      "path":"front"
+    } , {
+      "name": "📱sweb-mobile",
+      "path":"front"
     }
   ],
   "settings": {
