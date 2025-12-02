@@ -26,6 +26,8 @@
       "**/tmp/**": true
     },
     // 搜索性能优化
+    "search.useIgnoreFiles": true,
+    "search.useGlobalIgnoreFiles": true,
     "search.exclude": {
       "**/node_modules": true,
       "**/dist": true,
@@ -40,6 +42,34 @@
       "**/.idea": true,
       "**/.vscode": true
     },
+    // 禁用遥测 ，减少cpu后台任务
+    "telemetry.telemetryLevel": "off",
+
+    //优化ts server
+    // 默认最大内存可能不够，防止频繁gc可以调大,特别是多个ts项目可能需要更大的内存
+    "typescript.tsserver.maxTsServerMemory": 4096,
+    // 禁用项目诊断，减少内存占用，因为项目中rsbuild已经包含了type check插件了
+    "typescript.tsserver.experimental.enableProjectDiagnostics": false,
+    // 即使 VS Code 已经忽略 node_modules，TS Server（语言服务器）仍然会扫描和 watch 这些目录
+    // 为了避免性能问题，建议在 tsconfig.json 中配置 "exclude" 来排除 node_modules
+    "typescript.tsserver.watchOptions": {
+      "excludeDirectories": ["node_modules", "dist", "build"]
+    },
+    // git 优化
+    "git.autofetch": false,
+    "git.ignoreSubmodules": true,
+    // 会影响unstaged 文件显示
+    // "git.untrackedChanges": "hidden"
+
+    // eslint插件优化，避免扫描所有文件
+    "eslint.workingDirectories": [{ "mode": "auto" }],
+    "eslint.validate": [
+      "javascript",
+      "javascriptreact",
+      "typescript",
+      "typescriptreact"
+    ],
+
     // peacock改变颜色，便于区分不同项目
     // "workbench.colorCustomizations": {
     //   "activityBar.activeBackground": "#2ecef9",
