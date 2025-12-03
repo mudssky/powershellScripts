@@ -15,8 +15,8 @@ Describe 'Unix Profile 性能基准' -Tag 'profile', 'performance', 'unix' {
         $sw.Stop()
         $ms = $sw.ElapsedMilliseconds
         Write-Host ("[Unix Default] Profile 加载耗时: {0} ms" -f $ms) -ForegroundColor Cyan
-        $ms | Should BeGreaterThan 0
-        $ms | Should BeLessThan 10000
+        $ms | Should -BeGreaterThan 0
+        $ms | Should -BeLessThan 10000
     }
 
     It 'Minimal 模式加载时间' {
@@ -28,7 +28,7 @@ Describe 'Unix Profile 性能基准' -Tag 'profile', 'performance', 'unix' {
         Remove-Item Env:\POWERSHELL_PROFILE_MINIMAL -ErrorAction SilentlyContinue
         $ms = $sw.ElapsedMilliseconds
         Write-Host ("[Unix Minimal] Profile 加载耗时: {0} ms" -f $ms) -ForegroundColor Cyan
-        $ms | Should BeGreaterThan 0
-        $ms | Should BeLessThan 10000
+        $ms | Should -BeGreaterThan 0
+        $ms | Should -BeLessThan 10000
     }
 }
