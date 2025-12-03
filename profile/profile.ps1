@@ -2,8 +2,7 @@
 [CmdletBinding()]
 param(
     [switch]$loadProfile,
-    # 别名前缀，用于区分自己定义的别名
-    [string]$AliasDespPrefix = '[mudssky]'
+    [string]$AliasDescPrefix = '[mudssky]'
 )
 $profileLoadStartTime = Get-Date
 
@@ -38,7 +37,7 @@ $userAlias = @(
         cliName     = 'duf'
         aliasName   = 'df'
         aliasValue  = 'duf'
-        description = 'df 是 du 的别名，用于显示目录内容。'
+        description = 'duf 是一个现代化的磁盘使用查看工具（df 的增强版），用于快速查看各分区的使用情况。'
     }
     [PSCustomObject]@{
         cliName     = 'zoxide'
@@ -86,7 +85,7 @@ function Show-MyProfileHelp {
 
     # 1. 显示自定义别名
     Write-Host "`n[自定义别名]" -ForegroundColor Yellow
-    Get-CustomAlias -AliasDespPrefix $AliasDespPrefix | Format-Table -AutoSize
+    Get-CustomAlias -AliasDespPrefix $AliasDescPrefix | Format-Table -AutoSize
 
     # 1.5 函数别名
     Write-Host "`n[自定义函数别名]" -ForegroundColor Yellow
@@ -130,8 +129,9 @@ function Show-MyProfileHelp {
         'YAZI_FILE_ONE'
     )
     foreach ($var in $envVars) {
-        if ($value = Get-Variable "env:$var" -ErrorAction SilentlyContinue) {
-            Write-Host ("{0,-25} : {1}" -f $var, $value.Value)
+        $valueItem = Get-Item -Path "Env:$var" -ErrorAction SilentlyContinue
+        if ($null -ne $valueItem) {
+            Write-Host ("{0,-25} : {1}" -f $var, $valueItem.Value)
         }
     }
 
@@ -150,19 +150,19 @@ function Set-AliasProfile {
     process {
         # 设置PowerShell别名
         Write-Verbose "设置PowerShell别名"
-        Set-CustomAlias -Name ise -Value powershell_ise  -AliasDespPrefix $AliasDespPrefix -Scope Global
-        Set-CustomAlias -Name ipython -Value Start-Ipython  -AliasDespPrefix $AliasDespPrefix  -Scope Global
+        Set-CustomAlias -Name ise -Value powershell_ise  -AliasDespPrefix $AliasDescPrefix -Scope Global
+        Set-CustomAlias -Name ipython -Value Start-Ipython  -AliasDespPrefix $AliasDescPrefix  -Scope Global
         foreach ($alias in $userAlias) {
             if ($alias.command) {
                 Write-Verbose "别名 $($alias.aliasName) 已设置函数，执行函数创建"
                 $scriptBlock = [scriptblock]::Create("$($alias.command) `$args")
                 New-Item -Path "Function:Global:$($alias.aliasName)" -Value $scriptBlock -Force  | Out-Null
-                Write-Verbose "已创建函数: $($alias.name)"
+                Write-Verbose "已创建函数: $($alias.aliasName)"
                 continue
             }
             # 设置别名时，PowerShell 不需要目标命令当前就存在。它只在你使用该别名时才会去解析命令。因此，可以安全地移除所有 Test-ExeProgram 检查。
             # if (Test-ExeProgram -Name $alias.cliName) {
-            Set-CustomAlias -Name $alias.aliasName -Value $alias.aliasValue -Description $alias.description -AliasDespPrefix $AliasDespPrefix -Scope Global
+            Set-CustomAlias -Name $alias.aliasName -Value $alias.aliasValue -Description $alias.description -AliasDespPrefix $AliasDescPrefix -Scope Global
             Write-Verbose "已设置别名: $($alias.aliasName) -> $($alias.aliasValue)"
         }
         # else {
@@ -208,26 +208,29 @@ function Initialize-Environment {
         [bool]$EnableProxy = (Test-Path -Path "$PSScriptRoot\enableProxy"),
         [string]$ProxyUrl = "http://127.0.0.1:7890"
     )
-	
+
     Write-Verbose "开始初始化PowerShell环境配置"
+    $ErrorActionPreference = 'Stop'
 	
     # 设置代理环境变量
     # 设置项目根目录环境变量
-    $Global:Env:POWERSHELL_SCRIPTS_ROOT = $PSScriptRoot | Split-Path
+    $env:POWERSHELL_SCRIPTS_ROOT = Split-Path -Parent $PSScriptRoot
     if ($EnableProxy) {
         Write-Verbose "启用代理设置: $ProxyUrl"
-        $Global:Env:http_proxy = $ProxyUrl
-        $Global:Env:https_proxy = $ProxyUrl
+        $env:http_proxy = $ProxyUrl
+        $env:https_proxy = $ProxyUrl
         Write-Debug "已设置代理: $ProxyUrl" 
     }
     else {
         Write-Verbose "跳过代理设置"
+        $env:http_proxy = $null
+        $env:https_proxy = $null
     }
 	
     # 加载自定义环境变量脚本 (用于存放机密或个人配置)
-    if (Test-Path -Path "$ScriptRoot/env.ps1") {
-        Write-Verbose "加载自定义环境变量脚本: $ScriptRoot/env.ps1"
-        . "$ScriptRoot/env.ps1"
+    if (Test-Path -Path (Join-Path -Path $ScriptRoot -ChildPath 'env.ps1')) {
+        Write-Verbose "加载自定义环境变量脚本: $(Join-Path -Path $ScriptRoot -ChildPath 'env.ps1')"
+        . (Join-Path -Path $ScriptRoot -ChildPath 'env.ps1')
     }
 	
     # 设置控制台编码为UTF8
@@ -251,7 +254,7 @@ function Initialize-Environment {
     $tools = @{
         starship = { 
             Write-Verbose "初始化Starship提示符"
-            $starshipInit = Invoke-WithCache -Key "starship-init-powershell" -MaxAge ([TimeSpan]::FromDays(30)) -ScriptBlock { &starship init powershell }
+            $starshipInit = Invoke-WithCache -Key "starship-init-powershell" -MaxAge ([TimeSpan]::FromDays(7)) -ScriptBlock { &starship init powershell }
             Invoke-Expression $starshipInit
         }
         sccache  = {
@@ -260,7 +263,7 @@ function Initialize-Environment {
         }
         zoxide   = { 
             Write-Verbose "初始化zoxide目录跳转工具"
-            $zoxideInit = Invoke-WithCache -Key "zoxide-init-powershell"  -MaxAge ([TimeSpan]::FromDays(30)) -ScriptBlock { zoxide init powershell | Out-String }
+            $zoxideInit = Invoke-WithCache -Key "zoxide-init-powershell"  -MaxAge ([TimeSpan]::FromDays(7)) -ScriptBlock { zoxide init powershell | Out-String }
             Invoke-Expression $zoxideInit
         }
         # 在windows上使用比nvm麻烦很多，，所以不用了
