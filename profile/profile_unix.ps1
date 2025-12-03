@@ -35,6 +35,25 @@ param(
 # 加载自定义模块
 . $PSScriptRoot/loadModule.ps1
 
+function Invoke-WithFileCache {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$Key,
+        [Parameter(Mandatory = $true)][TimeSpan]$MaxAge,
+        [Parameter(Mandatory = $true)][scriptblock]$Generator
+    )
+    $cacheRoot = Join-Path $PSScriptRoot ".cache"
+    if (-not (Test-Path $cacheRoot)) { New-Item -ItemType Directory -Path $cacheRoot -Force | Out-Null }
+    $cacheFile = Join-Path $cacheRoot ("$Key.ps1")
+    if (Test-Path $cacheFile) {
+        $age = (Get-Date) - (Get-Item $cacheFile).LastWriteTime
+        if ($age -lt $MaxAge) { return $cacheFile }
+    }
+    $content = & $Generator | Out-String
+    Set-Content -Path $cacheFile -Value $content -Encoding UTF8
+    return $cacheFile
+}
+
 # 自定义别名配置
 $userAlias = @(
     [PSCustomObject]@{
@@ -130,7 +149,12 @@ function Initialize-Environment {
     [CmdletBinding()]
     param (
         [Parameter()]
-        [string]$ScriptRoot = $PSScriptRoot
+        [string]$ScriptRoot = $PSScriptRoot,
+        [switch]$SkipTools,
+        [switch]$SkipStarship,
+        [switch]$SkipZoxide,
+        [switch]$SkipAliases,
+        [switch]$Minimal
     )
     
     Write-Verbose "开始初始化 PowerShell 环境配置"
@@ -153,20 +177,30 @@ function Initialize-Environment {
     if ($IsLinux) {
         Sync-PathFromBash
     }
-    # 初始化开发工具
+    if ($Minimal -or (Test-Path -Path (Join-Path $PSScriptRoot 'minimal')) -or $env:POWERSHELL_PROFILE_MINIMAL) {
+        $SkipTools = $true
+        $SkipAliases = $true
+    }
     Write-Verbose "初始化开发工具"
+    $Global:__ZoxideInitialized = $false
     $tools = @{
         starship = { 
+            if ($SkipTools -or $SkipStarship) { return }
             Write-Verbose "初始化 Starship 提示符"
-            Invoke-Expression (&starship init powershell) 
+            $starshipFile = Invoke-WithFileCache -Key "starship-init-powershell" -MaxAge ([TimeSpan]::FromDays(7)) -Generator { & starship init powershell }
+            . $starshipFile
         }
         fnm      = { 
+            if ($SkipTools) { return }
             Write-Verbose "初始化 fnm Node.js 版本管理器"
             fnm env --use-on-cd | Out-String | Invoke-Expression 
         }
         zoxide   = { 
+            if ($SkipTools -or $SkipZoxide) { return }
             Write-Verbose "初始化 zoxide 目录跳转工具"
-            Invoke-Expression (& { (zoxide init powershell | Out-String) }) 
+            $zoxideFile = Invoke-WithFileCache -Key "zoxide-init-powershell" -MaxAge ([TimeSpan]::FromDays(7)) -Generator { zoxide init powershell }
+            . $zoxideFile
+            $Global:__ZoxideInitialized = $true
         }
     }
     
@@ -198,13 +232,13 @@ function Initialize-Environment {
         }
     }
     
-    # powershell相关配置
     Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
-    Set-AliasProfile
+    if (-not $SkipAliases) { Set-AliasProfile }
+    if (-not $SkipAliases) { Set-CustomAliasesProfile }
+    if (-not $Global:__ZoxideInitialized -and -not $SkipZoxide -and (Test-EXEProgram -Name 'zoxide')) {
+        function Global:z { & (Invoke-WithFileCache -Key "zoxide-init-powershell" -MaxAge ([TimeSpan]::FromDays(7)) -Generator { zoxide init powershell }); Remove-Item function:Global:z -Force; & z @args }
+    }
     Write-Verbose "PowerShell 环境初始化完成"
-    
-    # 设置自定义别名
-    Set-CustomAliasesProfile
 }
 
 <#
