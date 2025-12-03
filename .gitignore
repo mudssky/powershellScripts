@@ -27,3 +27,5 @@ macEnableProxy.ps1
 node_modules
 
 fstab
+
+.cache

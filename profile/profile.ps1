@@ -72,6 +72,25 @@ $userAlias = @(
 )
 
 
+function Invoke-WithFileCache {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$Key,
+        [Parameter(Mandatory = $true)][TimeSpan]$MaxAge,
+        [Parameter(Mandatory = $true)][scriptblock]$Generator
+    )
+    $cacheRoot = Join-Path $PSScriptRoot ".cache"
+    if (-not (Test-Path $cacheRoot)) { New-Item -ItemType Directory -Path $cacheRoot -Force | Out-Null }
+    $cacheFile = Join-Path $cacheRoot ("$Key.ps1")
+    if (Test-Path $cacheFile) {
+        $age = (Get-Date) - (Get-Item $cacheFile).LastWriteTime
+        if ($age -lt $MaxAge) { return $cacheFile }
+    }
+    $content = & $Generator | Out-String
+    Set-Content -Path $cacheFile -Value $content -Encoding UTF8
+    return $cacheFile
+}
+
 <#
 .SYNOPSIS
     显示当前 Profile 加载的自定义别名、函数和关键环境变量。
@@ -213,12 +232,21 @@ function Initialize-Environment {
     param (
         [string]$ScriptRoot = $PSScriptRoot,
         [bool]$EnableProxy = (Test-Path -Path "$PSScriptRoot\enableProxy"),
-        [ValidatePattern('^https?://')][string]$ProxyUrl = "http://127.0.0.1:7890"
+        [ValidatePattern('^https?://')][string]$ProxyUrl = "http://127.0.0.1:7890",
+        [switch]$SkipTools,
+        [switch]$SkipStarship,
+        [switch]$SkipZoxide,
+        [switch]$SkipAliases,
+        [switch]$Minimal
     )
 
     Write-Verbose "开始初始化PowerShell环境配置"
     $ErrorActionPreference = 'Stop'
 	
+    if ($Minimal -or (Test-Path -Path "$PSScriptRoot\minimal") -or $env:POWERSHELL_PROFILE_MINIMAL) {
+        $SkipTools = $true
+        $SkipAliases = $true
+    }
     # 设置代理环境变量
     # 设置项目根目录环境变量
     $Global:Env:POWERSHELL_SCRIPTS_ROOT = Split-Path -Parent $PSScriptRoot
@@ -240,9 +268,9 @@ function Initialize-Environment {
         . (Join-Path -Path $ScriptRoot -ChildPath 'env.ps1')
     }
 	
-    # 设置控制台编码为UTF8
     Write-Verbose "设置控制台编码为UTF8"
-    $Global:OutputEncoding = [console]::InputEncoding = [console]::OutputEncoding = New-Object System.Text.UTF8Encoding
+    $utf8 = [System.Text.UTF8Encoding]::new($false)
+    $Global:OutputEncoding = [console]::InputEncoding = [console]::OutputEncoding = $utf8
     $Global:PSDefaultParameterValues["Out-File:Encoding"] = "UTF8"
     Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
 	
@@ -258,30 +286,32 @@ function Initialize-Environment {
 	
     # 初始化开发工具
     Write-Verbose "初始化开发工具"
+    $Global:__ZoxideInitialized = $false
     $tools = @{
         starship = { 
+            if ($SkipTools -or $SkipStarship) { return }
             Write-Verbose "初始化Starship提示符"
-            $starshipInit = Invoke-WithCache -Key "starship-init-powershell" -MaxAge ([TimeSpan]::FromDays(7)) -ScriptBlock { &starship init powershell }
-            Invoke-Expression $starshipInit
+            $starshipFile = Invoke-WithFileCache -Key "starship-init-powershell" -MaxAge ([TimeSpan]::FromDays(7)) -Generator { & starship init powershell }
+            . $starshipFile
         }
         sccache  = {
+            if ($SkipTools) { return }
             Write-Verbose "设置sccache用于Rust编译缓存"
             $Global:Env:RUSTC_WRAPPER = 'sccache' 
         }
         zoxide   = { 
+            if ($SkipTools -or $SkipZoxide) { return }
             Write-Verbose "初始化zoxide目录跳转工具"
-            $zoxideInit = Invoke-WithCache -Key "zoxide-init-powershell"  -MaxAge ([TimeSpan]::FromDays(7)) -ScriptBlock { zoxide init powershell | Out-String }
-            Invoke-Expression $zoxideInit
+            $zoxideFile = Invoke-WithFileCache -Key "zoxide-init-powershell" -MaxAge ([TimeSpan]::FromDays(7)) -Generator { zoxide init powershell }
+            . $zoxideFile
+            $Global:__ZoxideInitialized = $true
         }
-        # 在windows上使用比nvm麻烦很多，，所以不用了
-        # 这个环境变量还需要在husky的git bash，npm使用的cmd里配置
-        # fnm      = { 
-        # 	Write-Verbose "初始化fnm Node.js版本管理器"
-        # 	fnm env --use-on-cd | Out-String | Invoke-Expression 
-        # }
     }
 	
     foreach ($tool in $tools.GetEnumerator()) {
+        if ($SkipTools -and ($tool.Key -ne 'starship' -and $tool.Key -ne 'zoxide' -and $tool.Key -ne 'sccache')) {
+            continue
+        }
         if (Test-EXEProgram -Name $tool.Key) {
             try {
                 & $tool.Value
@@ -304,7 +334,10 @@ function Initialize-Environment {
         }
     }
 	
-    Set-AliasProfile
+    if (-not $SkipAliases) { Set-AliasProfile }
+    if (-not $Global:__ZoxideInitialized -and -not $SkipZoxide -and (Test-EXEProgram -Name 'zoxide')) {
+        function Global:z { & (Invoke-WithFileCache -Key "zoxide-init-powershell" -MaxAge ([TimeSpan]::FromDays(7)) -Generator { zoxide init powershell }); Remove-Item function:Global:z -Force; & z @args }
+    }
     # 载入conda环境（如果环境变量中没有conda命令）
     # if (-not (Test-EXEProgram -Name conda)) {
     # 	Write-Verbose "尝试加载Conda环境"
