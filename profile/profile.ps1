@@ -135,6 +135,13 @@ function Show-MyProfileHelp {
         }
     }
 
+    Write-Host "`n[用户级持久环境变量]" -ForegroundColor Yellow
+    $persistVars = @('POWERSHELL_SCRIPTS_ROOT', 'http_proxy', 'https_proxy')
+    foreach ($var in $persistVars) {
+        $uval = [Environment]::GetEnvironmentVariable($var, "User")
+        if ($uval) { Write-Host ("{0,-25} : {1}" -f "$var(用户级)", $uval) }
+    }
+
     Write-Host "`n要重新加载环境, 请运行: Initialize-Environment" -ForegroundColor Green
 }
 
@@ -206,7 +213,7 @@ function Initialize-Environment {
     param (
         [string]$ScriptRoot = $PSScriptRoot,
         [bool]$EnableProxy = (Test-Path -Path "$PSScriptRoot\enableProxy"),
-        [string]$ProxyUrl = "http://127.0.0.1:7890"
+        [ValidatePattern('^https?://')][string]$ProxyUrl = "http://127.0.0.1:7890"
     )
 
     Write-Verbose "开始初始化PowerShell环境配置"
