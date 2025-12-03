@@ -1,3 +1,5 @@
+#!/usr/bin/env pwsh
+
 <#
 .SYNOPSIS
     文件名合法化重命名脚本
@@ -25,7 +27,7 @@
     确保文件名符合Windows文件系统规范
 #>
 
-[CmdletBinding(SupportsShouldProcess)]
+[CmdletBinding(SupportsShouldProcess = $true)]
 param(
     [switch]$reverse
 )
@@ -91,6 +93,8 @@ Get-ChildItem -File | ForEach-Object {
     $newName = rename-legal.exe replace $_.Name
     # Write-Host -ForegroundColor Green ('原名字是{0},新名字是:{1}' -f $_.Name, $newName)
     if ($newName -ne $_.Name) {
-        Rename-Item  -LiteralPath $_.Name   -NewName $newName
+        if ($PSCmdlet.ShouldProcess($_.Name, "重命名为 $newName")) { Rename-Item -LiteralPath $_.Name -NewName $newName }
     }
 }
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'

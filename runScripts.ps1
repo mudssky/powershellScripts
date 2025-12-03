@@ -1,3 +1,5 @@
+#!/usr/bin/env pwsh
+
 <#
 .SYNOPSIS
     像npm run scripts一样执行命令
@@ -54,7 +56,7 @@
     2. 当前目录的package.json
     3. 全局scripts.json（需要启用enableGlobalScripts）
 #>
-[CmdletBinding()]
+[CmdletBinding(SupportsShouldProcess = $true)]
 param(
     [ValidateNotNullOrEmpty()]
     [ArgumentCompleter({
@@ -129,7 +131,7 @@ function RunIfExist {
     )
     if ($map.ContainsKey($name)) {
         if ($map[$name] -is [string]) {
-            Invoke-Expression $map[$name]
+            if ($PSCmdlet.ShouldProcess($name, '执行命令')) { Invoke-Expression $map[$name] }
             Write-Verbose ('excuted {0} ' -f $map[$name])
         }
         else {
@@ -263,3 +265,5 @@ if ($currentScriptsPath -eq 'package.json') {
 }
 RunScript($CommandName)
 
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'

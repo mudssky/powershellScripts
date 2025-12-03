@@ -1,3 +1,4 @@
+#!/usr/bin/env pwsh
 
 <#
 .SYNOPSIS
@@ -27,7 +28,7 @@
     Git代理仅针对GitHub域名设置
 #>
 
-[CmdletBinding()]
+[CmdletBinding(SupportsShouldProcess = $true)]
 param (
     [ValidateSet('git', 'npm')]
     [string]
@@ -38,8 +39,12 @@ param (
 
 switch ($SetProxyProgram) {
     'git' {
-        git config --global http.https://github.com.proxy $env:http_proxy
-        git config --global https.https://github.com.proxy $env:https_proxy
+        if ($PSCmdlet.ShouldProcess('git', '设置代理')) {
+            git config --global http.https://github.com.proxy $env:http_proxy
+            git config --global https.https://github.com.proxy $env:https_proxy
+        }
     }
     default {}
 }
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'

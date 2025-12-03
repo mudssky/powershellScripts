@@ -1,3 +1,5 @@
+#!/usr/bin/env pwsh
+
 <#
 .SYNOPSIS
     小文件清理脚本
@@ -78,10 +80,12 @@ Get-ChildItem -Recurse -File | ForEach-Object { if ($_.Length -lt $limitedSize) 
             Write-Output -ForegroundColor Yellow "$($_.FullName),$("{0:f2}" -f ($_.Length/1kb))kb"
         }
         else {
-            Remove-Item -Force -LiteralPath  $_.FullName;
+            Remove-Item -Force -LiteralPath $_.FullName;
             $count += 1;
             "$count,deleted $($_.FullName)"
         }
     } };
 Write-Host -ForegroundColor Green " delete smaller than $( Get-FormatLength($limitedSize)) file counts: $count "
 
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'

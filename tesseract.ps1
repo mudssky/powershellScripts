@@ -1,3 +1,5 @@
+#!/usr/bin/env pwsh
+
 <#
 .SYNOPSIS
     批量OCR文字识别脚本
@@ -20,4 +22,16 @@
     输出文件为与原图片同名的.txt文件
 #>
 
-Get-ChildItem *.jpg, *.png, *.jpeg, *.webp | ForEach-Object { tesseract.exe $_.Name $_.BaseName -l jpn_vert --dpi 220 }
+[CmdletBinding(SupportsShouldProcess = $true)]
+param()
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+Get-ChildItem *.jpg, *.png, *.jpeg, *.webp | ForEach-Object {
+    $name = $_.Name
+    $base = $_.BaseName
+    if ($PSCmdlet.ShouldProcess($name, "OCR -> ${base}.txt")) {
+        tesseract $name $base -l jpn_vert --dpi 220
+    }
+}

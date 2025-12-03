@@ -1,3 +1,5 @@
+#!/usr/bin/env pwsh
+
 <#
 .SYNOPSIS
     启动Aria2c下载服务的脚本
@@ -17,5 +19,13 @@
     服务在后台隐藏窗口运行
 #>
 
-Start-Process aria2c -Verb runas  -WindowStyle Hidden -ArgumentList "--enable-rpc=true"
+[CmdletBinding(SupportsShouldProcess = $true)]
+param()
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+if ($PSCmdlet.ShouldProcess('aria2c', '启动 RPC 服务')) {
+    Start-Process aria2c -Verb runas -WindowStyle Hidden -ArgumentList "--enable-rpc=true"
+}
 exit 0

@@ -1,3 +1,5 @@
+#!/usr/bin/env pwsh
+
 <#
 .SYNOPSIS
     从备份文件恢复PATH环境变量
@@ -20,7 +22,7 @@
     从备份目录中选择文件恢复用户级PATH环境变量
 #>
 
-[CmdletBinding(SupportsShouldProcess)]
+[CmdletBinding(SupportsShouldProcess = $true)]
 param (
     [Parameter(ParameterSetName = 'FilePath', Mandatory = $true)]
     [string]$BackupFilePath,
@@ -185,3 +187,5 @@ else {
     Write-Host "❌ 用户取消操作，PATH环境变量未被修改" -ForegroundColor Yellow
     exit 0
 }
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'

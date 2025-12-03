@@ -1,3 +1,4 @@
+#!/usr/bin/env pwsh
 
 <#
 .SYNOPSIS
@@ -39,11 +40,14 @@ param(
     [switch]$Install
 )
 
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
 if ($Install) {
-    Install-Module PSScriptAnalyzer
+    Install-Module PSScriptAnalyzer -Force
     exit
 }
 
 
 
-Invoke-ScriptAnalyzer -Recurse -Path  . -Profile $ConfigPath
+Invoke-ScriptAnalyzer -Recurse -Path $Path -Profile $ConfigPath

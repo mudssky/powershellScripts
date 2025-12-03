@@ -1,3 +1,5 @@
+#!/usr/bin/env pwsh
+
 <#
 .SYNOPSIS
 批量转换占用空间过大的图片为 WebP 格式
@@ -90,7 +92,7 @@ Get-ChildItem -Recurse -LiteralPath $targetPath | Where-Object { $_.Extension -i
         Write-Host -ForegroundColor Green "detect large png picture : $($_.FullName) size:$($_.Length/1mb)mb "
 
         $newfullname = $_.FullName.Substring(0, $_.FullName.Length - 4) + '.webp'
-        Invoke-Expression "ffmpeg.exe  -loglevel $ffmpegloglevel  -i '$($_.FullName)'  $paramStr  '$($newfullname)'"
+        Invoke-Expression "ffmpeg -loglevel $ffmpegloglevel -i '$($_.FullName)' $paramStr '$($newfullname)'"
         # ffmpeg.exe -i $_.FullName  $paramStr  ($_.FullName.Substring(0,$_.FullName.Length-4)+'.webp')
 
         if ((Test-Path -LiteralPath $newfullname) -and (-not $noDelete)) {
@@ -111,3 +113,5 @@ Write-Host -ForegroundColor  Green   "compress $count  picture  complete"
 
 
 
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'

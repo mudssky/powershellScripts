@@ -1,3 +1,5 @@
+#!/usr/bin/env pwsh
+
 <#
 .SYNOPSIS
     配置文件同步脚本
@@ -32,7 +34,7 @@
 #>
 
 
-[CmdletBinding()]
+[CmdletBinding(SupportsShouldProcess = $true)]
 param(
     [ValidateSet('backup', 'restore', 'list')]
     [string]$Mode = 'backup'
@@ -54,13 +56,19 @@ if ( -not ( Test-Path   __sync.ps1)) {
 
 switch ($Mode) {
     'backup' {
-        Copy-Item -Recurse -Force $configDir/*  -Destination ./
+        if ($PSCmdlet.ShouldProcess($configDir, '备份到当前目录')) {
+            Copy-Item -Recurse -Force $configDir/* -Destination ./
+        }
     }
     'restore' {
-        Copy-Item -Recurse -Force ./*  -Destination $configDir
+        if ($PSCmdlet.ShouldProcess('./', '恢复到配置目录')) {
+            Copy-Item -Recurse -Force ./* -Destination $configDir
+        }
     }
     'list' {
         Get-ChildItem $configDir
         Get-ChildItem ./
     }
 }
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
