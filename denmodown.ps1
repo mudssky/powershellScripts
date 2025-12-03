@@ -1,3 +1,5 @@
+#!/usr/bin/env pwsh
+
 <#
 .SYNOPSIS
     演示视频流下载脚本
@@ -22,6 +24,12 @@
 
 # 使用N_m3u8DL-CLI下载M3U8流的示例
 # N_m3u8DL-CLI_v2.6.0.exe 'http://210.140.160.75:1935/denmo/mp4:denmov.mp4/playlist.m3u8'
+[CmdletBinding()]
+param()
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
 N_m3u8DL-CLI_v3.0.2.exe 'http://210.140.160.75:1935/denmo/mp4:denmov.mp4/playlist.m3u8'
 
 # M3U8流地址示例

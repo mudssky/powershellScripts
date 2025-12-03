@@ -1,3 +1,5 @@
+#!/usr/bin/env pwsh
+
 <#
 .SYNOPSIS
     视频转音频脚本
@@ -64,7 +66,8 @@ param(
     [string]$endPos = '',
     [string]$outExt = ''
 )
-# $embedCover = $true
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
 Write-Host  -ForegroundColor Black -BackgroundColor Gray ('[param] targetPath :{0}, picPos:{1}, picext:{2}, ffmpegParam={3}, baseParam:{4}, embedCover:{5} ,deleteSource:{6},preset:{7} ' -f
     $targetPath, $picPos, $picext, $ffmpegParam, $baseParam, $embedCover, $deleteSource, $preset)
 function GenerateCoverFromVideo($video, $picPos, $picext) {
@@ -86,7 +89,7 @@ function GenerateCoverFromVideo($video, $picPos, $picext) {
     }
     else {
         $picpath = $picbasepath + $picext
-        ffmpeg -i $videopath   -ss $picPos  -frames:v 1   $picpath
+        ffmpeg -i $videopath -ss $picPos -frames:v 1 $picpath
     }
     return $picpath
 }
@@ -159,7 +162,7 @@ foreach ( $video in $videos ) {
         $picpath = GenerateCoverFromVideo -video $video -picPos $picPos -picext $picext
         Write-Host -ForegroundColor Green ('get/generate cover pic path {0}' -f $picpath)
         
-        $ffmpegCommand = 'ffmpeg -i "{0}"  {1} -acodec copy -vn "{2}"' -f $videopath, $newffempegparam, $newaudiopath
+        $ffmpegCommand = 'ffmpeg -i "{0}" {1} -acodec copy -vn "{2}"' -f $videopath, $newffempegparam, $newaudiopath
         #判断是否开启了内嵌封面选项
         if ($embedCover) {
             Write-Host -ForegroundColor Black -BackgroundColor Gray 'converting embedCover audio...'
@@ -176,7 +179,7 @@ foreach ( $video in $videos ) {
             }
             else {
                 #使用ffmpeg产生内嵌的音频，这个过程中也可以添加参数修改音频的元数据�?
-                $ffmpegCommand = 'ffmpeg -i "{0}" -i "{1}" -map 0:v -map 1:a  {2} -codec copy -disposition:v:0 attached_pic -id3v2_version 4 "{3}"' -f $picpath, $videopath, $newffempegparam, $newaudiopath     
+                $ffmpegCommand = 'ffmpeg -i "{0}" -i "{1}" -map 0:v -map 1:a {2} -codec copy -disposition:v:0 attached_pic -id3v2_version 4 "{3}"' -f $picpath, $videopath, $newffempegparam, $newaudiopath     
                 Invoke-Expression $ffmpegCommand
             }
         }

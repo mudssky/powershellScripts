@@ -1,3 +1,5 @@
+#!/usr/bin/env pwsh
+
 <#
  .SYNOPSIS
  使用yt-dlp下载视频
@@ -16,7 +18,7 @@ downWith.ps1  -paramStr  '--cookies-from-browser chrome'
 或者
 downWith.ps1  -withCookie
 #>
-[CmdletBinding()]
+[CmdletBinding(SupportsShouldProcess = $true)]
 param(
     [int]$startNum = 0,
     [int]$endNum = -1,
@@ -43,9 +45,14 @@ if ($withCookie) {
 }
 
 for ($i = $startNum; $i -lt $endNum; $i += 1) {
-    Write-Host -ForegroundColor Green "downloading link $($linkList[$i]),$($i-$startNum+1) of $($endNum - $startNum) "
-    Invoke-Expression "$tool $paramStr    '$($linkList[$i])'   "
+    $link = $linkList[$i]
+    Write-Host -ForegroundColor Green "downloading link $link,$($i-$startNum+1) of $($endNum - $startNum) "
+    if ($PSCmdlet.ShouldProcess($link, "下载视频")) {
+        Invoke-Expression "$tool $paramStr '$link'"
+    }
 }
 
 Write-Host -ForegroundColor Green "download complete"
 
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest

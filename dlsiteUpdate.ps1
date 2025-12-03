@@ -1,3 +1,4 @@
+#!/usr/bin/env pwsh
 
 <#
 .SYNOPSIS
@@ -27,6 +28,9 @@ param(
     # [int]$endNum=$startNum
     [string]$path = '.'
 )
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
 # 由相对路径获取绝对路径
 $path = (Resolve-Path $path).path
 $spiderPath = 'D:\coding\Projects\python\python3Spiders\dlsiteSpider'

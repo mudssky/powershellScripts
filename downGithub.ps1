@@ -1,3 +1,5 @@
+#!/usr/bin/env pwsh
+
 <#
 .SYNOPSIS
     批量下载指定 GitHub 用户的所有仓库。
@@ -23,7 +25,7 @@
     .\downGithub.ps1 -UserName "octocat" -Path "D:\GitRepos" -WithDate
     下载用户 octocat 的所有仓库到 D:\GitRepos，并在文件夹名称中包含日期
 #>
-[CmdletBinding()]
+[CmdletBinding(SupportsShouldProcess = $true)]
 param (
     [Parameter(Mandatory = $true)]
     $UserName = '',
@@ -171,8 +173,10 @@ foreach ($repo in $finalRepos) {
     
     # 检查是否已经存在该目录
     if (-not (Test-Path -Path $repoPath)) {
-        gh repo clone $repoUrl $repoPath
-        updateRepo -Path $repoPath
+        if ($PSCmdlet.ShouldProcess($repoPath, "clone $repoUrl")) {
+            gh repo clone $repoUrl $repoPath
+            updateRepo -Path $repoPath
+        }
     }
     else {
         Write-Output "Repository '$repoName' already exists, updating..."
@@ -185,3 +189,5 @@ Write-Progress -Activity "完成" -Completed
 
 
 
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest

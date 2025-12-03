@@ -1,3 +1,5 @@
+#!/usr/bin/env pwsh
+
 <#
 .SYNOPSIS
     批量压缩PNG图片的脚本
@@ -52,7 +54,7 @@ Get-ChildItem -Recurse -LiteralPath $targetPath | Where-Object { $_.Extension -e
         Write-Host -ForegroundColor Green "detect large png picture : $($_.FullName) size:$($_.Length/1mb) "
      
         $newfullname = $_.FullName.Substring(0, $_.FullName.Length - 4) + '.webp'
-        Invoke-Expression "ffmpeg.exe -i '$($_.FullName)'  $paramStr  '$($newfullname)'"
+        Invoke-Expression "ffmpeg -i '$($_.FullName)' $paramStr '$($newfullname)'"
         # ffmpeg.exe -i $_.FullName  $paramStr  ($_.FullName.Substring(0,$_.FullName.Length-4)+'.webp')
 
         if ((Test-Path -LiteralPath $newfullname) -and (-not $noDelete)) {
@@ -73,3 +75,5 @@ Write-Host -ForegroundColor  Green   "compress $count  png files  complete"
 
 
 
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'

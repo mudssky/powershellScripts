@@ -1,3 +1,5 @@
+#!/usr/bin/env pwsh
+
 <#
 .SYNOPSIS
     配置VS Code SSH连接的自动化脚本
@@ -30,25 +32,28 @@
     配置完成后在VS Code中使用 'vscode-{RemoteHost}' 作为连接名
 #>
 param(
-    [string]$Username,
-    [string]$RemoteHost
+    [Parameter(Mandatory = $true)][string]$Username,
+    [Parameter(Mandatory = $true)][string]$RemoteHost
 )
 
-$SshKeyPath = "$env:USERPROFILE\.ssh\id_rsa"
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+$SshKeyPath = Join-Path ([Environment]::GetFolderPath('UserProfile')) '.ssh' 'id_rsa'
 
 # 1. 生成SSH密钥
 if (-not (Test-Path $SshKeyPath)) {
-    ssh-keygen -t rsa -b 4096 -f $SshKeyPath -N '""'
+    ssh-keygen -t rsa -b 4096 -f $SshKeyPath -N ""
 }
 
 # 2. 复制公钥到服务器
-$pubKey = Get-Content "$SshKeyPath.pub"
+$pubKey = Get-Content ("$SshKeyPath.pub")
 ssh $Username@$RemoteHost "mkdir -p ~/.ssh && echo '$pubKey' >> ~/.ssh/authorized_keys && chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys"
 
 # 3. 配置SSH config
-$configFile = "$env:USERPROFILE\.ssh\config"
+$configFile = Join-Path ([Environment]::GetFolderPath('UserProfile')) '.ssh' 'config'
 if (-not (Test-Path $configFile)) {
-    New-Item -Path $configFile -ItemType File
+    New-Item -Path $configFile -ItemType File | Out-Null
 }
 
 $configEntry = @"

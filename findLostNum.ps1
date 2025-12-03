@@ -1,3 +1,5 @@
+#!/usr/bin/env pwsh
+
 <#
 .SYNOPSIS
     查找缺失集数的脚本
@@ -96,3 +98,5 @@ $startNum..$endNum |  ForEach-Object {
 $notMatch
 
 
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest

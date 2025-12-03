@@ -1,3 +1,5 @@
+#!/usr/bin/env pwsh
+
 <#
 .SYNOPSIS
     下载指定的VS Code扩展包(.vsix文件)。
@@ -36,7 +38,7 @@
     必须提供Identifier参数或同时提供Publisher和ExtensionName参数。
 #>
 
-[CmdletBinding()]
+[CmdletBinding(SupportsShouldProcess = $true)]
 param(
     [Parameter(Mandatory = $false)]
     [string]$Publisher,
@@ -52,6 +54,10 @@ param(
     
     [string]$OutputPath = "."
 )
+
+# 启用严格模式与错误停止
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
 
 # 检查参数组合是否有效
 if (-not $Identifier -and (-not $Publisher -or -not $ExtensionName)) {
@@ -82,10 +88,9 @@ $outputFile = Join-Path -Path $OutputPath -ChildPath $fileName
 
 try {
     Write-Host "正在下载 $Publisher.$ExtensionName 版本 $Version..."
-    
-    # 使用Invoke-WebRequest下载文件
-    Invoke-WebRequest -Uri $downloadUrl -OutFile $outputFile
-    
+    if ($PSCmdlet.ShouldProcess($outputFile, '下载 VS Code 扩展')) {
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $outputFile
+    }
     if (Test-Path -Path $outputFile) {
         Write-Host "下载完成! 文件已保存到: $outputFile" -ForegroundColor Green
     }
@@ -94,5 +99,6 @@ try {
     }
 }
 catch {
-    Write-Host "下载过程中出错: $_" -ForegroundColor Red
+    Write-Error ("下载过程中出错: " + $_)
+    exit 1
 }

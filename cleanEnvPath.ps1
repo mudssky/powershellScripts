@@ -1,3 +1,5 @@
+#!/usr/bin/env pwsh
+
 <#
 .SYNOPSIS
     清理环境变量中无用的路径，移除不存在或没有可执行文件的路径
@@ -44,7 +46,7 @@
 #>
 
 
-[CmdletBinding(SupportsShouldProcess)]
+[CmdletBinding(SupportsShouldProcess = $true)]
 param (
     [ValidateSet('Machine', 'User')]
     [string]$EnvTarget = 'User',
@@ -299,3 +301,5 @@ else {
 }
 
 
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'

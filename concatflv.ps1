@@ -1,3 +1,5 @@
+#!/usr/bin/env pwsh
+
 <#
 .SYNOPSIS
 使用通配符或正则表达式匹配视频文件并按时间顺序拼接
@@ -165,7 +167,7 @@ if ($filenameList.Count -ne 1) {
     # $concatCommand = 'ffmpeg.exe -i "{0}"  {1} "{2}"' -f $concatStr, $ffmpegStr, $outputFilename
     # 生成concat文件列表
     $filenameList | ForEach-Object { "file '{0}'" -f $_ } > filelist.txt
-    $concatCommand = 'ffmpeg.exe -f concat -safe 0  -i filelist.txt   {0} "{1}"' -f $ffmpegStr, $outputFilename
+    $concatCommand = 'ffmpeg -f concat -safe 0 -i filelist.txt {0} "{1}"' -f $ffmpegStr, $outputFilename
     Write-Host -ForegroundColor Green  ('执行的ffmpeg命令为： {0}' -f $concatCommand)
     Invoke-Expression -Command $concatCommand
 
@@ -176,7 +178,7 @@ if ($filenameList.Count -ne 1) {
 } 
 else {
     # 只有一个文件的时候就直接执行转码部分
-    $concatCommand = 'ffmpeg.exe -i "{0}"  {1} "{2}"' -f $fileList[0].Name, $ffmpegStr, $outputFilename
+    $concatCommand = 'ffmpeg -i "{0}" {1} "{2}"' -f $fileList[0].Name, $ffmpegStr, $outputFilename
     Write-Host -ForegroundColor Green  ('执行的ffmpeg命令为： {0}' -f $concatCommand)
     Invoke-Expression -Command $concatCommand
 }
@@ -195,3 +197,5 @@ else {
 
 }
 
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest

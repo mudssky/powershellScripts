@@ -1,3 +1,4 @@
+#!/usr/bin/env pwsh
 
 <#
 .SYNOPSIS
@@ -44,10 +45,9 @@ param(
     [switch]$whatif
 
 )
-trap {
-    "error found"
-}
-$xmlList = Get-ChildItem $wildcard | Where-Object { $_.Extension -eq '.xml' } 
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+$xmlList = Get-ChildItem $wildcard | Where-Object { $_.Extension -eq '.xml' }
 
 if ($whatif) {
     Write-Host -ForegroundColor Green 'there are files to be concat'
@@ -70,7 +70,7 @@ if ($xmlList.Length -gt 1) {
         }
     }
     $firstXmlStr += '</i>'
-    Out-File -InputObject $firstXmlStr -FilePath $outPath
+    Out-File -InputObject $firstXmlStr -FilePath $outPath -Encoding utf8
     if ($delete) {
         $xmlList | ForEach-Object { Remove-Item $_ }
     }

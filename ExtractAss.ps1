@@ -1,3 +1,5 @@
+#!/usr/bin/env pwsh
+
 <#
 .SYNOPSIS
     从视频文件中提取ASS字幕的脚本
@@ -18,4 +20,17 @@
     如果视频文件不包含字幕轨道，ffmpeg会报错但不影响其他文件处理
 #>
 
-Get-ChildItem -Recurse *.mkv, *.mp4 | ForEach-Object { ffmpeg.exe -i  $_.FullName  ($_.FullName.Substring(0, $_.FullName.Length - 3) + 'ass') }
+[CmdletBinding(SupportsShouldProcess = $true)]
+param()
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+Get-ChildItem -Recurse *.mkv, *.mp4 |
+    ForEach-Object {
+        $src = $_.FullName
+        $ass = ($_.FullName.Substring(0, $_.FullName.Length - 3) + 'ass')
+        if ($PSCmdlet.ShouldProcess($src, "提取字幕到 $ass")) {
+            ffmpeg -i $src $ass
+        }
+    }

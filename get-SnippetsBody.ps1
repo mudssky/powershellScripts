@@ -1,3 +1,5 @@
+#!/usr/bin/env pwsh
+
 <#
 .SYNOPSIS
     生成代码片段主体内容的脚本
@@ -27,6 +29,8 @@ function Convert-DoubleQuotes {
     return $inputString -replace '"', '\"'
 }
 
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
 Import-Module (Resolve-Path -Path $PSScriptRoot/psutils)
 
 function Get-SnippetsBody {

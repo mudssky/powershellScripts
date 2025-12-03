@@ -1,3 +1,5 @@
+#!/usr/bin/env pwsh
+
 <#
 .SYNOPSIS
     Jupyter Notebook格式转换脚本
@@ -23,13 +25,17 @@
     转换后的文件将支持ipynb和py:percent两种格式
     包含错误处理机制
 #>
-[CmdletBinding()]
+[CmdletBinding(SupportsShouldProcess = $true)]
 param(
     [string]$Path = '.'
 )
 
-trap {
-    "error found"
-}
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
 
-Get-ChildItem -Recurse -Path $Path  -Filter *.ipynb | ForEach-Object { jupytext --set-formats 'ipynb,py:percent' $_.FullName }
+Get-ChildItem -Recurse -Path $Path -Filter *.ipynb | ForEach-Object {
+    $nb = $_.FullName
+    if ($PSCmdlet.ShouldProcess($nb, '转换为双格式')) {
+        jupytext --set-formats 'ipynb,py:percent' $nb
+    }
+}

@@ -1,3 +1,5 @@
+#!/usr/bin/env pwsh
+
 <#
 .SYNOPSIS
     Pester测试框架配置脚本
@@ -18,6 +20,12 @@
     - 排除特定模块的覆盖率统计
     - 输出格式为CoverageGutters
 #>
+
+[CmdletBinding()]
+param()
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
 
 $config = @{
     Run          = @{
@@ -63,6 +71,4 @@ $config = @{
 }
 
 $newConfig = New-PesterConfiguration -Hashtable $config
-
-
-$newConfig
+Write-Output $newConfig

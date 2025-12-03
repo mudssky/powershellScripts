@@ -1,3 +1,4 @@
+#!/usr/bin/env pwsh
 
 <#
 .SYNOPSIS
@@ -40,7 +41,7 @@
     脚本会记录执行时间
     支持多线程并行处理以提高效率
 #>
-[CmdletBinding()]
+[CmdletBinding(SupportsShouldProcess = $true)]
 param(
     [string]$qaacParam = '--verbose --rate keep -v320 -q2 --copy-artwork',
     [string]$targetPath = '.',
@@ -129,7 +130,7 @@ $losslessFiles | ForEach-Object  -ThrottleLimit $ThrottleLimit -Parallel {
         # > $null 2>$null 分别是忽略stdout 和stderr
         $commandStr = ('qaac.exe  {0} ''{1}'' -o ''{2}''  > $null 2>$null' -f $qaacParam, $escapedAudiofilePath , $escapedNewfilepath)
         Write-Host $commandStr
-        Invoke-Expression $commandStr  
+        if ($PSCmdlet.ShouldProcess($escapedAudiofilePath, '转换为 m4a')) { Invoke-Expression $commandStr }
     }
     else {
         Write-Host -ForegroundColor Red ('Error. Unsupported format:{0}' -f $audiofilePath)
@@ -163,3 +164,5 @@ $losslessFiles | ForEach-Object  -ThrottleLimit $ThrottleLimit -Parallel {
 $endTime = Get-Date
 # {0:N2} 保留两位小数
 Write-Host -ForegroundColor Green ('Done,total time: {0:N1} s' -f ($endTime - $startTime).TotalSeconds)
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest

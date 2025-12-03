@@ -1,3 +1,5 @@
+#!/usr/bin/env pwsh
+
 <#
 .SYNOPSIS
     批量音频格式转换脚本
@@ -30,18 +32,30 @@
     统计处理的文件总数
 #>
 
+[CmdletBinding(SupportsShouldProcess = $true)]
 param(
     [Parameter(Mandatory = $True)][string]$inputExt,
     [Parameter(Mandatory = $True)][string]$outputExt,
     [bool] $deleteSource = $true
 )
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
 $inputExtCounts = 0
-Get-ChildItem -Recurse -Force | 
-    ForEach-Object { if ($_.name.EndsWith('.' + $inputExt)) {
-            $inputExtCounts++; ffmpeg -i $_.FullName  ($_.FullName.TrimEnd($inputExt) + $outputExt); if ($deleteSource) {
-                Remove-Item -Force -LiteralPath $_.FullName; "convert and deleted: $($_.Fullname)"
+Get-ChildItem -Recurse -Force |
+    ForEach-Object {
+        if ($_.Name.EndsWith('.' + $inputExt)) {
+            $inputExtCounts++
+            $target = ($_.FullName.Substring(0, $_.FullName.Length - $inputExt.Length) + $outputExt)
+            if ($PSCmdlet.ShouldProcess($_.FullName, "转换为 $target")) {
+                ffmpeg -i $_.FullName $target
+                if ($deleteSource) {
+                    Remove-Item -Force -LiteralPath $_.FullName
+                    Write-Output ("convert and deleted: " + $_.FullName)
+                }
             }
         }
     }
 
-Write-Host -ForegroundColor Green  "$inputExt counts:$inputExtCounts"; Pause
+Write-Host -ForegroundColor Green ("$inputExt counts:$inputExtCounts")

@@ -1,3 +1,5 @@
+#!/usr/bin/env pwsh
+
 <#
 .SYNOPSIS
     启动LRC歌词制作工具的Web服务器
@@ -16,6 +18,14 @@
     服务器启动后可通过浏览器访问 http://localhost:2015 使用歌词制作工具
 #>
 
-Start-Process -FilePath http://localhost:2015
+[CmdletBinding(SupportsShouldProcess = $true)]
+param()
 
-caddy --root 'C:\tools\audio\lrc-maker' -host localhost  -http-port 2015
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+if ($PSCmdlet.ShouldProcess('http://localhost:2015', '打开浏览器')) {
+    Start-Process -FilePath http://localhost:2015
+}
+
+caddy --root 'C:\tools\audio\lrc-maker' -host localhost -http-port 2015

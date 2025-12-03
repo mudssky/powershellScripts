@@ -1,3 +1,5 @@
+#!/usr/bin/env pwsh
+
 <#
 .SYNOPSIS
     AbemaTV视频流下载脚本
@@ -30,5 +32,7 @@ param(
     [string]$filename = 'out.mp4'
 )
 
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
 
-streamlink.exe $url best --hls-segment-thread 10 -o $filename
+streamlink $url best --hls-segment-thread 10 -o $filename

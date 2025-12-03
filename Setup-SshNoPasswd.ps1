@@ -1,4 +1,4 @@
-[CmdletBinding()]
+[CmdletBinding(SupportsShouldProcess = $true)]
 param(
     [Parameter(Mandatory = $true)][string]$RemoteHost,
     [Parameter(Mandatory = $true)][string]$Username,
@@ -10,6 +10,7 @@ param(
     [switch]$DryRun
 )
 
+Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 # 解析主目录与 ~/.ssh 目录

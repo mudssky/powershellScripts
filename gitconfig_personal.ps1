@@ -1,3 +1,5 @@
+#!/usr/bin/env pwsh
+
 <#
 .SYNOPSIS
     配置Git个人用户信息的脚本
@@ -45,3 +47,5 @@ if ($local) {
 }
 git config --global user.name "mudssky"
 git config --global user.email "mudssky@gmail.com"
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'

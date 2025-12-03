@@ -1,3 +1,5 @@
+#!/usr/bin/env pwsh
+
 <#
 .SYNOPSIS
     FFmpeg视频压制预设脚本
@@ -63,14 +65,16 @@ $presetTable = @{'veryslow' = '-vcodec libx264 -acodec copy -crf 23 -r 30 -prese
     'copy'                  = '-c copy'
 }
 
-$ffmpegStr = $presetTable[$preset]
+$ffmpegStr = if ($presetTable.ContainsKey($preset)) { $presetTable[$preset] } else { $ffmpegStr }
 
 #$extLenth=$path.Length-$path.LastIndexOf('.')
 if (-not $outpath) {
     $outpath = $path.Substring(0, $path.LastIndexOf('.')) + $outExt
 }
 
-$commandStr = ("ffmpeg.exe -i  '{0}'  {1}  '{2}' " -f $path, $ffmpegStr, $outpath)
+$commandStr = ("ffmpeg -i '{0}' {1} '{2}'" -f $path, $ffmpegStr, $outpath)
 
 
 Invoke-Expression $commandStr
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest
