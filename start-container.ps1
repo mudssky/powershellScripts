@@ -1,4 +1,6 @@
 
+#!/usr/bin/env pwsh
+
 <#
 .SYNOPSIS
     Docker容器服务启动脚本
@@ -106,6 +108,7 @@ param (
   
 # 设置默认 docker 映射路径
 Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
 
 function Get-PlainTextFromSecure {
     param([SecureString]$Secure)
@@ -254,90 +257,97 @@ function Get-ComposeServiceNames {
 }
 
 
-${env:DATA_PATH} = $DataPath
-${env:DEFAULT_USER} = $DefaultUser
-${env:DEFAULT_PASSWORD} = (Get-PlainTextFromSecure -Secure $DefaultPassword)
-${env:RESTART_POLICY} = $RestartPolicy
-$projectName = Get-DefaultProjectName -ServiceName $ServiceName -ProjectName $ProjectName
-${env:COMPOSE_PROJECT_NAME} = $projectName
-$composeDir = Join-Path $PSScriptRoot "config/dockerfiles/compose"
-$composePath = Join-Path $composeDir "docker-compose.yml"
-$mongoReplComposePath = Join-Path $composeDir "mongo-repl.compose.yml"
+try {
+    ${env:DATA_PATH} = $DataPath
+    ${env:DEFAULT_USER} = $DefaultUser
+    ${env:DEFAULT_PASSWORD} = (Get-PlainTextFromSecure -Secure $DefaultPassword)
+    ${env:RESTART_POLICY} = $RestartPolicy
+    $projectName = Get-DefaultProjectName -ServiceName $ServiceName -ProjectName $ProjectName
+    ${env:COMPOSE_PROJECT_NAME} = $projectName
+    $composeDir = Join-Path $PSScriptRoot 'config' 'dockerfiles' 'compose'
+    $composePath = Join-Path $composeDir 'docker-compose.yml'
+    $mongoReplComposePath = Join-Path $composeDir 'mongo-repl.compose.yml'
 
-if ($Env) { foreach ($k in $Env.Keys) { ${env:$k} = [string]$Env[$k] } }
-if ($UseEnvFile -and $Env) {
-    $envFile = Join-Path $composeDir ".env"
-    $lines = @()
-    foreach ($k in $Env.Keys) { $lines += ("$k=" + [string]$Env[$k]) }
-    Set-Content -LiteralPath $envFile -Value $lines -Encoding UTF8
-}
+    if ($Env) { foreach ($k in $Env.Keys) { ${env:$k} = [string]$Env[$k] } }
+    if ($UseEnvFile -and $Env) {
+        $envFile = Join-Path $composeDir '.env'
+        $lines = @()
+        foreach ($k in $Env.Keys) { $lines += ("$k=" + [string]$Env[$k]) }
+        Set-Content -LiteralPath $envFile -Value $lines -Encoding utf8
+    }
 
-if ($List) {
+    if ($List) {
+        if (Test-Path $composePath) {
+            $available = Get-ComposeServiceNames -ComposePath $composePath -ReplicaComposePath $mongoReplComposePath
+            $available | ForEach-Object { Write-Output $_ }
+            Write-Output ("默认项目名: " + $projectName)
+            return
+        }
+    }
+
+    if ($NetworkName) { New-NetworkIfMissing -Name $NetworkName }
+    if ($ServiceName -eq 'mongodb-replica' -and (Test-Path $mongoReplComposePath)) {
+        $env:DOCKER_DATA_PATH = $DataPath
+        $env:MONGO_USER = $DefaultUser
+        $env:MONGO_PASSWORD = (Get-PlainTextFromSecure -Secure $DefaultPassword)
+        Invoke-DockerCompose -File $mongoReplComposePath -Project $projectName -Action 'up -d' -DryRun:$DryRun
+        if (-not $DryRun) { [void](Wait-ServiceHealthy -Service 'mongo1' -Project $projectName) }
+        return
+    }
     if (Test-Path $composePath) {
         $available = Get-ComposeServiceNames -ComposePath $composePath -ReplicaComposePath $mongoReplComposePath
-        $available | ForEach-Object { Write-Output $_ }
-        Write-Output ("默认项目名: " + $projectName)
-        return
-    }
-}
-
-if ($NetworkName) { New-NetworkIfMissing -Name $NetworkName }
-if ($ServiceName -eq 'mongodb-replica' -and (Test-Path $mongoReplComposePath)) {
-    $env:DOCKER_DATA_PATH = $DataPath
-    $env:MONGO_USER = $DefaultUser
-    $env:MONGO_PASSWORD = (Get-PlainTextFromSecure -Secure $DefaultPassword)
-    Invoke-DockerCompose -File $mongoReplComposePath -Project $projectName -Action 'up -d' -DryRun:$DryRun
-    if (-not $DryRun) { [void](Wait-ServiceHealthy -Service 'mongo1' -Project $projectName) }
-    return
-}
-if (Test-Path $composePath) {
-    $available = Get-ComposeServiceNames -ComposePath $composePath -ReplicaComposePath $mongoReplComposePath
-    if ($Update) {
-        Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'pull' -DryRun:$DryRun
-        Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'up -d' -DryRun:$DryRun
-        if (-not $DryRun -and $ServiceName) { [void](Wait-ServiceHealthy -Service $ServiceName -Project $projectName) }
-        return
-    }
-    if ($PullAlways) {
-        $modeForUp = Test-DockerAvailable
-        if ($modeForUp -eq 'sub') {
-            Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'up -d' -ExtraArgs @('--pull','always') -DryRun:$DryRun
-            if (-not $DryRun -and $ServiceName) { [void](Wait-ServiceHealthy -Service $ServiceName -Project $projectName) }
-        }
-        else {
+        if ($Update) {
             Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'pull' -DryRun:$DryRun
             Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'up -d' -DryRun:$DryRun
             if (-not $DryRun -and $ServiceName) { [void](Wait-ServiceHealthy -Service $ServiceName -Project $projectName) }
+            return
         }
-        return
-    }
-    if ($Down) {
-        if ($ServiceName) {
-            Invoke-DockerCompose -File $composePath -Project $projectName -Action 'stop' -Services @($ServiceName) -DryRun:$DryRun
-            Invoke-DockerCompose -File $composePath -Project $projectName -Action 'rm -f -s' -Services @($ServiceName) -DryRun:$DryRun
+        if ($PullAlways) {
+            $modeForUp = Test-DockerAvailable
+            if ($modeForUp -eq 'sub') {
+                Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'up -d' -ExtraArgs @('--pull','always') -DryRun:$DryRun
+                if (-not $DryRun -and $ServiceName) { [void](Wait-ServiceHealthy -Service $ServiceName -Project $projectName) }
+            }
+            else {
+                Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'pull' -DryRun:$DryRun
+                Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'up -d' -DryRun:$DryRun
+                if (-not $DryRun -and $ServiceName) { [void](Wait-ServiceHealthy -Service $ServiceName -Project $projectName) }
+            }
+            return
+        }
+        if ($Down) {
+            if ($ServiceName) {
+                Invoke-DockerCompose -File $composePath -Project $projectName -Action 'stop' -Services @($ServiceName) -DryRun:$DryRun
+                Invoke-DockerCompose -File $composePath -Project $projectName -Action 'rm -f -s' -Services @($ServiceName) -DryRun:$DryRun
+            }
+            else {
+                Invoke-DockerCompose -File $composePath -Project $projectName -Action 'down' -DryRun:$DryRun
+            }
+            return
+        }
+        if ($Pull) {
+            Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'pull' -DryRun:$DryRun
+            return
+        }
+        if ($Build) {
+            Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'build' -DryRun:$DryRun
+            return
+        }
+        if ($available -contains $ServiceName) {
+            Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'up -d' -DryRun:$DryRun
+            if (-not $DryRun) { [void](Wait-ServiceHealthy -Service $ServiceName -Project $projectName) }
+            return
         }
         else {
-            Invoke-DockerCompose -File $composePath -Project $projectName -Action 'down' -DryRun:$DryRun
+            $suggest = @($available | Where-Object { $_ -like "*${ServiceName}*" })
+            if ($suggest.Count -gt 0) { throw "未找到服务: $ServiceName, 是否指: $($suggest -join ', ')" }
         }
-        return
     }
-    if ($Pull) {
-        Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'pull' -DryRun:$DryRun
-        return
-    }
-    if ($Build) {
-        Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'build' -DryRun:$DryRun
-        return
-    }
-    if ($available -contains $ServiceName) {
-        Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'up -d' -DryRun:$DryRun
-        if (-not $DryRun) { [void](Wait-ServiceHealthy -Service $ServiceName -Project $projectName) }
-        return
-    }
-    else {
-        $suggest = @($available | Where-Object { $_ -like "*${ServiceName}*" })
-        if ($suggest.Count -gt 0) { throw "未找到服务: $ServiceName, 是否指: $($suggest -join ', ')" }
-    }
-}
 
-throw "未找到可用的容器配置: $ServiceName"
+    throw "未找到可用的容器配置: $ServiceName"
+}
+catch {
+    Write-Error "容器启动脚本执行失败: $($_.Exception.Message)"
+    Write-Verbose "错误详情: $($_.Exception.ToString())"
+    exit 1
+}

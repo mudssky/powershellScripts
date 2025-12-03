@@ -1,3 +1,5 @@
+#!/usr/bin/env pwsh
+
 <#
 .SYNOPSIS
     比较两个或多个JSON文件的差异
@@ -65,7 +67,7 @@
     工具位置：clis/json-diff-tool/
 #>
 
-[CmdletBinding(SupportsShouldProcess)]
+[CmdletBinding(SupportsShouldProcess = $true)]
 param(
     [Parameter(Position = 0, ValueFromPipeline = $true, ValueFromRemainingArguments = $true, Mandatory = $true, HelpMessage = "要比较的JSON文件路径（至少两个文件）")]
     [string[]]$Path,
@@ -94,6 +96,9 @@ param(
     [Parameter(HelpMessage = "递归处理目录")]
     [switch]$Recurse
 )
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
 
 begin {
     # 初始化文件路径数组
@@ -237,8 +242,8 @@ end {
         }
         
         $projectRoot = $PSScriptRoot
-        $toolPath = Join-Path $projectRoot "clis\json-diff-tool"
-        $indexPath = Join-Path $toolPath "src\index.ts"
+        $toolPath = Join-Path $projectRoot 'clis' 'json-diff-tool'
+        $indexPath = Join-Path $toolPath 'src' 'index.ts'
         
         Write-Verbose "项目根目录: $projectRoot"
         Write-Verbose "工具路径: $toolPath"
