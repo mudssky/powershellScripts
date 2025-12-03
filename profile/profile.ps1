@@ -214,17 +214,17 @@ function Initialize-Environment {
 	
     # 设置代理环境变量
     # 设置项目根目录环境变量
-    $env:POWERSHELL_SCRIPTS_ROOT = Split-Path -Parent $PSScriptRoot
+    $Global:Env:POWERSHELL_SCRIPTS_ROOT = Split-Path -Parent $PSScriptRoot
     if ($EnableProxy) {
         Write-Verbose "启用代理设置: $ProxyUrl"
-        $env:http_proxy = $ProxyUrl
-        $env:https_proxy = $ProxyUrl
+        $Global:Env:http_proxy = $ProxyUrl
+        $Global:Env:https_proxy = $ProxyUrl
         Write-Debug "已设置代理: $ProxyUrl" 
     }
     else {
         Write-Verbose "跳过代理设置"
-        $env:http_proxy = $null
-        $env:https_proxy = $null
+        $Global:Env:http_proxy = $null
+        $Global:Env:https_proxy = $null
     }
 	
     # 加载自定义环境变量脚本 (用于存放机密或个人配置)
