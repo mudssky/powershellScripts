@@ -49,13 +49,20 @@ else {
 }
 
 
-$traeRulesFilePath = "$PSScriptRoot/.trae/rules/project_rules.md"
-$lingmaRulesFilePath = "$PSScriptRoot/.lingma/rules/project_rules.md"
-# 软连接不存在时创建
-if (-not (Test-Path -Path $lingmaRulesFilePath)) {
-    New-Item -ItemType SymbolicLink -Path $lingmaRulesFilePath -Target $traeRulesFilePath
+# $traeRulesFilePath = "$PSScriptRoot/.trae/rules/project_rules.md"
+# $lingmaRulesFilePath = "$PSScriptRoot/.lingma/rules/project_rules.md"
+# # 软连接不存在时创建
+# if (-not (Test-Path -Path $lingmaRulesFilePath)) {
+#     New-Item -ItemType SymbolicLink -Path $lingmaRulesFilePath -Target $traeRulesFilePath
+# }
+
+
+if ($IsWindows) {
+    Write-Verbose "当前环境为 Windows，将执行 Windows 特定配置"
+    ./profile/profile.ps1 -loadProfile
+}
+else {
+    Write-Verbose "当前环境为 Unix 或类 Unix 系统，将执行 Unix 特定配置"
+    ./profile/profile_unix.ps1 -loadProfile
 }
 
-
-# 载入配置文件
-./profile/profile.ps1 -loadProfile

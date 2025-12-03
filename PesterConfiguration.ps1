@@ -42,7 +42,7 @@ $config = @{
         # OutputPath   = "./coverge.xml"
         OutputFormat            = 'CoverageGutters'
         ExcludeFromCodeCoverage = @(
-            ’./psutils/modules/error.psm1‘
+            './psutils/modules/error.psm1'
             './psutils/modules/linux.psm1'
             './psutils/modules/network.psm1'
             './psutils/modules/proxy.psm1'
