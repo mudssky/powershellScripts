@@ -95,7 +95,7 @@
     # 要从此模块导出的函数，为获得最佳性能，请不要使用通配符，如果没有要导出的函数，请使用空数组
     FunctionsToExport    = @(
         # 缓存管理模块 (cache.psm1)
-        'Invoke-WithCache', 'Clear-ExpiredCache', 'Get-CacheStats',
+        'Invoke-WithCache', 'Clear-ExpiredCache', 'Get-CacheStats', 'Invoke-WithFileCache',
         # 环境管理模块 (env.psm1)
         'Get-Dotenv', 'Install-Dotenv', 'Import-EnvPath', 'Set-EnvPath', 'Add-EnvPath', 'Get-EnvParam', 'Remove-FromEnvPath', 'Sync-PathFromBash'
         # 错误处理模块 (error.psm1)

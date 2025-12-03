@@ -72,24 +72,7 @@ $userAlias = @(
 )
 
 
-function Invoke-WithFileCache {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)][string]$Key,
-        [Parameter(Mandatory = $true)][TimeSpan]$MaxAge,
-        [Parameter(Mandatory = $true)][scriptblock]$Generator
-    )
-    $cacheRoot = Join-Path $PSScriptRoot ".cache"
-    if (-not (Test-Path $cacheRoot)) { New-Item -ItemType Directory -Path $cacheRoot -Force | Out-Null }
-    $cacheFile = Join-Path $cacheRoot ("$Key.ps1")
-    if (Test-Path $cacheFile) {
-        $age = (Get-Date) - (Get-Item $cacheFile).LastWriteTime
-        if ($age -lt $MaxAge) { return $cacheFile }
-    }
-    $content = & $Generator | Out-String
-    Set-Content -Path $cacheFile -Value $content -Encoding UTF8
-    return $cacheFile
-}
+ 
 
 <#
 .SYNOPSIS
@@ -291,7 +274,7 @@ function Initialize-Environment {
         starship = { 
             if ($SkipTools -or $SkipStarship) { return }
             Write-Verbose "初始化Starship提示符"
-            $starshipFile = Invoke-WithFileCache -Key "starship-init-powershell" -MaxAge ([TimeSpan]::FromDays(7)) -Generator { & starship init powershell }
+            $starshipFile = Invoke-WithFileCache -Key "starship-init-powershell" -MaxAge ([TimeSpan]::FromDays(7)) -Generator { & starship init powershell } -BaseDir (Join-Path $PSScriptRoot '.cache')
             . $starshipFile
         }
         sccache  = {
@@ -302,7 +285,7 @@ function Initialize-Environment {
         zoxide   = { 
             if ($SkipTools -or $SkipZoxide) { return }
             Write-Verbose "初始化zoxide目录跳转工具"
-            $zoxideFile = Invoke-WithFileCache -Key "zoxide-init-powershell" -MaxAge ([TimeSpan]::FromDays(7)) -Generator { zoxide init powershell }
+            $zoxideFile = Invoke-WithFileCache -Key "zoxide-init-powershell" -MaxAge ([TimeSpan]::FromDays(7)) -Generator { zoxide init powershell } -BaseDir (Join-Path $PSScriptRoot '.cache')
             . $zoxideFile
             $Global:__ZoxideInitialized = $true
         }
@@ -336,7 +319,7 @@ function Initialize-Environment {
 	
     if (-not $SkipAliases) { Set-AliasProfile }
     if (-not $Global:__ZoxideInitialized -and -not $SkipZoxide -and (Test-EXEProgram -Name 'zoxide')) {
-        function Global:z { & (Invoke-WithFileCache -Key "zoxide-init-powershell" -MaxAge ([TimeSpan]::FromDays(7)) -Generator { zoxide init powershell }); Remove-Item function:Global:z -Force; & z @args }
+        function Global:z { & (Invoke-WithFileCache -Key "zoxide-init-powershell" -MaxAge ([TimeSpan]::FromDays(7)) -Generator { zoxide init powershell } -BaseDir (Join-Path $PSScriptRoot '.cache')); Remove-Item function:Global:z -Force; & z @args }
     }
     # 载入conda环境（如果环境变量中没有conda命令）
     # if (-not (Test-EXEProgram -Name conda)) {

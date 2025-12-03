@@ -544,5 +544,62 @@ $MyInvocation.MyCommand.ScriptBlock.Module.OnRemove = {
     }
 }
 
+
+
+<#
+.SYNOPSIS
+    生成可执行脚本的文件级缓存（.ps1），返回缓存文件路径
+
+.DESCRIPTION
+    Invoke-WithFileCache 用于将脚本块的输出（通常为初始化脚本文本）写入指定缓存目录中的 .ps1 文件，
+    并在有效期内重复使用该文件路径以进行 dot-source 加载，避免每次会话的字符串解析和管道开销。
+
+.PARAMETER Key
+    缓存键；用于生成文件名。建议使用具有稳定性的标识（如 "starship-init-powershell"）。
+
+.PARAMETER MaxAge
+    有效期；超过有效期将重新生成文件。通常可设为 7 天。
+
+.PARAMETER Generator
+    实际生成脚本文本的脚本块；应返回字符串内容（或可被 Out-String 转换为字符串）。
+
+.PARAMETER BaseDir
+    缓存根目录；默认使用模块集中缓存目录下的子目录 "profile_scripts"。建议 Profile 显式传入其自身目录下的 
+    ".cache"，如：`Join-Path $PSScriptRoot '.cache'`，以便与现有结构一致。
+
+.OUTPUTS
+    System.String
+    返回生成（或复用）的缓存脚本文件绝对路径。
+
+.EXAMPLE
+    $path = Invoke-WithFileCache -Key 'starship-init-powershell' -MaxAge ([TimeSpan]::FromDays(7)) -Generator { & starship init powershell } -BaseDir (Join-Path $PSScriptRoot '.cache')
+    . $path
+#>
+function Invoke-WithFileCache {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$Key,
+        [Parameter(Mandatory = $true)][TimeSpan]$MaxAge,
+        [Parameter(Mandatory = $true)][scriptblock]$Generator,
+        [Parameter(Mandatory = $false)][string]$BaseDir
+    )
+    if ([string]::IsNullOrWhiteSpace($BaseDir)) {
+        $BaseDir = Join-Path $script:CacheBaseDir 'profile_scripts'
+    }
+    if (-not (Test-Path $BaseDir)) {
+        New-Item -ItemType Directory -Path $BaseDir -Force | Out-Null
+    }
+    $safeKey = ($Key -replace "[^a-zA-Z0-9._-]", "-")
+    $cacheFile = Join-Path $BaseDir ("$safeKey.ps1")
+    if (Test-Path $cacheFile) {
+        $age = (Get-Date) - (Get-Item $cacheFile).LastWriteTime
+        if ($age -lt $MaxAge) { return $cacheFile }
+    }
+    $content = & $Generator | Out-String
+    Set-Content -Path $cacheFile -Value $content -Encoding UTF8
+    return $cacheFile
+}
+
+
 # 导出模块函数
-Export-ModuleMember -Function Invoke-WithCache, Clear-ExpiredCache, Get-CacheStats
+Export-ModuleMember -Function Invoke-WithCache, Clear-ExpiredCache, Get-CacheStats, Invoke-WithFileCache

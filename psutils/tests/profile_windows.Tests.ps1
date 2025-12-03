@@ -1,0 +1,34 @@
+param()
+
+Describe 'Windows Profile 性能基准' -Tag 'profile', 'performance', 'windows' {
+    BeforeAll {
+        $script:ProfilePath = 'c:\home\env\powershellScripts\profile\profile.ps1'
+        if (-not (Test-Path $script:ProfilePath)) {
+            throw "Profile 文件不存在: $script:ProfilePath"
+        }
+    }
+
+    It '默认模式加载时间' {
+        if (-not $IsWindows) { Set-ItResult -Skipped -Because '仅在 Windows 运行'; return }
+        $sw = [System.Diagnostics.Stopwatch]::StartNew()
+        . $script:ProfilePath
+        $sw.Stop()
+        $ms = $sw.ElapsedMilliseconds
+        Write-Host ("[Windows Default] Profile 加载耗时: {0} ms" -f $ms) -ForegroundColor Cyan
+        $ms | Should BeGreaterThan 0
+        $ms | Should BeLessThan 10000
+    }
+
+    It 'Minimal 模式加载时间' {
+        if (-not $IsWindows) { Set-ItResult -Skipped -Because '仅在 Windows 运行'; return }
+        $env:POWERSHELL_PROFILE_MINIMAL = 1
+        $sw = [System.Diagnostics.Stopwatch]::StartNew()
+        . $script:ProfilePath
+        $sw.Stop()
+        Remove-Item Env:\POWERSHELL_PROFILE_MINIMAL -ErrorAction SilentlyContinue
+        $ms = $sw.ElapsedMilliseconds
+        Write-Host ("[Windows Minimal] Profile 加载耗时: {0} ms" -f $ms) -ForegroundColor Cyan
+        $ms | Should BeGreaterThan 0
+        $ms | Should BeLessThan 10000
+    }
+}

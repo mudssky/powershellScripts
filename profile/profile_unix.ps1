@@ -35,25 +35,6 @@ param(
 # 加载自定义模块
 . $PSScriptRoot/loadModule.ps1
 
-function Invoke-WithFileCache {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)][string]$Key,
-        [Parameter(Mandatory = $true)][TimeSpan]$MaxAge,
-        [Parameter(Mandatory = $true)][scriptblock]$Generator
-    )
-    $cacheRoot = Join-Path $PSScriptRoot ".cache"
-    if (-not (Test-Path $cacheRoot)) { New-Item -ItemType Directory -Path $cacheRoot -Force | Out-Null }
-    $cacheFile = Join-Path $cacheRoot ("$Key.ps1")
-    if (Test-Path $cacheFile) {
-        $age = (Get-Date) - (Get-Item $cacheFile).LastWriteTime
-        if ($age -lt $MaxAge) { return $cacheFile }
-    }
-    $content = & $Generator | Out-String
-    Set-Content -Path $cacheFile -Value $content -Encoding UTF8
-    return $cacheFile
-}
-
 # 自定义别名配置
 $userAlias = @(
     [PSCustomObject]@{
@@ -187,7 +168,7 @@ function Initialize-Environment {
         starship = { 
             if ($SkipTools -or $SkipStarship) { return }
             Write-Verbose "初始化 Starship 提示符"
-            $starshipFile = Invoke-WithFileCache -Key "starship-init-powershell" -MaxAge ([TimeSpan]::FromDays(7)) -Generator { & starship init powershell }
+            $starshipFile = Invoke-WithFileCache -Key "starship-init-powershell" -MaxAge ([TimeSpan]::FromDays(7)) -Generator { & starship init powershell } -BaseDir (Join-Path $PSScriptRoot '.cache')
             . $starshipFile
         }
         fnm      = { 
@@ -198,7 +179,7 @@ function Initialize-Environment {
         zoxide   = { 
             if ($SkipTools -or $SkipZoxide) { return }
             Write-Verbose "初始化 zoxide 目录跳转工具"
-            $zoxideFile = Invoke-WithFileCache -Key "zoxide-init-powershell" -MaxAge ([TimeSpan]::FromDays(7)) -Generator { zoxide init powershell }
+            $zoxideFile = Invoke-WithFileCache -Key "zoxide-init-powershell" -MaxAge ([TimeSpan]::FromDays(7)) -Generator { zoxide init powershell } -BaseDir (Join-Path $PSScriptRoot '.cache')
             . $zoxideFile
             $Global:__ZoxideInitialized = $true
         }
@@ -236,7 +217,7 @@ function Initialize-Environment {
     if (-not $SkipAliases) { Set-AliasProfile }
     if (-not $SkipAliases) { Set-CustomAliasesProfile }
     if (-not $Global:__ZoxideInitialized -and -not $SkipZoxide -and (Test-EXEProgram -Name 'zoxide')) {
-        function Global:z { & (Invoke-WithFileCache -Key "zoxide-init-powershell" -MaxAge ([TimeSpan]::FromDays(7)) -Generator { zoxide init powershell }); Remove-Item function:Global:z -Force; & z @args }
+        function Global:z { & (Invoke-WithFileCache -Key "zoxide-init-powershell" -MaxAge ([TimeSpan]::FromDays(7)) -Generator { zoxide init powershell } -BaseDir (Join-Path $PSScriptRoot '.cache')); Remove-Item function:Global:z -Force; & z @args }
     }
     Write-Verbose "PowerShell 环境初始化完成"
 }
