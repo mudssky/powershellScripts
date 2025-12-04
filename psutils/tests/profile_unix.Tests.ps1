@@ -2,7 +2,8 @@ param()
 
 Describe 'Unix Profile 性能基准' -Tag 'profile', 'performance', 'unix' {
     BeforeAll {
-        $script:ProfilePath = 'c:\home\env\powershellScripts\profile\profile_unix.ps1'
+        $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
+        $script:ProfilePath = Join-Path $RepoRoot 'profile' 'profile_unix.ps1'
         if (-not (Test-Path $script:ProfilePath)) {
             throw "Profile 文件不存在: $script:ProfilePath"
         }
