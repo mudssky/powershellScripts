@@ -346,6 +346,12 @@
         "command": "scoop install lsd"
       },
       {
+        "name": "eza",
+        "cliName": "eza",
+        "description": "现代 ls 替代品，支持丰富展示",
+        "command": "scoop install eza"
+      },
+      {
         "name": "hyperfine",
         "cliName": "hyperfine",
         "description": "命令行跑分工具",
@@ -579,6 +585,13 @@
         "cliName": "fd",
         "description": "快速文件搜索工具",
         "command": "brew install fd",
+        "supportOs": ["linux", "macOS"]
+      },
+      {
+        "name": "eza",
+        "cliName": "eza",
+        "description": "现代 ls 替代品，支持丰富展示",
+        "command": "brew install eza",
         "supportOs": ["linux", "macOS"]
       },
       {
