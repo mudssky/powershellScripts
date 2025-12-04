@@ -157,7 +157,13 @@ function Initialize-Environment {
         $env:PATH += ":/home/linuxbrew/.linuxbrew/bin/"
     }
     if ($IsLinux) {
-        Sync-PathFromBash | Out-Null
+        try {
+            # 缓存半天
+            Sync-PathFromBash -CacheSeconds (4*3600)  -ErrorAction Stop | Out-Null
+        }
+        catch {
+            Write-Error "同步 PATH 失败: $($_.Exception.Message)" -ErrorAction Continue
+        }
     }
     if ($Minimal -or (Test-Path -Path (Join-Path $PSScriptRoot 'minimal')) -or $env:POWERSHELL_PROFILE_MINIMAL) {
         $SkipTools = $true

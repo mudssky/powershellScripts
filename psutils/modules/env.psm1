@@ -456,7 +456,9 @@ function Sync-PathFromBash {
         [switch]$Login,
         [switch]$Prepend,
         [switch]$IncludeNonexistent,
-        [bool]$ReturnObject = $true
+        [bool]$ReturnObject = $true,
+        [int]$CacheSeconds = 300,
+        [switch]$ThrowOnFailure
     )
 
     try {
@@ -464,6 +466,21 @@ function Sync-PathFromBash {
         Write-Information "正在从 Bash 登录 Shell 中获取 PATH..."
         $bashPathOutput = ''
         $source = ''
+        $cacheDir = Join-Path $HOME ".cache/powershellScripts"
+        $cacheFile = Join-Path $cacheDir "bash_path.json"
+        $useCache = $CacheSeconds -gt 0 -and (Test-Path -LiteralPath $cacheFile)
+        if ($useCache) {
+            try {
+                $cache = Get-Content -LiteralPath $cacheFile -Raw | ConvertFrom-Json
+                $ageSec = ([DateTime]::UtcNow - [DateTime]$cache.timestamp).TotalSeconds
+                $isLoginCache = ($cache.source -like 'bash-login*')
+                $isNoLoginCache = ($cache.source -like 'bash-nologin*')
+                if ($ageSec -le $CacheSeconds -and (($Login -and $isLoginCache) -or ((-not $Login) -and $isNoLoginCache))) {
+                    $bashPathOutput = [string]$cache.path
+                    $source = [string]$cache.source + '-cache'
+                }
+            } catch { }
+        }
         if ($Login) {
             $bashPathOutput = bash -lc 'echo $PATH'
             $source = 'bash-login'
@@ -472,8 +489,8 @@ function Sync-PathFromBash {
                 $bashPathOutput = bash -c 'source /etc/profile >/dev/null 2>&1; echo $PATH'
                 $source = 'bash-profile-fallback'
                 if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($bashPathOutput)) {
-                    Write-Warning "无法从 Bash 获取 PATH。Bash 可能未安装或存在配置错误。"
-                    return
+                    $msg = "无法从 Bash 获取 PATH。Bash 可能未安装或存在配置错误。"
+                    if ($ThrowOnFailure) { throw $msg } else { Write-Warning $msg; return }
                 }
             }
         }
@@ -485,23 +502,34 @@ function Sync-PathFromBash {
                 $bashPathOutput = bash --noprofile --norc -c 'source ~/.bashrc 2>/dev/null; echo $PATH'
                 $source = 'bash-nologin-bashrc-fallback'
                 if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($bashPathOutput)) {
-                    Write-Warning "无法从非登录模式获取 PATH。请检查 Bash 安装或 .bashrc 配置。"
-                    return
+                    $msg = "无法从非登录模式获取 PATH。请检查 Bash 安装或 .bashrc 配置。"
+                    if ($ThrowOnFailure) { throw $msg } else { Write-Warning $msg; return }
                 }
             }
         }
 
         $bashPathOutput = $bashPathOutput.Trim()
+        if ($CacheSeconds -gt 0 -and -not [string]::IsNullOrWhiteSpace($bashPathOutput) -and -not ($source -like '*-cache')) {
+            try {
+                if (-not (Test-Path -LiteralPath $cacheDir)) { New-Item -ItemType Directory -Path $cacheDir -Force | Out-Null }
+                @{ path = $bashPathOutput; source = $source; timestamp = [DateTime]::UtcNow } | ConvertTo-Json | Set-Content -LiteralPath $cacheFile -Encoding UTF8
+            } catch { }
+        }
         $separator = [System.IO.Path]::PathSeparator
 
-        $bashPaths = $bashPathOutput.Split($separator, [System.StringSplitOptions]::RemoveEmptyEntries) | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' } | Select-Object -Unique
-        $psPaths = $env:PATH.Split($separator, [System.StringSplitOptions]::RemoveEmptyEntries) | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' } | Select-Object -Unique
+        $bashPathsRaw = $bashPathOutput.Split($separator, [System.StringSplitOptions]::RemoveEmptyEntries)
+        $psPathsRaw = $env:PATH.Split($separator, [System.StringSplitOptions]::RemoveEmptyEntries)
+        $bashSet = [System.Collections.Generic.HashSet[string]]::new()
+        $psSetAll = [System.Collections.Generic.HashSet[string]]::new()
+        foreach ($x in $bashPathsRaw) { $t = $x.Trim(); if ($t.Length -gt 0) { [void]$bashSet.Add($t) } }
+        foreach ($x in $psPathsRaw) { $t = $x.Trim(); if ($t.Length -gt 0) { [void]$psSetAll.Add($t) } }
+        $bashPaths = $bashSet.GetEnumerator() | ForEach-Object { $_ }
+        $psPaths = $psSetAll.GetEnumerator() | ForEach-Object { $_ }
 
         Write-Information "从 Bash 中找到的路径: $($bashPaths.Count) 个"
         Write-Information "当前 PowerShell 中的路径: $($psPaths.Count) 个"
 
-        $psSet = [System.Collections.Generic.HashSet[string]]::new()
-        foreach ($p in $psPaths) { [void]$psSet.Add($p) }
+        $psSet = $psSetAll
         $missingPaths = [System.Collections.Generic.List[string]]::new()
         foreach ($p in $bashPaths) { if (-not $psSet.Contains($p)) { $missingPaths.Add($p) } }
 
@@ -509,8 +537,14 @@ function Sync-PathFromBash {
             Write-Information "发现 $($missingPaths.Count) 个需要从 Bash 同步的路径。"
             Write-Verbose ("缺失路径: " + ($missingPaths -join $separator))
 
-            $pathsToApply = if ($IncludeNonexistent) { $missingPaths } else { $missingPaths | Where-Object { Test-Path -LiteralPath $_ -PathType Container } }
-            $skippedPaths = if ($IncludeNonexistent) { @() } else { $missingPaths | Where-Object { -not (Test-Path -LiteralPath $_ -PathType Container) } }
+            if ($IncludeNonexistent) {
+                $pathsToApply = $missingPaths
+                $skippedPaths = @()
+            } else {
+                $pathsToApply = [System.Collections.Generic.List[string]]::new()
+                $skippedPaths = [System.Collections.Generic.List[string]]::new()
+                foreach ($mp in $missingPaths) { if (Test-Path -LiteralPath $mp -PathType Container) { [void]$pathsToApply.Add($mp) } else { [void]$skippedPaths.Add($mp) } }
+            }
 
             if ($pathsToApply.Count -gt 0) {
                 foreach ($path in $pathsToApply) { Write-Verbose "将添加: $path" }
