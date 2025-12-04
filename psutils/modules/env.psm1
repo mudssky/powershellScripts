@@ -431,11 +431,13 @@ function Remove-FromEnvPath {
 function Sync-PathFromBash {
     <#
     .SYNOPSIS
-        同步 Bash 登录 Shell 的 PATH 到当前 PowerShell 会话。
+        同步 Bash 的 PATH（默认非登录，从 .bashrc）到当前 PowerShell 会话。
     .DESCRIPTION
-        在 Linux/macOS 上，通过调用 `bash -l` 获取完整配置后的 PATH，
-        比较当前 PowerShell 的 PATH，追加缺失路径。支持前置/后置策略，
-        可选过滤不存在的目录，并返回结构化结果用于编程处理。
+        默认采用非登录模式（不加载 /etc/profile），通过 `bash -ci` 读取由 `.bashrc` 配置的 PATH，
+        并与 PowerShell 的 PATH 对比追加缺失项。可通过 `-Login` 开启登录模式（`bash -lc`）。
+        支持前置/后置策略、目录有效性过滤、结构化返回对象与安全预览。
+    .PARAMETER Login
+        启用登录模式（`bash -lc`），获取完整登录环境 PATH。
     .PARAMETER Prepend
         将缺失路径前置到 PATH 开头，使 Bash 的路径优先生效。
     .PARAMETER IncludeNonexistent
@@ -444,15 +446,15 @@ function Sync-PathFromBash {
         返回包含统计与结果的 `PSCustomObject`（默认 true）。
     .EXAMPLE
         Sync-PathFromBash -WhatIf -Verbose
-        预览将要变更的 PATH，不实际更改，并显示详细日志。
+        以非登录模式预览将要变更的 PATH，不实际更改，并显示详细日志。
     .EXAMPLE
-        Sync-PathFromBash -Prepend -Verbose
-        将 Bash 中缺失的目录前置到 PATH，适合优先使用 Bash 环境。
+        Sync-PathFromBash -Login -Prepend -Verbose
+        以登录模式将 Bash 中缺失的目录前置到 PATH，适合优先使用完整登录环境。
     #>
     [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Low')]
     param(
+        [switch]$Login,
         [switch]$Prepend,
-        [switch]$Append,
         [switch]$IncludeNonexistent,
         [bool]$ReturnObject = $true
     )
@@ -460,17 +462,32 @@ function Sync-PathFromBash {
     try {
         $start = [DateTime]::UtcNow
         Write-Information "正在从 Bash 登录 Shell 中获取 PATH..."
-        if ($Prepend -and $Append) { throw "同时指定 Prepend 与 Append，不支持；请二选一" }
-
-        $bashPathOutput = bash -l -c 'echo $PATH'
-        $source = 'bash-login'
-        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($bashPathOutput)) {
-            Write-Warning "无法从 Bash 登录 Shell 获取 PATH，尝试回退方案。"
-            $bashPathOutput = bash -c 'source /etc/profile >/dev/null 2>&1; echo $PATH'
-            $source = 'bash-profile-fallback'
+        $bashPathOutput = ''
+        $source = ''
+        if ($Login) {
+            $bashPathOutput = bash -lc 'echo $PATH'
+            $source = 'bash-login'
             if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($bashPathOutput)) {
-                Write-Warning "无法从 Bash 获取 PATH。Bash 可能未安装或存在配置错误。"
-                return
+                Write-Warning "无法从 Bash 登录 Shell 获取 PATH，尝试回退 /etc/profile。"
+                $bashPathOutput = bash -c 'source /etc/profile >/dev/null 2>&1; echo $PATH'
+                $source = 'bash-profile-fallback'
+                if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($bashPathOutput)) {
+                    Write-Warning "无法从 Bash 获取 PATH。Bash 可能未安装或存在配置错误。"
+                    return
+                }
+            }
+        }
+        else {
+            $bashPathOutput = bash -ci 'echo $PATH'
+            $source = 'bash-nologin-bashrc'
+            if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($bashPathOutput)) {
+                Write-Warning "非登录模式获取 PATH 失败，尝试显式加载 ~/.bashrc。"
+                $bashPathOutput = bash --noprofile --norc -c 'source ~/.bashrc 2>/dev/null; echo $PATH'
+                $source = 'bash-nologin-bashrc-fallback'
+                if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($bashPathOutput)) {
+                    Write-Warning "无法从非登录模式获取 PATH。请检查 Bash 安装或 .bashrc 配置。"
+                    return
+                }
             }
         }
 

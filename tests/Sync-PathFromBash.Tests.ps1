@@ -18,4 +18,7 @@ Describe 'Sync-PathFromBash basic behavior' {
     It 'should support Append strategy (default) without error when WhatIf' {
         { Sync-PathFromBash -WhatIf } | Should -Not -Throw
     }
+    It 'should support Login branch without error when WhatIf' {
+        { Sync-PathFromBash -Login -WhatIf } | Should -Not -Throw
+    }
 }
