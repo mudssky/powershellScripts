@@ -29,7 +29,8 @@
 [CmdletBinding()]
 param(
     [Parameter(HelpMessage = "是否将配置加载到 PowerShell 配置文件中")]
-    [switch]$LoadProfile
+    [switch]$LoadProfile,
+    [string]$AliasDespPrefix = '[mudssky]'
 )
 
 # 加载自定义模块
