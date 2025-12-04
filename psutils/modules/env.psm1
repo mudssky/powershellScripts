@@ -431,63 +431,106 @@ function Remove-FromEnvPath {
 function Sync-PathFromBash {
     <#
     .SYNOPSIS
-        Compares the PATH from a Bash login shell with the current PowerShell PATH
-        and appends any missing paths to the PowerShell session.
+        同步 Bash 登录 Shell 的 PATH 到当前 PowerShell 会话。
     .DESCRIPTION
-        This function is designed for running PowerShell on Linux/macOS.
-        It invokes a Bash login shell (`bash -l`) to reliably get the fully
-        configured PATH environment variable. It then compares this with the
-        current PowerShell session's PATH and adds any paths that are present
-        in Bash but missing in PowerShell.
+        在 Linux/macOS 上，通过调用 `bash -l` 获取完整配置后的 PATH，
+        比较当前 PowerShell 的 PATH，追加缺失路径。支持前置/后置策略，
+        可选过滤不存在的目录，并返回结构化结果用于编程处理。
+    .PARAMETER Prepend
+        将缺失路径前置到 PATH 开头，使 Bash 的路径优先生效。
+    .PARAMETER IncludeNonexistent
+        允许追加不存在的目录（默认不允许）。
+    .PARAMETER ReturnObject
+        返回包含统计与结果的 `PSCustomObject`（默认 true）。
     .EXAMPLE
-        Sync-PathFromBash -Verbose
-        This will run the sync and provide detailed output on which paths were found
-        and which were added.
+        Sync-PathFromBash -WhatIf -Verbose
+        预览将要变更的 PATH，不实际更改，并显示详细日志。
+    .EXAMPLE
+        Sync-PathFromBash -Prepend -Verbose
+        将 Bash 中缺失的目录前置到 PATH，适合优先使用 Bash 环境。
     #>
-    [CmdletBinding()]
-    param()
+    [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Low')]
+    param(
+        [switch]$Prepend,
+        [switch]$Append,
+        [switch]$IncludeNonexistent,
+        [bool]$ReturnObject = $true
+    )
 
     try {
+        $start = [DateTime]::UtcNow
         Write-Information "正在从 Bash 登录 Shell 中获取 PATH..."
-        # 使用 'bash -l' 确保加载了 ~/.profile 或 ~/.bash_profile
-        # '-c' 表示执行后面的命令
+        if ($Prepend -and $Append) { throw "同时指定 Prepend 与 Append，不支持；请二选一" }
+
         $bashPathOutput = bash -l -c 'echo $PATH'
-        if ($LASTEXITCODE -ne 0) {
-            Write-Warning "无法从 Bash 获取 PATH。Bash 可能未安装或存在配置错误。"
-            return
+        $source = 'bash-login'
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($bashPathOutput)) {
+            Write-Warning "无法从 Bash 登录 Shell 获取 PATH，尝试回退方案。"
+            $bashPathOutput = bash -c 'source /etc/profile >/dev/null 2>&1; echo $PATH'
+            $source = 'bash-profile-fallback'
+            if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($bashPathOutput)) {
+                Write-Warning "无法从 Bash 获取 PATH。Bash 可能未安装或存在配置错误。"
+                return
+            }
         }
 
-        # 获取跨平台的路径分隔符 (Linux/macOS 上是 ':')
+        $bashPathOutput = $bashPathOutput.Trim()
         $separator = [System.IO.Path]::PathSeparator
 
-        # 将 Bash 和 PowerShell 的 PATH 字符串拆分为数组，并过滤掉空条目
-        $bashPaths = $bashPathOutput.Split($separator, [System.StringSplitOptions]::RemoveEmptyEntries)
-        $psPaths = $env:PATH.Split($separator, [System.StringSplitOptions]::RemoveEmptyEntries)
+        $bashPaths = $bashPathOutput.Split($separator, [System.StringSplitOptions]::RemoveEmptyEntries) | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' } | Select-Object -Unique
+        $psPaths = $env:PATH.Split($separator, [System.StringSplitOptions]::RemoveEmptyEntries) | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' } | Select-Object -Unique
 
         Write-Information "从 Bash 中找到的路径: $($bashPaths.Count) 个"
         Write-Information "当前 PowerShell 中的路径: $($psPaths.Count) 个"
 
-        # 使用 Compare-Object 找出只存在于 Bash PATH 中的路径
-        # ReferenceObject 是基准，DifferenceObject 是要比较的对象
-        $missingPaths = Compare-Object -ReferenceObject $psPaths -DifferenceObject $bashPaths -PassThru | Where-Object { $_ -ne $null }
+        $psSet = [System.Collections.Generic.HashSet[string]]::new()
+        foreach ($p in $psPaths) { [void]$psSet.Add($p) }
+        $missingPaths = [System.Collections.Generic.List[string]]::new()
+        foreach ($p in $bashPaths) { if (-not $psSet.Contains($p)) { $missingPaths.Add($p) } }
 
         if ($missingPaths.Count -gt 0) {
-            Write-Information "发现 $($missingPaths.Count) 个需要从 Bash 同步的路径。" 
+            Write-Information "发现 $($missingPaths.Count) 个需要从 Bash 同步的路径。"
+            Write-Verbose ("缺失路径: " + ($missingPaths -join $separator))
 
-            # 将找到的缺失路径连接成一个字符串
-            $pathsToAdd = $missingPaths -join $separator
+            $pathsToApply = if ($IncludeNonexistent) { $missingPaths } else { $missingPaths | Where-Object { Test-Path -LiteralPath $_ -PathType Container } }
+            $skippedPaths = if ($IncludeNonexistent) { @() } else { $missingPaths | Where-Object { -not (Test-Path -LiteralPath $_ -PathType Container) } }
 
-            # 遍历并显示将要添加的每一个路径
-            foreach ($path in $missingPaths) {
-                Write-Information "  -> 正在添加: $path" 
+            if ($pathsToApply.Count -gt 0) {
+                foreach ($path in $pathsToApply) { Write-Verbose "将添加: $path" }
+
+                $actionDesc = if ($Prepend) { "Prepend $($pathsToApply.Count) 路径到 PATH" } else { "Append $($pathsToApply.Count) 路径到 PATH" }
+                if ($PSCmdlet.ShouldProcess("PATH", $actionDesc)) {
+                    $newPath = ($pathsToApply -join $separator)
+                    if ($Prepend) {
+                        if ($env:PATH) { $env:PATH = "$newPath$separator$($env:PATH)" } else { $env:PATH = $newPath }
+                    } else {
+                        if ($env:PATH) { $env:PATH = "$(($env:PATH))$separator$newPath" } else { $env:PATH = $newPath }
+                    }
+                    Write-Information "PowerShell PATH 已成功更新！"
+                }
+            } else {
+                Write-Information "无可添加的有效目录。"
             }
-
-            # 将新路径追加到现有的 PowerShell PATH 后面
-            $env:PATH = "$($env:PATH)$separator$pathsToAdd"
-            Write-Information "PowerShell PATH 已成功更新！" 
+        } else {
+            Write-Information "PowerShell 的 PATH 与 Bash 完全同步，无需操作。"
+            $skippedPaths = @()
+            $pathsToApply = @()
         }
-        else {
-            Write-Information "Power-Shell 的 PATH 与 Bash 完全同步，无需操作。"
+
+        $elapsedMs = ([DateTime]::UtcNow - $start).TotalMilliseconds
+        if ($ReturnObject) {
+            $obj = [PSCustomObject]@{
+                SourcePathsCount   = $bashPaths.Count
+                CurrentPathsCount  = $psPaths.Count
+                AddedPaths         = $pathsToApply
+                SkippedPaths       = $skippedPaths
+                Source             = $source
+                ElapsedMs          = [math]::Round($elapsedMs, 2)
+                NewPath            = $env:PATH
+                Prepend            = [bool]$Prepend
+                IncludeNonexistent = [bool]$IncludeNonexistent
+            }
+            return $obj
         }
     }
     catch {
