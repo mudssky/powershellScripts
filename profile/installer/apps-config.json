@@ -766,6 +766,44 @@
         "command": "npm install -g @fission-ai/openspec"
       }
     ],
+    "bun": [
+      {
+        "name": "gemini-cli",
+        "cliName": "gemini",
+        "description": "gemini的命令行工具",
+        "command": "bun add -g @google/gemini-cli"
+      },
+      {
+        "name": "qwen-coder",
+        "cliName": "qwen",
+        "description": "qwen的命令行工具",
+        "command": "bun add -g @qwen-code/qwen-code@latest"
+      },
+      {
+        "name": "claude-code",
+        "cliName": "claude",
+        "description": "claude-code的命令行工具",
+        "command": "bun add -g @anthropic-ai/claude-code"
+      },
+      {
+        "name": "openai-codex",
+        "cliName": "codex",
+        "description": "OpenAI Codex 命令行工具",
+        "command": "bun add -g @openai/codex"
+      },
+      {
+        "name": "tsx",
+        "cliName": "tsx",
+        "description": "Node.js TS 运行器，零配置运行 TypeScript/ESM",
+        "command": "bun add -g tsx"
+      },
+      {
+        "name": "openspec",
+        "cliName": "openspec",
+        "description": "Fission AI OpenSpec tool",
+        "command": "bun add -g @fission-ai/openspec"
+      }
+    ],
     "pacman": [
       {
         "name": "firefox",
