@@ -8,5 +8,8 @@
       "name": "json-diff-tool",
       "path": "./clis/json-diff-tool"
     }
-  ]
+  ],
+  "settings": {
+    "powershell.cwd": "root"
+  }
 }
