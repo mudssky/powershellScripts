@@ -36,10 +36,15 @@
     .\losslessToQaac.ps1 -he -ThrottleLimit 4
     使用HE-AAC模式和4个并行线程进行转换
 
+.EXAMPLE
+    .\losslessToQaac.ps1 -WhatIf
+    使用预演模式（不实际执行），在并行处理下通过 `$using:WhatIfPreference` 控制执行与删除行为
+
 .NOTES
     需要安装qaac编码器
     脚本会记录执行时间
     支持多线程并行处理以提高效率
+    在并行执行环境中（`ForEach-Object -Parallel`），`$PSCmdlet` 不可用；`-WhatIf` 语义通过 `$using:WhatIfPreference` 在并行块内实现，不会实际执行转换或删除操作
 #>
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
@@ -49,6 +54,9 @@ param(
     [switch]$nodelete,
     [switch]$he
 )
+
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest
 
 
 # 记录开始时间，用于计算脚本执行时间
@@ -62,8 +70,8 @@ if ($he) {
 
 
 
-$losslessFiles = Get-ChildItem -Recurse -File  -LiteralPath $targetPath | Where-Object { ($_.Extension -eq '.flac') -or ($_.Extension -eq '.wav') }
-$fileCounts = $losslessFiles.Length
+$losslessFiles = @(Get-ChildItem -Recurse -File -LiteralPath $targetPath | Where-Object { ($_.Extension -eq '.flac') -or ($_.Extension -eq '.wav') })
+$fileCounts = $losslessFiles.Count
 Write-Host -ForegroundColor Green ('Totally found ' + $fileCounts + ' lossless audio files')
 
 # 创建同步哈希表，用于在并发的进程中统计进度
@@ -125,12 +133,19 @@ $losslessFiles | ForEach-Object  -ThrottleLimit $ThrottleLimit -Parallel {
     Write-Host -ForegroundColor Green ('converting file: {0}' -f $escapedAudiofilePath)
     Write-Host -ForegroundColor Green ('new file path: {0}' -f $escapedNewfilepath)
     if ($audiofileExt -in '.wav', '.flac' ) {
-        # 目前flac与wav命令相同
-        # $commandStr = ('qaac64.exe  ' + $qaacParam + ' "' + $audiofilePath + '" -o "' + $newfilepath + '"')
-        # > $null 2>$null 分别是忽略stdout 和stderr
-        $commandStr = ('qaac.exe  {0} ''{1}'' -o ''{2}''  > $null 2>$null' -f $qaacParam, $escapedAudiofilePath , $escapedNewfilepath)
-        Write-Host $commandStr
-        if ($PSCmdlet.ShouldProcess($escapedAudiofilePath, '转换为 m4a')) { Invoke-Expression $commandStr }
+        try {
+            # 目前flac与wav命令相同；抑制标准输出/错误输出，失败时在 catch 分支打印上下文信息
+            $commandStr = ('qaac.exe  {0} ''{1}'' -o ''{2}''  > $null 2>$null' -f $qaacParam, $escapedAudiofilePath , $escapedNewfilepath)
+            if (-not $using:WhatIfPreference) {
+                Invoke-Expression $commandStr
+            }
+            else {
+                Write-Host -ForegroundColor Yellow ('WhatIf: would run {0}' -f $commandStr)
+            }
+        }
+        catch {
+            Write-Host -ForegroundColor Red ('转换命令执行失败: {0}, 错误: {1}' -f $audiofilePath, $_.Exception.Message)
+        }
     }
     else {
         Write-Host -ForegroundColor Red ('Error. Unsupported format:{0}' -f $audiofilePath)
@@ -148,8 +163,13 @@ $losslessFiles | ForEach-Object  -ThrottleLimit $ThrottleLimit -Parallel {
             Write-Host -BackgroundColor Yellow -ForegroundColor Green 'no-delete flag is open'
         }
         else {
-            Write-Host -Verbose -ForegroundColor   Cyan ('convert finshed, deleting source audio file: {0}' -f $losslessFile)
-            Remove-Item -Force -LiteralPath  $audiofilePath
+            if (-not $using:WhatIfPreference) {
+                Write-Host -Verbose -ForegroundColor Cyan ('convert finshed, deleting source audio file: {0}' -f $losslessFile)
+                Remove-Item -Force -LiteralPath  $audiofilePath
+            }
+            else {
+                Write-Host -BackgroundColor Yellow -ForegroundColor Green ('WhatIf: would delete source audio file: {0}' -f $audiofilePath)
+            }
         }
     }
     else {
@@ -164,5 +184,3 @@ $losslessFiles | ForEach-Object  -ThrottleLimit $ThrottleLimit -Parallel {
 $endTime = Get-Date
 # {0:N2} 保留两位小数
 Write-Host -ForegroundColor Green ('Done,total time: {0:N1} s' -f ($endTime - $startTime).TotalSeconds)
-$ErrorActionPreference = 'Stop'
-Set-StrictMode -Version Latest
