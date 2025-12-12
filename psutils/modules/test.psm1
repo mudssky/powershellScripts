@@ -68,9 +68,12 @@ function Test-EXEProgram() {
             # get-command  return $null  when cant find command and  SilentlyContinue flag on 
             $result = ($null -ne (Get-Command -Name $Name -CommandType Application -ErrorAction SilentlyContinue))
             
-            # 将结果存储到缓存中
-            $script:ExeProgramCache[$Name] = $result
-            Write-Verbose "缓存结果: $Name = $result"
+            # 仅当结果为 true (即找到程序) 时才缓存
+            # 这样可以避免在脚本运行过程中安装了程序但缓存仍然认为未安装的问题
+            if ($result) {
+                $script:ExeProgramCache[$Name] = $result
+                Write-Verbose "缓存结果: $Name = $result"
+            }
             
             return $result
         }
