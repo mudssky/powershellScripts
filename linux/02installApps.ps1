@@ -9,6 +9,13 @@ Install-PackageManagerApps -PackageManager 'homebrew' -ConfigPath $configPath -F
     $appInfo.tag -contains 'linuxserver'
 }
 
-if (Test-EXEProgram -Name 'npm') {
-    Install-PackageManagerApps -PackageManager 'npm' -ConfigPath $configPath
+if (-not (Test-EXEProgram -Name 'bun')) {
+    # bash ./ubuntu/installer/install_bun.sh
+    npm install -g nrm --registry='https://registry.npmmirror.com'
+    nrm use taobao
+    npm install -g bun 
+    }
+
+if (Test-EXEProgram -Name 'bun') {
+    Install-PackageManagerApps -PackageManager 'bun' -ConfigPath $configPath
 }
