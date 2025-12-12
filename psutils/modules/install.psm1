@@ -79,70 +79,126 @@ function Install-RequiredModule {
 }
 
 
-<#
-.SYNOPSIS
-    通过指定的包管理器批量安装应用程序
-
-.DESCRIPTION
-    此函数支持通过多种包管理器（如 Chocolatey、Scoop、Winget、Cargo、Homebrew、APT）
-    批量安装应用程序。支持从配置文件或配置对象中读取应用列表，并自动生成安装命令。
-    支持根据操作系统筛选应用程序。
-
-.PARAMETER PackageManager
-    包管理器名称，支持：choco、scoop、winget、cargo、homebrew、apt
-
-.PARAMETER ConfigObject
-    包含应用配置的 PSCustomObject 对象
-
-.PARAMETER ConfigPath
-    配置文件路径，默认为 "$PSScriptRoot/apps-config.json"
-    配置文件格式参考：/Users/mudssky/projects/powershellScripts/profile/installer/apps-config.json
-
-.PARAMETER FilterByOS
-    是否根据当前操作系统筛选应用程序，默认为 $true
-
-.PARAMETER TargetOS
-    目标操作系统，用于筛选应用程序。如果未指定，则使用当前操作系统
-    支持的值：Windows、Linux、macOS
-
-.EXAMPLE
-    Install-PackageManagerApps -PackageManager "scoop" -ConfigPath "./apps-config.json"
-    从配置文件安装 Scoop 应用，自动根据当前操作系统筛选
-
-.EXAMPLE
-    Install-PackageManagerApps -PackageManager "choco" -ConfigObject $configObj -FilterByOS $false
-    从配置对象安装 Chocolatey 应用，不进行操作系统筛选
-
-.EXAMPLE
-    Install-PackageManagerApps -PackageManager "homebrew" -TargetOS "macOS"
-    安装 Homebrew 应用，仅安装支持 macOS 的应用
-
-.NOTES
-    配置文件格式示例：
-    {
-      "packageManagers": {
-        "scoop": [
-          {
-            "name": "git",
-            "cliName": "git",
-            "description": "版本控制系统",
-            "command": "scoop install git",
-            "skipInstall": false,
-            "supportOs": ["Windows", "Linux", "macOS"]
-          }
-        ]
-      }
+function Test-AppFilter {
+    <#
+    .SYNOPSIS
+        测试应用信息是否满足过滤条件
+    .DESCRIPTION
+        基于脚本块回调函数测试应用信息是否满足指定的过滤条件
+    .PARAMETER AppInfo
+        要测试的应用信息对象
+    .PARAMETER Predicates
+        过滤谓词脚本块数组
+    .PARAMETER Mode
+        过滤模式：'And' 表示所有条件都必须满足，'Or' 表示任一条件满足即可
+    .EXAMPLE
+        $filter = { param($app) $app.supportOs -contains "Linux" }
+        Test-AppFilter -AppInfo $appInfo -Predicates $filter
+    .OUTPUTS
+        [bool] 如果满足过滤条件返回 $true，否则返回 $false
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [PSCustomObject]$AppInfo,
+        
+        [Parameter(Mandatory = $true)]
+        [ScriptBlock[]]$Predicates,
+        
+        [Parameter()]
+        [ValidateSet("And", "Or")]
+        [string]$Mode = "And"
+    )
+    
+    if (-not $Predicates -or $Predicates.Count -eq 0) {
+        return $true
     }
     
-    字段说明：
-    - name: 应用名称（必需）
-    - cliName: 命令行名称（可选，默认使用 name）
-    - description: 应用描述（可选）
-    - command: 安装命令（可选，未配置时自动生成）
-    - skipInstall: 是否跳过安装（可选，默认 false）
-    - supportOs: 支持的操作系统列表（可选，如果未指定则不进行筛选）
-#>
+    $results = foreach ($predicate in $Predicates) {
+        try {
+            $result = & $predicate $AppInfo
+            if ($null -eq $result) {
+                Write-Warning "过滤函数返回 null，视为 false"
+                $false
+            } else {
+                [bool]$result
+            }
+        }
+        catch {
+            Write-Warning "过滤函数执行失败: $($_.Exception.Message)"
+            $false
+        }
+    }
+    
+    if ($Mode -eq "And") {
+        return $results -notcontains $false
+    } else {
+        return $results -contains $true
+    }
+}
+
 function Install-PackageManagerApps() {
+    <#
+    .SYNOPSIS
+        根据配置文件安装指定包管理器的应用程序
+    .DESCRIPTION
+        从配置文件中读取指定包管理器的应用列表，并根据条件过滤后批量安装应用程序。
+        支持操作系统过滤、自定义函数过滤等多种筛选方式。
+    .PARAMETER PackageManager
+        包管理器名称（如：homebrew, choco, scoop）
+    .PARAMETER ConfigObject
+        配置对象（与 ConfigPath 二选一）
+    .PARAMETER ConfigPath
+        配置文件路径，默认为 "$PSScriptRoot/apps-config.json"
+    .PARAMETER FilterByOS
+        是否按操作系统筛选，默认为 $true
+    .PARAMETER TargetOS
+        目标操作系统（Windows, Linux, macOS），未指定时自动检测
+    .PARAMETER FilterPredicate
+        单个过滤脚本块，用于自定义过滤逻辑
+    .PARAMETER FilterPredicates
+        多个过滤脚本块数组，与 FilterMode 配合使用
+    .PARAMETER FilterMode
+        过滤模式："And" 表示所有条件都必须满足，"Or" 表示任一条件满足即可，默认为 "And"
+    .EXAMPLE
+        # 基础用法 - 安装所有适用于当前系统的 homebrew 应用
+        Install-PackageManagerApps -PackageManager "homebrew"
+    .EXAMPLE
+        # 使用自定义过滤器 - 只安装带有 linuxserver 标签的应用
+        $linuxServerFilter = { param($app) $app.tag -and "linuxserver" -in $app.tag }
+        Install-PackageManagerApps -PackageManager "homebrew" -FilterPredicate $linuxServerFilter
+    .EXAMPLE
+        # 使用多过滤器 - 安装开发工具或 Git 相关工具
+        $filters = @(
+            { param($app) $app.tag -contains "development" },
+            { param($app) $app.name -like "*git*" }
+        )
+        Install-PackageManagerApps -PackageManager "homebrew" -FilterPredicates $filters -FilterMode "Or"
+    .EXAMPLE
+        # 复杂业务逻辑过滤
+        $businessFilter = {
+            param($app)
+            $isLinuxCompatible = $app.supportOs -contains "Linux"
+            $notSkipped = -not $app.skipInstall
+            $isServerTool = $app.tag -and "linuxserver" -in $app.tag
+            
+            return $isLinuxCompatible -and $notSkipped -and $isServerTool
+        }
+        Install-PackageManagerApps -PackageManager "homebrew" -FilterPredicate $businessFilter
+    .INPUTS
+        None. 此函数不接受管道输入。
+    .OUTPUTS
+        None. 此函数不返回输出。
+    .NOTES
+        过滤脚本块接收一个参数 $app，代表应用信息对象，包含以下属性：
+        - name: 应用名称
+        - cliName: CLI 命令名称
+        - description: 应用描述
+        - command: 安装命令
+        - supportOs: 支持的操作系统数组
+        - skipInstall: 是否跳过安装
+        - tag: 标签数组
+    #>
     [CmdletBinding(SupportsShouldProcess)]
     param(
         [Parameter(Mandatory)]
@@ -159,7 +215,17 @@ function Install-PackageManagerApps() {
         
         [Parameter()]
         [ValidateSet("Windows", "Linux", "macOS")]
-        [string]$TargetOS
+        [string]$TargetOS,
+        
+        [Parameter()]
+        [ScriptBlock]$FilterPredicate,
+        
+        [Parameter()]
+        [ScriptBlock[]]$FilterPredicates,
+        
+        [Parameter()]
+        [ValidateSet("And", "Or")]
+        [string]$FilterMode = "And"
     )
 	
     # 获取目标操作系统
@@ -209,6 +275,26 @@ function Install-PackageManagerApps() {
         
         if ($filteredCount -eq 0) {
             Write-Warning "经过操作系统筛选后，没有找到适用于 $TargetOS 的 $PackageManager 应用"
+            return
+        }
+    }
+    
+    # 应用自定义过滤器
+    if ($FilterPredicate -or $FilterPredicates) {
+        $predicates = @()
+        if ($FilterPredicate) { $predicates += $FilterPredicate }
+        if ($FilterPredicates) { $predicates += $FilterPredicates }
+        
+        $originalCount = @($InstallList).Count
+        $InstallList = $InstallList | Where-Object {
+            Test-AppFilter -AppInfo $_ -Predicates $predicates -Mode $FilterMode
+        }
+        
+        $filteredCount = @($InstallList).Count
+        Write-Verbose "自定义过滤器筛选: 原始应用数量 $originalCount，筛选后应用数量 $filteredCount"
+        
+        if ($filteredCount -eq 0) {
+            Write-Warning "经过自定义过滤器筛选后，没有找到符合条件的 $PackageManager 应用"
             return
         }
     }
