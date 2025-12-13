@@ -1,12 +1,16 @@
 {
   "folders": [
     {
+      "name": "pwsh",
+      "path": "scripts/pwsh"
+    },
+    {
       "name": "root",
       "path": "."
     },
     {
       "name": "json-diff-tool",
-      "path": "./clis/json-diff-tool"
+      "path": "projects/clis/json-diff-tool"
     }
   ]
 }
