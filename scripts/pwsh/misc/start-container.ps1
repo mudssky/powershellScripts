@@ -305,7 +305,7 @@ try {
         if ($PullAlways) {
             $modeForUp = Test-DockerAvailable
             if ($modeForUp -eq 'sub') {
-                Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'up -d' -ExtraArgs @('--pull','always') -DryRun:$DryRun
+                Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'up -d' -ExtraArgs @('--pull', 'always') -DryRun:$DryRun
                 if (-not $DryRun -and $ServiceName) { [void](Wait-ServiceHealthy -Service $ServiceName -Project $projectName) }
             }
             else {
