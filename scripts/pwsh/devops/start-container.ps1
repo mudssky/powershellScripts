@@ -327,6 +327,16 @@ function Show-RustDeskInfo {
             Write-Host "3. Key: 未找到公钥文件或文件为空 ($pubKeyFile)" -ForegroundColor Yellow
             Write-Host "   如果这是首次启动，可能需要几秒钟生成密钥。请手动查看该文件。"
         }
+        Write-Host "4. 端口映射:"
+        Write-Host "   - 21114:21114 (Web Console)"
+        Write-Host "   - 21115:21115 (NAT Type Test)"
+        Write-Host "   - 21116:21116 (ID Reg & Heartbeat)"
+        Write-Host "   - 21116:21116/udp (ID Reg & Heartbeat)"
+        Write-Host "   - 21118:21118 (Web Client)"
+        Write-Host "   - 21117:21117 (Relay Services)"
+        Write-Host "   - 21119:21119 (Web Client)"
+        # 云服务器防火墙需要配置开启
+        Write-Host "云服务器防火墙需要配置开启 21115 21116 21117，否则无法连接。" -ForegroundColor Yellow
         Write-Host "==========================`n" -ForegroundColor Cyan
     }
 }
