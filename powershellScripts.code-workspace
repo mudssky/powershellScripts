@@ -5,6 +5,10 @@
       "path": "scripts/pwsh"
     },
     {
+      "name": "node",
+      "path": "scripts/node"
+    },
+    {
       "name": "root",
       "path": "."
     },
