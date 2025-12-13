@@ -216,141 +216,141 @@ ls *.flv | % { ffmpegPreset -path $_.Name }
 smallFileCleaner -limitedSize 10kb
 
 # 仅列出不删除
-.\smallFileCleaner.ps1 -limitedSize 10kb -noDelete
+smallFileCleaner -limitedSize 10kb -noDelete
 ```
 
-#### `folderSize.ps1`
+#### `folderSize`
 
 **功能**: 计算文件夹大小
 
 ```powershell
 # 计算当前目录大小
-.\folderSize.ps1
+folderSize
 
 # 计算指定目录大小
-.\folderSize.ps1 -path "C:\SomeFolder"
+folderSize -path "C:\SomeFolder"
 ```
 
-#### `renameLegal.ps1`
+#### `renameLegal`
 
 **功能**: 文件名合法化工具
 
-#### `findLostNum.ps1`
+#### `findLostNum`
 
 **功能**: 查找丢失的数字序列
 
 ### 系统配置
 
-#### `syncConfig.ps1`
+#### `syncConfig`
 
 **功能**: 配置文件同步工具
 
 ```powershell
 # 备份配置
-.\syncConfig.ps1 -Mode backup
+syncConfig -Mode backup
 
 # 恢复配置
-.\syncConfig.ps1 -Mode restore
+syncConfig -Mode restore
 
 # 列出配置
-.\syncConfig.ps1 -Mode list
+syncConfig -Mode list
 ```
 
-#### `proxyHelper.ps1`
+#### `proxyHelper`
 
 **功能**: 代理设置助手
 
 ```powershell
 # 为 Git 设置代理
-.\proxyHelper.ps1 -SetProxyProgram git
+proxyHelper -SetProxyProgram git
 
 # 取消 Git 代理
-.\proxyHelper.ps1 -UnsetProxyProgram git
+proxyHelper -UnsetProxyProgram git
 ```
 
 ## 🔧 开发工具
 
 ### 代码质量
 
-#### `pslint.ps1`
+#### `pslint`
 
 **功能**: PowerShell 代码检查工具
 
-#### `PesterConfiguration.ps1`
+#### `PesterConfiguration`
 
 **功能**: Pester 测试配置
 
 ### 版本控制
 
-#### `gitconfig_personal.ps1`
+#### `gitconfig_personal`
 
 **功能**: Git 个人配置设置
 
 ### IDE 和编辑器
 
-#### `Setup-VSCodeSSH.ps1`
+#### `Setup-VSCodeSSH`
 
 **功能**: VS Code SSH 配置工具
 
-#### `DownloadVSCodeExtension.ps1`
+#### `DownloadVSCodeExtension`
 
 **功能**: VS Code 扩展下载工具
 
-#### `get-SnippetsBody.ps1`
+#### `get-SnippetsBody`
 
 **功能**: 代码片段提取工具
 
 ## 🌐 网络和下载工具
 
-#### `downGithub.ps1`
+#### `downGithub`
 
 **功能**: GitHub 仓库下载工具
 
-#### `downWith.ps1`
+#### `downWith`
 
 **功能**: 通用下载工具
 
 ## 📁 文件格式处理
 
-#### `ExtractAss.ps1`
+#### `ExtractAss`
 
 **功能**: ASS 字幕文件提取
 
-#### `concatXML.ps1`
+#### `concatXML`
 
 **功能**: XML 文件合并
 
-#### `ConventAllbyExt.ps1`
+#### `ConventAllbyExt`
 
 **功能**: 按扩展名批量转换文件
 
 ## 🐳 容器和服务
 
-#### `start-container.ps1`
+#### `start-container`
 
 **功能**: 容器启动工具
 
-#### `Start-Bee.ps1`
+#### `Start-Bee`
 
 **功能**: Bee 服务启动工具
 
 ## 📊 数据处理
 
-#### `jupyconvert.ps1`
+#### `jupyconvert`
 
 **功能**: Jupyter Notebook 转换工具
 
-#### `tesseract.ps1`
+#### `tesseract`
 
 **功能**: OCR 文字识别工具
 
 ## 🧹 清理工具
 
-#### `cleanTorrent.ps1`
+#### `cleanTorrent`
 
 **功能**: 种子文件清理工具
 
-#### `dlsiteUpdate.ps1`
+#### `dlsiteUpdate`
 
 **功能**: DLsite 更新工具
 
@@ -362,13 +362,13 @@ smallFileCleaner -limitedSize 10kb
 
 ```powershell
 # 查看脚本帮助
-Get-Help .\scriptName.ps1 -Full
+Get-Help scriptName -Full
 
 # 查看参数说明
-Get-Help .\scriptName.ps1 -Parameter *
+Get-Help scriptName -Parameter *
 
 # 查看使用示例
-Get-Help .\scriptName.ps1 -Examples
+Get-Help scriptName -Examples
 ```
 
 ### 执行策略
@@ -380,7 +380,7 @@ Get-Help .\scriptName.ps1 -Examples
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 
 # 或者绕过执行策略
-powershell -ExecutionPolicy Bypass -File .\scriptName.ps1
+powershell -ExecutionPolicy Bypass -Command scriptName
 ```
 
 ### 模块依赖
