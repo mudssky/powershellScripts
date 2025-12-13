@@ -5,7 +5,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "prepare": "husky && pwsh ./Manage-BinScripts.ps1 -Action sync",
+    "prepare": "husky && pwsh ./prepare.ps1",
     "format:pwsh": "pwsh -File ./scripts/pwsh/devops/Format-PowerShellCode.ps1 -Path . -Recurse",
     "format:biome": "biome format --write .",
     "format": "pnpm format:pwsh",
