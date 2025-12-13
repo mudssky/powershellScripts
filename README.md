@@ -38,35 +38,52 @@ git clone <repository-url>
 cd powershellScripts
 
 # 运行安装脚本
+# 该脚本会自动配置 PATH 并同步脚本到 bin 目录
 .\install.ps1
+```
+
+安装完成后，建议**重启终端**以使环境变量生效。
+
+### 脚本管理
+
+本项目使用 `Manage-BinScripts.ps1` 管理脚本映射，所有脚本源文件位于 `scripts/pwsh/` 目录下。
+
+```powershell
+# 手动同步脚本到 bin 目录
+.\Manage-BinScripts.ps1 -Action sync
+
+# 清理 bin 目录
+.\Manage-BinScripts.ps1 -Action clean
 ```
 
 ### 系统要求
 
-- Windows PowerShell 5.1 或 PowerShell Core 6.0+
+- Windows PowerShell 5.1 或 PowerShell Core 7.0+ (推荐)
 - 部分功能需要管理员权限
-- 某些脚本需要额外的依赖模块（如 Pester）
+- Node.js 环境 (用于 TypeScript 脚本构建)
 
 ## 📦 核心脚本
 
+> **注意**: 运行 `install.ps1` 后，`bin` 目录会被添加到 PATH 中，你可以直接在命令行运行脚本名（如 `cleanEnvPath`），无需加上 `.\` 前缀或 `.ps1` 后缀。以下示例假设环境已正确配置。
+
 ### 🔧 系统环境管理
 
-#### `cleanEnvPath.ps1`
+#### `cleanEnvPath`
 
 **功能**: 清理 PATH 环境变量中的无效路径
 
 ```powershell
 # 清理用户级 PATH
-.\cleanEnvPath.ps1
+cleanEnvPath
 
 # 清理系统级 PATH（需要管理员权限）
-.\cleanEnvPath.ps1 -EnvTarget Machine
+cleanEnvPath -EnvTarget Machine
 
 # 预览清理操作
-.\cleanEnvPath.ps1 -WhatIf
+cleanEnvPath -WhatIf
 
 # 强制执行并指定备份路径
-.\cleanEnvPath.ps1 -Force -BackupPath "C:\Backup"
+cleanEnvPath -Force -BackupPath "C:\Backup"
 ```
 
 **特性**:
@@ -77,27 +94,27 @@ cd powershellScripts
 - 自动备份原始配置
 - 支持 WhatIf 预览模式
 
-#### `restoreEnvPath.ps1`
+#### `restoreEnvPath`
 
 **功能**: 从备份文件恢复 PATH 环境变量
 
 ```powershell
 # 从指定备份文件恢复
-.\restoreEnvPath.ps1 -BackupFilePath "C:\backup\PATH_User_20231201_143022.txt"
+restoreEnvPath -BackupFilePath "C:\backup\PATH_User_20231201_143022.txt"
 
 # 从备份目录选择恢复
-.\restoreEnvPath.ps1 -BackupDirectory "C:\backup" -EnvTarget User
+restoreEnvPath -BackupDirectory "C:\backup" -EnvTarget User
 ```
 
 ### 🏃‍♂️ 脚本执行器
 
-#### `runScripts.ps1`
+#### `runScripts`
 
 **功能**: 类似 npm scripts 的命令执行器
 
 ```powershell
 # 执行指定命令
-.\runScripts.ps1 -CommandName test
+runScripts -CommandName test
 
 # 列出所有可用命令
 .\runScripts.ps1 -listCommands
