@@ -167,7 +167,7 @@ function Set-Proxy {
         { $_ -in "off", "disable", "unset" } {
             "http_proxy", "https_proxy", "ftp_proxy", "rsync_proxy", "all_proxy", "no_proxy" | ForEach-Object {
                 Remove-Item "env:$_" -ErrorAction SilentlyContinue
-                Remove-Item "env:$($_ .ToUpper())" -ErrorAction SilentlyContinue
+                Remove-Item "env:$($_.ToUpper())" -ErrorAction SilentlyContinue
             }
             Write-Host "🔴 代理已关闭 (直连模式)" -ForegroundColor Yellow
         }
