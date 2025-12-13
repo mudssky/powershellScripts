@@ -297,6 +297,40 @@ function Wait-ServiceHealthy {
     return $false
 }
 
+function Show-RustDeskInfo {
+    param([string]$ServiceName, [string]$DataPath)
+    if ($ServiceName -in @('rustdesk-hbbs', 'rustdesk-hbbr')) {
+        $rustdeskPath = Join-Path $DataPath "rustdesk"
+        $pubKeyFile = Join-Path $rustdeskPath "id_ed25519.pub"
+        
+        Write-Host "`n=== RustDesk 配置说明 ===" -ForegroundColor Cyan
+        Write-Host "1. ID 服务器 (ID Server): <你的服务器IP>"
+        Write-Host "2. 中继服务器 (Relay Server): <你的服务器IP>"
+        
+        $pubKey = $null
+        for ($i = 0; $i -lt 5; $i++) {
+            if (Test-Path $pubKeyFile) {
+                try {
+                    $pubKey = Get-Content -LiteralPath $pubKeyFile -Raw
+                    if (-not [string]::IsNullOrWhiteSpace($pubKey)) { break }
+                }
+                catch {}
+            }
+            Start-Sleep -Seconds 1
+        }
+        
+        if (-not [string]::IsNullOrWhiteSpace($pubKey)) {
+            Write-Host "3. Key: $($pubKey.Trim())" -ForegroundColor Green
+            Write-Host "注意：请将上述 Key 填入 RustDesk 客户端的 Key 选项中，以启用加密连接。" -ForegroundColor Yellow
+        }
+        else {
+            Write-Host "3. Key: 未找到公钥文件或文件为空 ($pubKeyFile)" -ForegroundColor Yellow
+            Write-Host "   如果这是首次启动，可能需要几秒钟生成密钥。请手动查看该文件。"
+        }
+        Write-Host "==========================`n" -ForegroundColor Cyan
+    }
+}
+
 
 function Get-ComposeServiceNames {
     param(
@@ -385,19 +419,28 @@ try {
         if ($Update) {
             Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'pull' -DryRun:$DryRun
             Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'up -d' -DryRun:$DryRun
-            if (-not $DryRun -and $ServiceName) { [void](Wait-ServiceHealthy -Service $ServiceName -Project $projectName) }
+            if (-not $DryRun -and $ServiceName) {
+                [void](Wait-ServiceHealthy -Service $ServiceName -Project $projectName)
+                Show-RustDeskInfo -ServiceName $ServiceName -DataPath $DataPath
+            }
             return
         }
         if ($PullAlways) {
             $modeForUp = Test-DockerAvailable
             if ($modeForUp -eq 'sub') {
                 Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'up -d' -ExtraArgs @('--pull', 'always') -DryRun:$DryRun
-                if (-not $DryRun -and $ServiceName) { [void](Wait-ServiceHealthy -Service $ServiceName -Project $projectName) }
+                if (-not $DryRun -and $ServiceName) {
+                    [void](Wait-ServiceHealthy -Service $ServiceName -Project $projectName)
+                    Show-RustDeskInfo -ServiceName $ServiceName -DataPath $DataPath
+                }
             }
             else {
                 Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'pull' -DryRun:$DryRun
                 Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'up -d' -DryRun:$DryRun
-                if (-not $DryRun -and $ServiceName) { [void](Wait-ServiceHealthy -Service $ServiceName -Project $projectName) }
+                if (-not $DryRun -and $ServiceName) {
+                    [void](Wait-ServiceHealthy -Service $ServiceName -Project $projectName)
+                    Show-RustDeskInfo -ServiceName $ServiceName -DataPath $DataPath
+                }
             }
             return
         }
@@ -421,7 +464,10 @@ try {
         }
         if ($available -contains $ServiceName) {
             Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'up -d' -DryRun:$DryRun
-            if (-not $DryRun) { [void](Wait-ServiceHealthy -Service $ServiceName -Project $projectName) }
+            if (-not $DryRun) {
+                [void](Wait-ServiceHealthy -Service $ServiceName -Project $projectName)
+                Show-RustDeskInfo -ServiceName $ServiceName -DataPath $DataPath
+            }
             return
         }
         else {
