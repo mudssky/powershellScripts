@@ -5,13 +5,14 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "prepare": "husky && pwsh ./prepare.ps1",
+    "prepare": "husky",
     "format:pwsh": "pwsh -File ./scripts/pwsh/devops/Format-PowerShellCode.ps1 -Path . -Recurse",
     "format:biome": "biome format --write .",
     "format": "pnpm format:pwsh",
     "pwsh:install": "pwsh -File ./install.ps1",
     "test": "pwsh -Command \"Invoke-Pester -Configuration ( ./PesterConfiguration.ps1 )\"",
-    "test:detailed": "pwsh -Command \"Invoke-Pester -Output Detailed\""
+    "test:detailed": "pwsh -Command \"Invoke-Pester -Output Detailed\"",
+    "scripts:install": "pwsh  -File ./install.ps1"
   },
   "keywords": [],
   "author": "",

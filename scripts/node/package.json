@@ -1,0 +1,33 @@
+{
+  "name": "node",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "rimraf dist && rspack build && tsx generate-bin.ts",
+    "build:dev": "rimraf dist && cross-env MINIFY=false rspack build && tsx generate-bin.ts",
+    "build:standalone": "rimraf dist && rspack build && cross-env COPY_JS=true tsx generate-bin.ts",
+    "dev": "tsx src/hello.ts",
+    "typecheck": "tsc --noEmit",
+    "typecheck:fast": "tsgo --noEmit",
+    "biome:fixAll": "biome check --write .",
+    "qa": "pnpm typecheck:fast && pnpm biome:fixAll"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@rspack/cli": "^1.6.7",
+    "@rspack/core": "^1.6.7",
+    "@types/node": "^25.0.1",
+    "cross-env": "^10.1.0",
+    "execa": "^9.6.1",
+    "rimraf": "^6.1.2",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.14"
+  }
+}
