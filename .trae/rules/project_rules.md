@@ -14,7 +14,9 @@
 3. **Language (语言规范)**
     - 除非用户明确要求使用英文，否则所有代码注释、文档、Commit Message 和对话解释 **必须使用中文**。
 
-4. **Execution Environment (执行环境)**
+4. 每次开始任务前，请先阅读根目录下的 AI-INDEX.md
+
+5. **Execution Environment (执行环境)**
     - **PowerShell**: 默认使用 PowerShell 7 (`pwsh`)。所有脚本必须兼容跨平台 (Windows/Linux)。
     - **Node.js**: 使用 `pnpm` 管理依赖。Node.js 版本需支持 ESM。
 
