@@ -274,6 +274,7 @@ services:
       - "21114:21114"  # TCP: web console (Pro version only)
       - "21115:21115"  # TCP: NAT type test
       - "21116:21116"  # TCP/UDP: ID registration and heartbeat service
+      - "21116:21116/udp"
       - "21118:21118"  # TCP: web client support
     volumes:
       - "${DATA_PATH}/rustdesk:/root"
