@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit",
     "typecheck:fast": "tsgo --noEmit",
     "biome:fixAll": "biome check --write .",
-    "qa": "pnpm typecheck:fast && pnpm biome:fixAll"
+    "qa": "pnpm typecheck:fast && pnpm biome:fixAll && pnpm test"
   },
   "keywords": [],
   "author": "",
