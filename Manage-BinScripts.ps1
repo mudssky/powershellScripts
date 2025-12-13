@@ -75,9 +75,44 @@ function Sync-BinScripts {
         }
         
         try {
-            # 复制脚本文件
-            Copy-Item -Path $script.FullName -Destination $targetPath -Force:$Force
-            Write-Host "同步: $($script.Name) -> bin\$($script.Name)" -ForegroundColor Cyan
+            # 计算从 bin 到源文件的相对路径
+            # bin 在 root/bin, scripts 在 root/scripts/pwsh/...
+            # 相对路径应该是 ../scripts/pwsh/relative/path/to/script.ps1
+            
+            # 获取脚本相对于 scripts/pwsh 的路径
+            $relativePath = $script.FullName.Substring($ScriptsDir.Length)
+            if ($relativePath.StartsWith([IO.Path]::PathSeparator)) {
+                $relativePath = $relativePath.Substring(1)
+            }
+            
+            # 构建源文件的相对路径 (假设 bin 和 scripts 都在项目根目录下)
+            $sourceRelPath = Join-Path '..' (Join-Path 'scripts' (Join-Path 'pwsh' $relativePath))
+            
+            # 生成 Shim 内容
+            $shimContent = @(
+                "#!/usr/bin/env pwsh",
+                "",
+                "# Auto-generated shim by Manage-BinScripts.ps1",
+                "# Source: $($script.FullName)",
+                "",
+                "`$SourcePath = Join-Path `$PSScriptRoot '$sourceRelPath'",
+                "if (-not (Test-Path `$SourcePath)) {",
+                "    Write-Error ""Cannot find source script at `$SourcePath""",
+                "    exit 1",
+                "}",
+                "& `$SourcePath @args",
+                "exit `$LASTEXITCODE"
+            )
+
+            # 写入 Shim 文件
+            $shimContent | Set-Content -Path $targetPath -Encoding utf8NoBOM -Force
+            
+            # 在 Linux/macOS 上设置可执行权限
+            if (-not $IsWindows) {
+                chmod +x $targetPath
+            }
+
+            Write-Host "生成 Shim: $($script.Name) -> $sourceRelPath" -ForegroundColor Cyan
             $syncedCount++
         }
         catch {

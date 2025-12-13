@@ -62,8 +62,27 @@ param(
     [string[]]$RemainingArgs
 )
 
-# 获取项目根目录
-$ProjectRoot = Split-Path -Parent $PSScriptRoot
+# 获取项目根目录 (动态查找)
+$current = $PSScriptRoot
+$ProjectRoot = $null
+while ($true) {
+    if (Test-Path (Join-Path $current 'install.ps1')) {
+        $ProjectRoot = $current
+        break
+    }
+    $parent = Split-Path $current -Parent
+    if ($null -eq $parent -or $parent -eq $current) {
+        break
+    }
+    $current = $parent
+}
+
+if ($null -eq $ProjectRoot) {
+    # Fallback if install.ps1 not found (assume we are in scripts/pwsh/devops -> up 3 levels)
+    $ProjectRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))
+    Write-Warning "Could not locate project root via install.ps1, falling back to: $ProjectRoot"
+}
+
 $ScriptsDir = Join-Path $ProjectRoot 'scripts\pwsh'
 
 # 获取所有脚本信息

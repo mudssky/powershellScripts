@@ -264,7 +264,30 @@ try {
     ${env:RESTART_POLICY} = $RestartPolicy
     $projectName = Get-DefaultProjectName -ServiceName $ServiceName -ProjectName $ProjectName
     ${env:COMPOSE_PROJECT_NAME} = $projectName
-    $composeDir = Join-Path $PSScriptRoot 'config' 'dockerfiles' 'compose'
+    
+    # 计算项目根目录路径 (动态查找)
+    $current = $PSScriptRoot
+    $projectRoot = $null
+    while ($true) {
+        if (Test-Path (Join-Path $current 'install.ps1')) {
+            $projectRoot = $current
+            break
+        }
+        $parent = Split-Path $current -Parent
+        if ($null -eq $parent -or $parent -eq $current) {
+            break
+        }
+        $current = $parent
+    }
+    
+    if ($null -eq $projectRoot) {
+        # Fallback for safety (e.g. if install.ps1 is missing)
+        # Default to 3 levels up as per original logic if search fails
+        $projectRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))
+        Write-Warning "Could not locate project root via install.ps1, falling back to: $projectRoot"
+    }
+
+    $composeDir = Join-Path $projectRoot 'config' 'dockerfiles' 'compose'
     $composePath = Join-Path $composeDir 'docker-compose.yml'
     $mongoReplComposePath = Join-Path $composeDir 'mongo-repl.compose.yml'
 
