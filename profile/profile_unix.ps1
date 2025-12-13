@@ -37,7 +37,7 @@ param(
 . $PSScriptRoot/loadModule.ps1
 
 # 自定义别名配置
-$userAlias = @(
+$customUserAlias = @(
     [PSCustomObject]@{
         cliName     = 'dust'
         aliasName   = 'du'
@@ -84,7 +84,7 @@ $userAlias = @(
 function Set-AliasProfile {
     [CmdletBinding()]
     param (
-        [PSCustomObject]$userAlias = $userAlias
+        [PSCustomObject]$userAlias = $customUserAlias
     )
     begin {
     }
@@ -159,7 +159,7 @@ function Initialize-Environment {
     if ($IsLinux) {
         try {
             # 缓存半天
-            Sync-PathFromBash -CacheSeconds (4*3600)  -ErrorAction Stop | Out-Null
+            Sync-PathFromBash -CacheSeconds (4 * 3600)  -ErrorAction Stop | Out-Null
         }
         catch {
             Write-Error "同步 PATH 失败: $($_.Exception.Message)" -ErrorAction Continue
@@ -305,7 +305,7 @@ function Set-CustomAliasesProfile {
     )
     
     foreach ($alias in $userAlias) {
-        if (Test-ExeProgram -Name $alias.cliName) {
+        if (Test-EXEProgram -Name $alias.cliName) {
             Set-CustomAlias -Name $alias.aliasName -Value $alias.aliasValue -Description $alias.description  -Scope Global
             Write-Verbose "已设置别名: $($alias.aliasName) -> $($alias.aliasValue)"
         }
