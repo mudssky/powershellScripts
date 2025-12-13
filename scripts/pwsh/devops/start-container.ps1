@@ -9,6 +9,67 @@
     该脚本用于快速启动各种常用的Docker容器服务，包括数据库、消息队列、
     监控工具等。支持自定义重启策略、数据目录和认证信息。
 
+    ## 添加新服务的步骤
+
+    ### 1. 更新脚本参数验证
+    在 param 块的 ValidateSet 中添加新的服务名称：
+    ```powershell
+    [ValidateSet("minio", "redis", "postgre", "etcd", "nacos", "rabbitmq", "mongodb", 
+        "one-api", "mongodb-replica", "kokoro-fastapi", "kokoro-fastapi-cpu", 
+        "cadvisor", "prometheus", "noco", "n8n", "crawl4ai", "pageSpy", "new-api", 
+        "qdrant", "your-new-service")]
+    ```
+
+    ### 2. 更新服务列表文档
+    在 .PARAMETER ServiceName 部分添加新服务说明：
+    ```
+    - your-new-service: 新服务描述
+    ```
+
+    ### 3. 配置Docker Compose文件
+    在项目根目录的 config/dockerfiles/compose/docker-compose.yml 中添加服务配置：
+    ```yaml
+    services:
+      your-new-service:
+        image: your-image:tag
+        container_name: ${COMPOSE_PROJECT_NAME}-your-new-service
+        restart: ${RESTART_POLICY}
+        profiles:
+          - your-new-service
+        environment:
+          - ENV_VAR=value
+        ports:
+          - "8080:8080"
+        volumes:
+          - ${DATA_PATH}/your-new-service:/data
+    ```
+
+    ### 4. 测试新服务
+    使用以下命令测试新服务：
+    ```powershell
+    # 列出可用服务，确认新服务已添加
+    .\start-container.ps1 -List
+    
+    # 干运行模式检查命令
+    .\start-container.ps1 -ServiceName your-new-service -DryRun
+    
+    # 启动新服务
+    .\start-container.ps1 -ServiceName your-new-service
+    ```
+
+    ### 5. 可选配置项
+    - **健康检查**: 在docker-compose.yml中添加healthcheck配置
+    - **网络配置**: 如需自定义网络，可使用 -NetworkName 参数
+    - **环境变量**: 使用 -Env 参数传递额外环境变量
+    - **数据持久化**: 确保volumes映射正确配置
+
+    ### 6. 注意事项
+    - 确保Docker镜像存在且可访问
+    - 端口映射避免冲突
+    - 数据目录权限正确设置
+    - 环境变量安全配置
+    - 考虑服务依赖关系
+
 .PARAMETER ServiceName
     要启动的服务名称，支持的服务包括：
     - minio: 对象存储服务
