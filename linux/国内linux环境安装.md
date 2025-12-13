@@ -64,6 +64,13 @@ curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh ./get-docker.sh --mirror Aliyun  
 ```
 
+一行安装
+
+```bash
+curl -fsSL https://get.docker.com | bash -s docker --mirror Aliyun
+
+```
+
 ### docker镜像配置
 
 docker容器也要配置镜像源,或者你也可以准备好一个配置好的容器，到时候直接拉取
