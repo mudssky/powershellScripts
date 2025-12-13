@@ -165,6 +165,10 @@ function Initialize-Environment {
             Write-Error "同步 PATH 失败: $($_.Exception.Message)" -ErrorAction Continue
         }
     }
+
+    # 自动检测代理
+    Set-Proxy -Command auto
+
     if ($Minimal -or (Test-Path -Path (Join-Path $PSScriptRoot 'minimal')) -or $env:POWERSHELL_PROFILE_MINIMAL) {
         $SkipTools = $true
         $SkipAliases = $true
