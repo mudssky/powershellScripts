@@ -1,216 +1,129 @@
 # =============================================================================
-# Proxy 管理脚本
-# =============================================================================
-# 功能：自动检测和管理 HTTP/HTTPS 代理设置
-# 默认端口：7890 (适用于本地代理或 SSH 反向隧道)
+# Proxy 管理脚本 (Optimized)
 # =============================================================================
 
-# 默认代理配置
-DEFAULT_PROXY_HOST="127.0.0.1"
-DEFAULT_PROXY_PORT="7890"
-DEFAULT_PROXY_URL="http://${DEFAULT_PROXY_HOST}:${DEFAULT_PROXY_PORT}"
+# --- 1. 配置区域 ---
+# 使用 readonly 防止脚本运行时被意外修改
+# 增加 _PM_ 前缀 (Proxy Manager) 防止变量名污染
+readonly _PM_DEFAULT_HOST="127.0.0.1"
+readonly _PM_DEFAULT_PORT="7890"
+# 关键优化：默认排除列表，防止开了代理连不上本地服务和内网
+readonly _PM_NO_PROXY="localhost,127.0.0.1,::1,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,100.64.0.0/10"
 
-# =============================================================================
-# 自动代理检测 (保持原有逻辑)
-# =============================================================================
-# 检测端口的方式来自动开启代理
-# 一般我们本地在7890端口开启代理，或者使用ssh 反向隧道提供代理时使用这个端口
+# --- 2. 核心辅助函数 (不直接暴露给用户) ---
+_pm_set_vars() {
+    local url="$1"
+    
+    export http_proxy="$url"
+    export https_proxy="$url"
+    export ftp_proxy="$url"       # 增加 ftp
+    export rsync_proxy="$url"     # 增加 rsync
+    export all_proxy="$url"       # 增加 socks/all
+    export no_proxy="$_PM_NO_PROXY"
 
-proxy_auto_detect() {
-    # 尝试连接本地 7890 端口 (超时 0.2秒)
-    (timeout 0.2 bash -c "</dev/tcp/${DEFAULT_PROXY_HOST}/${DEFAULT_PROXY_PORT}") >/dev/null 2>&1
-    if [ $? -eq 0 ]; then
-        export http_proxy="$DEFAULT_PROXY_URL"
-        export https_proxy="$DEFAULT_PROXY_URL"
-        export HTTP_PROXY="$DEFAULT_PROXY_URL"
-        export HTTPS_PROXY="$DEFAULT_PROXY_URL"
-        # 可选：打印提示 (建议注释掉，否则 scp/sftp 可能会因为输出文字而报错)
-        # echo "🟢 SSH Proxy Auto-Enabled"
-        return 0
-    fi
-    return 1
+    # 兼容大写 (某些工具只认大写)
+    export HTTP_PROXY="$url"
+    export HTTPS_PROXY="$url"
+    export FTP_PROXY="$url"
+    export RSYNC_PROXY="$url"
+    export ALL_PROXY="$url"
+    export NO_PROXY="$_PM_NO_PROXY"
 }
 
-# 执行自动检测
-proxy_auto_detect
+_pm_unset_vars() {
+    unset http_proxy https_proxy ftp_proxy rsync_proxy all_proxy no_proxy
+    unset HTTP_PROXY HTTPS_PROXY FTP_PROXY RSYNC_PROXY ALL_PROXY NO_PROXY
+}
 
-# =============================================================================
-# Proxy 管理函数
-# =============================================================================
+# --- 3. 功能函数 ---
 
-# 启用代理
-# 用法: proxy_enable [host] [port]
 proxy_enable() {
-    local host="${1:-$DEFAULT_PROXY_HOST}"
-    local port="${2:-$DEFAULT_PROXY_PORT}"
+    local host="${1:-$_PM_DEFAULT_HOST}"
+    local port="${2:-$_PM_DEFAULT_PORT}"
     local proxy_url="http://${host}:${port}"
     
-    # 检查代理端口是否可用
-    if ! (timeout 2 bash -c "</dev/tcp/${host}/${port}") >/dev/null 2>&1; then
-        echo "❌ 错误: 无法连接到代理服务器 ${host}:${port}"
-        return 1
+    # 检测端口 (Bash 特性)
+    # 优化：失败时只显示警告但不阻止设置 (有时候你想先设代理再开通道)
+    if ! (timeout 0.2 bash -c "</dev/tcp/${host}/${port}") >/dev/null 2>&1; then
+        echo "⚠️  警告: 目标端口 ${host}:${port} 似乎未开启，但代理变量已设置。"
     fi
     
-    # 设置代理环境变量
-    export http_proxy="$proxy_url"
-    export https_proxy="$proxy_url"
-    export HTTP_PROXY="$proxy_url"
-    export HTTPS_PROXY="$proxy_url"
+    _pm_set_vars "$proxy_url"
     
-    echo "✅ 代理已启用: $proxy_url"
-    return 0
+    echo "✅ Proxy Enabled: $proxy_url"
+    echo "   No Proxy:     localhost, 127.0.0.1, internal IPs..."
 }
 
-# 禁用代理
-# 用法: proxy_disable
 proxy_disable() {
-    unset http_proxy
-    unset https_proxy
-    unset HTTP_PROXY
-    unset HTTPS_PROXY
-    
-    echo "🔴 代理已禁用"
-    return 0
+    _pm_unset_vars
+    echo "🔴 Proxy Disabled"
 }
 
-# 检查代理状态
-# 用法: proxy_status
 proxy_status() {
     if [[ -n "$http_proxy" ]]; then
-        echo "🟢 代理状态: 已启用"
-        echo "   HTTP_PROXY: $HTTP_PROXY"
-        echo "   HTTPS_PROXY: $HTTPS_PROXY"
+        echo "🟢 Proxy Status: ENABLED"
+        echo "   URL:      $http_proxy"
+        # 优化：显示 no_proxy，这对排查本地连接问题很有用
+        echo "   No Proxy: ${no_proxy:0:50}..." 
         
-        # 测试代理连接
-        local proxy_host=$(echo "$http_proxy" | sed 's|http://||' | cut -d':' -f1)
-        local proxy_port=$(echo "$http_proxy" | sed 's|http://||' | cut -d':' -f2)
+        # 提取 host 和 port
+        # 优化正则：兼容 http:// 和 https:// 前缀移除
+        local clean_url="${http_proxy#*://}"
+        local host="${clean_url%:*}"
+        local port="${clean_url#*:}"
         
-        if (timeout 2 bash -c "</dev/tcp/${proxy_host}/${proxy_port}") >/dev/null 2>&1; then
-            echo "   连接状态: ✅ 正常"
+        echo -n "   Connectivity: "
+        if (timeout 0.2 bash -c "</dev/tcp/${host}/${port}") >/dev/null 2>&1; then
+             echo "✅ Online"
         else
-            echo "   连接状态: ❌ 无法连接"
+             echo "❌ Unreachable (Check your tunnel/app)"
         fi
     else
-        echo "🔴 代理状态: 未启用"
+        echo "🔴 Proxy Status: DISABLED"
     fi
 }
 
-# 设置自定义代理配置
-# 用法: proxy_set <proxy_url>
-# 示例: proxy_set http://proxy.example.com:8080
-proxy_set() {
-    if [[ $# -eq 0 ]]; then
-        echo "❌ 错误: 请提供代理 URL"
-        echo "用法: proxy_set <proxy_url>"
-        echo "示例: proxy_set http://proxy.example.com:8080"
-        return 1
-    fi
-    
-    local proxy_url="$1"
-    
-    # 验证 URL 格式
-    if [[ ! "$proxy_url" =~ ^https?:// ]]; then
-        echo "❌ 错误: 代理 URL 必须以 http:// 或 https:// 开头"
-        return 1
-    fi
-    
-    # 提取主机和端口进行连接测试
-    local host_port=$(echo "$proxy_url" | sed 's|^https?://||')
-    local host=$(echo "$host_port" | cut -d':' -f1)
-    local port=$(echo "$host_port" | cut -d':' -f2)
-    
-    if [[ -z "$port" ]]; then
-        echo "❌ 错误: 无法从 URL 中提取端口号"
-        return 1
-    fi
-    
-    # 测试连接
-    if ! (timeout 2 bash -c "</dev/tcp/${host}/${port}") >/dev/null 2>&1; then
-        echo "⚠️  警告: 无法连接到代理服务器 ${host}:${port}"
-        echo "是否继续设置? (y/N)"
-        read -r response
-        if [[ ! "$response" =~ ^[Yy]$ ]]; then
-            return 1
-        fi
-    fi
-    
-    # 设置代理
-    export http_proxy="$proxy_url"
-    export https_proxy="$proxy_url"
-    export HTTP_PROXY="$proxy_url"
-    export HTTPS_PROXY="$proxy_url"
-    
-    echo "✅ 代理已设置: $proxy_url"
-    return 0
-}
-
-# 测试代理连接
-# 用法: proxy_test [test_url]
 proxy_test() {
-    local test_url="${1:-http://www.google.com}"
+    local test_url="${1:-https://www.google.com}"
     
     if [[ -z "$http_proxy" ]]; then
-        echo "❌ 错误: 代理未启用"
+        echo "❌ Proxy is OFF. Enable it first."
         return 1
     fi
     
-    echo "🔍 测试代理连接..."
-    echo "代理服务器: $http_proxy"
-    echo "测试目标: $test_url"
+    echo "🔍 Testing: $test_url via $http_proxy"
     
-    # 使用 curl 测试代理连接
+    # 优化：使用 -I (Head) 减少流量，-L 跟随跳转
     if command -v curl >/dev/null 2>&1; then
-        if curl -s --connect-timeout 5 --max-time 10 "$test_url" >/dev/null 2>&1; then
-            echo "✅ 代理连接测试成功"
-            return 0
+        # -I: 只请求头
+        # -L: 跟随重定向 (比如 http -> https)
+        # -w: 格式化输出状态码
+        local code
+        code=$(curl -I -L -s -o /dev/null -w "%{http_code}" --connect-timeout 3 "$test_url")
+        if [[ "$code" == "200" || "$code" == "301" || "$code" == "302" ]]; then
+            echo "✅ Success (HTTP $code)"
         else
-            echo "❌ 代理连接测试失败"
-            return 1
-        fi
-    elif command -v wget >/dev/null 2>&1; then
-        if wget -q --timeout=10 --tries=1 "$test_url" >/dev/null 2>&1; then
-            echo "✅ 代理连接测试成功"
-            return 0
-        else
-            echo "❌ 代理连接测试失败"
-            return 1
+            echo "❌ Failed (HTTP $code)"
         fi
     else
-        echo "❌ 错误: 系统中未找到 curl 或 wget 命令"
-        return 1
+        echo "❌ curl not found."
     fi
 }
 
-# 显示帮助信息
-# 用法: proxy_help
-proxy_help() {
-    cat << 'EOF'
-📚 Proxy 管理函数使用说明
+# --- 4. 自动检测逻辑 ---
 
-🔧 基本命令:
-  proxy_enable [host] [port]     启用代理 (默认: 127.0.0.1:7890)
-  proxy_disable                  禁用代理
-  proxy_status                   查看代理状态
-  proxy_set <proxy_url>          设置自定义代理
-  proxy_test [test_url]          测试代理连接
-  proxy_help                     显示此帮助信息
-
-📝 使用示例:
-  proxy_enable                   # 启用默认代理 (127.0.0.1:7890)
-  proxy_enable 192.168.1.100 8080  # 启用自定义代理
-  proxy_set http://proxy.company.com:3128  # 设置公司代理
-  proxy_test http://www.google.com        # 测试代理访问 Google
-  proxy_status                   # 查看当前代理状态
-
-💡 提示:
-  - 自动检测: 脚本会在启动时自动检测 7890 端口并启用代理
-  - 环境变量: 设置的代理会同时应用于 http_proxy, https_proxy, HTTP_PROXY, HTTPS_PROXY
-  - 连接测试: 启用/设置代理时会自动测试连接可用性
-
-EOF
+proxy_auto_detect() {
+    # 只检测默认端口，如果通了就自动开启
+    if (timeout 0.2 bash -c "</dev/tcp/${_PM_DEFAULT_HOST}/${_PM_DEFAULT_PORT}") >/dev/null 2>&1; then
+        _pm_set_vars "http://${_PM_DEFAULT_HOST}:${_PM_DEFAULT_PORT}"
+        # 保持静默，不要 echo，否则影响 scp/sftp 协议
+    fi
 }
 
-# 创建便捷别名
+# 运行自动检测
+proxy_auto_detect
+
+# --- 5. Aliases ---
 alias proxy-on='proxy_enable'
 alias proxy-off='proxy_disable'
 alias proxy='proxy_status'
