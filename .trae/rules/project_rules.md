@@ -94,7 +94,20 @@
   - 使用 **Vitest** 进行单元测试和集成测试。
   - 运行测试: `pnpm test`。
 
-### 3. Naming Convention (命名规范)
+### 3. PowerShell Script Management (scripts/pwsh)
+
+- **Architecture**:
+  - 脚本源码位于 `scripts/pwsh/` 下的各分类目录中。
+  - 使用 `Manage-BinScripts.ps1` 工具管理脚本映射。
+  - **Shim 生成**: `Manage-BinScripts.ps1 -Action sync` 会在 `bin/` 目录生成对应的 Shim 脚本，指向源码位置。
+  - **Clean**: 使用 `Manage-BinScripts.ps1 -Action clean` 清理 `bin/` 目录中的 PowerShell 脚本映射。
+
+- **Workflow**:
+  - **新增脚本**: 在 `scripts/pwsh/` 相应分类下创建 `.ps1` 文件。
+  - **同步**: 运行 `.\Manage-BinScripts.ps1 -Action sync` 更新 `bin/` 目录。
+  - **安装**: `install.ps1` 会自动调用同步逻辑。
+
+### 4. Naming Convention (命名规范)
 
 - **PowerShell**:
   - Functions: `Verb-Noun` (e.g., `Get-SystemInfo`).
