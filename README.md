@@ -117,13 +117,13 @@ restoreEnvPath -BackupDirectory "C:\backup" -EnvTarget User
 runScripts -CommandName test
 
 # 列出所有可用命令
-.\runScripts.ps1 -listCommands
+runScripts -listCommands
 
 # 初始化配置文件
-.\runScripts.ps1 -init -TemplateName golang
+runScripts -init -TemplateName golang
 
 # 启用全局配置
-.\runScripts.ps1 -CommandName build -enableGlobalScripts
+runScripts -CommandName build -enableGlobalScripts
 ```
 
 **特性**:
@@ -152,19 +152,19 @@ runScripts -CommandName test
 
 ### 视频处理
 
-#### `ffmpegPreset.ps1`
+#### `ffmpegPreset`
 
 **功能**: FFmpeg 视频压制预设工具
 
 ```powershell
 # 基本压制
-.\ffmpegPreset.ps1 -path 'input.flv'
+ffmpegPreset -path 'input.flv'
 
 # 使用预设
-.\ffmpegPreset.ps1 -preset '720p28' -path 'input.flv'
+ffmpegPreset -preset '720p28' -path 'input.flv'
 
 # 批量处理
-ls *.flv | % { .\ffmpegPreset.ps1 -path $_.Name }
+ls *.flv | % { ffmpegPreset -path $_.Name }
 ```
 
 **预设选项**:
@@ -175,31 +175,31 @@ ls *.flv | % { .\ffmpegPreset.ps1 -path $_.Name }
 - `x265`: H.265 编码
 - `hevc`: H.265 CRF28 编码
 
-#### `VideoToAudio.ps1`
+#### `VideoToAudio`
 
 **功能**: 视频转音频工具
 
-#### `concatflv.ps1`
+#### `concatflv`
 
 **功能**: FLV 文件合并工具
 
-#### `dvdcompress.ps1`
+#### `dvdcompress`
 
 **功能**: DVD 视频压缩工具
 
 ### 音频处理
 
-#### `losslessToQaac.ps1`
+#### `losslessToQaac`
 
 **功能**: 无损音频转 AAC 格式
 
 ### 图像处理
 
-#### `pngCompress.ps1`
+#### `pngCompress`
 
 **功能**: PNG 图片压缩工具
 
-#### `webpCompress.ps1`
+#### `webpCompress`
 
 **功能**: WebP 图片压缩工具
 
@@ -207,13 +207,13 @@ ls *.flv | % { .\ffmpegPreset.ps1 -path $_.Name }
 
 ### 文件管理
 
-#### `smallFileCleaner.ps1`
+#### `smallFileCleaner`
 
 **功能**: 清理小文件工具
 
 ```powershell
 # 清理小于 10KB 的文件
-.\smallFileCleaner.ps1 -limitedSize 10kb
+smallFileCleaner -limitedSize 10kb
 
 # 仅列出不删除
 .\smallFileCleaner.ps1 -limitedSize 10kb -noDelete
