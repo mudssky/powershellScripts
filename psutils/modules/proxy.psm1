@@ -79,7 +79,7 @@ function Set-Proxy {
     [Alias("proxy")]
     param (
         [Parameter(Position = 0)]
-        [ValidateSet("on", "enable", "off", "disable", "unset", "status", "info", "show", "test", "help", "auto", "docker")]
+        [ValidateSet("on", "enable", "off", "disable", "unset", "status", "info", "show", "test", "help", "auto", "docker", "container")]
         [string]$Command = "status",
 
         [Parameter(Position = 1)]
@@ -271,6 +271,107 @@ function Set-Proxy {
             }
         }
 
+        "container" {
+            $subCommand = $HostOrPort
+            if ([string]::IsNullOrWhiteSpace($subCommand)) { $subCommand = "status" }
+
+            $dockerConfigDir = Join-Path $env:HOME ".docker"
+            $dockerConfigFile = Join-Path $dockerConfigDir "config.json"
+
+            switch ($subCommand) {
+                { $_ -in "on", "enable", "set" } {
+                    $dHost = $DefaultHost
+                    $dPort = $DefaultPort
+
+                    # Check parameters
+                    if (-not [string]::IsNullOrWhiteSpace($Port)) {
+                        if ($Port -match '^\d+$') {
+                            $dPort = $Port
+                        }
+                        else {
+                            $dHost = $Port
+                        }
+                    }
+
+                    $proxyUrl = "http://${dHost}:${dPort}"
+                    Write-Host "⚙️  正在配置 Docker 容器代理: $proxyUrl ..."
+
+                    if (-not (Test-Path $dockerConfigDir)) {
+                        New-Item -ItemType Directory -Path $dockerConfigDir -Force | Out-Null
+                    }
+
+                    $config = @{}
+                    if (Test-Path $dockerConfigFile) {
+                        try {
+                            $config = Get-Content -Raw $dockerConfigFile | ConvertFrom-Json
+                            if ($config -isnot [System.Management.Automation.PSCustomObject] -and $config -isnot [System.Collections.IDictionary]) {
+                                $config = @{}
+                            }
+                        }
+                        catch {
+                            $config = @{}
+                        }
+                    }
+
+                    if (-not $config.proxies) {
+                        $config | Add-Member -NotePropertyName "proxies" -NotePropertyValue @{} -Force
+                    }
+                    if (-not $config.proxies.default) {
+                        $config.proxies | Add-Member -NotePropertyName "default" -NotePropertyValue @{} -Force
+                    }
+
+                    $config.proxies.default | Add-Member -NotePropertyName "httpProxy" -NotePropertyValue $proxyUrl -Force
+                    $config.proxies.default | Add-Member -NotePropertyName "httpsProxy" -NotePropertyValue $proxyUrl -Force
+                    $config.proxies.default | Add-Member -NotePropertyName "noProxy" -NotePropertyValue $NoProxy -Force
+
+                    $config | ConvertTo-Json -Depth 10 | Set-Content $dockerConfigFile
+                    Write-Host "✅ Docker 容器代理已开启 (无需重启 Docker)。" -ForegroundColor Green
+                    Write-Host "   注意: 仅对新创建的容器生效。" -ForegroundColor Yellow
+                }
+
+                { $_ -in "off", "disable", "unset" } {
+                    if (Test-Path $dockerConfigFile) {
+                        try {
+                            $config = Get-Content -Raw $dockerConfigFile | ConvertFrom-Json
+                            if ($config.proxies) {
+                                $config.PSObject.Properties.Remove('proxies')
+                                $config | ConvertTo-Json -Depth 10 | Set-Content $dockerConfigFile
+                                Write-Host "🔴 Docker 容器代理已关闭。" -ForegroundColor Yellow
+                            }
+                            else {
+                                Write-Host "Docker 容器代理未设置。" -ForegroundColor Yellow
+                            }
+                        }
+                        catch {
+                            Write-Host "读取配置文件失败。" -ForegroundColor Red
+                        }
+                    }
+                    else {
+                        Write-Host "Docker 容器代理未设置。" -ForegroundColor Yellow
+                    }
+                }
+
+                default {
+                    $configured = $false
+                    if (Test-Path $dockerConfigFile) {
+                        try {
+                            $config = Get-Content -Raw $dockerConfigFile | ConvertFrom-Json
+                            if ($config.proxies -and $config.proxies.default) {
+                                $configured = $true
+                                Write-Host "🟢 Docker 容器代理已开启:" -ForegroundColor Green
+                                Write-Host ($config.proxies | ConvertTo-Json -Depth 5)
+                            }
+                        }
+                        catch {}
+                    }
+                    
+                    if (-not $configured) {
+                        Write-Host "⚪ Docker 容器代理未开启 (直连)" -ForegroundColor Gray
+                    }
+                }
+            }
+        }
+
         "test" {
             $url = if (-not [string]::IsNullOrWhiteSpace($HostOrPort)) { $HostOrPort } else { "https://www.google.com" }
             if (-not $env:http_proxy) {
@@ -298,7 +399,8 @@ function Set-Proxy {
             Write-Host "  on [port]        开启代理 (默认 7890)"
             Write-Host "  on [host] [port] 开启自定义代理"
             Write-Host "  off              关闭代理"
-            Write-Host "  docker [on|off]  配置 Docker 代理"
+            Write-Host "  docker [on|off]  配置 Docker Daemon 代理 (需重启, 影响 pull)"
+            Write-Host "  container [on]   配置 Docker Container 代理 (无需重启, 影响 run)"
             Write-Host "  status           查看状态 (默认)"
             Write-Host "  test [url]       测试连接"
         }

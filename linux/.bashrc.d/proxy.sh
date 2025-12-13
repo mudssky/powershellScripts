@@ -125,6 +125,85 @@ proxy() {
             esac
             ;;
 
+        container)
+            local subcmd="${1:-status}"
+            shift
+            
+            local docker_config_dir="$HOME/.docker"
+            local docker_config_file="${docker_config_dir}/config.json"
+            
+            case "$subcmd" in
+                on|enable|set)
+                    local d_host="$_PM_DEFAULT_HOST"
+                    local d_port="$_PM_DEFAULT_PORT"
+                    
+                    if [[ $# -ge 1 ]]; then d_port="$1"; fi
+                    if [[ $# -ge 2 ]]; then d_host="$1"; d_port="$2"; fi
+                    
+                    local d_url="http://${d_host}:${d_port}"
+                    
+                    echo "⚙️  正在配置 Docker 容器代理: $d_url ..."
+                    
+                    if [ ! -d "$docker_config_dir" ]; then
+                        mkdir -p "$docker_config_dir"
+                    fi
+                    
+                    if [ ! -f "$docker_config_file" ]; then
+                        echo "{}" > "$docker_config_file"
+                    fi
+
+                    # Check for jq
+                    if ! command -v jq >/dev/null 2>&1; then
+                        echo "❌ 错误: 需要 'jq' 工具来处理 JSON 配置。"
+                        echo "请安装 jq: sudo apt install jq"
+                        return 1
+                    fi
+
+                    local tmp_file=$(mktemp)
+                    # Safely update JSON using jq
+                    jq --arg url "$d_url" --arg no_proxy "$_PM_NO_PROXY" \
+                       '.proxies.default.httpProxy = $url | .proxies.default.httpsProxy = $url | .proxies.default.noProxy = $no_proxy' \
+                       "$docker_config_file" > "$tmp_file" && mv "$tmp_file" "$docker_config_file"
+                    
+                    echo "✅ Docker 容器代理已开启 (无需重启 Docker)。"
+                    echo "   注意: 仅对新创建的容器生效。"
+                    ;;
+                    
+                off|disable|unset)
+                    if [ -f "$docker_config_file" ]; then
+                        if ! command -v jq >/dev/null 2>&1; then
+                            echo "❌ 错误: 需要 'jq' 工具来处理 JSON 配置。"
+                            return 1
+                        fi
+
+                        local tmp_file=$(mktemp)
+                        jq 'del(.proxies)' "$docker_config_file" > "$tmp_file" && mv "$tmp_file" "$docker_config_file"
+                        echo "🔴 Docker 容器代理已关闭。"
+                    else
+                        echo "Docker 容器代理未设置。"
+                    fi
+                    ;;
+                    
+                *)
+                    # Status
+                    local is_set=0
+                    if [ -f "$docker_config_file" ]; then
+                         if command -v jq >/dev/null 2>&1; then
+                            if jq -e '.proxies.default' "$docker_config_file" >/dev/null 2>&1; then
+                                echo "🟢 Docker 容器代理已开启:"
+                                jq '.proxies' "$docker_config_file"
+                                is_set=1
+                            fi
+                        fi
+                    fi
+                    
+                    if [ $is_set -eq 0 ]; then
+                        echo "⚪ Docker 容器代理未开启 (直连)"
+                    fi
+                    ;;
+            esac
+            ;;
+
         test)
             local url="${1:-https://www.google.com}"
             if [[ -z "$http_proxy" ]]; then
@@ -144,7 +223,8 @@ proxy() {
             echo "  on [port]        开启代理 (默认 7890)"
             echo "  on [host] [port] 开启自定义代理"
             echo "  off              关闭代理"
-            echo "  docker [on|off]  配置 Docker 代理"
+            echo "  docker [on|off]  配置 Docker Daemon 代理 (需重启, 影响 pull)"
+            echo "  container [on]   配置 Docker Container 代理 (无需重启, 影响 run)"
             echo "  status           查看状态 (默认)"
             echo "  test [url]       测试连接"
             ;;
@@ -161,7 +241,7 @@ proxy() {
 # 输入 proxy 后按 Tab，会自动提示 on, off, status, test
 _proxy_completion() {
     local cur=${COMP_WORDS[COMP_CWORD]}
-    local commands="on off status test help docker"
+    local commands="on off status test help docker container"
     COMPREPLY=( $(compgen -W "$commands" -- "$cur") )
 }
 # 注册补全函数 (仅在 Bash 下有效)
