@@ -23,13 +23,21 @@ add_to_path() {
 
 # 函数：添加项目根目录下的bin目录
 add_project_bin_to_path() {
-    # 获取脚本所在目录的父目录（项目根目录）
-    local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    # 获取脚本文件的真实物理路径（解决软链接问题）
+    local source="${BASH_SOURCE[0]}"
+    while [ -h "$source" ]; do
+        local dir="$( cd -P "$( dirname "$source" )" >/dev/null 2>&1 && pwd )"
+        source="$(readlink "$source")"
+        [[ $source != /* ]] && source="$dir/$source"
+    done
+    local script_dir="$( cd -P "$( dirname "$source" )" >/dev/null 2>&1 && pwd )"
+    
     local project_root="$(dirname "$(dirname "$script_dir")")"
     local bin_dir="$project_root/bin"
     
     if [ -d "$bin_dir" ]; then
-        add_to_path "$bin_dir"
+        # 不进行echo输出        
+        add_to_path "$bin_dir" > /dev/null
     else
         echo "项目根目录下的bin目录不存在: $bin_dir"
         return 1
