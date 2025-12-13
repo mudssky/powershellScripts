@@ -4,7 +4,7 @@ BeforeAll {
 
 Describe "Test-EXEProgram 函数测试" {
     It "检测存在的可执行程序返回true" {
-        Test-EXEProgram -Name "powershell" | Should -Be $true
+        Test-EXEProgram -Name "pwsh" | Should -Be $true
     }
 
     It "检测不存在的可执行程序返回false" {

@@ -13,6 +13,8 @@
 
 3. **Language (语言规范)**
     - 除非用户明确要求使用英文，否则所有代码注释、文档、Commit Message 和对话解释 **必须使用中文**。
+4. **Execution Environment (执行环境)**
+    - 项目默认执行环境为 PowerShell 7（`pwsh`）。
 
 ## 🧠 Chain of Thought & Planning (思考与规划)
 

@@ -21,7 +21,28 @@ BeforeAll {
     Import-Module $ModulePath -Force
     
     # 定义测试用的缓存目录
-    $script:TestCacheDir = Join-Path $env:LOCALAPPDATA "PowerShellCache"
+    if ($IsWindows) {
+        $script:TestCacheDir = Join-Path $env:LOCALAPPDATA "PowerShellCache"
+    }
+    elseif ($IsMacOS) {
+        $homeDir = $env:HOME
+        $script:TestCacheDir = Join-Path $homeDir "Library/Caches/PowerShellCache"
+    }
+    elseif ($IsLinux) {
+        $homeDir = $env:HOME
+        $xdgCacheHome = $env:XDG_CACHE_HOME
+        if ([string]::IsNullOrWhiteSpace($xdgCacheHome)) {
+            $script:TestCacheDir = Join-Path $homeDir ".cache/PowerShellCache"
+        }
+        else {
+            $script:TestCacheDir = Join-Path $xdgCacheHome "PowerShellCache"
+        }
+    }
+    else {
+        $homeDir = $env:HOME
+        if ([string]::IsNullOrWhiteSpace($homeDir)) { $homeDir = $env:USERPROFILE }
+        $script:TestCacheDir = Join-Path $homeDir ".powershell-cache"
+    }
     
     # 清理函数
     function Clear-TestCache {

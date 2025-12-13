@@ -27,6 +27,11 @@ param()
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+$excludeTags = @('Slow')
+if ($IsLinux -or $IsMacOS) {
+    $excludeTags += 'windows'
+}
+
 $config = @{
     Run          = @{
         Path     = "./psutils"
@@ -42,7 +47,7 @@ $config = @{
 
     # Filter 模块: 定义筛选规则
     Filter       = @{
-        ExcludeTag = @('Slow')
+        ExcludeTag = $excludeTags
     }
     CodeCoverage = @{
         Enabled                 = $true
