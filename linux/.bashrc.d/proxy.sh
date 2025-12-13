@@ -63,6 +63,68 @@ proxy() {
             fi
             ;;
 
+        docker)
+            local subcmd="${1:-status}"
+            shift
+            
+            local docker_conf_dir="/etc/systemd/system/docker.service.d"
+            local docker_conf_file="${docker_conf_dir}/http-proxy.conf"
+            
+            case "$subcmd" in
+                on|enable|set)
+                    local d_host="$_PM_DEFAULT_HOST"
+                    local d_port="$_PM_DEFAULT_PORT"
+                    
+                    if [[ $# -ge 1 ]]; then d_port="$1"; fi
+                    if [[ $# -ge 2 ]]; then d_host="$1"; d_port="$2"; fi
+                    
+                    local d_url="http://${d_host}:${d_port}"
+                    
+                    echo "⚙️  正在配置 Docker 代理: $d_url ..."
+                    
+                    if [ ! -d "$docker_conf_dir" ]; then
+                        sudo mkdir -p "$docker_conf_dir"
+                    fi
+                    
+                    local content="[Service]\nEnvironment=\"HTTP_PROXY=$d_url\"\nEnvironment=\"HTTPS_PROXY=$d_url\"\nEnvironment=\"NO_PROXY=$_PM_NO_PROXY\""
+                    
+                    echo -e "$content" | sudo tee "$docker_conf_file" > /dev/null
+                    
+                    echo "🔄 正在重启 Docker 服务..."
+                    sudo systemctl daemon-reload
+                    sudo systemctl restart docker
+                    
+                    echo "✅ Docker 代理已开启。"
+                    sudo systemctl show --property=Environment docker
+                    ;;
+                    
+                off|disable|unset)
+                    if [ -f "$docker_conf_file" ]; then
+                        echo "🗑️  正在移除 Docker 代理配置..."
+                        sudo rm "$docker_conf_file"
+                        
+                        echo "🔄 正在重启 Docker 服务..."
+                        sudo systemctl daemon-reload
+                        sudo systemctl restart docker
+                        
+                        echo "🔴 Docker 代理已关闭。"
+                    else
+                        echo "Docker 代理未设置。"
+                    fi
+                    ;;
+                    
+                *)
+                    # Status
+                    if [ -f "$docker_conf_file" ]; then
+                        echo "🟢 Docker 代理已开启:"
+                        sudo cat "$docker_conf_file"
+                    else
+                        echo "⚪ Docker 代理未开启 (直连)"
+                    fi
+                    ;;
+            esac
+            ;;
+
         test)
             local url="${1:-https://www.google.com}"
             if [[ -z "$http_proxy" ]]; then
@@ -82,6 +144,7 @@ proxy() {
             echo "  on [port]        开启代理 (默认 7890)"
             echo "  on [host] [port] 开启自定义代理"
             echo "  off              关闭代理"
+            echo "  docker [on|off]  配置 Docker 代理"
             echo "  status           查看状态 (默认)"
             echo "  test [url]       测试连接"
             ;;
@@ -98,7 +161,7 @@ proxy() {
 # 输入 proxy 后按 Tab，会自动提示 on, off, status, test
 _proxy_completion() {
     local cur=${COMP_WORDS[COMP_CWORD]}
-    local commands="on off status test help"
+    local commands="on off status test help docker"
     COMPREPLY=( $(compgen -W "$commands" -- "$cur") )
 }
 # 注册补全函数 (仅在 Bash 下有效)

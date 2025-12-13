@@ -79,7 +79,7 @@ function Set-Proxy {
     [Alias("proxy")]
     param (
         [Parameter(Position = 0)]
-        [ValidateSet("on", "enable", "off", "disable", "unset", "status", "info", "show", "test", "help", "auto")]
+        [ValidateSet("on", "enable", "off", "disable", "unset", "status", "info", "show", "test", "help", "auto", "docker")]
         [string]$Command = "status",
 
         [Parameter(Position = 1)]
@@ -202,6 +202,75 @@ function Set-Proxy {
             }
         }
         
+        "docker" {
+            $subCommand = $HostOrPort
+            if ([string]::IsNullOrWhiteSpace($subCommand)) { $subCommand = "status" }
+
+            $dockerServiceDir = "/etc/systemd/system/docker.service.d"
+            $dockerProxyFile = "$dockerServiceDir/http-proxy.conf"
+
+            switch ($subCommand) {
+                { $_ -in "on", "enable", "set" } {
+                    $dHost = $DefaultHost
+                    $dPort = $DefaultPort
+
+                    # Check parameters
+                    if (-not [string]::IsNullOrWhiteSpace($Port)) {
+                        if ($Port -match '^\d+$') {
+                            $dPort = $Port
+                        }
+                        else {
+                            $dHost = $Port
+                        }
+                    }
+
+                    $proxyUrl = "http://${dHost}:${dPort}"
+                    $content = "[Service]`nEnvironment=`"HTTP_PROXY=$proxyUrl`"`nEnvironment=`"HTTPS_PROXY=$proxyUrl`"`nEnvironment=`"NO_PROXY=$NoProxy`""
+
+                    Write-Host "⚙️  正在配置 Docker 代理: $proxyUrl ..."
+
+                    if (-not (Test-Path $dockerServiceDir)) {
+                        sudo mkdir -p $dockerServiceDir
+                    }
+
+                    sudo bash -c "echo '$content' > $dockerProxyFile"
+
+                    Write-Host "🔄 正在重启 Docker 服务..."
+                    sudo systemctl daemon-reload
+                    sudo systemctl restart docker
+
+                    Write-Host "✅ Docker 代理已开启。" -ForegroundColor Green
+                    sudo systemctl show --property=Environment docker
+                }
+
+                { $_ -in "off", "disable", "unset" } {
+                    if (Test-Path $dockerProxyFile) {
+                        Write-Host "🗑️  正在移除 Docker 代理配置..."
+                        sudo rm -f $dockerProxyFile
+
+                        Write-Host "🔄 正在重启 Docker 服务..."
+                        sudo systemctl daemon-reload
+                        sudo systemctl restart docker
+
+                        Write-Host "🔴 Docker 代理已关闭。" -ForegroundColor Yellow
+                    }
+                    else {
+                        Write-Host "Docker 代理未设置。" -ForegroundColor Yellow
+                    }
+                }
+
+                default {
+                    if (Test-Path $dockerProxyFile) {
+                        Write-Host "🟢 Docker 代理已开启:" -ForegroundColor Green
+                        sudo cat $dockerProxyFile
+                    }
+                    else {
+                        Write-Host "⚪ Docker 代理未开启 (直连)" -ForegroundColor Gray
+                    }
+                }
+            }
+        }
+
         "test" {
             $url = if (-not [string]::IsNullOrWhiteSpace($HostOrPort)) { $HostOrPort } else { "https://www.google.com" }
             if (-not $env:http_proxy) {
@@ -229,6 +298,7 @@ function Set-Proxy {
             Write-Host "  on [port]        开启代理 (默认 7890)"
             Write-Host "  on [host] [port] 开启自定义代理"
             Write-Host "  off              关闭代理"
+            Write-Host "  docker [on|off]  配置 Docker 代理"
             Write-Host "  status           查看状态 (默认)"
             Write-Host "  test [url]       测试连接"
         }
