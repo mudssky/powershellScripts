@@ -13,8 +13,10 @@
 
 3. **Language (语言规范)**
     - 除非用户明确要求使用英文，否则所有代码注释、文档、Commit Message 和对话解释 **必须使用中文**。
+
 4. **Execution Environment (执行环境)**
-    - 项目默认执行环境为 PowerShell 7（`pwsh`）。
+    - **PowerShell**: 默认使用 PowerShell 7 (`pwsh`)。所有脚本必须兼容跨平台 (Windows/Linux)。
+    - **Node.js**: 使用 `pnpm` 管理依赖。Node.js 版本需支持 ESM。
 
 ## 🧠 Chain of Thought & Planning (思考与规划)
 
@@ -27,135 +29,150 @@
     - 潜在风险: 可能会影响依赖该模块的 CI 流程
 - [ ] **Step 1: Context Gathering**: 确认现有参数定义
 - [ ] **Step 2: Implementation**: 重构参数解析逻辑
-- [ ] **Step 3: Verification**: 运行 Pester 测试确保无回归
+- [ ] **Step 3: Verification**: 运行 Pester 测试或 Vitest 测试确保无回归
 ```
 
 ## 🛠 Tech Stack & Coding Standards (技术与规范)
 
-### 1. Core Stack
+### 1. PowerShell Best Practices (核心规范)
 
-- **PowerShell**: PowerShell 7+ (Core), 遵循 Windows/Linux 跨平台兼容性。
-- **TypeScript (CLI Tools)**: Node.js (LTS), pnpm, Vitest.
-- **Shell**: Bash (for Linux specific tasks).
+- **Header & Shebang**:
+  - 所有 `.ps1` 文件第一行必须是: `#!/usr/bin/env pwsh`
+  - 必须包含 `[CmdletBinding(SupportsShouldProcess = $true)]`。
+  - 必须配置环境: `Set-StrictMode -Version Latest` 和 `$ErrorActionPreference = 'Stop'`。
 
-### 2. Naming Convention (命名规范)
+- **Structure**:
+  - 主逻辑必须封装在 `Main` 函数中。
+  - 使用 `try/catch/finally` 包裹主执行逻辑。
+  - 示例结构:
 
-- **PowerShell Functions**: 严格遵循 `Verb-Noun` 格式 (e.g., `Get-SystemInfo`, `Install-App`).
-  - Verbs 必须来自 `Get-Verb` 许可列表。
-- **Variables**:
-  - PowerShell: `PascalCase` (e.g., `$LogFilePath`).
-  - TypeScript: `camelCase` (e.g., `const configPath`).
-- **Files**:
-  - Scripts: `camelCase.ps1` or `PascalCase.ps1` (保持与目录内现有风格一致).
-  - Configs: `kebab-case` or standard tool naming (e.g., `docker-compose.yml`).
+    ```powershell
+    #!/usr/bin/env pwsh
+    <#
+    .SYNOPSIS
+        简短描述
+    .DESCRIPTION
+        详细描述
+    #>
+    [CmdletBinding(SupportsShouldProcess = $true)]
+    param()
 
-### 3. Preferred Patterns (推荐模式)
+    Set-StrictMode -Version Latest
+    $ErrorActionPreference = 'Stop'
+
+    function Main {
+        try {
+            # 业务逻辑
+        }
+        catch {
+            throw $_
+        }
+    }
+
+    Main
+    ```
+
+- **Cross-Platform**:
+  - **路径处理**: 严禁使用字符串拼接路径 (如 `"$root\bin"`), **必须** 使用 `Join-Path`。
+  - **换行符**: 文件必须保存为 UTF-8 (No BOM)，换行符使用 LF。
+
+### 2. Node.js/TypeScript Standards (scripts/node)
+
+- **Architecture**:
+  - 基于 **Rspack** 构建单文件应用。
+  - 源码位于 `scripts/node/src/`。
+  - 构建后会自动在项目根目录 `bin/` 生成对应的 Shim 脚本 (Windows `.cmd` 和 Linux Shell)。
+
+- **Workflow**:
+  - **新增脚本**: 仅需在 `scripts/node/src/` 下新建 `.ts` 文件，构建系统会自动识别并打包。
+  - **构建命令**:
+    - `pnpm build`: 生产构建 (压缩)。
+    - `pnpm build:dev`: 开发构建 (不压缩)。
+    - `pnpm build:standalone`: 独立构建 (复制 JS 到 bin)。
+
+- **Testing**:
+  - 使用 **Vitest** 进行单元测试和集成测试。
+  - 运行测试: `pnpm test`。
+
+### 3. Naming Convention (命名规范)
 
 - **PowerShell**:
-  - 使用 `[CmdletBinding()]` 和 `param()` 块。
-  - 优先使用 `ErrorActionPreference = 'Stop'` 处理错误。
-  - 使用 `PSCustomObject` 而不是哈希表返回结构化数据。
+  - Functions: `Verb-Noun` (e.g., `Get-SystemInfo`).
+  - Files: `PascalCase.ps1` 或 `camelCase.ps1` (保持一致性)。
 - **TypeScript**:
-  - Early Returns (卫语句) 减少嵌套。
-  - 使用 `zod` 或类似库进行运行时校验 (如果项目中已引入)。
-
-### 4. Anti-patterns (禁止模式)
-
-- **PowerShell**:
-  - 禁止使用 `Write-Host` 输出数据 (仅用于 UI 提示)，数据流应使用 `Write-Output`。
-  - 禁止硬编码绝对路径 (使用 `$PSScriptRoot` 或配置文件)。
-- **TypeScript**:
-  - 禁止使用 `any` 类型。
-  - 禁止在生产代码中保留 `console.log`。
+  - Files: `kebab-case.ts` (推荐) 或 `camelCase.ts`。
+  - Variables: `camelCase`.
 
 ## 📖 Documentation & Commenting Standards (文档与注释规范)
 
 ### 1. DocStrings (文档注释)
 
-- **PowerShell**: 所有导出函数必须包含 `.SYNOPSIS`, `.DESCRIPTION`, `.PARAMETER`, `.EXAMPLE`。
-- **TypeScript**: 所有导出函数/类/接口必须包含 JSDoc/TSDoc (`@param`, `@returns`, `@throws`)。
+- **PowerShell**: 必须包含 `.SYNOPSIS`, `.DESCRIPTION`, `.PARAMETER`, `.EXAMPLE`。
+- **TypeScript**: 导出函数必须包含 JSDoc (`@param`, `@returns`)。
 
 ### 2. "Why" over "What" (意图优先)
 
 - ❌ 禁止: `// 循环遍历列表` (描述语法)
 - ✅ 必须: `// 过滤掉未激活用户以防止计费错误` (描述业务意图)
 
-### 3. Complex Logic (复杂逻辑)
+### 3. TODOs (技术债务)
 
-- 对于复杂度超过 5 行的逻辑块，必须在代码上方添加解释性注释。
-
-### 4. TODOs (技术债务)
-
-- 所有的技术债务必须标记为 `// TODO(User): [描述]` (TypeScript) 或 `# TODO(User): [描述]` (PowerShell)。
-- 严禁留下未标记的临时代码。
+- 格式: `// TODO(User): [描述]` 或 `# TODO(User): [描述]`。
 
 ## 🛡️ Maintainability & Coding Principles (可维护性与架构)
 
-### 1. SOLID Principles
+### 1. Error Handling (错误处理)
 
-- **单一职责 (SRP)**: 如果一个文件超过 200 行，或者一个函数超过 50 行，必须主动提议拆分。
+- **PowerShell**: 使用 `ErrorAction = 'Stop'` 配合 `try/catch`。
+- **TypeScript**: 所有 Promise 必须 handle rejection。
 
-### 2. Error Handling (错误处理)
+### 2. Boy Scout Rule (童子军法则)
 
-- **严禁** 使用空的 `try/catch`。
-- 所有的 Promise 必须 handle rejection。
-- 错误信息必须包含上下文，能够追溯到具体的业务流程。
-
-### 3. Naming (命名进阶)
-
-- 变量名必须全拼，禁止无意义的缩写 (e.g., 使用 `userProfile` 而不是 `uP`)。
-- 布尔值变量必须使用 `is`, `has`, `should` 前缀。
-
-### 4. Boy Scout Rule (童子军法则)
-
-- 修改现有代码时，如果你发现了显而易见的 Code Smell (类型断言、魔法数字)，必须顺手修复它。
+- 修改现有代码时，如果你发现了显而易见的 Code Smell (如硬编码路径)，必须顺手修复它。
 
 ## ⚡ Development Workflow (严格执行流)
 
 ### Step 1: Context Gathering (上下文获取)
 
-- **严禁盲写**。必须先运行 `ls` 确认目录结构，使用 `Read` 读取相关文件 (如 `package.json`, 现有脚本)。
+- 运行 `ls` 确认目录结构。
+- 读取 `package.json` 或现有脚本确认逻辑。
 
 ### Step 2: Coding (原子化修改)
 
 - 每次只专注于解决一个问题。
-- 保持函数短小精悍 (单一职责原则)。
 
 ### Step 3: Self-Correction & Verification (自查与验证)
 
-- **必须** 在代码修改后进行验证：
-  - **PowerShell**: 运行 `PSScriptAnalyzer` (如果可用) 或简单的冒烟测试 (Dry Run).
-    - `Invoke-ScriptAnalyzer -Path .\script.ps1`
-  - **TypeScript**:
-    - `pnpm run typecheck`
-    - `pnpm run biome:check` (自动修复: `pnpm run biome:fixAll`)
-    - `pnpm run test`
-- 如果验证失败，必须自动尝试修复 (最多 3 次)，并在最终回复中报告修复过程。
+- **PowerShell**:
+  - 确保无 PScriptAnalyzer 严重警告。
+  - 运行脚本使用 `-WhatIf` (如果实现了 ShouldProcess) 进行验证。
+- **TypeScript (Node)**:
+  - 运行 `pnpm run qa` (包含类型检查、Lint 和测试)。
+  - 如果修改了构建逻辑，必须运行 `pnpm build` 验证产物生成。
 
 ### Step 4: Documentation (文档更新)
 
-- 修改脚本参数后，必须更新脚本头部的 `.SYNOPSIS` 和 `.PARAMETER` 注释。
-- 如果引入新功能，必须更新 `README.md`。
-
-## � Release & Maintenance (发布与维护)
-
-- **Commit Messages**: 遵循 Conventional Commits。
-  - `feat: 新增视频压缩脚本`
-  - `fix: 修复路径空格处理 bug`
-  - `docs: 更新安装文档`
-- **Dependencies**: 任何 `npm` 依赖变更必须同步更新 `package.json`。
+- 更新脚本头部注释。
+- 如果引入新功能，更新 `README.md`。
 
 ## 📂 Project Structure Guide
 
 ```text
 root/
-├── clis/               # TypeScript/Node.js CLI 工具
-│   └── json-diff-tool/ # JSON 差异对比工具
-├── config/             # 各种软件的配置文件 (Docker, Git, VSCode...)
-├── docs/               # 项目文档 & Cheatsheets
-├── linux/              # Linux 专用脚本 (Ubuntu, Arch, WSL)
-├── ai/                 # AI 相关配置 & Prompts
-├── .vscode/            # VS Code 工作区设置
+├── ai/                 # AI 相关配置 (Coding, Docs, MCP, Prompts)
+├── bin/                # 自动生成的跨平台可执行脚本 (Shim)
+├── config/             # 软件配置 (Docker, Git, Nginx, VSCode, Rust, etc.)
+├── docs/               # 文档 & Cheatsheets (按技术栈分类: frontend, git, linux...)
+├── linux/              # Linux 发行版特定配置 (Arch, Ubuntu, WSL2)
+├── macos/              # macOS 特定配置 (Hammerspoon)
+├── projects/           # 子项目目录
+│   └── clis/           # TypeScript/Node.js CLI 工具 (e.g., json-diff-tool)
+├── psutils/            # PowerShell 通用模块 (demo, docs, examples, modules)
+├── scripts/            # 自动化脚本集合
+│   ├── node/           # 新版统一 Node.js 脚本工程 (Rspack + TS)
+│   └── pwsh/           # PowerShell 脚本 (devops, filesystem, media, network...)
+├── templates/          # 模板文件
+├── tests/              # 全局测试文件
 ├── install.ps1         # 项目入口安装脚本
 └── README.md           # 项目总览
 ```
