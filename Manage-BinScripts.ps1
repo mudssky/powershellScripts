@@ -88,24 +88,90 @@ function Sync-BinScripts {
             # 构建源文件的相对路径 (假设 bin 和 scripts 都在项目根目录下)
             $sourceRelPath = Join-Path '..' (Join-Path 'scripts' (Join-Path 'pwsh' $relativePath))
             
-            # 生成 Shim 内容
-            $shimContent = @(
-                "#!/usr/bin/env pwsh",
-                "",
-                "# Auto-generated shim by Manage-BinScripts.ps1",
-                "# Source: $($script.FullName)",
-                "",
-                "`$SourcePath = Join-Path `$PSScriptRoot '$sourceRelPath'",
-                "if (-not (Test-Path `$SourcePath)) {",
-                "    Write-Error ""Cannot find source script at `$SourcePath""",
-                "    exit 1",
-                "}",
-                "& `$SourcePath @args",
-                "exit `$LASTEXITCODE"
-            )
+            # --- 解析源脚本元数据 (Help, Param, CmdletBinding) ---
+            $sourceContent = Get-Content -Path $script.FullName -Raw
+            $tokens = $null
+            $errors = $null
+            $ast = [System.Management.Automation.Language.Parser]::ParseInput($sourceContent, [ref]$tokens, [ref]$errors)
+            
+            $paramBlockText = $null
+            $helpText = $null
+            $hasCmdletBinding = $false
+
+            # 1. 提取 ParamBlock
+            if ($ast.ParamBlock) {
+                $paramBlockText = $ast.ParamBlock.Extent.Text
+                
+                # 检查是否有 CmdletBinding
+                foreach ($attr in $ast.ParamBlock.Attributes) {
+                    if ($attr.TypeName.FullName -match 'CmdletBinding') {
+                        $hasCmdletBinding = $true
+                        # 尝试获取完整的 CmdletBinding 定义 (包括参数)
+                        $cmdletBindingText = $attr.Extent.Text
+                        break
+                    }
+                }
+            }
+
+            # 2. 提取 HelpComment
+            # 简单策略：查找第一个包含 .SYNOPSIS 或 .DESCRIPTION 的块注释
+            foreach ($token in $tokens) {
+                if ($token.Kind -eq 'Comment' -and $token.Text -match '^\s*<#\s*\.(SYNOPSIS|DESCRIPTION)') {
+                    $helpText = $token.Text
+                    break
+                }
+            }
+
+            # --- 生成 Shim 内容 ---
+            $shimContentLines = @()
+            $shimContentLines += "#!/usr/bin/env pwsh"
+            $shimContentLines += ""
+            $shimContentLines += "# Auto-generated shim by Manage-BinScripts.ps1"
+            $shimContentLines += "# Source: $($script.FullName)"
+            $shimContentLines += ""
+            
+            if (-not [string]::IsNullOrWhiteSpace($helpText)) {
+                $shimContentLines += $helpText
+                $shimContentLines += ""
+            }
+            
+            if ($hasCmdletBinding) {
+                $shimContentLines += $cmdletBindingText
+            }
+            elseif ($null -ne $paramBlockText) {
+                # 如果有 param 但没有 CmdletBinding，为了支持高级功能(如 -Verbose)，最好加上
+                # 但为了保持原意，如果源脚本没加，我们也不加（除非为了 splatting 需要？）
+                # 通常建议加上 [CmdletBinding()]
+                $shimContentLines += "[CmdletBinding()]"
+            }
+            
+            if (-not [string]::IsNullOrWhiteSpace($paramBlockText)) {
+                $shimContentLines += $paramBlockText
+                $shimContentLines += ""
+            }
+
+            $shimContentLines += "`$SourcePath = Join-Path `$PSScriptRoot '$sourceRelPath'"
+            $shimContentLines += "if (-not (Test-Path `$SourcePath)) {"
+            $shimContentLines += "    Write-Error ""Cannot find source script at `$SourcePath"""
+            $shimContentLines += "    exit 1"
+            $shimContentLines += "}"
+            
+            # 调用逻辑
+            if (-not [string]::IsNullOrWhiteSpace($paramBlockText)) {
+                # 使用 @PSBoundParameters 透传绑定参数
+                # 注意：如果 Shim 还有其他非绑定参数（如 $args），这里会丢失
+                # 但既然有了 ParamBlock，通常只应该传递绑定的参数
+                $shimContentLines += "& `$SourcePath @PSBoundParameters"
+            }
+            else {
+                # 无 ParamBlock，透传所有 args
+                $shimContentLines += "& `$SourcePath @args"
+            }
+            
+            $shimContentLines += "exit `$LASTEXITCODE"
 
             # 写入 Shim 文件
-            $shimContent | Set-Content -Path $targetPath -Encoding utf8NoBOM -Force
+            $shimContentLines | Set-Content -Path $targetPath -Encoding utf8NoBOM -Force
             
             # 在 Linux/macOS 上设置可执行权限
             if (-not $IsWindows) {
