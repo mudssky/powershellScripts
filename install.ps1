@@ -236,11 +236,44 @@ else {
     Write-Host "✓ 环境变量无需更新" -ForegroundColor Green
 }
 
+# 设置win环境path
 if ($IsWindows) {
     Write-Host "`n当前 PATH 包含 (相关项):" -ForegroundColor Cyan
     $env:PATH -split [IO.Path]::PathSeparator | Where-Object { 
         $_ -match [regex]::Escape($ProjectRoot) -or $_ -match [regex]::Escape($BinDir) 
     } | ForEach-Object {
         Write-Host "  - $_" -ForegroundColor White
+    }
+}
+
+# 设置linux环境bashrc
+if ($IsLinux) {
+    Write-Host "`n=== 配置 Linux Bash 环境 ===" -ForegroundColor Magenta
+    
+    $BashrcScript = Join-Path $ProjectRoot 'linux/01manage-bashrc-snippet.sh'
+    
+    if (Test-Path $BashrcScript) {
+        try {
+            Write-Host "正在执行 bashrc 配置脚本: $BashrcScript" -ForegroundColor Cyan
+            
+            # 确保脚本具有执行权限
+            & chmod +x $BashrcScript
+            
+            # 执行脚本
+            & $BashrcScript
+            
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "✓ Bashrc 配置脚本执行成功" -ForegroundColor Green
+            }
+            else {
+                Write-Warning "Bashrc 配置脚本执行失败，退出码: $LASTEXITCODE"
+            }
+        }
+        catch {
+            Write-Error "执行 bashrc 配置脚本时出错: $($_.Exception.Message)"
+        }
+    }
+    else {
+        Write-Warning "未找到 bashrc 配置脚本: $BashrcScript"
     }
 }
