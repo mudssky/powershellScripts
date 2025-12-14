@@ -55,3 +55,5 @@ add_project_bin_to_path() {
 
 # 执行添加操作
 add_project_bin_to_path
+# 添加 cargo 二进制目录到 PATH（如果存在）
+add_to_path_silent "$HOME/.cargo/bin"
