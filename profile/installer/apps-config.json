@@ -686,7 +686,8 @@
         "cliName": "duf",
         "description": "磁盘使用情况工具",
         "command": "brew install duf",
-        "supportOs": ["linux", "macOS"]
+        "supportOs": ["linux", "macOS"],
+        "tag": ["linuxserver"]
       },
       {
         "name": "lazygit",
