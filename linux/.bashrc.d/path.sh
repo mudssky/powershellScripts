@@ -37,7 +37,7 @@ add_project_bin_to_path() {
     
     if [ -d "$bin_dir" ]; then
         # 不进行echo输出        
-        add_to_path "$bin_dir" > /dev/null
+        add_to_path "$bin_dir" > /dev/null || true
     else
         echo "项目根目录下的bin目录不存在: $bin_dir"
         return 1
