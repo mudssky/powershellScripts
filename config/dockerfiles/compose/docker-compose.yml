@@ -20,7 +20,7 @@ services:
       TZ: "Asia/Shanghai"
     ports: ["5432:5432"]
     volumes:
-      - "${DATA_PATH}/postgresql/data:/var/lib/postgresql/data"
+      - "${DATA_PATH}/postgresql:/var/lib/postgresql"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -311,7 +311,7 @@ services:
       - "9001:9001"
     volumes:
       - "${DATA_PATH}/rustfs/data:/data"
-    environment:
+    environment:  
       - RUSTFS_ACCESS_KEY=${DEFAULT_USER:-root}
       - RUSTFS_SECRET_KEY=${DEFAULT_PASSWORD:-12345678}
       - RUSTFS_CONSOLE_ENABLE=true
