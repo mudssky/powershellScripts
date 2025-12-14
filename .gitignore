@@ -29,3 +29,6 @@ node_modules
 fstab
 
 .cache
+
+# 单文件脚本存放的地方
+bin/

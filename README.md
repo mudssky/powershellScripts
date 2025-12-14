@@ -38,35 +38,52 @@ git clone <repository-url>
 cd powershellScripts
 
 # 运行安装脚本
+# 该脚本会自动配置 PATH 并同步脚本到 bin 目录
 .\install.ps1
+```
+
+安装完成后，建议**重启终端**以使环境变量生效。
+
+### 脚本管理
+
+本项目使用 `Manage-BinScripts.ps1` 管理脚本映射，所有脚本源文件位于 `scripts/pwsh/` 目录下。
+
+```powershell
+# 手动同步脚本到 bin 目录
+.\Manage-BinScripts.ps1 -Action sync
+
+# 清理 bin 目录
+.\Manage-BinScripts.ps1 -Action clean
 ```
 
 ### 系统要求
 
-- Windows PowerShell 5.1 或 PowerShell Core 6.0+
+- Windows PowerShell 5.1 或 PowerShell Core 7.0+ (推荐)
 - 部分功能需要管理员权限
-- 某些脚本需要额外的依赖模块（如 Pester）
+- Node.js 环境 (用于 TypeScript 脚本构建)
 
 ## 📦 核心脚本
 
+> **注意**: 运行 `install.ps1` 后，`bin` 目录会被添加到 PATH 中，你可以直接在命令行运行脚本名（如 `cleanEnvPath`），无需加上 `.\` 前缀或 `.ps1` 后缀。以下示例假设环境已正确配置。
+
 ### 🔧 系统环境管理
 
-#### `cleanEnvPath.ps1`
+#### `cleanEnvPath`
 
 **功能**: 清理 PATH 环境变量中的无效路径
 
 ```powershell
 # 清理用户级 PATH
-.\cleanEnvPath.ps1
+cleanEnvPath
 
 # 清理系统级 PATH（需要管理员权限）
-.\cleanEnvPath.ps1 -EnvTarget Machine
+cleanEnvPath -EnvTarget Machine
 
 # 预览清理操作
-.\cleanEnvPath.ps1 -WhatIf
+cleanEnvPath -WhatIf
 
 # 强制执行并指定备份路径
-.\cleanEnvPath.ps1 -Force -BackupPath "C:\Backup"
+cleanEnvPath -Force -BackupPath "C:\Backup"
 ```
 
 **特性**:
@@ -77,36 +94,36 @@ cd powershellScripts
 - 自动备份原始配置
 - 支持 WhatIf 预览模式
 
-#### `restoreEnvPath.ps1`
+#### `restoreEnvPath`
 
 **功能**: 从备份文件恢复 PATH 环境变量
 
 ```powershell
 # 从指定备份文件恢复
-.\restoreEnvPath.ps1 -BackupFilePath "C:\backup\PATH_User_20231201_143022.txt"
+restoreEnvPath -BackupFilePath "C:\backup\PATH_User_20231201_143022.txt"
 
 # 从备份目录选择恢复
-.\restoreEnvPath.ps1 -BackupDirectory "C:\backup" -EnvTarget User
+restoreEnvPath -BackupDirectory "C:\backup" -EnvTarget User
 ```
 
 ### 🏃‍♂️ 脚本执行器
 
-#### `runScripts.ps1`
+#### `runScripts`
 
 **功能**: 类似 npm scripts 的命令执行器
 
 ```powershell
 # 执行指定命令
-.\runScripts.ps1 -CommandName test
+runScripts -CommandName test
 
 # 列出所有可用命令
-.\runScripts.ps1 -listCommands
+runScripts -listCommands
 
 # 初始化配置文件
-.\runScripts.ps1 -init -TemplateName golang
+runScripts -init -TemplateName golang
 
 # 启用全局配置
-.\runScripts.ps1 -CommandName build -enableGlobalScripts
+runScripts -CommandName build -enableGlobalScripts
 ```
 
 **特性**:
@@ -135,19 +152,19 @@ cd powershellScripts
 
 ### 视频处理
 
-#### `ffmpegPreset.ps1`
+#### `ffmpegPreset`
 
 **功能**: FFmpeg 视频压制预设工具
 
 ```powershell
 # 基本压制
-.\ffmpegPreset.ps1 -path 'input.flv'
+ffmpegPreset -path 'input.flv'
 
 # 使用预设
-.\ffmpegPreset.ps1 -preset '720p28' -path 'input.flv'
+ffmpegPreset -preset '720p28' -path 'input.flv'
 
 # 批量处理
-ls *.flv | % { .\ffmpegPreset.ps1 -path $_.Name }
+ls *.flv | % { ffmpegPreset -path $_.Name }
 ```
 
 **预设选项**:
@@ -158,31 +175,31 @@ ls *.flv | % { .\ffmpegPreset.ps1 -path $_.Name }
 - `x265`: H.265 编码
 - `hevc`: H.265 CRF28 编码
 
-#### `VideoToAudio.ps1`
+#### `VideoToAudio`
 
 **功能**: 视频转音频工具
 
-#### `concatflv.ps1`
+#### `concatflv`
 
 **功能**: FLV 文件合并工具
 
-#### `dvdcompress.ps1`
+#### `dvdcompress`
 
 **功能**: DVD 视频压缩工具
 
 ### 音频处理
 
-#### `losslessToQaac.ps1`
+#### `losslessToQaac`
 
 **功能**: 无损音频转 AAC 格式
 
 ### 图像处理
 
-#### `pngCompress.ps1`
+#### `pngCompress`
 
 **功能**: PNG 图片压缩工具
 
-#### `webpCompress.ps1`
+#### `webpCompress`
 
 **功能**: WebP 图片压缩工具
 
@@ -190,150 +207,150 @@ ls *.flv | % { .\ffmpegPreset.ps1 -path $_.Name }
 
 ### 文件管理
 
-#### `smallFileCleaner.ps1`
+#### `smallFileCleaner`
 
 **功能**: 清理小文件工具
 
 ```powershell
 # 清理小于 10KB 的文件
-.\smallFileCleaner.ps1 -limitedSize 10kb
+smallFileCleaner -limitedSize 10kb
 
 # 仅列出不删除
-.\smallFileCleaner.ps1 -limitedSize 10kb -noDelete
+smallFileCleaner -limitedSize 10kb -noDelete
 ```
 
-#### `folderSize.ps1`
+#### `folderSize`
 
 **功能**: 计算文件夹大小
 
 ```powershell
 # 计算当前目录大小
-.\folderSize.ps1
+folderSize
 
 # 计算指定目录大小
-.\folderSize.ps1 -path "C:\SomeFolder"
+folderSize -path "C:\SomeFolder"
 ```
 
-#### `renameLegal.ps1`
+#### `renameLegal`
 
 **功能**: 文件名合法化工具
 
-#### `findLostNum.ps1`
+#### `findLostNum`
 
 **功能**: 查找丢失的数字序列
 
 ### 系统配置
 
-#### `syncConfig.ps1`
+#### `syncConfig`
 
 **功能**: 配置文件同步工具
 
 ```powershell
 # 备份配置
-.\syncConfig.ps1 -Mode backup
+syncConfig -Mode backup
 
 # 恢复配置
-.\syncConfig.ps1 -Mode restore
+syncConfig -Mode restore
 
 # 列出配置
-.\syncConfig.ps1 -Mode list
+syncConfig -Mode list
 ```
 
-#### `proxyHelper.ps1`
+#### `proxyHelper`
 
 **功能**: 代理设置助手
 
 ```powershell
 # 为 Git 设置代理
-.\proxyHelper.ps1 -SetProxyProgram git
+proxyHelper -SetProxyProgram git
 
 # 取消 Git 代理
-.\proxyHelper.ps1 -UnsetProxyProgram git
+proxyHelper -UnsetProxyProgram git
 ```
 
 ## 🔧 开发工具
 
 ### 代码质量
 
-#### `pslint.ps1`
+#### `pslint`
 
 **功能**: PowerShell 代码检查工具
 
-#### `PesterConfiguration.ps1`
+#### `PesterConfiguration`
 
 **功能**: Pester 测试配置
 
 ### 版本控制
 
-#### `gitconfig_personal.ps1`
+#### `gitconfig_personal`
 
 **功能**: Git 个人配置设置
 
 ### IDE 和编辑器
 
-#### `Setup-VSCodeSSH.ps1`
+#### `Setup-VSCodeSSH`
 
 **功能**: VS Code SSH 配置工具
 
-#### `DownloadVSCodeExtension.ps1`
+#### `DownloadVSCodeExtension`
 
 **功能**: VS Code 扩展下载工具
 
-#### `get-SnippetsBody.ps1`
+#### `get-SnippetsBody`
 
 **功能**: 代码片段提取工具
 
 ## 🌐 网络和下载工具
 
-#### `downGithub.ps1`
+#### `downGithub`
 
 **功能**: GitHub 仓库下载工具
 
-#### `downWith.ps1`
+#### `downWith`
 
 **功能**: 通用下载工具
 
 ## 📁 文件格式处理
 
-#### `ExtractAss.ps1`
+#### `ExtractAss`
 
 **功能**: ASS 字幕文件提取
 
-#### `concatXML.ps1`
+#### `concatXML`
 
 **功能**: XML 文件合并
 
-#### `ConventAllbyExt.ps1`
+#### `ConventAllbyExt`
 
 **功能**: 按扩展名批量转换文件
 
 ## 🐳 容器和服务
 
-#### `start-container.ps1`
+#### `start-container`
 
 **功能**: 容器启动工具
 
-#### `Start-Bee.ps1`
+#### `Start-Bee`
 
 **功能**: Bee 服务启动工具
 
 ## 📊 数据处理
 
-#### `jupyconvert.ps1`
+#### `jupyconvert`
 
 **功能**: Jupyter Notebook 转换工具
 
-#### `tesseract.ps1`
+#### `tesseract`
 
 **功能**: OCR 文字识别工具
 
 ## 🧹 清理工具
 
-#### `cleanTorrent.ps1`
+#### `cleanTorrent`
 
 **功能**: 种子文件清理工具
 
-#### `dlsiteUpdate.ps1`
+#### `dlsiteUpdate`
 
 **功能**: DLsite 更新工具
 
@@ -345,13 +362,13 @@ ls *.flv | % { .\ffmpegPreset.ps1 -path $_.Name }
 
 ```powershell
 # 查看脚本帮助
-Get-Help .\scriptName.ps1 -Full
+Get-Help scriptName -Full
 
 # 查看参数说明
-Get-Help .\scriptName.ps1 -Parameter *
+Get-Help scriptName -Parameter *
 
 # 查看使用示例
-Get-Help .\scriptName.ps1 -Examples
+Get-Help scriptName -Examples
 ```
 
 ### 执行策略
@@ -363,7 +380,7 @@ Get-Help .\scriptName.ps1 -Examples
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 
 # 或者绕过执行策略
-powershell -ExecutionPolicy Bypass -File .\scriptName.ps1
+powershell -ExecutionPolicy Bypass -Command scriptName
 ```
 
 ### 模块依赖

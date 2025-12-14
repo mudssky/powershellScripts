@@ -3,7 +3,8 @@ Import-Module (Join-Path $PSScriptRoot '..' 'psutils.psd1')
 Describe 'Git 模块函数' {
     Context 'Get-GitIgnorePatterns 解析有效行' {
         BeforeAll {
-            $testRoot = Join-Path $env:TEMP ("psutils_git_tests_" + [Guid]::NewGuid().ToString())
+            $tempRoot = if (-not [string]::IsNullOrWhiteSpace($env:TEMP)) { $env:TEMP } elseif (-not [string]::IsNullOrWhiteSpace($env:TMPDIR)) { $env:TMPDIR } else { [System.IO.Path]::GetTempPath() }
+            $testRoot = Join-Path $tempRoot ("psutils_git_tests_" + [Guid]::NewGuid().ToString())
             New-Item -ItemType Directory -Path $testRoot | Out-Null
             $gitIgnore = Join-Path $testRoot '.gitignore'
             @(
@@ -41,7 +42,8 @@ Describe 'Git 模块函数' {
 
     Context 'New-7ZipExcludeArgs 生成排除参数' {
         BeforeAll {
-            $testRoot = Join-Path $env:TEMP ("psutils_git_tests_" + [Guid]::NewGuid().ToString())
+            $tempRoot = if (-not [string]::IsNullOrWhiteSpace($env:TEMP)) { $env:TEMP } elseif (-not [string]::IsNullOrWhiteSpace($env:TMPDIR)) { $env:TMPDIR } else { [System.IO.Path]::GetTempPath() }
+            $testRoot = Join-Path $tempRoot ("psutils_git_tests_" + [Guid]::NewGuid().ToString())
             New-Item -ItemType Directory -Path $testRoot | Out-Null
             $gitIgnore = Join-Path $testRoot '.gitignore'
             @(
@@ -69,4 +71,3 @@ Describe 'Git 模块函数' {
         }
     }
 }
-

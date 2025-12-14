@@ -491,7 +491,8 @@
         "cliName": "fnm",
         "description": "快速切换node版本",
         "command": "brew install fnm",
-        "supportOs": ["macOS", "linux"]
+        "supportOs": ["macOS", "linux"],
+        "tag": ["linuxserver"]
       },
       {
         "name": "powershell",
@@ -505,7 +506,8 @@
         "cliName": "pyenv",
         "description": "python版本管理工具",
         "command": "brew install pyenv",
-        "supportOs": ["macOS", "linux"]
+        "supportOs": ["macOS", "linux"],
+        "tag": ["linuxserver"]
       },
       {
         "name": "xz",
@@ -571,7 +573,8 @@
         "cliName": "jq",
         "description": "命令行JSON处理工具",
         "command": "brew install jq",
-        "supportOs": ["linux", "macOS"]
+        "supportOs": ["linux", "macOS"],
+        "tag": ["linuxserver"]
       },
       {
         "name": "poppler",
@@ -585,35 +588,40 @@
         "cliName": "fd",
         "description": "快速文件搜索工具",
         "command": "brew install fd",
-        "supportOs": ["linux", "macOS"]
+        "supportOs": ["linux", "macOS"],
+        "tag": ["linuxserver"]
       },
       {
         "name": "eza",
         "cliName": "eza",
         "description": "现代 ls 替代品，支持丰富展示",
         "command": "brew install eza",
-        "supportOs": ["linux", "macOS"]
+        "supportOs": ["linux", "macOS"],
+        "tag": ["linuxserver"]
       },
       {
         "name": "ripgrep",
         "cliName": "rg",
         "description": "快速文本搜索工具",
         "command": "brew install ripgrep",
-        "supportOs": ["linux", "macOS"]
+        "supportOs": ["linux", "macOS"],
+        "tag": ["linuxserver"]
       },
       {
         "name": "fzf",
         "cliName": "fzf",
         "description": "模糊查找工具",
         "command": "brew install fzf",
-        "supportOs": ["linux", "macOS"]
+        "supportOs": ["linux", "macOS"],
+        "tag": ["linuxserver"]
       },
       {
         "name": "zoxide",
         "cliName": "zoxide",
         "description": "智能目录跳转工具",
         "command": "brew install zoxide",
-        "supportOs": ["linux", "macOS"]
+        "supportOs": ["linux", "macOS"],
+        "tag": ["linuxserver"]
       },
       {
         "name": "resvg",
@@ -655,14 +663,16 @@
         "cliName": "starship",
         "description": "跨平台shell提示符",
         "command": "brew install starship",
-        "supportOs": ["linux", "macOS"]
+        "supportOs": ["linux", "macOS"],
+        "tag": ["linuxserver"]
       },
       {
         "name": "bat",
         "cliName": "bat",
         "description": "cat的替代品",
         "command": "brew install bat",
-        "supportOs": ["linux", "macOS"]
+        "supportOs": ["linux", "macOS"],
+        "tag": ["linuxserver"]
       },
       {
         "name": "dust",
@@ -683,7 +693,8 @@
         "cliName": "lazygit",
         "description": "git的TUI界面",
         "command": "brew install lazygit",
-        "supportOs": ["linux", "macOS"]
+        "supportOs": ["linux", "macOS"],
+        "tag": ["linuxserver"]
       },
       {
         "name": "yq",
@@ -704,7 +715,8 @@
         "cliName": "nvim",
         "description": "现代化的 Vim 文本编辑器",
         "command": "brew install neovim",
-        "supportOs": ["linux", "macOS"]
+        "supportOs": ["linux", "macOS"],
+        "tag": ["linuxserver"]
       },
       {
         "name": "neovide",

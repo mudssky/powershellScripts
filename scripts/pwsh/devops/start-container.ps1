@@ -9,6 +9,67 @@
     该脚本用于快速启动各种常用的Docker容器服务，包括数据库、消息队列、
     监控工具等。支持自定义重启策略、数据目录和认证信息。
 
+    ## 添加新服务的步骤
+
+    ### 1. 更新脚本参数验证
+    在 param 块的 ValidateSet 中添加新的服务名称：
+    ```powershell
+    [ValidateSet("minio", "redis", "postgre", "etcd", "nacos", "rabbitmq", "mongodb", 
+        "one-api", "mongodb-replica", "kokoro-fastapi", "kokoro-fastapi-cpu", 
+        "cadvisor", "prometheus", "noco", "n8n", "crawl4ai", "pageSpy", "new-api", 
+        "qdrant", "your-new-service")]
+    ```
+
+    ### 2. 更新服务列表文档
+    在 .PARAMETER ServiceName 部分添加新服务说明：
+    ```
+    - your-new-service: 新服务描述
+    ```
+
+    ### 3. 配置Docker Compose文件
+    在项目根目录的 config/dockerfiles/compose/docker-compose.yml 中添加服务配置：
+    ```yaml
+    services:
+      your-new-service:
+        image: your-image:tag
+        container_name: ${COMPOSE_PROJECT_NAME}-your-new-service
+        restart: ${RESTART_POLICY}
+        profiles:
+          - your-new-service
+        environment:
+          - ENV_VAR=value
+        ports:
+          - "8080:8080"
+        volumes:
+          - ${DATA_PATH}/your-new-service:/data
+    ```
+
+    ### 4. 测试新服务
+    使用以下命令测试新服务：
+    ```powershell
+    # 列出可用服务，确认新服务已添加
+    .\start-container.ps1 -List
+    
+    # 干运行模式检查命令
+    .\start-container.ps1 -ServiceName your-new-service -DryRun
+    
+    # 启动新服务
+    .\start-container.ps1 -ServiceName your-new-service
+    ```
+
+    ### 5. 可选配置项
+    - **健康检查**: 在docker-compose.yml中添加healthcheck配置
+    - **网络配置**: 如需自定义网络，可使用 -NetworkName 参数
+    - **环境变量**: 使用 -Env 参数传递额外环境变量
+    - **数据持久化**: 确保volumes映射正确配置
+
+    ### 6. 注意事项
+    - 确保Docker镜像存在且可访问
+    - 端口映射避免冲突
+    - 数据目录权限正确设置
+    - 环境变量安全配置
+    - 考虑服务依赖关系
+
 .PARAMETER ServiceName
     要启动的服务名称，支持的服务包括：
     - minio: 对象存储服务
@@ -25,6 +86,8 @@
     - prometheus: 监控系统
     - noco: 无代码平台
     - qdrant: 向量数据库
+    - rustdesk-hbbs: RustDesk HBBS服务器（ID注册和心跳服务）
+    - rustdesk-hbbr: RustDesk HBBR服务器（中继服务）
 
 .PARAMETER RestartPolicy
     容器重启策略，默认为'unless-stopped'。可选值：
@@ -84,7 +147,7 @@
 param (
     [Parameter(Mandatory = $false)]
     [ValidateSet("minio", "redis", 'postgre', 'etcd', 'nacos', 'rabbitmq', 'mongodb', 'one-api', 'mongodb-replica', 'kokoro-fastapi', 
-        'kokoro-fastapi-cpu', 'cadvisor', 'prometheus', 'noco', 'n8n', 'crawl4ai', 'pageSpy', 'new-api', 'qdrant')]
+        'kokoro-fastapi-cpu', 'cadvisor', 'prometheus', 'noco', 'n8n', 'crawl4ai', 'pageSpy', 'new-api', 'qdrant', 'rustdesk-hbbs', 'rustdesk-hbbr')]
     [string]$ServiceName, # 更合理的参数名
     
     [ValidateSet("always", "unless-stopped", 'on-failure', 'on-failure:3', 'no')]
@@ -234,6 +297,50 @@ function Wait-ServiceHealthy {
     return $false
 }
 
+function Show-RustDeskInfo {
+    param([string]$ServiceName, [string]$DataPath)
+    if ($ServiceName -in @('rustdesk-hbbs', 'rustdesk-hbbr')) {
+        $rustdeskPath = Join-Path $DataPath "rustdesk"
+        $pubKeyFile = Join-Path $rustdeskPath "id_ed25519.pub"
+        
+        Write-Host "`n=== RustDesk 配置说明 ===" -ForegroundColor Cyan
+        Write-Host "1. ID 服务器 (ID Server): <你的服务器IP>"
+        Write-Host "2. 中继服务器 (Relay Server): <你的服务器IP>"
+        
+        $pubKey = $null
+        for ($i = 0; $i -lt 5; $i++) {
+            if (Test-Path $pubKeyFile) {
+                try {
+                    $pubKey = Get-Content -LiteralPath $pubKeyFile -Raw
+                    if (-not [string]::IsNullOrWhiteSpace($pubKey)) { break }
+                }
+                catch {}
+            }
+            Start-Sleep -Seconds 1
+        }
+        
+        if (-not [string]::IsNullOrWhiteSpace($pubKey)) {
+            Write-Host "3. Key: $($pubKey.Trim())" -ForegroundColor Green
+            Write-Host "注意：请将上述 Key 填入 RustDesk 客户端的 Key 选项中，以启用加密连接。" -ForegroundColor Yellow
+        }
+        else {
+            Write-Host "3. Key: 未找到公钥文件或文件为空 ($pubKeyFile)" -ForegroundColor Yellow
+            Write-Host "   如果这是首次启动，可能需要几秒钟生成密钥。请手动查看该文件。"
+        }
+        Write-Host "4. 端口映射:"
+        Write-Host "   - 21114:21114 (Web Console)"
+        Write-Host "   - 21115:21115 (NAT Type Test)"
+        Write-Host "   - 21116:21116 (ID Reg & Heartbeat)"
+        Write-Host "   - 21116:21116/udp (ID Reg & Heartbeat)"
+        Write-Host "   - 21118:21118 (Web Client)"
+        Write-Host "   - 21117:21117 (Relay Services)"
+        Write-Host "   - 21119:21119 (Web Client)"
+        # 云服务器防火墙需要配置开启
+        Write-Host "云服务器防火墙需要配置开启 21115 21116 21117，否则无法连接。" -ForegroundColor Yellow
+        Write-Host "==========================`n" -ForegroundColor Cyan
+    }
+}
+
 
 function Get-ComposeServiceNames {
     param(
@@ -264,7 +371,30 @@ try {
     ${env:RESTART_POLICY} = $RestartPolicy
     $projectName = Get-DefaultProjectName -ServiceName $ServiceName -ProjectName $ProjectName
     ${env:COMPOSE_PROJECT_NAME} = $projectName
-    $composeDir = Join-Path $PSScriptRoot 'config' 'dockerfiles' 'compose'
+    
+    # 计算项目根目录路径 (动态查找)
+    $current = $PSScriptRoot
+    $projectRoot = $null
+    while ($true) {
+        if (Test-Path (Join-Path $current 'install.ps1')) {
+            $projectRoot = $current
+            break
+        }
+        $parent = Split-Path $current -Parent
+        if ($null -eq $parent -or $parent -eq $current) {
+            break
+        }
+        $current = $parent
+    }
+    
+    if ($null -eq $projectRoot) {
+        # Fallback for safety (e.g. if install.ps1 is missing)
+        # Default to 3 levels up as per original logic if search fails
+        $projectRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))
+        Write-Warning "Could not locate project root via install.ps1, falling back to: $projectRoot"
+    }
+
+    $composeDir = Join-Path $projectRoot 'config' 'dockerfiles' 'compose'
     $composePath = Join-Path $composeDir 'docker-compose.yml'
     $mongoReplComposePath = Join-Path $composeDir 'mongo-repl.compose.yml'
 
@@ -299,19 +429,28 @@ try {
         if ($Update) {
             Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'pull' -DryRun:$DryRun
             Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'up -d' -DryRun:$DryRun
-            if (-not $DryRun -and $ServiceName) { [void](Wait-ServiceHealthy -Service $ServiceName -Project $projectName) }
+            if (-not $DryRun -and $ServiceName) {
+                [void](Wait-ServiceHealthy -Service $ServiceName -Project $projectName)
+                Show-RustDeskInfo -ServiceName $ServiceName -DataPath $DataPath
+            }
             return
         }
         if ($PullAlways) {
             $modeForUp = Test-DockerAvailable
             if ($modeForUp -eq 'sub') {
-                Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'up -d' -ExtraArgs @('--pull','always') -DryRun:$DryRun
-                if (-not $DryRun -and $ServiceName) { [void](Wait-ServiceHealthy -Service $ServiceName -Project $projectName) }
+                Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'up -d' -ExtraArgs @('--pull', 'always') -DryRun:$DryRun
+                if (-not $DryRun -and $ServiceName) {
+                    [void](Wait-ServiceHealthy -Service $ServiceName -Project $projectName)
+                    Show-RustDeskInfo -ServiceName $ServiceName -DataPath $DataPath
+                }
             }
             else {
                 Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'pull' -DryRun:$DryRun
                 Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'up -d' -DryRun:$DryRun
-                if (-not $DryRun -and $ServiceName) { [void](Wait-ServiceHealthy -Service $ServiceName -Project $projectName) }
+                if (-not $DryRun -and $ServiceName) {
+                    [void](Wait-ServiceHealthy -Service $ServiceName -Project $projectName)
+                    Show-RustDeskInfo -ServiceName $ServiceName -DataPath $DataPath
+                }
             }
             return
         }
@@ -335,7 +474,10 @@ try {
         }
         if ($available -contains $ServiceName) {
             Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'up -d' -DryRun:$DryRun
-            if (-not $DryRun) { [void](Wait-ServiceHealthy -Service $ServiceName -Project $projectName) }
+            if (-not $DryRun) {
+                [void](Wait-ServiceHealthy -Service $ServiceName -Project $projectName)
+                Show-RustDeskInfo -ServiceName $ServiceName -DataPath $DataPath
+            }
             return
         }
         else {

@@ -119,7 +119,7 @@
         # 操作系统模块 (os.psm1)
         'Get-OperatingSystem', 'Test-Administrator',
         # 代理管理模块 (proxy.psm1)
-        'Close-Proxy', 'Start-Proxy',
+        'Close-Proxy', 'Start-Proxy', 'Set-Proxy',
         # PowerShell 工具模块 (pwsh.psm1)
         'Out-ModuleToFile',
         # 字符串处理模块 (string.psm1)

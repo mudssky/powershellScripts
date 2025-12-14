@@ -264,3 +264,40 @@ services:
         max-size: "10m"
         max-file: "3"
     profiles: ["qdrant"]
+
+  rustdesk-hbbs:
+    image: rustdesk/rustdesk-server:latest
+    container_name: rustdesk-hbbs-dev
+    restart: ${RESTART_POLICY:-unless-stopped}
+    command: hbbs
+    ports:
+      - "21114:21114"  # TCP: web console (Pro version only)
+      - "21115:21115"  # TCP: NAT type test
+      - "21116:21116"  # TCP/UDP: ID registration and heartbeat service
+      - "21116:21116/udp"
+      - "21118:21118"  # TCP: web client support
+    volumes:
+      - "${DATA_PATH}/rustdesk:/root"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    profiles: ["rustdesk-hbbs"]
+
+  rustdesk-hbbr:
+    image: rustdesk/rustdesk-server:latest
+    container_name: rustdesk-hbbr-dev
+    restart: ${RESTART_POLICY:-unless-stopped}
+    command: hbbr
+    ports:
+      - "21117:21117"  # TCP: Relay services
+      - "21119:21119"  # TCP: web client support
+    volumes:
+      - "${DATA_PATH}/rustdesk:/root"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    profiles: ["rustdesk-hbbr"]
