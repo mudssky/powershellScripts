@@ -122,9 +122,30 @@ function Sync-BinScripts {
                 }
             }
 
+            # 3. 提取 @ShimProfile 指令
+            # 格式: # @ShimProfile: [Default|NoProfile|Silent]
+            # Default: 加载 Profile (默认)
+            # NoProfile: 不加载 Profile (-NoProfile)
+            # Silent: 加载 Profile 但屏蔽 Logo (-NoLogo)
+            $shimProfileMode = 'NoProfile'
+            foreach ($token in $tokens) {
+                if ($token.Kind -eq 'Comment' -and $token.Text -match '@ShimProfile:\s*(?<mode>\w+)') {
+                    $shimProfileMode = $matches['mode']
+                    break
+                }
+            }
+
+            $shebangLine = "#!/usr/bin/env pwsh"
+            switch ($shimProfileMode) {
+                'NoProfile' { $shebangLine = "#!/usr/bin/env -S pwsh -NoProfile" }
+                'Silent' { $shebangLine = "#!/usr/bin/env -S pwsh -NoLogo" }
+                'Default' { $shebangLine = "#!/usr/bin/env pwsh" }
+                default { $shebangLine = "#!/usr/bin/env pwsh" }
+            }
+
             # --- 生成 Shim 内容 ---
             $shimContentLines = @()
-            $shimContentLines += "#!/usr/bin/env pwsh"
+            $shimContentLines += $shebangLine
             $shimContentLines += ""
             $shimContentLines += "# Auto-generated shim by Manage-BinScripts.ps1"
             $shimContentLines += "# Source: $($script.FullName)"
