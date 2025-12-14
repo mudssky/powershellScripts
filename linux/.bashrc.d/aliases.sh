@@ -1,10 +1,11 @@
 ### 1. 🛡️ 安全与人性化 (Safety & Human Readable)
 
 
+# 防止ai agent操作时还要人工确认，所以禁用
 # 操作文件时询问确认 (防止 rm -rf * 误删)
-alias rm='rm -i'
-alias cp='cp -i'
-alias mv='mv -i'
+# alias rm='rm -i'
+# alias cp='cp -i'
+# alias mv='mv -i'
 
 # 创建目录时自动把父目录也创建了，并显示过程
 alias mkdir='mkdir -pv'
