@@ -298,6 +298,41 @@ function Wait-ServiceHealthy {
     return $false
 }
 
+function Initialize-ServiceEnvironment {
+    param([string]$ServiceName, [string]$DataPath)
+    if ($ServiceName -eq 'rustfs') {
+        $rustfsDataPath = Join-Path $DataPath "rustfs/data"
+        # Ensure parent directory exists first
+        $parent = Split-Path $rustfsDataPath -Parent
+        if (-not (Test-Path -LiteralPath $parent)) {
+            New-Item -ItemType Directory -Path $parent -Force | Out-Null
+        }
+        if (-not (Test-Path -LiteralPath $rustfsDataPath)) {
+            New-Item -ItemType Directory -Path $rustfsDataPath -Force | Out-Null
+        }
+        
+        if ($IsLinux) {
+            Write-Verbose "Checking ownership for RustFS data directory: $rustfsDataPath"
+            try {
+                $needsChown = $true
+                try {
+                    $currentOwner = & stat -c '%u' $rustfsDataPath
+                    if ($currentOwner -eq '10001') { $needsChown = $false }
+                }
+                catch {}
+
+                if ($needsChown) {
+                    Write-Host "Setting ownership of $rustfsDataPath to 10001:10001 for RustFS..." -ForegroundColor Cyan
+                    & sudo chown -R 10001:10001 $rustfsDataPath
+                }
+            }
+            catch {
+                Write-Warning "Could not change ownership of $rustfsDataPath. Please manually run: sudo chown -R 10001:10001 $rustfsDataPath"
+            }
+        }
+    }
+}
+
 function Show-RustDeskInfo {
     param([string]$ServiceName, [string]$DataPath)
     if ($ServiceName -in @('rustdesk-hbbs', 'rustdesk-hbbr')) {
@@ -417,6 +452,9 @@ try {
     }
 
     if ($NetworkName) { New-NetworkIfMissing -Name $NetworkName }
+    
+    Initialize-ServiceEnvironment -ServiceName $ServiceName -DataPath $DataPath
+
     if ($ServiceName -eq 'mongodb-replica' -and (Test-Path $mongoReplComposePath)) {
         $env:DOCKER_DATA_PATH = $DataPath
         $env:MONGO_USER = $DefaultUser
