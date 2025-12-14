@@ -152,12 +152,10 @@ sync_snippets() {
             target_path="$CONFIG_DIR/$filename"
             
             if [ "$DRY_RUN" = true ]; then
-                log_dry "复制 $filename -> $target_path"
-                log_dry "chmod 644 $target_path"
+                log_dry "创建软链接 $filename -> $target_path"
             else
-                cp "$file" "$target_path"
-                chmod 644 "$target_path"
-                log_info "已同步: $filename"
+                ln -sf "$file" "$target_path"
+                log_info "已创建软链接: $filename"
             fi
             ((count++))
         fi
