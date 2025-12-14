@@ -21,3 +21,4 @@
 - **项目总览**: `README.md` (包含使用说明和特性)。
 - **脚本列表**: `docs/scripts-index.md` (详细的脚本清单)。
 - **最佳实践**: `docs/跨平台单文件脚本最佳实践.md`。
+- **pwsh脚本参考模板**: `docs/cheatsheet/pwsh/script-template.md`。
