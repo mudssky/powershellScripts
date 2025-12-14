@@ -21,6 +21,15 @@ add_to_path() {
     fi
 }
 
+# 函数：静默添加路径到PATH（如果不存在）
+add_to_path_silent() {
+    local path_to_add="$1"
+    if ! is_path_included "$path_to_add"; then
+        export PATH="$path_to_add:$PATH"
+        return 0
+    fi
+}
+
 # 函数：添加项目根目录下的bin目录
 add_project_bin_to_path() {
     # 获取脚本文件的真实物理路径（解决软链接问题）
@@ -36,8 +45,8 @@ add_project_bin_to_path() {
     local bin_dir="$project_root/bin"
     
     if [ -d "$bin_dir" ]; then
-        # 不进行echo输出        
-        add_to_path "$bin_dir" > /dev/null || true
+        # 使用静默版本，不进行echo输出        
+        add_to_path_silent "$bin_dir"
     else
         echo "项目根目录下的bin目录不存在: $bin_dir"
         return 1
