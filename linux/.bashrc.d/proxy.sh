@@ -5,9 +5,15 @@
 # =============================================================================
 
 # --- 内部配置 (只读，不暴露) ---
-readonly _PM_DEFAULT_HOST="127.0.0.1"
-readonly _PM_DEFAULT_PORT="7890"
-readonly _PM_NO_PROXY="localhost,127.0.0.1,::1,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12"
+if [ -z "${_PM_DEFAULT_HOST:-}" ]; then
+    readonly _PM_DEFAULT_HOST="127.0.0.1"
+fi
+if [ -z "${_PM_DEFAULT_PORT:-}" ]; then
+    readonly _PM_DEFAULT_PORT="7890"
+fi
+if [ -z "${_PM_NO_PROXY:-}" ]; then
+    readonly _PM_NO_PROXY="localhost,127.0.0.1,::1,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12"
+fi
 
 # --- 主函数: proxy ---
 proxy() {
