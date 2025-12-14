@@ -88,6 +88,7 @@
     - qdrant: 向量数据库
     - rustdesk-hbbs: RustDesk HBBS服务器（ID注册和心跳服务）
     - rustdesk-hbbr: RustDesk HBBR服务器（中继服务）
+    - rustfs: RustFS对象存储服务
 
 .PARAMETER RestartPolicy
     容器重启策略，默认为'unless-stopped'。可选值：
@@ -147,7 +148,7 @@
 param (
     [Parameter(Mandatory = $false)]
     [ValidateSet("minio", "redis", 'postgre', 'etcd', 'nacos', 'rabbitmq', 'mongodb', 'one-api', 'mongodb-replica', 'kokoro-fastapi', 
-        'kokoro-fastapi-cpu', 'cadvisor', 'prometheus', 'noco', 'n8n', 'crawl4ai', 'pageSpy', 'new-api', 'qdrant', 'rustdesk-hbbs', 'rustdesk-hbbr')]
+        'kokoro-fastapi-cpu', 'cadvisor', 'prometheus', 'noco', 'n8n', 'crawl4ai', 'pageSpy', 'new-api', 'qdrant', 'rustdesk-hbbs', 'rustdesk-hbbr', 'rustfs')]
     [string]$ServiceName, # 更合理的参数名
     
     [ValidateSet("always", "unless-stopped", 'on-failure', 'on-failure:3', 'no')]

@@ -301,3 +301,24 @@ services:
         max-size: "10m"
         max-file: "3"
     profiles: ["rustdesk-hbbr"]
+
+  rustfs:
+    image: rustfs/rustfs:latest
+    container_name: rustfs-dev
+    restart: ${RESTART_POLICY:-unless-stopped}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - "${DATA_PATH}/rustfs/data:/data"
+    environment:
+      - RUSTFS_ACCESS_KEY=${DEFAULT_USER:-root}
+      - RUSTFS_SECRET_KEY=${DEFAULT_PASSWORD:-12345678}
+      - RUSTFS_CONSOLE_ENABLE=true
+    command: /data
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    profiles: ["rustfs"]
