@@ -258,6 +258,8 @@ services:
     ports: ["6333:6333"]
     volumes:
       - "${DATA_PATH}/qdrant:/qdrant/storage"
+    environment:
+      - QDRANT__SERVICE__API_KEY=${DEFAULT_PASSWORD:-12345678}
     logging:
       driver: "json-file"
       options:
