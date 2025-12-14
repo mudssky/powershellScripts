@@ -177,6 +177,9 @@ function Install-NodeScripts {
         return
     }
 
+    # 禁止 Corepack 下载提示
+    $env:COREPACK_ENABLE_DOWNLOAD_PROMPT = '0'
+
     Push-Location $ScriptDir
     try {
         Write-Host "正在安装依赖..." -ForegroundColor Cyan
