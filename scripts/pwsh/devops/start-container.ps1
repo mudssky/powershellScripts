@@ -90,6 +90,7 @@
     - rustfs: RustFS对象存储服务
     - beszel: 轻量级服务器监控 Hub
     - beszel-agent: Beszel 监控 Agent (需提供 KEY 环境变量)
+    - beszel-suite: 同时启动 Beszel Hub 和 Agent
 
 .PARAMETER RestartPolicy
     容器重启策略，默认为'unless-stopped'。可选值：
@@ -149,7 +150,7 @@
 param (
     [Parameter(Mandatory = $false)]
     [ValidateSet("minio", "redis", 'postgre', 'etcd', 'nacos', 'rabbitmq', 'mongodb', 'one-api', 'mongodb-replica', 'kokoro-fastapi', 
-        'kokoro-fastapi-cpu', 'cadvisor', 'prometheus', 'noco', 'n8n', 'crawl4ai', 'pageSpy', 'new-api', 'qdrant', 'rustdesk-hbbs', 'rustdesk-hbbr', 'rustfs', 'beszel', 'beszel-agent')]
+        'kokoro-fastapi-cpu', 'cadvisor', 'prometheus', 'noco', 'n8n', 'crawl4ai', 'pageSpy', 'new-api', 'qdrant', 'rustdesk-hbbs', 'rustdesk-hbbr', 'rustfs', 'beszel', 'beszel-agent', 'beszel-suite')]
     [string]$ServiceName, # 更合理的参数名
     
     [ValidateSet("always", "unless-stopped", 'on-failure', 'on-failure:3', 'no')]
@@ -438,10 +439,10 @@ try {
     if ($Env) { foreach ($k in $Env.Keys) { ${env:$k} = [string]$Env[$k] } }
 
     # Beszel Agent 自动处理 Env 变量
-    if ($ServiceName -eq 'beszel-agent') {
+    if ($ServiceName -eq 'beszel-agent' -or $ServiceName -eq 'beszel-suite') {
         if (-not $Env -or -not $Env['KEY']) {
             Write-Warning "启动 beszel-agent 建议提供 KEY 环境变量 (公钥)。"
-            Write-Warning "示例: .\start-container.ps1 -ServiceName beszel-agent -Env @{KEY='ssh-ed25519 ...'}"
+            Write-Warning "示例: .\start-container.ps1 -ServiceName $ServiceName -Env @{KEY='ssh-ed25519 ...'}"
         }
         if ($Env) {
             if ($Env['KEY']) { ${env:BESZEL_AGENT_KEY} = $Env['KEY'] }
@@ -479,11 +480,21 @@ try {
     }
     if (Test-Path $composePath) {
         $available = Get-ComposeServiceNames -ComposePath $composePath -ReplicaComposePath $mongoReplComposePath
+        
+        # 处理组合服务 (Suite)
+        $targetProfiles = @($ServiceName)
+        if ($ServiceName -eq 'beszel-suite') {
+            $targetProfiles = @('beszel', 'beszel-agent')
+        }
+
         if ($Update) {
-            Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'pull' -DryRun:$DryRun
-            Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'up -d' -DryRun:$DryRun
+            Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'pull' -DryRun:$DryRun
+            Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'up -d' -DryRun:$DryRun
             if (-not $DryRun -and $ServiceName) {
-                [void](Wait-ServiceHealthy -Service $ServiceName -Project $projectName)
+                # 简单检查每个服务
+                foreach ($tp in $targetProfiles) {
+                    [void](Wait-ServiceHealthy -Service $tp -Project $projectName)
+                }
                 Show-RustDeskInfo -ServiceName $ServiceName -DataPath $DataPath
             }
             return
@@ -491,17 +502,21 @@ try {
         if ($PullAlways) {
             $modeForUp = Test-DockerAvailable
             if ($modeForUp -eq 'sub') {
-                Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'up -d' -ExtraArgs @('--pull', 'always') -DryRun:$DryRun
+                Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'up -d' -ExtraArgs @('--pull', 'always') -DryRun:$DryRun
                 if (-not $DryRun -and $ServiceName) {
-                    [void](Wait-ServiceHealthy -Service $ServiceName -Project $projectName)
+                    foreach ($tp in $targetProfiles) {
+                        [void](Wait-ServiceHealthy -Service $tp -Project $projectName)
+                    }
                     Show-RustDeskInfo -ServiceName $ServiceName -DataPath $DataPath
                 }
             }
             else {
-                Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'pull' -DryRun:$DryRun
-                Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'up -d' -DryRun:$DryRun
+                Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'pull' -DryRun:$DryRun
+                Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'up -d' -DryRun:$DryRun
                 if (-not $DryRun -and $ServiceName) {
-                    [void](Wait-ServiceHealthy -Service $ServiceName -Project $projectName)
+                    foreach ($tp in $targetProfiles) {
+                        [void](Wait-ServiceHealthy -Service $tp -Project $projectName)
+                    }
                     Show-RustDeskInfo -ServiceName $ServiceName -DataPath $DataPath
                 }
             }
@@ -509,8 +524,10 @@ try {
         }
         if ($Down) {
             if ($ServiceName) {
-                Invoke-DockerCompose -File $composePath -Project $projectName -Action 'stop' -Services @($ServiceName) -DryRun:$DryRun
-                Invoke-DockerCompose -File $composePath -Project $projectName -Action 'rm -f -s' -Services @($ServiceName) -DryRun:$DryRun
+                # 针对组合服务，需要找出实际的服务名（通常与profile同名）
+                # 这里假设 profile 名即为 service 名，或者在 docker-compose 中 profile 和 service 是一一对应的
+                Invoke-DockerCompose -File $composePath -Project $projectName -Action 'stop' -Services $targetProfiles -DryRun:$DryRun
+                Invoke-DockerCompose -File $composePath -Project $projectName -Action 'rm -f -s' -Services $targetProfiles -DryRun:$DryRun
             }
             else {
                 Invoke-DockerCompose -File $composePath -Project $projectName -Action 'down' -DryRun:$DryRun
@@ -518,17 +535,24 @@ try {
             return
         }
         if ($Pull) {
-            Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'pull' -DryRun:$DryRun
+            Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'pull' -DryRun:$DryRun
             return
         }
         if ($Build) {
-            Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'build' -DryRun:$DryRun
+            Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'build' -DryRun:$DryRun
             return
         }
-        if ($available -contains $ServiceName) {
-            Invoke-DockerCompose -File $composePath -Project $projectName -Profiles @($ServiceName) -Action 'up -d' -DryRun:$DryRun
+        
+        # 检查服务是否存在 (对于 suite，只要不是未定义即可，这里稍微放宽检查或者针对 suite 特殊处理)
+        $isValidService = ($available -contains $ServiceName)
+        if ($ServiceName -eq 'beszel-suite') { $isValidService = $true }
+
+        if ($isValidService) {
+            Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'up -d' -DryRun:$DryRun
             if (-not $DryRun) {
-                [void](Wait-ServiceHealthy -Service $ServiceName -Project $projectName)
+                foreach ($tp in $targetProfiles) {
+                    [void](Wait-ServiceHealthy -Service $tp -Project $projectName)
+                }
                 Show-RustDeskInfo -ServiceName $ServiceName -DataPath $DataPath
             }
             return

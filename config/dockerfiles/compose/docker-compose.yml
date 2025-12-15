@@ -355,6 +355,8 @@ services:
       HUB_URL: "http://localhost:8090"
       TOKEN: ${BESZEL_AGENT_TOKEN}
       KEY: ${BESZEL_AGENT_KEY}
+    depends_on:
+      - beszel
     logging:
       driver: "json-file"
       options:
