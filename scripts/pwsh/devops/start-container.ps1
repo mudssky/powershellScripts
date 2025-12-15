@@ -90,8 +90,6 @@
     - rustdesk: 同时启动 RustDesk HBBS 和 HBBR
     - rustfs: RustFS对象存储服务
     - beszel: 轻量级服务器监控 Hub
-    - beszel-agent: Beszel 监控 Agent (需提供 KEY 环境变量)
-    - beszel-suite: 同时启动 Beszel Hub 和 Agent
 
 .PARAMETER RestartPolicy
     容器重启策略，默认为'unless-stopped'。可选值：
@@ -151,7 +149,7 @@
 param (
     [Parameter(Mandatory = $false)]
     [ValidateSet("minio", "redis", 'postgre', 'etcd', 'nacos', 'rabbitmq', 'mongodb', 'one-api', 'mongodb-replica', 'kokoro-fastapi', 
-        'kokoro-fastapi-cpu', 'cadvisor', 'prometheus', 'noco', 'n8n', 'crawl4ai', 'pageSpy', 'new-api', 'qdrant', 'rustdesk-hbbs', 'rustdesk-hbbr', 'rustfs', 'beszel', 'beszel-agent', 'beszel-suite', 'rustdesk')]
+        'kokoro-fastapi-cpu', 'cadvisor', 'prometheus', 'noco', 'n8n', 'crawl4ai', 'pageSpy', 'new-api', 'qdrant', 'rustdesk-hbbs', 'rustdesk-hbbr', 'rustfs', 'beszel', 'rustdesk')]
     [string]$ServiceName, # 更合理的参数名
     
     [ValidateSet("always", "unless-stopped", 'on-failure', 'on-failure:3', 'no')]
@@ -439,18 +437,6 @@ try {
 
     if ($Env) { foreach ($k in $Env.Keys) { ${env:$k} = [string]$Env[$k] } }
 
-    # Beszel Agent 自动处理 Env 变量
-    if ($ServiceName -eq 'beszel-agent' -or $ServiceName -eq 'beszel-suite') {
-        if (-not $Env -or -not $Env['KEY']) {
-            Write-Warning "启动 beszel-agent 建议提供 KEY 环境变量 (公钥)。"
-            Write-Warning "示例: .\start-container.ps1 -ServiceName $ServiceName -Env @{KEY='ssh-ed25519 ...'}"
-        }
-        if ($Env) {
-            if ($Env['KEY']) { ${env:BESZEL_AGENT_KEY} = $Env['KEY'] }
-            if ($Env['TOKEN']) { ${env:BESZEL_AGENT_TOKEN} = $Env['TOKEN'] }
-        }
-    }
-
     if ($UseEnvFile -and $Env) {
         $envFile = Join-Path $composeDir '.env'
         $lines = @()
@@ -484,9 +470,6 @@ try {
         
         # 处理组合服务 (Suite)
         $targetProfiles = @($ServiceName)
-        if ($ServiceName -eq 'beszel-suite') {
-            $targetProfiles = @('beszel', 'beszel-agent')
-        }
         if ($ServiceName -eq 'rustdesk') {
             $targetProfiles = @('rustdesk-hbbs', 'rustdesk-hbbr')
         }
