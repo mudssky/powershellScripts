@@ -18,3 +18,8 @@ start-container.ps1 -ServiceName qdrant
 # 数据库
 Write-Host "正在启动postgre数据库 服务..."
 start-container.ps1 -ServiceName postgres
+
+# 监控
+Write-Host "正在启动 beszel 监控服务..."
+start-container.ps1 -ServiceName beszel
+# start-container.ps1 -ServiceName beszel-agent -Env @{KEY="<YOUR_PUBLIC_KEY>"}

@@ -324,3 +324,40 @@ services:
         max-size: "10m"
         max-file: "3"
     profiles: ["rustfs"]
+
+  beszel:
+    image: henrygd/beszel:latest
+    container_name: beszel-dev
+    restart: ${RESTART_POLICY:-unless-stopped}
+    ports:
+      - "8090:8090"
+    volumes:
+      - "${DATA_PATH}/beszel:/beszel_data"
+      - "${DATA_PATH}/beszel-socket:/beszel_socket"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    profiles: ["beszel"]
+
+  beszel-agent:
+    image: henrygd/beszel-agent:latest
+    container_name: beszel-agent-dev
+    restart: ${RESTART_POLICY:-unless-stopped}
+    network_mode: host
+    volumes:
+      - "${DATA_PATH}/beszel-agent:/var/lib/beszel-agent"
+      - "${DATA_PATH}/beszel-socket:/beszel_socket"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    environment:
+      LISTEN: /beszel_socket/beszel.sock
+      HUB_URL: "http://localhost:8090"
+      TOKEN: ${BESZEL_AGENT_TOKEN}
+      KEY: ${BESZEL_AGENT_KEY}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    profiles: ["beszel-agent"]
