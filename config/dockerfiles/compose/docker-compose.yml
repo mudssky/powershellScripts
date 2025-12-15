@@ -297,6 +297,8 @@ services:
       - "21119:21119"  # TCP: web client support
     volumes:
       - "${DATA_PATH}/rustdesk:/root"
+    depends_on:
+      - rustdesk-hbbs
     logging:
       driver: "json-file"
       options:

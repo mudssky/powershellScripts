@@ -3,8 +3,7 @@
 # 远程控制
 # rusrdesk
 Write-Host "正在启动 rustdesk 服务..."
-start-container.ps1 -ServiceName rustdesk-hbbr 
-start-container.ps1 -ServiceName rustdesk-hbbs
+start-container.ps1 -ServiceName rustdesk
 
 # oss
 Write-Host "正在启动 rustfs oss 服务..."
@@ -21,4 +20,4 @@ start-container.ps1 -ServiceName postgres
 
 # 监控
 Write-Host "正在启动 beszel 监控服务..."
-start-container.ps1 -ServiceName beszel-suite -Env @{KEY = "<YOUR_PUBLIC_KEY>" }
+start-container.ps1 -ServiceName beszel-suite -Env @{KEY = $DefaultPassword }

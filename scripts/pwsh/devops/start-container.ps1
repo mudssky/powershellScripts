@@ -87,6 +87,7 @@
     - qdrant: 向量数据库
     - rustdesk-hbbs: RustDesk HBBS服务器（ID注册和心跳服务）
     - rustdesk-hbbr: RustDesk HBBR服务器（中继服务）
+    - rustdesk: 同时启动 RustDesk HBBS 和 HBBR
     - rustfs: RustFS对象存储服务
     - beszel: 轻量级服务器监控 Hub
     - beszel-agent: Beszel 监控 Agent (需提供 KEY 环境变量)
@@ -150,7 +151,7 @@
 param (
     [Parameter(Mandatory = $false)]
     [ValidateSet("minio", "redis", 'postgre', 'etcd', 'nacos', 'rabbitmq', 'mongodb', 'one-api', 'mongodb-replica', 'kokoro-fastapi', 
-        'kokoro-fastapi-cpu', 'cadvisor', 'prometheus', 'noco', 'n8n', 'crawl4ai', 'pageSpy', 'new-api', 'qdrant', 'rustdesk-hbbs', 'rustdesk-hbbr', 'rustfs', 'beszel', 'beszel-agent', 'beszel-suite')]
+        'kokoro-fastapi-cpu', 'cadvisor', 'prometheus', 'noco', 'n8n', 'crawl4ai', 'pageSpy', 'new-api', 'qdrant', 'rustdesk-hbbs', 'rustdesk-hbbr', 'rustfs', 'beszel', 'beszel-agent', 'beszel-suite', 'rustdesk')]
     [string]$ServiceName, # 更合理的参数名
     
     [ValidateSet("always", "unless-stopped", 'on-failure', 'on-failure:3', 'no')]
@@ -337,7 +338,7 @@ function Initialize-ServiceEnvironment {
 
 function Show-RustDeskInfo {
     param([string]$ServiceName, [string]$DataPath)
-    if ($ServiceName -in @('rustdesk-hbbs', 'rustdesk-hbbr')) {
+    if ($ServiceName -in @('rustdesk-hbbs', 'rustdesk-hbbr', 'rustdesk')) {
         $rustdeskPath = Join-Path $DataPath "rustdesk"
         $pubKeyFile = Join-Path $rustdeskPath "id_ed25519.pub"
         
@@ -486,6 +487,9 @@ try {
         if ($ServiceName -eq 'beszel-suite') {
             $targetProfiles = @('beszel', 'beszel-agent')
         }
+        if ($ServiceName -eq 'rustdesk') {
+            $targetProfiles = @('rustdesk-hbbs', 'rustdesk-hbbr')
+        }
 
         if ($Update) {
             Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'pull' -DryRun:$DryRun
@@ -545,7 +549,7 @@ try {
         
         # 检查服务是否存在 (对于 suite，只要不是未定义即可，这里稍微放宽检查或者针对 suite 特殊处理)
         $isValidService = ($available -contains $ServiceName)
-        if ($ServiceName -eq 'beszel-suite') { $isValidService = $true }
+        if ($ServiceName -eq 'beszel-suite' -or $ServiceName -eq 'rustdesk') { $isValidService = $true }
 
         if ($isValidService) {
             Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'up -d' -DryRun:$DryRun
