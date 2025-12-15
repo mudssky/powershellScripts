@@ -355,8 +355,8 @@ services:
     environment:
       LISTEN: /beszel_socket/beszel.sock
       HUB_URL: "http://localhost:8090"
-      TOKEN: ${BESZEL_AGENT_TOKEN}
-      KEY: ${BESZEL_AGENT_KEY}
+      TOKEN: ${BESZEL_AGENT_TOKEN:-12345678}
+      KEY: ${BESZEL_AGENT_KEY:-12345678}
     logging:
       driver: "json-file"
       options:
