@@ -18,7 +18,9 @@ fi
 # --- 主函数: proxy ---
 proxy() {
     local cmd="${1:-status}"  # 默认执行 status
-    shift  # 移除第一个参数，方便后面处理参数
+    if [[ $# -gt 0 ]]; then
+        shift  # 移除第一个参数，方便后面处理参数
+    fi
 
     case "$cmd" in
         on|enable)
@@ -71,7 +73,9 @@ proxy() {
 
         docker)
             local subcmd="${1:-status}"
-            shift
+            if [[ $# -gt 0 ]]; then
+                shift
+            fi
             
             local docker_conf_dir="/etc/systemd/system/docker.service.d"
             local docker_conf_file="${docker_conf_dir}/http-proxy.conf"
