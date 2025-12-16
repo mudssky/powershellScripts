@@ -26,3 +26,12 @@ export HAMMERSPOON_MODIFIER_SWAP=true
 # ollama配置
 export OLLAMA_MODELS='/Volumes/Data/env/.ollama/models'
 
+
+# Load modular configuration files from ~/.bashrc.d
+if [ -d "$HOME/.bashrc.d" ]; then
+    for rc in "$HOME/.bashrc.d/"*.sh; do
+        if [ -f "$rc" ]; then
+            source "$rc"
+        fi
+    done
+fi
