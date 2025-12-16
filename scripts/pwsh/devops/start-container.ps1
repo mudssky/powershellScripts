@@ -149,8 +149,33 @@
 [CmdletBinding(SupportsShouldProcess = $true)]
 param (
     [Parameter(Mandatory = $false)]
-    [ValidateSet("minio", "redis", 'postgre', 'etcd', 'nacos', 'rabbitmq', 'mongodb', 'one-api', 'mongodb-replica', 'kokoro-fastapi', 
-        'kokoro-fastapi-cpu', 'cadvisor', 'prometheus', 'noco', 'n8n', 'crawl4ai', 'pageSpy', 'new-api', 'qdrant', 'rustdesk-hbbs', 'rustdesk-hbbr', 'rustfs', 'beszel', 'rustdesk', 'gotify')]
+    [ValidateSet(
+        "minio", 
+        "redis",
+        "postgre", 
+        "etcd", 
+        "nacos", 
+        "rabbitmq", 
+        "mongodb", 
+        "one-api", 
+        "mongodb-replica", 
+        "kokoro-fastapi", 
+        "kokoro-fastapi-cpu", 
+        "cadvisor", 
+        "prometheus", 
+        "noco", 
+        "n8n", 
+        "crawl4ai", 
+        "pageSpy", 
+        "new-api", 
+        "qdrant", 
+        "rustdesk-hbbs", 
+        "rustdesk-hbbr", 
+        "rustfs", 
+        "beszel", 
+        "rustdesk", 
+        "gotify"
+    )]
     [string]$ServiceName, # 更合理的参数名
     
     [ValidateSet("always", "unless-stopped", 'on-failure', 'on-failure:3', 'no')]
