@@ -52,8 +52,8 @@ if command -v htop &> /dev/null; then
 fi
 
 
-# 重新加载 bash 配置 (修改 bashrc 后立生效)
-alias reload='source ~/.bashrc && echo "✅ Config reloaded."'
+# 重新加载 bash/zsh 配置 (修改配置后立生效)
+alias reload='source "$HOME/.${SHELL##*/}"rc && echo "✅ Config reloaded."'
 
 ### 5. 📦 Git 专用 (DevOps 必备)
 

@@ -34,6 +34,11 @@ add_to_path_silent() {
 add_project_bin_to_path() {
     # 获取脚本文件的真实物理路径（解决软链接问题）
     local source="${BASH_SOURCE[0]}"
+    # 兼容 Zsh
+    if [ -z "$source" ] && [ -n "$ZSH_VERSION" ]; then
+        source="${(%):-%x}"
+    fi
+
     while [ -h "$source" ]; do
         local dir="$( cd -P "$( dirname "$source" )" >/dev/null 2>&1 && pwd )"
         source="$(readlink "$source")"
@@ -47,9 +52,6 @@ add_project_bin_to_path() {
     if [ -d "$bin_dir" ]; then
         # 使用静默版本，不进行echo输出        
         add_to_path_silent "$bin_dir"
-    else
-        echo "项目根目录下的bin目录不存在: $bin_dir"
-        return 1
     fi
 }
 
