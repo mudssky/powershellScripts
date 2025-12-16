@@ -59,14 +59,6 @@ param (
 )
 
 
-# 导入必需的模块
-try {
-    Import-Module (Resolve-Path -Path $PSScriptRoot/psutils) -ErrorAction Stop
-}
-catch {
-    Write-Error "无法导入psutils模块: $_"
-    exit 1
-}
 
 # 检查管理员权限（当操作Machine级别环境变量时）
 if ($EnvTarget -eq 'Machine') {
