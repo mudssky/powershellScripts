@@ -1,14 +1,13 @@
 #!/bin/bash
 
 # ========================================================
-# 脚本名称: manage-bashrc-snippet.sh
-# 作用: 管理 ~/.bashrc.d/ 下的配置片段，并确保主 bashrc 能加载它们
+# 脚本名称: manage-shell-snippet.sh
+# 作用: 管理 ~/.bashrc.d/ 下的配置片段，并确保主 bashrc/zshrc 能加载它们
 #       自动同步当前脚本同级目录 .bashrc.d/ 下的所有 .sh 文件
 # ========================================================
 
 # 配置
 CONFIG_DIR="$HOME/.bashrc.d"
-MAIN_RC="$HOME/.bashrc"
 SCRIPT_NAME=$(basename "$0")
 
 # 颜色定义
@@ -39,7 +38,7 @@ usage() {
     echo -e "${BLUE}Usage:${NC} $SCRIPT_NAME [OPTIONS]"
     echo
     echo -e "自动同步 ${YELLOW}$SOURCE_SNIPPETS_DIR${NC} 下的脚本到 ${YELLOW}$CONFIG_DIR${NC}"
-    echo -e "并确保 ${YELLOW}$MAIN_RC${NC} 包含加载逻辑。"
+    echo -e "并确保 ${YELLOW}~/.bashrc${NC} 和 ${YELLOW}~/.zshrc${NC} 包含加载逻辑。"
     echo
     echo -e "${BLUE}Options:${NC}"
     echo -e "  -h, --help              显示此帮助信息"
@@ -78,29 +77,36 @@ ensure_dir() {
 }
 
 ensure_loader() {
+    local RC_FILE="$1"
+    local CREATE_IF_MISSING="$2"
     local LOADER_MARK="# Load modular configuration files from ~/.bashrc.d"
     
-    if [ ! -f "$MAIN_RC" ]; then
-        # 如果 .bashrc 不存在，通常是新建一个
-        if [ "$DRY_RUN" = true ]; then
-            log_dry "创建 $MAIN_RC (因为不存在)"
+    if [ ! -f "$RC_FILE" ]; then
+        if [ "$CREATE_IF_MISSING" = true ]; then
+            if [ "$DRY_RUN" = true ]; then
+                log_dry "创建 $RC_FILE (因为不存在)"
+            else
+                touch "$RC_FILE"
+                log_info "已创建 $RC_FILE"
+            fi
         else
-             touch "$MAIN_RC"
+            # 如果文件不存在且不强制创建，则跳过
+            return
         fi
     fi
 
-    if grep -Fq "$LOADER_MARK" "$MAIN_RC"; then
+    if grep -Fq "$LOADER_MARK" "$RC_FILE"; then
         return 0
     fi
 
     if [ "$DRY_RUN" = true ]; then
-        log_dry "向 $MAIN_RC 添加加载逻辑"
+        log_dry "向 $RC_FILE 添加加载逻辑"
         return
     fi
 
-    log_info "检测到未配置加载器，正在向 $MAIN_RC 添加加载逻辑..."
+    log_info "检测到未配置加载器，正在向 $RC_FILE 添加加载逻辑..."
     
-    cat << 'EOF' >> "$MAIN_RC"
+    cat << 'EOF' >> "$RC_FILE"
 
 # Load modular configuration files from ~/.bashrc.d
 if [ -d "$HOME/.bashrc.d" ]; then
@@ -111,7 +117,7 @@ if [ -d "$HOME/.bashrc.d" ]; then
     done
 fi
 EOF
-    log_info "加载逻辑已添加。"
+    log_info "加载逻辑已添加至 $RC_FILE。"
 }
 
 is_excluded() {
@@ -206,5 +212,9 @@ while [[ $# -gt 0 ]]; do
 done
 
 ensure_dir
-ensure_loader
+# 确保 .bashrc 存在并添加加载器
+ensure_loader "$HOME/.bashrc" true
+# 如果 .zshrc 存在则添加加载器 (不强制创建)
+ensure_loader "$HOME/.zshrc" false
+
 sync_snippets

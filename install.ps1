@@ -249,34 +249,43 @@ if ($IsWindows) {
     }
 }
 
-# 设置linux环境bashrc
-if ($IsLinux) {
-    Write-Host "`n=== 配置 Linux Bash 环境 ===" -ForegroundColor Magenta
+# 设置 Shell 环境 (Linux/macOS)
+if ($IsLinux -or $IsMacOS) {
+    Write-Host "`n=== 配置 Shell 环境 ===" -ForegroundColor Magenta
     
-    $BashrcScript = Join-Path $ProjectRoot 'linux/01manage-bashrc-snippet.sh'
+    # 检测默认 Shell
+    $defaultShell = $env:SHELL
+    if ([string]::IsNullOrWhiteSpace($defaultShell)) {
+        $defaultShell = "Unknown"
+    }
+    Write-Host "检测到默认 Shell: $defaultShell" -ForegroundColor Cyan
+
+    $ShellScript = Join-Path $ProjectRoot 'linux/01manage-shell-snippet.sh'
     
-    if (Test-Path $BashrcScript) {
+    if (Test-Path $ShellScript) {
         try {
-            Write-Host "正在执行 bashrc 配置脚本: $BashrcScript" -ForegroundColor Cyan
+            Write-Host "正在执行 Shell 配置脚本: $ShellScript" -ForegroundColor Cyan
             
             # 确保脚本具有执行权限
-            & chmod +x $BashrcScript
+            if ($IsLinux -or $IsMacOS) {
+                & chmod +x $ShellScript
+            }
             
             # 执行脚本
-            & $BashrcScript
+            & $ShellScript
             
             if ($LASTEXITCODE -eq 0) {
-                Write-Host "✓ Bashrc 配置脚本执行成功" -ForegroundColor Green
+                Write-Host "✓ Shell 配置脚本执行成功" -ForegroundColor Green
             }
             else {
-                Write-Warning "Bashrc 配置脚本执行失败，退出码: $LASTEXITCODE"
+                Write-Warning "Shell 配置脚本执行失败，退出码: $LASTEXITCODE"
             }
         }
         catch {
-            Write-Error "执行 bashrc 配置脚本时出错: $($_.Exception.Message)"
+            Write-Error "执行 Shell 配置脚本时出错: $($_.Exception.Message)"
         }
     }
     else {
-        Write-Warning "未找到 bashrc 配置脚本: $BashrcScript"
+        Write-Warning "未找到 Shell 配置脚本: $ShellScript"
     }
 }
