@@ -256,43 +256,105 @@ function Import-EnvPath {
 
 function Set-EnvPath {
     <#
-	.SYNOPSIS
-		设置环境变量path,直接整个替换
-	.DESCRIPTION
-		设置环境变量path,直接整个替换，建议先做好备份
-	.NOTES
-		Information or caveats about the function e.g. 'This function is not supported in Linux'
-	.LINK
-		Specify a URI to a help page, this will show when Get-Help -Online is used.
-	.EXAMPLE
-		Test-MyTestFunction -Verbose
-		Explanation of the function or its result. You can include multiple examples with additional .EXAMPLE lines
-
-	#>
+    .SYNOPSIS
+        设置环境变量 Path，支持变量自动展开（如 %USERPROFILE%）
+    .DESCRIPTION
+        设置环境变量 Path。
+        对于 User/Machine 级别，会强制以 REG_EXPAND_SZ (可扩展字符串) 格式写入注册表，
+        从而解决包含 %变量% 的路径无法生效的问题。
+        注意：Linux/macOS 仅支持 Process 级别，User/Machine 级别不支持持久化设置。
+    #>
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
         [string]
-        # 这里是Path的值
         $PathStr,
+
         [ValidateSet('Machine', 'User', 'Process')]
         [string]$EnvTarget = 'User'
     )
-	
+
     begin {
-        Write-Host 	"current env path:$env:Path"
+        # 获取修改前的长度用于对比
+        try {
+            $oldPath = [Environment]::GetEnvironmentVariable("Path", $EnvTarget)
+            $oldLen = if ($oldPath) { $oldPath.Length } else { 0 }
+            Write-Verbose "当前 $EnvTarget Path 长度: $oldLen"
+        }
+        catch {
+            $oldLen = 0
+        }
     }
-	
+
     process {
-        [Environment]::SetEnvironmentVariable("Path", $PathStr, $EnvTarget)
+        # 针对不同目标采用不同策略
+        switch ($EnvTarget) {
+            'Process' {
+                # Process 级别只影响当前会话，直接设置内存即可
+                $env:Path = $PathStr
+                Write-Verbose "已更新当前进程的 PATH 变量"
+            }
+
+            'User' {
+                if ($IsLinux -or $IsMacOS) {
+                    Write-Warning "Linux/macOS 不支持通过此命令持久化设置 User 环境变量。请手动修改 ~/.bashrc 或 ~/.profile。"
+                }
+                else {
+                    # User 级别：写入 HKCU 注册表，强制类型为 ExpandString
+                    Write-Verbose "正在更新用户注册表 (HKCU)..."
+                    Set-ItemProperty -Path 'HKCU:\Environment' -Name 'Path' -Value $PathStr -Type ExpandString
+                }
+            }
+
+            'Machine' {
+                if ($IsLinux -or $IsMacOS) {
+                    Write-Warning "Linux/macOS 不支持通过此命令持久化设置 Machine 环境变量。请手动修改 /etc/environment 或 /etc/profile.d/。"
+                }
+                else {
+                    # Machine 级别：写入 HKLM 注册表，强制类型为 ExpandString (需管理员权限)
+                    # 检查权限
+                    $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+                    if (-not $isAdmin) {
+                        Write-Error "错误：修改系统 (Machine) 环境变量需要管理员权限！"
+                        return
+                    }
+                    
+                    Write-Verbose "正在更新系统注册表 (HKLM)..."
+                    $sysKey = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment'
+                    Set-ItemProperty -Path $sysKey -Name 'Path' -Value $PathStr -Type ExpandString
+                }
+            }
+        }
     }
-	
+
     end {
-        # 导入环境变量
-        Import-Envpath -EnvTarget User
+        $newLen = $PathStr.Length
+        Write-Host "✅ Path 设置成功 ($EnvTarget)" -ForegroundColor Green
+        Write-Host "   📏 长度变化: $oldLen -> $newLen" -ForegroundColor Cyan
+        
+        # 如果长度缩短了，给个好评
+        if ($newLen -lt $oldLen) {
+            Write-Host "   📉 成功瘦身: 减少了 $($oldLen - $newLen) 个字符" -ForegroundColor Green
+        }
+
+        # 仅在 Windows 下尝试刷新 User/Machine 环境
+        # Linux 下 User/Machine 未变动，Process 已变动
+        if (-not ($IsLinux -or $IsMacOS)) {
+            # 尝试刷新当前会话（如果定义了 Import-Envpath）
+            if (Get-Command 'Import-Envpath' -ErrorAction SilentlyContinue) {
+                Write-Verbose "正在调用 Import-Envpath 刷新环境..."
+                Import-EnvPath -EnvTarget $EnvTarget
+            }
+            else {
+                # 如果没有那个函数，手动刷新一下 Process 变量以便当前窗口立即生效（仅限 User 模式简单刷新）
+                if ($EnvTarget -eq 'User') {
+                    $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
+                }
+                Write-Warning "环境变量已更新。请重启终端/VSCode 以确保所有应用读取到最新的 Path (特别是包含 %变量% 的部分)。"
+            }
+        }
     }
 }
-
 
 function Add-EnvPath {
     <#
@@ -331,7 +393,7 @@ function Add-EnvPath {
 	
     end {
         # 导入环境变量
-        Import-Envpath -EnvTarget User
+        Import-EnvPath -EnvTarget User
     }
 }
 
@@ -421,7 +483,7 @@ function Remove-FromEnvPath {
 	
     end {
         # 导入环境变量
-        Import-Envpath -EnvTarget User
+        Import-EnvPath -EnvTarget User
     }
 }
 
@@ -479,7 +541,8 @@ function Sync-PathFromBash {
                     $bashPathOutput = [string]$cache.path
                     $source = [string]$cache.source + '-cache'
                 }
-            } catch { }
+            }
+            catch { }
         }
         if ($Login) {
             $bashPathOutput = bash -lc 'echo $PATH'
@@ -513,7 +576,8 @@ function Sync-PathFromBash {
             try {
                 if (-not (Test-Path -LiteralPath $cacheDir)) { New-Item -ItemType Directory -Path $cacheDir -Force | Out-Null }
                 @{ path = $bashPathOutput; source = $source; timestamp = [DateTime]::UtcNow } | ConvertTo-Json | Set-Content -LiteralPath $cacheFile -Encoding UTF8
-            } catch { }
+            }
+            catch { }
         }
         $separator = [System.IO.Path]::PathSeparator
 
@@ -540,7 +604,8 @@ function Sync-PathFromBash {
             if ($IncludeNonexistent) {
                 $pathsToApply = $missingPaths
                 $skippedPaths = @()
-            } else {
+            }
+            else {
                 $pathsToApply = [System.Collections.Generic.List[string]]::new()
                 $skippedPaths = [System.Collections.Generic.List[string]]::new()
                 foreach ($mp in $missingPaths) { if (Test-Path -LiteralPath $mp -PathType Container) { [void]$pathsToApply.Add($mp) } else { [void]$skippedPaths.Add($mp) } }
@@ -554,15 +619,18 @@ function Sync-PathFromBash {
                     $newPath = ($pathsToApply -join $separator)
                     if ($Prepend) {
                         if ($env:PATH) { $env:PATH = "$newPath$separator$($env:PATH)" } else { $env:PATH = $newPath }
-                    } else {
+                    }
+                    else {
                         if ($env:PATH) { $env:PATH = "$(($env:PATH))$separator$newPath" } else { $env:PATH = $newPath }
                     }
                     Write-Information "PowerShell PATH 已成功更新！"
                 }
-            } else {
+            }
+            else {
                 Write-Information "无可添加的有效目录。"
             }
-        } else {
+        }
+        else {
             Write-Information "PowerShell 的 PATH 与 Bash 完全同步，无需操作。"
             $skippedPaths = @()
             $pathsToApply = @()

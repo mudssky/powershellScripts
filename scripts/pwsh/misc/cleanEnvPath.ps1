@@ -2,7 +2,7 @@
 
 <#
 .SYNOPSIS
-    清理环境变量中无用的路径，移除不存在或没有可执行文件的路径
+    清理环境变量中无用的路径，移除不存在或没有可执行文件的路径。支持交互式筛选、备份恢复及智能缩短路径。
 .DESCRIPTION
     此脚本会扫描指定环境变量目标（Machine或User）的PATH环境变量，
     识别并移除以下类型的无效路径：
@@ -11,7 +11,11 @@
     3. 重复的路径项
     4. User PATH中与System PATH重复的路径项（仅在清理User级别时）
     
-    脚本会在执行清理前显示详细的分析结果并要求用户确认。
+    新增功能：
+    - 智能缩短：自动将路径替换为环境变量（如 %USERPROFILE%）
+    - 交互式筛选：通过图形界面手动选择要保留的路径
+    - 备份恢复：支持从备份文件恢复环境变量
+    - 路径规范化：统一移除路径末尾的斜杠
 .PARAMETER EnvTarget
     指定要清理的环境变量目标：
     - User: 清理当前用户的PATH环境变量（默认，会自动检测与System PATH的重复）
@@ -24,6 +28,10 @@
     指定备份文件的保存路径，默认保存到脚本目录下的backup文件夹
 .PARAMETER SkipSystemPathCheck
     跳过与System PATH的重复检查（仅在清理User级别时有效）
+.PARAMETER RestoreFrom
+    [新功能] 指定备份文件路径，直接从该文件恢复环境变量（将覆盖当前设置）
+.PARAMETER Interactive
+    [新功能] 启用交互式模式，使用图形界面(GridView)手动选择要保留的路径
 .NOTES
     - 建议在执行前备份当前的PATH环境变量
     - 清理Machine级别的环境变量需要管理员权限
@@ -32,17 +40,11 @@
     .\cleanEnvPath.ps1
     使用默认设置清理当前用户的PATH环境变量
 .EXAMPLE
-    .\cleanEnvPath.ps1 -EnvTarget Machine -Verbose
-    清理系统级PATH环境变量并显示详细信息
+    .\cleanEnvPath.ps1 -Interactive
+    启用交互式界面手动筛选路径
 .EXAMPLE
-    .\cleanEnvPath.ps1 -WhatIf
-    预览清理操作但不实际执行
-.EXAMPLE
-    .\cleanEnvPath.ps1 -Force -BackupPath "C:\Backup"
-    强制执行清理并将备份保存到指定路径
-.EXAMPLE
-    .\cleanEnvPath.ps1 -EnvTarget User -SkipSystemPathCheck
-    清理用户PATH但跳过与System PATH的重复检查
+    .\cleanEnvPath.ps1 -RestoreFrom ".\backup\PATH_User_20231201.txt"
+    从指定备份文件恢复环境变量
 #>
 
 
@@ -55,18 +57,72 @@ param (
     
     [string]$BackupPath = (Join-Path $PSScriptRoot "backup"),
     
-    [switch]$SkipSystemPathCheck
+    [switch]$SkipSystemPathCheck,
+
+    [string]$RestoreFrom = "",
+
+    [switch]$Interactive
 )
 
+# -------------------------------------------------------------------------
+# 辅助函数：智能缩短路径
+# -------------------------------------------------------------------------
+function Optimize-PathString {
+    param ([string]$PathString)
+    # 定义常见的替换映射
+    $replacements = @{
+        [Environment]::GetEnvironmentVariable('USERPROFILE')       = '%USERPROFILE%'
+        [Environment]::GetEnvironmentVariable('ProgramFiles')      = '%ProgramFiles%'
+        [Environment]::GetEnvironmentVariable('ProgramFiles(x86)') = '%ProgramFiles(x86)%'
+        [Environment]::GetEnvironmentVariable('SystemRoot')        = '%SystemRoot%'
+        # 可以根据需要添加更多，例如 JAVA_HOME 等
+    }
 
-# 导入必需的模块
-try {
-    Import-Module (Resolve-Path -Path $PSScriptRoot/psutils) -ErrorAction Stop
+    foreach ($key in $replacements.Keys) {
+        if ($PathString -and $PathString.StartsWith($key, [StringComparison]::OrdinalIgnoreCase)) {
+            $newPath = $PathString.Replace($key, $replacements[$key])
+            # 只有当替换后确实变短了才应用
+            if ($newPath.Length -lt $PathString.Length) {
+                return $newPath
+            }
+        }
+    }
+    return $PathString
 }
-catch {
-    Write-Error "无法导入psutils模块: $_"
-    exit 1
+
+# -------------------------------------------------------------------------
+# 1. 恢复模式 (Restore Mode)
+# -------------------------------------------------------------------------
+if ($RestoreFrom) {
+    if (-not (Test-Path $RestoreFrom)) { 
+        Write-Error "找不到备份文件: $RestoreFrom"
+        exit 1 
+    }
+    
+    $backupContent = Get-Content $RestoreFrom -Raw
+    if ($null -eq $backupContent) {
+        Write-Error "备份文件为空"
+        exit 1
+    }
+    $backupContent = $backupContent.Trim()
+    
+    Write-Warning "即将从文件 $RestoreFrom 恢复 $EnvTarget 环境变量！"
+    if ($PSCmdlet.ShouldProcess("$EnvTarget 级别的PATH环境变量", "恢复为备份内容")) {
+        try {
+            Set-EnvPath -EnvTarget $EnvTarget -PathStr $backupContent
+            Write-Host "✅ 已成功恢复环境变量。" -ForegroundColor Green
+        }
+        catch {
+            Write-Error "恢复失败: $_"
+            exit 1
+        }
+    }
+    exit 0
 }
+
+# -------------------------------------------------------------------------
+# 常规清理流程
+# -------------------------------------------------------------------------
 
 # 检查管理员权限（当操作Machine级别环境变量时）
 if ($EnvTarget -eq 'Machine') {
@@ -189,47 +245,82 @@ foreach ($path in $currentPathList) {
 
 Write-Progress -Activity "分析PATH路径" -Completed
 
-# 显示分析结果
-Write-Host "`n📊 分析结果:" -ForegroundColor Cyan
-Write-Host "   ✅ 有效路径: $($validPaths.Count)" -ForegroundColor Green
-Write-Host "   ❌ 无效路径: $($invalidPaths.Count)" -ForegroundColor Red
-Write-Host "   🔄 重复路径: $($duplicatePaths.Count)" -ForegroundColor Yellow
+# -------------------------------------------------------------------------
+# 2. 交互式筛选 (Interactive Selection)
+# -------------------------------------------------------------------------
+if ($Interactive) {
+    Write-Host "`n🖥️  进入交互模式，请在弹出的窗口中选择要【保留】的路径..." -ForegroundColor Cyan
+    
+    $allPathsObj = @()
+    $validPaths | ForEach-Object { $allPathsObj += [PSCustomObject]@{ Path = $_; Status = '✅ 有效'; Keep = $true } }
+    $invalidPaths | ForEach-Object { $allPathsObj += [PSCustomObject]@{ Path = $_; Status = '❌ 无效'; Keep = $false } }
+    $duplicatePaths | ForEach-Object { $allPathsObj += [PSCustomObject]@{ Path = $_; Status = '🔄 重复'; Keep = $false } }
+    $systemDuplicatePaths | ForEach-Object { $allPathsObj += [PSCustomObject]@{ Path = $_; Status = '🔗 System重复'; Keep = $false } }
 
-if ($EnvTarget -eq 'User' -and -not $SkipSystemPathCheck) {
-    Write-Host "   🔗 与System重复: $($systemDuplicatePaths.Count)" -ForegroundColor Magenta
+    # 弹出窗口
+    $selected = $allPathsObj | Out-GridView -Title "按住Ctrl多选要保留的路径，按确定继续" -PassThru
+    
+    if ($selected) {
+        $validPaths = $selected.Path
+        # 重置其他列表，因为用户已经做出了最终选择
+        $invalidPaths = @()
+        $duplicatePaths = @()
+        $systemDuplicatePaths = @()
+        Write-Host "已根据交互式选择更新保留列表。" -ForegroundColor Green
+    }
+    else {
+        Write-Warning "未选择任何路径，取消操作"
+        exit 0
+    }
+}
+
+# 显示分析结果
+Write-Host "`n📊 最终处理预览:" -ForegroundColor Cyan
+if (-not $Interactive) {
+    Write-Host "   ✅ 有效路径: $($validPaths.Count)" -ForegroundColor Green
+    Write-Host "   ❌ 无效路径: $($invalidPaths.Count)" -ForegroundColor Red
+    Write-Host "   🔄 重复路径: $($duplicatePaths.Count)" -ForegroundColor Yellow
+    if ($EnvTarget -eq 'User' -and -not $SkipSystemPathCheck) {
+        Write-Host "   🔗 与System重复: $($systemDuplicatePaths.Count)" -ForegroundColor Magenta
+    }
+}
+else {
+    Write-Host "   ✅ 用户选择保留: $($validPaths.Count)" -ForegroundColor Green
 }
 
 $totalProblemsCount = $invalidPaths.Count + $duplicatePaths.Count + $systemDuplicatePaths.Count
-if ($totalProblemsCount -eq 0) {
+if ($totalProblemsCount -eq 0 -and -not $Interactive) {
     Write-Host "`n🎉 PATH环境变量已经是最优状态，无需清理!" -ForegroundColor Green
     exit 0
 }
 
-# 显示详细信息
-if ($invalidPaths.Count -gt 0) {
-    Write-Host "`n❌ 将被移除的无效路径:" -ForegroundColor Red
-    $invalidPaths | ForEach-Object { Write-Host "   $_" -ForegroundColor Red }
-}
+# 显示详细信息 (非交互模式下，或交互模式下仅显示保留的)
+if (-not $Interactive) {
+    if ($invalidPaths.Count -gt 0) {
+        Write-Host "`n❌ 将被移除的无效路径:" -ForegroundColor Red
+        $invalidPaths | ForEach-Object { Write-Host "   $_" -ForegroundColor Red }
+    }
 
-if ($duplicatePaths.Count -gt 0) {
-    Write-Host "`n🔄 将被移除的重复路径:" -ForegroundColor Yellow
-    $duplicatePaths | ForEach-Object { Write-Host "   $_" -ForegroundColor Yellow }
-}
+    if ($duplicatePaths.Count -gt 0) {
+        Write-Host "`n🔄 将被移除的重复路径:" -ForegroundColor Yellow
+        $duplicatePaths | ForEach-Object { Write-Host "   $_" -ForegroundColor Yellow }
+    }
 
-if ($systemDuplicatePaths.Count -gt 0) {
-    Write-Host "`n🔗 将被移除的与System PATH重复路径:" -ForegroundColor Magenta
-    $systemDuplicatePaths | ForEach-Object { Write-Host "   $_" -ForegroundColor Magenta }
+    if ($systemDuplicatePaths.Count -gt 0) {
+        Write-Host "`n🔗 将被移除的与System PATH重复路径:" -ForegroundColor Magenta
+        $systemDuplicatePaths | ForEach-Object { Write-Host "   $_" -ForegroundColor Magenta }
+    }
 }
 
 if ($validPaths.Count -gt 0) {
-    Write-Host "`n✅ 将保留的有效路径:" -ForegroundColor Green
+    Write-Host "`n✅ 将保留的有效路径 (应用优化前):" -ForegroundColor Green
     $validPaths | ForEach-Object { Write-Host "   $_" -ForegroundColor Green }
 }
 
 # 用户确认和执行
 $shouldProceed = $false
 
-if ($PSCmdlet.ShouldProcess("$EnvTarget 级别的PATH环境变量", "清理无效和重复路径")) {
+if ($PSCmdlet.ShouldProcess("$EnvTarget 级别的PATH环境变量", "更新路径设置")) {
     if ($Force) {
         $shouldProceed = $true
         Write-Host "`n⚡ 使用 -Force 参数，跳过确认直接执行" -ForegroundColor Yellow
@@ -239,17 +330,14 @@ if ($PSCmdlet.ShouldProcess("$EnvTarget 级别的PATH环境变量", "清理无�
         Write-Host "`n📝 操作摘要:" -ForegroundColor Cyan
         Write-Host "   🎯 目标: $EnvTarget 级别PATH环境变量" -ForegroundColor White
         Write-Host "   📁 备份位置: $backupFilePath" -ForegroundColor White
-        Write-Host "   🗑️  将移除: $($invalidPaths.Count + $duplicatePaths.Count + $systemDuplicatePaths.Count) 个路径" -ForegroundColor White
-        if ($systemDuplicatePaths.Count -gt 0) {
-            Write-Host "     ├─ 无效路径: $($invalidPaths.Count)" -ForegroundColor White
-            Write-Host "     ├─ 重复路径: $($duplicatePaths.Count)" -ForegroundColor White
-            Write-Host "     └─ 与System重复: $($systemDuplicatePaths.Count)" -ForegroundColor White
+        if (-not $Interactive) {
+            Write-Host "   🗑️  将移除: $($invalidPaths.Count + $duplicatePaths.Count + $systemDuplicatePaths.Count) 个路径" -ForegroundColor White
         }
         Write-Host "   ✅ 将保留: $($validPaths.Count) 个路径" -ForegroundColor White
         
         $title = "🔧 PATH环境变量清理确认"
         $message = "是否继续执行清理操作？此操作将修改 $EnvTarget 级别的PATH环境变量。"
-        $yes = New-Object System.Management.Automation.Host.ChoiceDescription "&Yes", "确认执行清理操作"
+        $yes = New-Object System.Management.Automation.Host.ChoiceDescription "&Yes", "确认执行"
         $no = New-Object System.Management.Automation.Host.ChoiceDescription "&No", "取消操作"
         $options = [System.Management.Automation.Host.ChoiceDescription[]]($yes, $no)
         $result = $host.UI.PromptForChoice($title, $message, $options, 1)  # 默认选中No，更安全
@@ -259,11 +347,25 @@ if ($PSCmdlet.ShouldProcess("$EnvTarget 级别的PATH环境变量", "清理无�
 }
 
 if ($shouldProceed) {
-    Write-Host "`n🚀 开始执行清理操作..." -ForegroundColor Green
+    Write-Host "`n🚀 开始执行清理和优化..." -ForegroundColor Green
     
     try {
+        # -------------------------------------------------------------------------
+        # 3 & 4. 路径规范化 与 智能缩短 (Normalization & Smart Shortening)
+        # -------------------------------------------------------------------------
+        $optimizedPaths = $validPaths | ForEach-Object {
+            # 4. 规范化: 移除尾部斜杠 (保留根目录如 C:\)
+            $p = $_.Trim()
+            if ($p -notmatch '^[a-zA-Z]:\\$') { 
+                $p = $p.TrimEnd('\')
+            }
+            
+            # 3. 智能缩短
+            Optimize-PathString $p
+        }
+
         # 构建最终的PATH字符串
-        $finalPathStr = ($validPaths -join ';')
+        $finalPathStr = ($optimizedPaths -join ';')
         
         Write-Verbose "最终PATH内容: $finalPathStr"
         Write-Host "📝 正在更新 $EnvTarget 级别的PATH环境变量..." -ForegroundColor Cyan
@@ -272,24 +374,25 @@ if ($shouldProceed) {
         Set-EnvPath -EnvTarget $EnvTarget -PathStr $finalPathStr
         
         # 显示成功信息
-        Write-Host "`n🎉 PATH环境变量清理完成!" -ForegroundColor Green
-        Write-Host "📊 清理统计:" -ForegroundColor Cyan
-        Write-Host "   ✅ 保留有效路径: $($validPaths.Count)" -ForegroundColor Green
-        Write-Host "   🗑️  移除无效路径: $($invalidPaths.Count)" -ForegroundColor Red
-        Write-Host "   🔄 移除重复路径: $($duplicatePaths.Count)" -ForegroundColor Yellow
-        if ($systemDuplicatePaths.Count -gt 0) {
-            Write-Host "   🔗 移除与System重复路径: $($systemDuplicatePaths.Count)" -ForegroundColor Magenta
-        }
+        Write-Host "`n🎉 PATH环境变量更新完成!" -ForegroundColor Green
+        Write-Host "📊 统计:" -ForegroundColor Cyan
+        Write-Host "   ✅ 最终路径数量: $($optimizedPaths.Count)" -ForegroundColor Green
+        
+        # 显示优化前后的长度对比
+        $oldLen = $currentPathStr.Length
+        $newLen = $finalPathStr.Length
+        Write-Host "   📏 字符长度: $oldLen -> $newLen (减少了 $($oldLen - $newLen) 字符)" -ForegroundColor Yellow
+        
         Write-Host "   💾 备份文件: $backupFilePath" -ForegroundColor Blue
         
         # 提示重启或重新加载
         Write-Host "`n💡 提示:" -ForegroundColor Yellow
-        Write-Host "   • 更改已生效，新打开的终端将使用清理后的PATH" -ForegroundColor White
+        Write-Host "   • 更改已生效，新打开的终端将使用更新后的PATH" -ForegroundColor White
         Write-Host "   • 当前终端可能需要重启才能看到更改" -ForegroundColor White
         Write-Host "   • 如需恢复，请使用备份文件: $backupFilePath" -ForegroundColor White
     }
     catch {
-        Write-Error "清理操作失败: $_"
+        Write-Error "操作失败: $_"
         Write-Host "💾 可以使用备份文件恢复: $backupFilePath" -ForegroundColor Yellow
         exit 1
     }
