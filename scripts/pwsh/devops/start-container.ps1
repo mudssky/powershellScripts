@@ -174,7 +174,8 @@ param (
         "rustfs", 
         "beszel", 
         "rustdesk", 
-        "gotify"
+        "gotify",
+        "sillytavern"
     )]
     [string]$ServiceName, # 更合理的参数名
     
