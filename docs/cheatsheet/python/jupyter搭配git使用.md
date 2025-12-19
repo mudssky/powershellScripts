@@ -176,13 +176,18 @@ repos:
 2. nb:check-sync 一致性检查（不修改文件），忽略元数据检查notebook和py文件是否匹配
 3. nb:hydrate 用于将 notebook_src 中的脚本同步回 notebooks 目录，保留元数据，适用于初次git clone ，只有py文件的情况
 
+可以在项目中创建 `.lab-config/overrides.json` 来固化jupyter lab配置
+
    ```json
    {
      "scripts": {
        "nb:clean": "nbstripout notebooks/**/*.ipynb",
        "nb:sync": "jupytext --sync notebooks/**/*.ipynb",
        "nb:check-sync": "jupytext --check notebooks/**/*.ipynb",
-        "nb:hydrate": "jupytext --sync src/**/*.py" 
+       "nb:hydrate": "jupytext --sync src/**/*.py",
+       "lab": "uv run --env JUPYTERLAB_SETTINGS_DIR=./lab-config jupyter lab",
+       "lab:remote": "uv run --env JUPYTERLAB_SETTINGS_DIR=./.lab-config jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root",
+       "lab:clean": "uv run jupyter lab clean",
      }
    }
    ```
