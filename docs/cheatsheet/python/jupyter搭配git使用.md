@@ -55,7 +55,7 @@ pip install nbstripout
 
 ```toml
 # jupytext.toml
-# 将 notebooks/ 目录下的 .ipynb 映射到 src/ 目录下的 .py
+# 将 notebooks/ 目录下的 .ipynb 映射到 notebook_src/ 目录下的 .py
 # 格式使用 "py:percent" (兼容各种 IDE 的标准脚本格式)
 default_jupytext_formats = "notebooks///ipynb,notebook_src///py:percent"
 ```
@@ -64,7 +64,7 @@ default_jupytext_formats = "notebooks///ipynb,notebook_src///py:percent"
 
 ```toml
 # jupytext.toml
-# 将 notebooks/ 目录下的 .ipynb 映射到 src/ 目录下的 .ts
+# 将 notebooks/ 目录下的 .ipynb 映射到 notebook_src/ 目录下的 .ts
 default_jupytext_formats = "notebooks///ipynb,notebook_src///ts:percent"
 ```
 
@@ -136,8 +136,8 @@ notebooks/*.ipynb
 notebooks/**/*.ipynb
 .ipynb_checkpoints/
 
-# 确保 src 被追踪
-!src/
+# 确保 notebook_src 被追踪
+!notebook_src/
 ```
 
 ### 流派二：图表保留派
@@ -165,6 +165,40 @@ repos:
         files: ^notebooks/
 ```
 
+**方案三：Node.js 生态整合 (Husky + lint-staged)**
+
+适用于前端/Deno 项目，利用 `package.json` 统一管理指令与 Hooks。
+
+1. **package.json scripts**
+
+   方便手动运行同步或检查：
+
+   ```json
+   {
+     "scripts": {
+       "sync": "jupytext --sync notebooks/**/*.ipynb",
+       "check-sync": "jupytext --check notebooks/**/*.ipynb"
+     }
+   }
+   ```
+
+2. **配置 lint-staged**
+
+   实现提交时自动同步脚本，确保 `ipynb` 与 `src` 代码一致。
+
+   ```json
+   // package.json
+   {
+     "lint-staged": {
+       "notebooks/**/*.ipynb": [
+         "jupytext --sync",
+         // 自动将生成的脚本文件加入本次提交
+         "git add notebook_src/"
+       ]
+     }
+   }
+   ```
+
 ---
 
 ## 6. 开发工作流总结
@@ -176,17 +210,17 @@ repos:
     * 使用 `import` 导入模块时，使用配置好的绝对路径（Python包名 或 Deno `@/`）。
 3. **保存**：
     * 按下 `Ctrl+S`。
-    * **Jupytext 自动触发**：瞬间更新 `src/xxx.py` (或 `.ts`)。
+    * **Jupytext 自动触发**：瞬间更新 `notebook_src/xxx.py` (或 `.ts`)。
 4. **提交 Git**：
-    * `git status` 会显示 `src/xxx.py` 有变更。
+    * `git status` 会显示 `notebook_src/xxx.py` 有变更。
     * `git diff` 查看清晰的代码改动。
-    * `git add src/` (如果采用流派二，同时也 add notebooks/)。
+    * `git add notebook_src/` (如果采用流派二，同时也 add notebooks/)。
     * `git commit`。
 
 ## 7. 常见问题 (FAQ)
 
 * **Q: 我已有现存的 .ipynb，如何应用此结构？**
-  * **A**: 将 ipynb 移动到 `notebooks/` 文件夹，运行一次 `jupytext --sync notebooks/my_old.ipynb`，它会根据配置文件在 `src/` 生成对应的脚本。
+  * **A**: 将 ipynb 移动到 `notebooks/` 文件夹，运行一次 `jupytext --sync notebooks/my_old.ipynb`，它会根据配置文件在 `notebook_src/` 生成对应的脚本。
 * **Q: 团队里其他人没有装 Jupytext 怎么办？**
-  * **A**: 如果他们只修改 `src/` 下的代码，没问题。如果他们修改 `notebooks/` 下的 ipynb 且保存了，但没有生成新的脚本，Git 就只会记录旧脚本。
+  * **A**: 如果他们只修改 `notebook_src/` 下的代码，没问题。如果他们修改 `notebooks/` 下的 ipynb 且保存了，但没有生成新的脚本，Git 就只会记录旧脚本。
   * **强制措施**：在 CI (GitHub Actions) 中运行检查，或者使用 pre-commit hook 强制检查同步状态（`jupytext --check notebooks/`）。
