@@ -1,177 +1,192 @@
-`.ipynb`（Jupyter Notebook）本质上是 **JSON** 格式的文件。直接用 Git 管理会有两大痛点：
-
-1. **Diff 难以阅读**：JSON 结构混乱，且包含大量元数据（Execution count, metadata）。
-2. **冲突难以解决**：多人修改同一个 Notebook 极易产生合并冲突，且合并后文件往往损坏（JSON 格式错误）。
-3. **仓库体积膨胀**：Notebook 中的图片和输出结果（base64 编码）会使 `.git` 文件夹迅速变大。
-
-以下是针对 Python 和 Deno (TypeScript/JavaScript) 的 **Git + ipynb 最佳实践方案**。
+这份文档整合了**目录分离（Directory Splitting）**策略，实现了 Git 仓库的整洁与高效管理。这是目前 Jupyter Notebook 工程化管理的**终极最佳实践**。
 
 ---
 
-### 核心策略：三选一 (或组合)
-
-根据团队需求，通常有三种流派：
-
-1. **极简派 (推荐)**：只保留代码，提交前**清除所有输出**。
-2. **同步派 (最佳实践)**：使用 **Jupytext** 双向同步，Git 只管理生成的 `.py` / `.ts` / `.md` 文件。
-3. **保留派**：必须保留输出，但使用工具优化 Diff 和 Merge。
+# Git + Jupyter Notebook (Python/Deno) 最佳实践指南 v2.0
+>
+> **核心理念：UI 与逻辑分离**
+>
+> * **Notebooks (`.ipynb`)**：作为交互界面、草稿本和可视化展示，统一收纳在独立目录。
+> * **Scripts (`.py` / `.ts`)**：作为逻辑核心，自动同步生成，用于 Git 版本控制、Code Review 和 CI/CD。
 
 ---
 
-### 方案一：自动化清除输出 (nbstripout)
+## 1. 理想的项目结构
 
-**适用场景**：你只需要版本控制代码，不关心运行结果。这是最通用的做法。
+采用**平行目录结构**，保持 `notebooks/` 和 `src/` (或 `scripts/`) 的层级镜像。
 
-#### 1. 安装工具
+```text
+my-project/
+├── .gitignore
+├── jupytext.toml          # 核心配置文件
+├── pyproject.toml         # (Python 项目配置)
+├── deno.json              # (Deno 项目配置 & Import Maps)
+├── notebooks/             # 【编辑区】在这里写代码、画图
+│   ├── analysis.ipynb
+│   └── experiments/
+│       └── deep_dive.ipynb
+└── notebook_src/                   # 【仓库区】自动生成的纯代码，用于提交
+    ├── analysis.py        # (或 .ts)
+    └── experiments/
+        └── deep_dive.py   # (或 .ts)
+```
 
-无论你是用 Python 还是 Deno kernel，都需要 Python 环境来安装这个工具（它是目前生态最成熟的）：
+---
+
+## 2. 环境准备
+
+无论使用 Python 还是 Deno Kernel，都需要 Python 环境来运行 Jupytext 工具。
 
 ```bash
+# 1. 安装核心同步工具
+pip install jupytext
+
+# 2. (可选) 安装清理工具 - 如果你决定要在 Git 中提交 .ipynb
 pip install nbstripout
 ```
 
-#### 2. 配置 Git Filter
+---
 
-在你的项目根目录下运行：
+## 3. 核心配置：Jupytext (自动分流)
 
-```bash
-nbstripout --install
+在项目根目录新建 `jupytext.toml`。使用 `///` 语法实现目录映射。
+
+### 场景 A：Python 项目
+
+```toml
+# jupytext.toml
+# 将 notebooks/ 目录下的 .ipynb 映射到 src/ 目录下的 .py
+# 格式使用 "py:percent" (兼容各种 IDE 的标准脚本格式)
+default_jupytext_formats = "notebooks///ipynb,notebook_src///py:percent"
 ```
 
-这会在 `.git/config` 中设置 filter。当你执行 `git add` 时，它会自动剔除 `.ipynb` 中的 output 和 execution count，但本地文件保持原样。
+### 场景 B：Deno (TypeScript) 项目
 
-* **优点**：Git 历史极其干净，Diff 清晰。
-* **缺点**：拉取代码后，Notebook 是空的（没有图表），需要重新运行。
+```toml
+# jupytext.toml
+# 将 notebooks/ 目录下的 .ipynb 映射到 src/ 目录下的 .ts
+default_jupytext_formats = "notebooks///ipynb,notebook_src///ts:percent"
+```
+
+> **生效方式**：配置完成后，每当你保存 `notebooks/test.ipynb`，Jupytext 会自动创建/更新 `notebook_src/test.py` (或 `.ts`)。
 
 ---
 
-### 方案二：使用 Jupytext 双向同步 (强烈推荐)
+## 4. 解决 Import 路径难题 (关键步骤)
 
-**适用场景**：需要进行 Code Review，或者希望能像普通脚本一样编辑 Notebook。这也是处理 **Deno** 的最佳方式。
+由于文件被分开了，**相对路径 (`../utils`) 极易失效**。必须使用**绝对路径映射**。
 
-**原理**：你编辑 `.ipynb`，保存时 Jupytext 自动生成一个对应的源码文件（`.py` 或 `.ts`）。你将源码文件加入 Git，而忽略（或 strip）`.ipynb`。
+### Python 方案：Editable Install
 
-#### 1. 安装
+将项目本身视为一个包。
 
-```bash
-pip install jupytext
-```
+1. 在根目录确保有 `setup.py` 或 `pyproject.toml`。
+2. 以开发者模式安装：
 
-#### 2. 配置同步 (Python)
-
-在 Notebook 目录下：
-
-```bash
-# 将 notebook.ipynb 与 notebook.py 建立双向绑定
-jupytext --set-formats ipynb,py:percent notebook.ipynb
-```
-
-此时会生成一个 `notebook.py`。
-
-* **Git 策略**：`git add notebook.py`，并在 `.gitignore` 中忽略 `*.ipynb`（或者结合方案一提交清除输出后的 ipynb）。
-
-#### 3. 配置同步 (Deno / TypeScript)
-
-Deno 用户通常在 Notebook 中写 TypeScript。Jupytext 支持 TS。
-
-```bash
-# 将 notebook.ipynb 与 notebook.ts 建立双向绑定
-jupytext --set-formats ipynb,ts:percent notebook.ipynb
-```
-
-生成的 `notebook.ts` 是纯文本代码，带有特殊注释（`# %%`）标记单元格。
-
-* **优势**：
-  * 可以使用 VS Code 的标准 Diff 工具查看变更。
-  * Deno 代码变成了标准的 `.ts` 文件，可以被其他 Deno 脚本 import 或 lint。
-
----
-
-### 方案三：更好的 Diff 工具 (nbdime)
-
-**适用场景**：你必须提交输出结果（例如教学课件、数据分析报告），但深受冲突之苦。
-
-#### 1. 安装与配置
-
-```bash
-pip install nbdime
-nbdime config-git --enable --global
-```
-
-#### 2. 使用效果
-
-* `git diff` 会自动调用 `nbdiff`，以网页或友好的终端形式展示 Notebook 的差异（图片差异也能看）。
-* `git merge` 会自动调用 `nbmerge`，智能处理 JSON 结构的合并。
-
----
-
-### 针对不同语言的具体配置总结
-
-#### Python 环境最佳实践
-
-1. **项目根目录配置 `.pre-commit-config.yaml`** (团队协作神器)：
-    如果你在团队中，不要依赖每个人手动配置 `nbstripout`，使用 `pre-commit` 钩子：
-
-    ```yaml
-    repos:
-    -   repo: https://github.com/kynan/nbstripout
-        rev: 0.6.1
-        hooks:
-        -   id: nbstripout
+    ```bash
+    pip install -e .
     ```
 
-2. **结合 Jupytext**：
-    将 Notebook 保存为 `py:percent` 格式，Git 仅追踪 `.py` 文件，Diff 阅读体验极佳。
+3. **在 Notebook 中引用**：
 
-#### Deno (TypeScript/JavaScript) 环境最佳实践
-
-Deno 用户面临的主要问题是生态工具多基于 Python。即使你用 Deno Kernel，也建议安装一个 Python 虚拟环境来辅助 Git 管理。
-
-1. **环境准备**：
-    确保安装了 `pip install jupytext nbstripout`。
-
-2. **Jupytext 配置 (关键)**：
-    在项目根目录创建 `jupytext.toml` 配置文件，全局设定映射规则：
-
-    ```toml
-    # jupytext.toml
-    # 默认将所有 ipynb 关联为 typescript script
-    default_jupytext_formats = "ipynb,ts:percent"
+    ```python
+    # 不要用 from ..src import utils
+    # 使用绝对包名 (无论 notebook 在哪一层都有效)
+    from my_project.utils import helper
     ```
 
-3. **Git 忽略规则 (.gitignore)**：
-    如果你决定完全通过 Jupytext 管理，可以忽略 ipynb：
+### Deno 方案：Import Maps
 
-    ```text
-    # .gitignore
-    *.ipynb
-    .ipynb_checkpoints/
+利用 `deno.json` 定义路径别名。
+
+1. 编辑根目录 `deno.json`：
+
+    ```json
+    {
+      "imports": {
+        "@/": "./src/"
+      }
+    }
     ```
 
-    或者，如果你想保留 ipynb 作为入口，但在 Git 中保持干净：
-    * 配置 `nbstripout` (见方案一)。
-    * 提交 `your_script.ts` (由 Jupytext 生成) 用于 Review。
-    * 提交 `your_script.ipynb` (已清除输出) 用于在该环境直接运行。
+2. **在 Notebook 中引用**：
+
+    ```typescript
+    // 无论文件被同步到哪里，@/ 永远指向 src/
+    import { helper } from "@/utils.ts";
+    ```
 
 ---
 
-### 终极建议流程图
+## 5. Git 策略配置 (.gitignore)
 
-**场景 A：个人开发 / 必须保留图表输出**
-> 使用 **nbdime**。
-> `git diff` 变得可视化，不再痛苦。
+根据团队需求，有两种流派：
 
-**场景 B：团队协作 / 工程化项目 (Python & Deno)**
->
-> 1. 安装 **nbstripout** (通过 pre-commit 钩子强制执行)。
-> 2. 安装 **Jupytext**。
-> 3. **Python**: 生成 `.py` 对应文件。
-> 4. **Deno**: 生成 `.ts` 对应文件。
-> 5. **Git**: 提交 `.py/.ts` (用于看 diff 和 review) + 提交 `.ipynb` (必须是 stripped 过的，仅作为启动入口)。
+### 流派一：代码纯净派 (推荐)
 
-### 现代 IDE 的原生支持 (VS Code)
+**只提交生成的脚本，完全忽略 Notebook。**
 
-如果你使用 VS Code，现在它已经内置了很好的 Notebook Diff 支持。
+* **优点**：仓库极小，Diff 完美，彻底杜绝冲突。
+* **缺点**：GitHub 上无法直接预览图表（需拉取代码后在本地运行）。
 
-* 在 Source Control 面板点击修改过的 `.ipynb` 文件，VS Code 会打开一个专门的 **Rich Diff Editor**，左边是旧版，右边是新版，能清晰看到代码块和输出的变化。
-* **注意**：这只解决了“看”的问题，没解决“仓库体积”和“合并冲突”的问题。所以 **nbstripout 依然是必须的**。
+```text
+# .gitignore
+# 忽略所有 notebook
+notebooks/*.ipynb
+notebooks/**/*.ipynb
+.ipynb_checkpoints/
+
+# 确保 src 被追踪
+!src/
+```
+
+### 流派二：图表保留派
+
+**同时提交脚本和 Notebook（但清除 Notebook 的元数据）。**
+
+* **优点**：GitHub 可预览 Notebook 内容。
+* **工具**：必须配置 `nbstripout` 防止冲突。
+
+```text
+# .gitignore
+.ipynb_checkpoints/
+```
+
+**配置自动化清理 (pre-commit)**：
+在根目录 `.pre-commit-config.yaml`：
+
+```yaml
+repos:
+-   repo: https://github.com/kynan/nbstripout
+    rev: 0.6.1
+    hooks:
+    -   id: nbstripout
+        # 仅针对 notebooks 目录下的文件
+        files: ^notebooks/
+```
+
+---
+
+## 6. 开发工作流总结
+
+1. **打开编辑器**：
+    * 在 VS Code / Jupyter Lab 中打开 `notebooks/xxx.ipynb`。
+2. **编写与运行**：
+    * 像平常一样交互式运行代码、查看图表。
+    * 使用 `import` 导入模块时，使用配置好的绝对路径（Python包名 或 Deno `@/`）。
+3. **保存**：
+    * 按下 `Ctrl+S`。
+    * **Jupytext 自动触发**：瞬间更新 `src/xxx.py` (或 `.ts`)。
+4. **提交 Git**：
+    * `git status` 会显示 `src/xxx.py` 有变更。
+    * `git diff` 查看清晰的代码改动。
+    * `git add src/` (如果采用流派二，同时也 add notebooks/)。
+    * `git commit`。
+
+## 7. 常见问题 (FAQ)
+
+* **Q: 我已有现存的 .ipynb，如何应用此结构？**
+  * **A**: 将 ipynb 移动到 `notebooks/` 文件夹，运行一次 `jupytext --sync notebooks/my_old.ipynb`，它会根据配置文件在 `src/` 生成对应的脚本。
+* **Q: 团队里其他人没有装 Jupytext 怎么办？**
+  * **A**: 如果他们只修改 `src/` 下的代码，没问题。如果他们修改 `notebooks/` 下的 ipynb 且保存了，但没有生成新的脚本，Git 就只会记录旧脚本。
+  * **强制措施**：在 CI (GitHub Actions) 中运行检查，或者使用 pre-commit hook 强制检查同步状态（`jupytext --check notebooks/`）。
