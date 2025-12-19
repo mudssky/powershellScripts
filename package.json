@@ -12,7 +12,9 @@
     "pwsh:install": "pwsh -File ./install.ps1",
     "test": "pwsh -Command \"Invoke-Pester -Configuration ( ./PesterConfiguration.ps1 )\"",
     "test:detailed": "pwsh -Command \"Invoke-Pester -Output Detailed\"",
-    "scripts:install": "pwsh  -File ./install.ps1"
+    "scripts:install": "pwsh  -File ./install.ps1",
+    "scoop:update": "scoop update -a",
+    "choco:update": "choco upgrade all -y"
   },
   "keywords": [],
   "author": "",
