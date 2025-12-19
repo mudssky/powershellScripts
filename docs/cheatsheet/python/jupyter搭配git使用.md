@@ -172,25 +172,31 @@ repos:
 1. **package.json scripts**
 
    方便手动运行同步或检查：
+1. nb:sync 用于双向同步，比较时间戳，更新旧的一方
+2. nb:check-sync 一致性检查（不修改文件），忽略元数据检查notebook和py文件是否匹配
+3. nb:hydrate 用于将 notebook_src 中的脚本同步回 notebooks 目录，保留元数据，适用于初次git clone ，只有py文件的情况
 
    ```json
    {
      "scripts": {
-       "sync": "jupytext --sync notebooks/**/*.ipynb",
-       "check-sync": "jupytext --check notebooks/**/*.ipynb"
+       "nb:clean": "nbstripout notebooks/**/*.ipynb",
+       "nb:sync": "jupytext --sync notebooks/**/*.ipynb",
+       "nb:check-sync": "jupytext --check notebooks/**/*.ipynb",
+        "nb:hydrate": "jupytext --sync src/**/*.py" 
      }
    }
    ```
 
-2. **配置 lint-staged**
+4. **配置 lint-staged**
 
-   实现提交时自动同步脚本，确保 `ipynb` 与 `src` 代码一致。
+   实现提交时自动同步脚本，确保 `ipynb` 与 `src` 代码一致。如果需要保留 Notebook 但清除输出（流派二），可增加 `nbstripout`。
 
    ```json
    // package.json
    {
      "lint-staged": {
        "notebooks/**/*.ipynb": [
+         "nbstripout",
          "jupytext --sync",
          // 自动将生成的脚本文件加入本次提交
          "git add notebook_src/"
