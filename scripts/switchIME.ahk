@@ -68,42 +68,42 @@ switchIMEThread(){
     GroupAdd "enAppGroup", "ahk_exe Code.exe" ;添加 vscode
     GroupAdd "enAppGroup", "ahk_exe WindowsTerminal.exe" ;添加windows terminal
 
-    ; 新版，用shift切换中英文模式，不需要安装另外的输入法
-    Loop{
-        try{
-            WWAhwnd := WinWaitActive("ahk_group enAppGroup")
-        }catch as e{
+    ; 启动定时器，每200ms检查一次窗口状态，替代死循环
+    SetTimer CheckIMEStatus, 200
+}
 
-            ; TrayTip "switchIME winwaitactive error:" e.Message
-            Sleep(1000)
-            continue
-        }
-        if(WWAhwnd ==0 ){
-            continue
-        }else{
-            try{
-                currentWinTitle:=WinGetTitle(WWAhwnd)
-                ; 排除用vscode等软件编辑markdown的情况,编辑markdown的时候大部分地方使用中文
-                if (!RegExMatch(currentWinTitle,"\.md")){
-                    ; 在en组app里，如果是中文模式切换成英文
-                    if (!isEnglishMode()){
-                        send "{Shift}"
-                    }
-                }
-                ; 从当且窗口切出，进行下一轮监视
-                ; try catch 避免因为突然关闭程序造成winwaitnotactive失效
+CheckIMEStatus() {
+    static lastWasInGroup := false
+    
+    try {
+        hWnd := WinActive("A")
+        if (!hWnd)
+            return
 
-                WinWaitNotActive(WWAhwnd)
-                ; 切出en组app需要切回中文。
-                if(isEnglishMode()){
-                    send "{Shift}"
+        ; 检查当前窗口是否在英文应用组中
+        isInGroup := WinActive("ahk_group enAppGroup")
+
+        if (isInGroup) {
+            currentWinTitle := WinGetTitle(hWnd)
+            ; 排除用vscode等软件编辑markdown的情况,编辑markdown的时候大部分地方使用中文
+            if (!RegExMatch(currentWinTitle, "\.md")) {
+                ; 在en组app里，如果是中文模式切换成英文
+                if (!isEnglishMode()) {
+                    Send "{Shift}"
                 }
             }
-            catch as e{
-                Sleep(1000)
-                continue
+            lastWasInGroup := true
+        } else {
+            ; 如果刚才在英文组，现在切出来了，且是英文模式，则切回中文
+            if (lastWasInGroup) {
+                if (isEnglishMode()) {
+                    Send "{Shift}"
+                }
+                lastWasInGroup := false
             }
         }
+    } catch as e {
+        ; 忽略窗口切换过程中的瞬时错误
     }
 }
 
