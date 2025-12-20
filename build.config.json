@@ -4,7 +4,8 @@
     "basePath": "./base.ahk",
     "outputPath": "./myAllScripts.ahk",
     "encoding": "UTF8",
-    "useInclude": true
+    "useInclude": true,
+    "exclude": []
   },
   "shortcuts": {
     "createShortcut": true,

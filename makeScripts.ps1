@@ -1,40 +1,40 @@
 #requires -version 5.0
 <#
 .SYNOPSIS
-    AutoHotkey 脚本构建和部署工具
+    AutoHotkey script build and deployment tool
 
 .DESCRIPTION
-    将 scripts 目录下的所有 AutoHotkey 脚本合并为单个脚本文件，
-    并可选择性地创建启动快捷方式以实现开机自启动。
+    Merges all AutoHotkey scripts in the scripts directory into a single script file,
+    and optionally creates a startup shortcut for auto-start.
 
 .PARAMETER ScriptName
-    输出的脚本文件名，默认为 'myAllScripts.ahk'
+    Output script filename, default is 'myAllScripts.ahk'
 
 .PARAMETER StartUpFolder
-    启动文件夹路径，如果不指定则使用用户启动目录
+    Startup folder path, uses user startup directory if not specified
 
 .PARAMETER ConcatNotInclude
-    使用完整拼接模式而非 #include 模式
+    Use full concatenation mode instead of #include mode
 
 .PARAMETER UseUserStartup
-    使用用户启动目录而非系统启动目录（推荐）
+    Use user startup directory instead of system startup directory (Recommended)
 
 .PARAMETER Force
-    强制覆盖现有文件
+    Force overwrite existing files
 
 .PARAMETER NoAutoStart
-    不自动启动生成的脚本
+    Do not automatically start the generated script
 
 .PARAMETER Verbose
-    显示详细输出信息
+    Show detailed output information
 
 .EXAMPLE
     .\makeScripts.ps1
-    使用默认设置构建脚本
+    Build script using default settings
 
 .EXAMPLE
     .\makeScripts.ps1 -ScriptName "MyCustomScript.ahk" -UseUserStartup -Verbose
-    自定义脚本名并使用用户启动目录
+    Custom script name and use user startup directory
 #>
 
 param(
@@ -50,9 +50,9 @@ param(
     [switch]$NoAutoStart,
     [switch]$Verbose
 )
-# ==================== 配置管理 ====================
+# ==================== Configuration Management ====================
 
-# 加载配置文件
+# Load Configuration
 function Get-BuildConfiguration {
     param([string]$ConfigPath = "./build.config.json")
     
@@ -60,21 +60,21 @@ function Get-BuildConfiguration {
         if (Test-Path $ConfigPath) {
             $configContent = Get-Content -Path $ConfigPath -Raw -Encoding UTF8
             $config = $configContent | ConvertFrom-Json
-            Write-BuildLog "配置文件已加载: $ConfigPath" "Info"
+            Write-BuildLog "Configuration loaded: $ConfigPath" "Info"
             return $config
         }
         else {
-            Write-BuildLog "配置文件不存在，使用默认设置: $ConfigPath" "Warning"
+            Write-BuildLog "Configuration not found, using defaults: $ConfigPath" "Warning"
             return $null
         }
     }
     catch {
-        Write-BuildLog "加载配置文件失败: $($_.Exception.Message)" "Error"
+        Write-BuildLog "Failed to load configuration: $($_.Exception.Message)" "Error"
         return $null
     }
 }
 
-# 合并配置和参数
+# Merge Configuration and Parameters
 function Merge-Configuration {
     param(
         [object]$Config,
@@ -85,20 +85,21 @@ function Merge-Configuration {
         return $Parameters
     }
     
-    # 从配置文件中读取默认值，如果参数未指定则使用配置文件的值
+    # Read defaults from config, use parameter if specified
     $merged = @{}
     
-    # 构建设置
+    # Build Settings
     $merged.ScriptsPath = if ($Parameters.ContainsKey('ScriptsPath')) { $Parameters.ScriptsPath } else { $Config.build.scriptsPath }
     $merged.BasePath = if ($Parameters.ContainsKey('BasePath')) { $Parameters.BasePath } else { $Config.build.basePath }
     $merged.OutputPath = if ($Parameters.ContainsKey('OutputPath')) { $Parameters.OutputPath } else { $Config.build.outputPath }
     $merged.UseInclude = if ($Parameters.ContainsKey('ConcatNotInclude')) { -not $Parameters.ConcatNotInclude } else { $Config.build.useInclude }
+    $merged.Exclude = if ($Parameters.ContainsKey('Exclude')) { $Parameters.Exclude } else { $Config.build.exclude }
     
-    # 快捷方式设置
+    # Shortcut Settings
     $merged.CreateShortcut = if ($Parameters.ContainsKey('CreateShortcut')) { $Parameters.CreateShortcut } else { $Config.shortcuts.createShortcut }
     $merged.UseUserStartup = if ($Parameters.ContainsKey('UseUserStartup')) { $Parameters.UseUserStartup } else { $Config.shortcuts.useUserStartup }
     
-    # 执行设置
+    # Execution Settings
     $merged.AutoStart = if ($Parameters.ContainsKey('NoAutoStart')) { -not $Parameters.NoAutoStart } else { $Config.execution.autoStart }
     $merged.Force = if ($Parameters.ContainsKey('Force')) { $Parameters.Force } else { $Config.execution.force }
     $merged.Verbose = if ($Parameters.ContainsKey('Verbose')) { $Parameters.Verbose } else { $Config.execution.verbose }
@@ -106,16 +107,16 @@ function Merge-Configuration {
     return $merged
 }
 
-# ==================== 辅助函数 ====================
+# ==================== Helper Functions ====================
 
-# 检查管理员权限
+# Check Administrator Privileges
 function Test-Administrator {
     $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
     $principal = New-Object Security.Principal.WindowsPrincipal($currentUser)
     return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
-# 写入构建日志
+# Write Build Log
 function Write-BuildLog {
     param(
         [string]$Message,
@@ -132,24 +133,24 @@ function Write-BuildLog {
     
     switch ($Level) {
         "Error" { 
-            Write-Host "✗ $Message" -ForegroundColor Red
+            Write-Host "X $Message" -ForegroundColor Red
             Write-Error $Message
         }
         "Warning" { 
-            Write-Host "⚠ $Message" -ForegroundColor Yellow
+            Write-Host "! $Message" -ForegroundColor Yellow
         }
         "Success" { 
-            Write-Host "✓ $Message" -ForegroundColor Green
+            Write-Host "V $Message" -ForegroundColor Green
         }
         default { 
             if ($Verbose) {
-                Write-Host "ℹ $Message" -ForegroundColor Cyan
+                Write-Host "i $Message" -ForegroundColor Cyan
             }
         }
     }
 }
 
-# 创建快捷方式
+# Create Shortcut
 function New-Shortcut {
     param(
         [string]$ShortcutPath,
@@ -161,42 +162,42 @@ function New-Shortcut {
         $shortcut = $shell.CreateShortcut($ShortcutPath)
         $shortcut.TargetPath = $TargetPath
         $shortcut.WorkingDirectory = Split-Path $TargetPath -Parent
-        $shortcut.Description = "AutoHotkey 自动启动脚本"
+        $shortcut.Description = "AutoHotkey Auto-Start Script"
         $shortcut.Save()
         
-        # 释放 COM 对象
+        # Release COM Object
         [System.Runtime.Interopservices.Marshal]::ReleaseComObject($shell) | Out-Null
         
-        Write-BuildLog "快捷方式创建成功: $ShortcutPath" "Success"
+        Write-BuildLog "Shortcut created: $ShortcutPath" "Success"
         return $true
     }
     catch {
-        Write-BuildLog "创建快捷方式失败: $($_.Exception.Message)" "Error"
+        Write-BuildLog "Failed to create shortcut: $($_.Exception.Message)" "Error"
         return $false
     }
 }
 
-# 验证 AutoHotkey 安装
+# Verify AutoHotkey Installation
 function Test-AutoHotkeyInstalled {
     $ahkCommand = Get-Command "AutoHotkey.exe" -ErrorAction SilentlyContinue
     if ($ahkCommand) {
         try {
             $version = & $ahkCommand.Source "--version" 2>$null
             if ($version -match "v2\.") {
-                Write-BuildLog "检测到 AutoHotkey 2.0: $version" "Success"
+                Write-BuildLog "AutoHotkey 2.0 detected: $version" "Success"
                 return $true
             }
         }
         catch {
-            # 忽略版本检查错误
+            # Ignore version check errors
         }
     }
     
-    Write-BuildLog "未检测到 AutoHotkey 2.0，请先运行 install-autohotkey.ps1" "Warning"
+    Write-BuildLog "AutoHotkey 2.0 not detected. Please run install-autohotkey.ps1 first" "Warning"
     return $false
 }
 
-# 获取启动文件夹路径
+# Get Startup Folder Path
 function Get-StartupFolderPath {
     if ($StartUpFolder) {
         return $StartUpFolder
@@ -206,38 +207,44 @@ function Get-StartupFolderPath {
         return "$Env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup"
     }
     else {
-        # 检查是否有管理员权限
+        # Check for admin privileges
         if (-not (Test-Administrator)) {
-            Write-BuildLog "写入系统启动目录需要管理员权限，切换到用户启动目录" "Warning"
+            Write-BuildLog "Admin privileges required for system startup. Switching to user startup." "Warning"
             return "$Env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup"
         }
         return "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp"
     }
 }
-# ==================== 主要构建逻辑 ====================
+# ==================== Main Build Logic ====================
 
-# 获取 AHK 脚本文件
+# Get AHK Scripts
 function Get-AhkScripts {
-    param([string]$ScriptsPath = "./Scripts")
+    param(
+        [string]$ScriptsPath = "./Scripts",
+        [array]$ExcludeList = @()
+    )
     
     try {
         if (-not (Test-Path $ScriptsPath)) {
-            Write-BuildLog "脚本目录不存在: $ScriptsPath" "Error"
+            Write-BuildLog "Scripts directory not found: $ScriptsPath" "Error"
             return @()
         }
         
-        $scripts = Get-ChildItem -Recurse -Path $ScriptsPath -Filter "*.ahk" -ErrorAction Stop | Sort-Object Name
-        Write-BuildLog "找到 $($scripts.Count) 个 AHK 脚本文件" "Info"
+        $scripts = Get-ChildItem -Recurse -Path $ScriptsPath -Filter "*.ahk" -ErrorAction Stop | 
+        Where-Object { $ExcludeList -notcontains $_.Name } |
+        Sort-Object Name
+                   
+        Write-BuildLog "Found $($scripts.Count) AHK script files (Excluded: $($ExcludeList -join ', '))" "Info"
         
         return $scripts
     }
     catch {
-        Write-BuildLog "获取脚本文件失败: $($_.Exception.Message)" "Error"
+        Write-BuildLog "Failed to get script files: $($_.Exception.Message)" "Error"
         return @()
     }
 }
 
-# 构建脚本内容
+# Build Script Content
 function Build-AhkScript {
     param(
         [array]$Scripts,
@@ -252,98 +259,105 @@ function Build-AhkScript {
             $processedCount++
             
             if ($Verbose) {
-                Write-Progress -Activity "构建 AHK 脚本" -Status "处理: $($script.Name)" -PercentComplete (($processedCount / $Scripts.Count) * 100)
+                Write-Progress -Activity "Building AHK Script" -Status "Processing: $($script.Name)" -PercentComplete (($processedCount / $Scripts.Count) * 100)
             }
             
             if ($UseInclude) {
-                # 使用 #include 模式
+                # Use #include mode
                 $includeString += "#include `"$($script.FullName)`"`n"
-                Write-BuildLog "添加包含: $($script.Name)" "Info"
+                Write-BuildLog "Added include: $($script.Name)" "Info"
             }
             else {
-                # 使用完整拼接模式
+                # Use concatenation mode
                 $ahkContent = Get-Content -Path $script.FullName -Raw -Encoding UTF8
                 if ($ahkContent) {
                     $includeString += "; ==================== $($script.Name) ====================`n"
                     $includeString += $ahkContent + "`n`n"
-                    Write-BuildLog "拼接内容: $($script.Name)" "Info"
+                    Write-BuildLog "Concatenated content: $($script.Name)" "Info"
                 }
             }
         }
         catch {
-            Write-BuildLog "处理脚本文件失败 $($script.Name): $($_.Exception.Message)" "Warning"
+            Write-BuildLog "Failed to process script file $($script.Name): $($_.Exception.Message)" "Warning"
             continue
         }
     }
     
     if ($Verbose) {
-        Write-Progress -Activity "构建 AHK 脚本" -Completed
+        Write-Progress -Activity "Building AHK Script" -Completed
     }
     
     return $includeString
 }
 
-# 主构建函数
+# Invoke Script Build
 function Invoke-ScriptBuild {
-    Write-BuildLog "开始构建 AutoHotkey 脚本" "Info"
+    param(
+        [string]$OutputName,
+        [bool]$Force,
+        [bool]$UseInclude,
+        [array]$ExcludeList = @()
+    )
+
+    Write-BuildLog "Starting AutoHotkey Script Build" "Info"
     
-    # 检查 AutoHotkey 安装
+    # Check AutoHotkey Installation
     Test-AutoHotkeyInstalled | Out-Null
     
-    # 检查输出文件是否存在
-    if ((Test-Path $ScriptName) -and (-not $Force)) {
-        $response = Read-Host "文件 '$ScriptName' 已存在，是否覆盖? (y/N)"
+    # Check if output file exists
+    if ((Test-Path $OutputName) -and (-not $Force)) {
+        $response = Read-Host "File '$OutputName' already exists. Overwrite? (y/N)"
         if ($response -ne 'y' -and $response -ne 'Y') {
-            Write-BuildLog "构建已取消" "Warning"
+            Write-BuildLog "Build cancelled" "Warning"
             return $false
         }
     }
     
-    # 获取脚本文件
-    $scripts = Get-AhkScripts
+    # Get Script Files
+    $scripts = Get-AhkScripts -ExcludeList $ExcludeList
     if ($scripts.Count -eq 0) {
-        Write-BuildLog "未找到任何 AHK 脚本文件" "Error"
+        Write-BuildLog "No AHK script files found" "Error"
         return $false
     }
     
-    # 读取基础脚本
+    # Read Base Script
     try {
         if (Test-Path ".\base.ahk") {
             $baseContent = Get-Content ".\base.ahk" -Raw -Encoding UTF8
-            Write-BuildLog "加载基础脚本: base.ahk" "Info"
+            Write-BuildLog "Loaded base script: base.ahk" "Info"
         }
         else {
-            $baseContent = "; AutoHotkey 2.0 自动生成脚本`n; 生成时间: $(Get-Date)`n`n"
-            Write-BuildLog "未找到 base.ahk，使用默认头部" "Warning"
+            $baseContent = "; AutoHotkey 2.0 Auto-Generated Script`n; Generated at: $(Get-Date)`n`n"
+            Write-BuildLog "base.ahk not found, using default header" "Warning"
         }
     }
     catch {
-        Write-BuildLog "读取基础脚本失败: $($_.Exception.Message)" "Error"
+        Write-BuildLog "Failed to read base script: $($_.Exception.Message)" "Error"
         return $false
     }
     
-    # 构建脚本内容
-    $includeContent = Build-AhkScript -Scripts $scripts -UseInclude (-not $ConcatNotInclude)
+    # Build Script Content
+    $includeContent = Build-AhkScript -Scripts $scripts -UseInclude $UseInclude
     $finalContent = $baseContent + "`n" + $includeContent
     
-    # 写入输出文件
+    # Write Output File
     try {
-        Out-File -InputObject $finalContent -Encoding UTF8 -FilePath $ScriptName -ErrorAction Stop
-        Write-BuildLog "脚本构建成功: $ScriptName" "Success"
+        Out-File -InputObject $finalContent -Encoding UTF8 -FilePath $OutputName -ErrorAction Stop
+        Write-BuildLog "Script built successfully: $OutputName" "Success"
         return $true
     }
     catch {
-        Write-BuildLog "写入输出文件失败: $($_.Exception.Message)" "Error"
+        Write-BuildLog "Failed to write output file: $($_.Exception.Message)" "Error"
         return $false
     }
 } 
 
-# ==================== 主执行逻辑 ====================
+# ==================== Main Execution Logic ====================
 
-# 加载配置文件
+# Load Configuration
 $config = Get-BuildConfiguration
 
-# 合并配置和命令行参数
+# Merge Configuration and Parameters
 $currentParams = @{
     ScriptName       = $ScriptName
     ConcatNotInclude = $ConcatNotInclude
@@ -356,7 +370,7 @@ $currentParams = @{
 
 $mergedConfig = Merge-Configuration -Config $config -Parameters $currentParams
 
-# 应用合并后的配置
+# Apply Merged Configuration
 if ($config) {
     $script:ScriptName = $mergedConfig.OutputPath
     $script:ConcatNotInclude = -not $mergedConfig.UseInclude
@@ -368,66 +382,66 @@ if ($config) {
 }
 
 try {
-    Write-BuildLog "=== AutoHotkey 脚本构建工具 ===" "Info"
-    Write-BuildLog "输出文件: $ScriptName" "Info"
-    Write-BuildLog "使用包含模式: $(-not $ConcatNotInclude)" "Info"
+    Write-BuildLog "=== AutoHotkey Script Builder ===" "Info"
+    Write-BuildLog "Output File: $ScriptName" "Info"
+    Write-BuildLog "Use Include Mode: $(-not $ConcatNotInclude)" "Info"
     
-    # 执行构建
-    $buildSuccess = Invoke-ScriptBuild -OutputName $ScriptName -Force $script:Force -UseInclude (-not $ConcatNotInclude)
+    # Execute Build
+    $buildSuccess = Invoke-ScriptBuild -OutputName $ScriptName -Force $script:Force -UseInclude (-not $ConcatNotInclude) -ExcludeList $mergedConfig.Exclude
     
     if (-not $buildSuccess) {
-        Write-BuildLog "脚本构建失败，退出" "Error"
+        Write-BuildLog "Build failed, exiting" "Error"
         exit 1
     }
     
-    # 获取启动文件夹路径
+    # Get Startup Folder Path
     $startupPath = Get-StartupFolderPath
     if (-not $startupPath) {
-        Write-BuildLog "无法确定启动文件夹路径" "Error"
+        Write-BuildLog "Could not determine startup folder path" "Error"
         exit 1
     }
     
-    # 创建快捷方式
+    # Create Shortcut
     if ($CreateShortcut) {
         $linkName = [System.IO.Path]::GetFileNameWithoutExtension($ScriptName) + ".lnk"
         $linkPath = Join-Path -Path $startupPath -ChildPath $linkName
          
         if ((Test-Path -Path $linkPath) -and (-not $Force)) {
-            Write-BuildLog "快捷方式已存在: $linkPath" "Info"
+            Write-BuildLog "Shortcut already exists: $linkPath" "Info"
         }
         else {
             $shortcutSuccess = New-Shortcut -LinkPath $linkPath -TargetPath (Resolve-Path $ScriptName).Path
              
             if ($shortcutSuccess) {
-                Write-BuildLog "快捷方式已创建: $linkPath" "Success"
+                Write-BuildLog "Shortcut created: $linkPath" "Success"
             }
             else {
-                Write-BuildLog "快捷方式创建失败" "Warning"
+                Write-BuildLog "Failed to create shortcut" "Warning"
             }
         }
     }
     
-    # 自动启动脚本
+    # Auto-Start Script
     if (-not $NoAutoStart) {
         try {
-            Write-BuildLog "启动 AutoHotkey 脚本..." "Info"
+            Write-BuildLog "Starting AutoHotkey Script..." "Info"
             Start-Process -FilePath $ScriptName -ErrorAction Stop
-            Write-BuildLog "脚本已启动: $ScriptName" "Success"
+            Write-BuildLog "Script started: $ScriptName" "Success"
         }
         catch {
-            Write-BuildLog "启动脚本失败: $($_.Exception.Message)" "Error"
+            Write-BuildLog "Failed to start script: $($_.Exception.Message)" "Error"
         }
     }
     
-    Write-BuildLog "所有操作完成" "Success"
+    Write-BuildLog "All operations completed" "Success"
 }
 catch {
-    Write-BuildLog "执行过程中发生错误: $($_.Exception.Message)" "Error"
+    Write-BuildLog "Error occurred during execution: $($_.Exception.Message)" "Error"
     exit 1
 }
 finally {
-    # 清理临时文件或资源
+    # Cleanup
     if ($Verbose) {
-        Write-BuildLog "清理完成" "Info"
+        Write-BuildLog "Cleanup completed" "Info"
     }
 }
