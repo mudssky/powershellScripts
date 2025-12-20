@@ -152,22 +152,22 @@ function Write-BuildLog {
 # 创建快捷方式
 function New-Shortcut {
     param(
-        [string]$TargetPath,
-        [string]$SourcePath
+        [string]$ShortcutPath,
+        [string]$TargetPath
     )
     
     try {
         $shell = New-Object -ComObject WScript.Shell
-        $shortcut = $shell.CreateShortcut($TargetPath)
-        $shortcut.TargetPath = $SourcePath
-        $shortcut.WorkingDirectory = Split-Path $SourcePath -Parent
+        $shortcut = $shell.CreateShortcut($ShortcutPath)
+        $shortcut.TargetPath = $TargetPath
+        $shortcut.WorkingDirectory = Split-Path $TargetPath -Parent
         $shortcut.Description = "AutoHotkey 自动启动脚本"
         $shortcut.Save()
         
         # 释放 COM 对象
         [System.Runtime.Interopservices.Marshal]::ReleaseComObject($shell) | Out-Null
         
-        Write-BuildLog "快捷方式创建成功: $TargetPath" "Success"
+        Write-BuildLog "快捷方式创建成功: $ShortcutPath" "Success"
         return $true
     }
     catch {
@@ -226,7 +226,7 @@ function Get-AhkScripts {
             return @()
         }
         
-        $scripts = Get-ChildItem -Recurse -Path $ScriptsPath -Filter "*.ahk" -ErrorAction Stop
+        $scripts = Get-ChildItem -Recurse -Path $ScriptsPath -Filter "*.ahk" -ErrorAction Stop | Sort-Object Name
         Write-BuildLog "找到 $($scripts.Count) 个 AHK 脚本文件" "Info"
         
         return $scripts
@@ -373,7 +373,7 @@ try {
     Write-BuildLog "使用包含模式: $(-not $ConcatNotInclude)" "Info"
     
     # 执行构建
-    $buildSuccess = Invoke-ScriptBuild
+    $buildSuccess = Invoke-ScriptBuild -OutputName $ScriptName -Force $script:Force -UseInclude (-not $ConcatNotInclude)
     
     if (-not $buildSuccess) {
         Write-BuildLog "脚本构建失败，退出" "Error"
