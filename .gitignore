@@ -8,6 +8,7 @@ azurlane/
 ignore/
 secrets.ahk
 myAllScripts.ahk
+build.config.local.json
 # Logs
 logs
 *.log

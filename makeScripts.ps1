@@ -54,19 +54,53 @@ param(
 
 # Load Configuration
 function Get-BuildConfiguration {
-    param([string]$ConfigPath = "./build.config.json")
+    param(
+        [string]$ConfigPath = "./build.config.json",
+        [string]$LocalConfigPath = "./build.config.local.json"
+    )
     
     try {
+        $finalConfig = $null
+        
+        # Load Base Configuration
         if (Test-Path $ConfigPath) {
             $configContent = Get-Content -Path $ConfigPath -Raw -Encoding UTF8
-            $config = $configContent | ConvertFrom-Json
-            Write-BuildLog "Configuration loaded: $ConfigPath" "Info"
-            return $config
+            $finalConfig = $configContent | ConvertFrom-Json
+            Write-BuildLog "Base configuration loaded: $ConfigPath" "Info"
         }
-        else {
-            Write-BuildLog "Configuration not found, using defaults: $ConfigPath" "Warning"
-            return $null
+        
+        # Load Local Configuration (Priority)
+        if (Test-Path $LocalConfigPath) {
+            $localContent = Get-Content -Path $LocalConfigPath -Raw -Encoding UTF8
+            $localConfig = $localContent | ConvertFrom-Json
+            Write-BuildLog "Local configuration loaded: $LocalConfigPath (Priority)" "Info"
+            
+            if ($null -eq $finalConfig) {
+                $finalConfig = $localConfig
+            }
+            else {
+                # Merge local config into base config
+                foreach ($section in $localConfig.PSObject.Properties) {
+                    $sectionName = $section.Name
+                    if ($null -eq $finalConfig.$sectionName) {
+                        $finalConfig | Add-Member -MemberType NoteProperty -Name $sectionName -Value $section.Value
+                    }
+                    else {
+                        # Deep merge for sections (build, shortcuts, etc.)
+                        foreach ($prop in $section.Value.PSObject.Properties) {
+                            $propName = $prop.Name
+                            $finalConfig.$sectionName.$propName = $prop.Value
+                        }
+                    }
+                }
+            }
         }
+        
+        if ($null -eq $finalConfig) {
+            Write-BuildLog "No configuration found, using internal defaults" "Warning"
+        }
+        
+        return $finalConfig
     }
     catch {
         Write-BuildLog "Failed to load configuration: $($_.Exception.Message)" "Error"
