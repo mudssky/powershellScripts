@@ -44,45 +44,67 @@ calcDistance(x1,y1,x2,y2){
 }
 
 ; 实现鼠标连点相关功能,启动连点后，鼠标出现位移则取消连点
-isMouseClickOn:=false
-mouseClickCount:=0
-clickInterval:=50
-CapsLock & c::{
-    global isMouseClickOn,mouseClickCount,clickInterval
-    isMouseClickOn :=true
-    MouseGetPos &xpos, &ypos
-    Loop{
-        if isMouseClickOn{
-            MouseClick("left")
-            mouseClickCount++
-            MouseGetPos &xpos2, &ypos2
-            ; 连点超过十分钟自动停止
-            if (mouseClickCount*clickInterval>1000*60*10){
-                isMouseClickOn:=false
+class MouseClicker {
+    static isOn := false
+    static count := 0
+    static interval := 50
+    
+    static Start() {
+        this.isOn := true
+        MouseGetPos &xpos, &ypos
+        ToolTip "鼠标连点已开启 (移动鼠标停止)"
+        SetTimer () => ToolTip(), -2000 ; 2秒后隐藏提示
+        
+        Loop {
+            if (this.isOn) {
+                MouseClick("left")
+                this.count++
+                MouseGetPos &xpos2, &ypos2
+                
+                ; 连点超过十分钟自动停止
+                if (this.count * this.interval > 1000 * 60 * 10) {
+                    this.Stop()
+                    break
+                }
+                
+                if (calcDistance(xpos, ypos, xpos2, ypos2) > 50) {
+                    this.Stop()
+                    break
+                }
+            } else {
                 break
             }
-            if(calcDistance(xpos,ypos,xpos2,ypos2)>50){
-                isMouseClickOn:=false
-                break
-            }
-        }else{
-            break
+            Sleep(this.interval)
         }
-        Sleep(clickInterval)
+        this.count := 0
     }
-    mouseClickCount:=0
+    
+    static Stop() {
+        this.isOn := false
+        this.count := 0
+        ToolTip "鼠标连点已停止"
+        SetTimer () => ToolTip(), -1000
+    }
+    
+    static Reset() {
+        this.Stop()
+        resetMousePosition()
+    }
+}
+
+CapsLock & c::{
+    MouseClicker.Start()
 }
 
 resetMouseClick(){
-    global isMouseClickOn,mouseClickCount
-    isMouseClickOn:=false
-    mouseClickCount:=0
-    resetMousePosition()
+    MouseClicker.Reset()
 }
+
 ; 重置鼠标位置到屏幕中心，用于多屏幕时寻找鼠标位置
 resetMousePosition(){
     MouseMove(A_ScreenWidth/2, A_ScreenHeight/2)
 }
+
 ; 重置鼠标连点
 CapsLock & r::{
     resetMouseClick()
@@ -90,18 +112,16 @@ CapsLock & r::{
 
 CapsLock & m::{
     resetMouseClick()
-    global clickInterval
     wnhn := "W200 H100"
-    timeInput := InputBox("鼠标点击的时间间隔(ms)", "默认为50ms" ,wnhn)
+    timeInput := InputBox("鼠标点击的时间间隔(ms)", "默认为50ms", wnhn)
 
-    if (timeInput.Result='Cancel'){
+    if (timeInput.Result = 'Cancel') {
         return
-    }else if (timeInput.Value <10){
+    } else if (timeInput.Value < 10) {
         MsgBox('不能输入小于10的数')
         return
     }
-    clickInterval:=timeInput.Value
-
+    MouseClicker.interval := timeInput.Value
 }
 
 ; 设置指针大小
