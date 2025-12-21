@@ -230,6 +230,44 @@ function Install-NbStripout {
     }
 }
 
+function Install-AutoHotkey {
+    # 使用脚本内的 $ProjectRoot 变量，需通过参数传入或作用域获取
+    # 这里我们定义参数以明确依赖
+    param($RootPath)
+
+    if (-not $IsWindows) { return }
+    
+    Write-Host "`n=== 配置 AutoHotkey 环境 ===" -ForegroundColor Magenta
+    
+    $AhkDir = Join-Path $RootPath 'scripts/ahk'
+    
+    if (-not (Test-Path $AhkDir)) {
+        return
+    }
+    
+    Push-Location $AhkDir
+    try {
+        if (Test-Path ".\makeScripts.ps1") {
+            Write-Host "正在检查 AutoHotkey 配置..." -ForegroundColor Cyan
+            # 执行构建脚本
+            & .\makeScripts.ps1
+            
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "✓ AutoHotkey 配置完成" -ForegroundColor Green
+            }
+            else {
+                Write-Warning "AutoHotkey 配置脚本可能有警告或错误 (Exit Code: $LASTEXITCODE)"
+            }
+        }
+    }
+    catch {
+        Write-Error "AutoHotkey 配置执行失败: $_"
+    }
+    finally {
+        Pop-Location
+    }
+}
+
 # --- 主执行逻辑 ---
 
 Write-Host "开始准备 PowerShell 脚本开发环境..." -ForegroundColor Green
@@ -262,6 +300,9 @@ if (Ensure-PathSetup -Path $BinDir -Description "Bin 目录") {
 
 # 5. 安装与配置 nbstripout (Python 工具)
 Install-NbStripout
+
+# 6. 配置 AutoHotkey (仅 Windows)
+Install-AutoHotkey -RootPath $ProjectRoot
 
 # --- 结束汇总 ---
 Write-Host "`n=== 环境准备完成! ===" -ForegroundColor Green
