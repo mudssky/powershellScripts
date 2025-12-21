@@ -9,6 +9,10 @@
       "path": "scripts/node"
     },
     {
+      "name": "ahk",
+      "path": "scripts/ahk"
+    },
+    {
       "name": "root",
       "path": "."
     },
