@@ -1,4 +1,7 @@
 #!/usr/bin/env pwsh
+param(
+    [switch]$Check
+)
 
 $ErrorActionPreference = 'Stop'
 
@@ -7,7 +10,77 @@ $sourcePath = $PSScriptRoot
 if (-not $sourcePath) {
     $sourcePath = Get-Location
 }
-Write-Host "Source Config Path: $sourcePath"
+# Resolve to absolute path to ensure consistency
+$sourcePath = (Resolve-Path $sourcePath).Path
+
+if (-not $Check) {
+    Write-Host "Source Config Path: $sourcePath"
+}
+
+# -----------------------------------------------------------------------------
+# Check Mode Implementation
+# -----------------------------------------------------------------------------
+if ($Check) {
+    $isInstalled = $false
+
+    if ($IsWindows) {
+        if (Get-Command scoop -ErrorAction SilentlyContinue) {
+            try {
+                $mpvPath = scoop prefix mpv 2>$null
+                if ($mpvPath -and (Test-Path $mpvPath)) {
+                    $targetPath = Join-Path $mpvPath "portable_config"
+                    if (Test-Path $targetPath) {
+                        $item = Get-Item $targetPath
+                        # Check if it is a reparse point (symlink/junction)
+                        if ($item.Attributes.HasFlag([System.IO.FileAttributes]::ReparsePoint)) {
+                            # Verify target
+                            $target = $item.Target
+                            # Resolve target to absolute path if possible, or compare strings
+                            # On Windows, Target usually comes back absolute for Junctions created by New-Item
+                            if ($target -and ((Resolve-Path $target).Path -eq $sourcePath)) {
+                                $isInstalled = $true
+                            }
+                        }
+                    }
+                }
+            }
+            catch {}
+        }
+    }
+    elseif ($IsMacOS -or $IsLinux) {
+        $configDir = Join-Path $HOME ".config"
+        $targetPath = Join-Path $configDir "mpv"
+        
+        if (Test-Path $targetPath) {
+            $item = Get-Item $targetPath
+            if ($item.LinkType) {
+                $target = $item.Target
+                # Resolve potential relative paths in symlinks
+                # But simple string comparison is a good first step
+                if ($target -eq $sourcePath) {
+                    $isInstalled = $true
+                }
+                else {
+                    # Try resolving
+                    try {
+                        # Join path if relative? 
+                        # PowerShell's .Target on Unix usually gives the raw link content
+                        # If it's absolute, Resolve-Path works.
+                        if (Test-Path $target) {
+                            if ((Resolve-Path $target).Path -eq $sourcePath) {
+                                $isInstalled = $true
+                            }
+                        }
+                    }
+                    catch {}
+                }
+            }
+        }
+    }
+
+    Write-Output $isInstalled
+    if ($isInstalled) { exit 0 } else { exit 1 }
+}
 
 # -----------------------------------------------------------------------------
 # Windows Implementation (Scoop)
