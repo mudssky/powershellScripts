@@ -17,6 +17,13 @@
 [CmdletBinding()]
 param()
 
+# --- 防止无限循环 ---
+if ($env:PWSH_SCRIPTS_INSTALL_RUNNING -eq 'true') {
+    Write-Host "检测到 install.ps1 正在运行，跳过递归调用以防止无限循环。" -ForegroundColor Yellow
+    return
+}
+$env:PWSH_SCRIPTS_INSTALL_RUNNING = 'true'
+
 # --- 配置部分 ---
 $ProjectRoot = $PSScriptRoot
 $BinDir = Join-Path $ProjectRoot 'bin'
@@ -183,7 +190,7 @@ function Install-NodeScripts {
     Push-Location $ScriptDir
     try {
         Write-Host "正在安装依赖..." -ForegroundColor Cyan
-        pnpm install
+        pnpm install --ignore-scripts
         if ($LASTEXITCODE -ne 0) { throw "pnpm install 失败" }
 
         Write-Host "正在构建项目..." -ForegroundColor Cyan
@@ -197,6 +204,52 @@ function Install-NodeScripts {
     }
     finally {
         Pop-Location
+    }
+}
+
+function Install-NbStripout {
+    Write-Host "`n=== 开始安装与配置 nbstripout ===" -ForegroundColor Magenta
+    
+    # 1. 检查 nbstripout 是否已安装在系统中
+    if (-not (Get-Command "nbstripout" -ErrorAction SilentlyContinue)) {
+        Write-Host "未找到 nbstripout，尝试通过 pip 安装..." -ForegroundColor Cyan
+        if (Get-Command "pip" -ErrorAction SilentlyContinue) {
+            pip install nbstripout
+            if ($LASTEXITCODE -ne 0) {
+                Write-Error "pip install nbstripout 失败"
+                return
+            }
+        }
+        else {
+            Write-Warning "未找到 pip，请先安装 Python 和 pip，或者手动安装 nbstripout"
+            return
+        }
+    }
+    else {
+        Write-Host "✓ nbstripout 已安装在系统中" -ForegroundColor Green
+    }
+
+    # 2. 配置当前仓库的 git filter
+    if (Test-Path ".git") {
+        # 使用 nbstripout --is-installed 检查是否已配置
+        # 注意：该命令在未配置时返回退出码 1
+        $null = nbstripout --is-installed 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "✓ nbstripout 已在当前仓库配置" -ForegroundColor Green
+        }
+        else {
+            Write-Host "正在为当前仓库配置 nbstripout git filter..." -ForegroundColor Cyan
+            nbstripout --install --attributes .gitattributes
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "✓ nbstripout 配置完成 (.gitattributes)" -ForegroundColor Green
+            }
+            else {
+                Write-Warning "nbstripout --install 执行失败"
+            }
+        }
+    }
+    else {
+        Write-Warning "当前目录不是 Git 仓库根目录，跳过 nbstripout --install 配置"
     }
 }
 
@@ -229,6 +282,9 @@ Install-NodeScripts -ScriptDir $NodeScriptsDir
 if (Ensure-PathSetup -Path $BinDir -Description "Bin 目录") {
     $changesMade = $true
 }
+
+# 5. 安装与配置 nbstripout (Python 工具)
+Install-NbStripout
 
 # --- 结束汇总 ---
 Write-Host "`n=== 环境准备完成! ===" -ForegroundColor Green
