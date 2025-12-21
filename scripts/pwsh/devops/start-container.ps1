@@ -159,6 +159,7 @@ param (
         "mongodb", 
         "one-api", 
         "mongodb-replica", 
+        # tts
         "kokoro-fastapi", 
         "kokoro-fastapi-cpu", 
         "cadvisor", 
