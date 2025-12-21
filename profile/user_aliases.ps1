@@ -44,7 +44,7 @@ $userAlias = @(
         aliasName   = 'tree'
         aliasValue  = ''
         description = 'tree 使用 eza 显示目录树结构（含图标）。'
-        command     = 'eza --tree --icons'
+        command     = 'eza --tree --git --icons --git-ignore'
     }
 )
 return $userAlias
