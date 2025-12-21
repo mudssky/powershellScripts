@@ -181,7 +181,7 @@ repos:
    ```json
    {
      "scripts": {
-       "nb:clean": "nbstripout notebooks/**/*.ipynb",
+       "nb:clean": "pwsh -NoProfile -Command  \"fd -e ipynb  |ForEach-Object { nbstripout $_ }\"",
        "nb:sync": "jupytext --sync notebooks/**/*.ipynb",
        "nb:check-sync": "jupytext --check notebooks/**/*.ipynb",
        "nb:hydrate": "jupytext --sync src/**/*.py",

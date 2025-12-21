@@ -3,4 +3,5 @@ export default {
     'pwsh -File ./scripts/pwsh/devops/Format-PowerShellCode.ps1',
   '*.{js,jsx,ts,tsx,css,html,json,jsonc}': 'biome format --write',
   '*.lua': 'stylua',
+  '**/*.ipynb': ['nbstripout'],
 }
