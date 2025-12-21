@@ -265,8 +265,8 @@ function Get-AhkScripts {
         }
         
         $scripts = Get-ChildItem -Recurse -Path $ScriptsPath -Filter "*.ahk" -ErrorAction Stop | 
-        Where-Object { $ExcludeList -notcontains $_.Name } |
-        Sort-Object Name
+            Where-Object { $ExcludeList -notcontains $_.Name } |
+            Sort-Object Name
                    
         Write-BuildLog "Found $($scripts.Count) AHK script files (Excluded: $($ExcludeList -join ', '))" "Info"
         
@@ -392,27 +392,22 @@ function Invoke-ScriptBuild {
 $config = Get-BuildConfiguration
 
 # Merge Configuration and Parameters
-$currentParams = @{
-    ScriptName       = $ScriptName
-    ConcatNotInclude = $ConcatNotInclude
-    CreateShortcut   = $CreateShortcut
-    UseUserStartup   = $UseUserStartup
-    Force            = $Force
-    NoAutoStart      = $NoAutoStart
-    Verbose          = $Verbose
+$currentParams = @{}
+foreach ($key in $PSBoundParameters.Keys) {
+    $currentParams[$key] = $PSBoundParameters[$key]
 }
 
 $mergedConfig = Merge-Configuration -Config $config -Parameters $currentParams
 
 # Apply Merged Configuration
 if ($config) {
-    $script:ScriptName = $mergedConfig.OutputPath
-    $script:ConcatNotInclude = -not $mergedConfig.UseInclude
-    $script:CreateShortcut = $mergedConfig.CreateShortcut
-    $script:UseUserStartup = $mergedConfig.UseUserStartup
-    $script:Force = $mergedConfig.Force
-    $script:NoAutoStart = -not $mergedConfig.AutoStart
-    $script:Verbose = $mergedConfig.Verbose
+    if ($null -ne $mergedConfig.OutputPath) { $script:ScriptName = $mergedConfig.OutputPath }
+    if ($null -ne $mergedConfig.UseInclude) { $script:ConcatNotInclude = -not $mergedConfig.UseInclude }
+    if ($null -ne $mergedConfig.CreateShortcut) { $script:CreateShortcut = $mergedConfig.CreateShortcut }
+    if ($null -ne $mergedConfig.UseUserStartup) { $script:UseUserStartup = $mergedConfig.UseUserStartup }
+    if ($null -ne $mergedConfig.Force) { $script:Force = $mergedConfig.Force }
+    if ($null -ne $mergedConfig.AutoStart) { $script:NoAutoStart = -not $mergedConfig.AutoStart }
+    if ($null -ne $mergedConfig.Verbose) { $script:Verbose = $mergedConfig.Verbose }
 }
 
 try {
@@ -444,7 +439,7 @@ try {
             Write-BuildLog "Shortcut already exists: $linkPath" "Info"
         }
         else {
-            $shortcutSuccess = New-Shortcut -LinkPath $linkPath -TargetPath (Resolve-Path $ScriptName).Path
+            $shortcutSuccess = New-Shortcut -ShortcutPath $linkPath -TargetPath (Resolve-Path $ScriptName).Path
              
             if ($shortcutSuccess) {
                 Write-BuildLog "Shortcut created: $linkPath" "Success"

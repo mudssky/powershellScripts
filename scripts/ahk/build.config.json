@@ -9,7 +9,7 @@
   },
   "shortcuts": {
     "createShortcut": true,
-    "useUserStartup": false,
+    "useUserStartup": true,
     "linkName": ""
   },
   "execution": {
