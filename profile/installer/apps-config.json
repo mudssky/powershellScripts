@@ -374,6 +374,12 @@
         "cliName": "wget",
         "description": "命令行下载工具",
         "command": "scoop install wget"
+      },
+      {
+        "name": "git-sizer",
+        "cliName": "git-sizer",
+        "description": "计算 git 仓库的大小及其各个部分的大小",
+        "command": "scoop install git-sizer"
       }
     ],
     "winget": [
