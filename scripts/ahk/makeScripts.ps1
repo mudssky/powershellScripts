@@ -213,20 +213,43 @@ function New-Shortcut {
 
 # Verify AutoHotkey Installation
 function Test-AutoHotkeyInstalled {
+    $commonPaths = @(
+        "C:\Program Files\AutoHotkey\v2\AutoHotkey.exe",
+        "C:\Program Files\AutoHotkey\AutoHotkey.exe",
+        "C:\Program Files\AutoHotkey\UX\AutoHotkeyUX.exe"
+    )
+    
+    # Check PATH first
     $ahkCommand = Get-Command "AutoHotkey.exe" -ErrorAction SilentlyContinue
     if ($ahkCommand) {
         try {
             $version = & $ahkCommand.Source "--version" 2>$null
             if ($version -match "v2\.") {
-                Write-BuildLog "AutoHotkey 2.0 detected: $version" "Success"
+                Write-BuildLog "AutoHotkey 2.0 detected (PATH): $version" "Success"
                 return $true
             }
         }
-        catch {
-            # Ignore version check errors
+        catch { }
+    }
+
+    # Check common paths
+    foreach ($path in $commonPaths) {
+        if (Test-Path $path) {
+            Write-BuildLog "AutoHotkey detected at: $path" "Success"
+            return $true
         }
     }
     
+    # Check Registry
+    try {
+        $installDir = Get-ItemProperty -Path "HKLM:\SOFTWARE\AutoHotkey" -Name "InstallDir" -ErrorAction SilentlyContinue
+        if ($installDir -and (Test-Path $installDir.InstallDir)) {
+            Write-BuildLog "AutoHotkey detected via Registry: $($installDir.InstallDir)" "Success"
+            return $true
+        }
+    }
+    catch { }
+
     Write-BuildLog "AutoHotkey 2.0 not detected. Please run install-autohotkey.ps1 first" "Warning"
     return $false
 }
@@ -339,12 +362,9 @@ function Invoke-ScriptBuild {
     Test-AutoHotkeyInstalled | Out-Null
     
     # Check if output file exists
-    if ((Test-Path $OutputName) -and (-not $Force)) {
-        $response = Read-Host "File '$OutputName' already exists. Overwrite? (y/N)"
-        if ($response -ne 'y' -and $response -ne 'Y') {
-            Write-BuildLog "Build cancelled" "Warning"
-            return $false
-        }
+    # Overwrite by default, skipping prompt
+    if (Test-Path $OutputName) {
+        Write-BuildLog "File '$OutputName' already exists. Overwriting..." "Info"
     }
     
     # Get Script Files
