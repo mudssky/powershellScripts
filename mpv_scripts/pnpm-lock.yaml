@@ -14,6 +14,9 @@ importers:
       glob:
         specifier: ^13.0.0
         version: 13.0.0
+      ramda:
+        specifier: ^0.32.0
+        version: 0.32.0
     devDependencies:
       '@rollup/plugin-commonjs':
         specifier: ^29.0.0
@@ -24,6 +27,9 @@ importers:
       '@rollup/plugin-typescript':
         specifier: ^12.3.0
         version: 12.3.0(rollup@4.54.0)(tslib@2.8.1)(typescript@5.9.3)
+      '@types/ramda':
+        specifier: ^0.31.1
+        version: 0.31.1
       rollup:
         specifier: ^4.13.0
         version: 4.54.0
@@ -203,6 +209,9 @@ packages:
   '@types/mpv-script@0.32.8':
     resolution: {integrity: sha512-FghPilWokSIoMnezoyrfetgPIE26wD3GlxK6oaRKbgkNzYnEnhK/B9TeaKRD7GNKyUJdX9pAHfnasyChhZvQSg==}
 
+  '@types/ramda@0.31.1':
+    resolution: {integrity: sha512-Vt6sFXnuRpzaEj+yeutA0q3bcAsK7wdPuASIzR9LXqL4gJPyFw8im9qchlbp4ltuf3kDEIRmPJTD/Fkg60dn7g==}
+
   '@types/resolve@1.20.2':
     resolution: {integrity: sha512-60BCwRFOZCQhDncwQdxxeOEEkbc5dIMccYLwbxsS4TUNeVECQ/pBJ0j09mrHOl/JJvpRPGwO9SvE4nR2Nb/a4Q==}
 
@@ -278,6 +287,9 @@ packages:
     resolution: {integrity: sha512-5gTmgEY/sqK6gFXLIsQNH19lWb4ebPDLA4SdLP7dsWkIXHWlG66oPuVvXSGFPppYZz8ZDZq0dYYrbHfBCVUb1Q==}
     engines: {node: '>=12'}
 
+  ramda@0.32.0:
+    resolution: {integrity: sha512-GQWAHhxhxWBWA8oIBr1XahFVjQ9Fic6MK9ikijfd4TZHfE2+urfk+irVlR5VOn48uwMgM+loRRBJd6Yjsbc0zQ==}
+
   resolve@1.22.11:
     resolution: {integrity: sha512-RfqAvLnMl313r7c9oclB1HhUEAezcpLjz95wFH4LVuhk9JF/r22qmVP9AMmOU4vMX7Q8pN8jwNg/CSpdFnMjTQ==}
     engines: {node: '>= 0.4'}
@@ -292,8 +304,14 @@ packages:
     resolution: {integrity: sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w==}
     engines: {node: '>= 0.4'}
 
+  ts-toolbelt@9.6.0:
+    resolution: {integrity: sha512-nsZd8ZeNUzukXPlJmTBwUAuABDe/9qtVDelJeT/qW0ow3ZS3BsQJtNkan1802aM9Uf68/Y8ljw86Hu0h5IUW3w==}
+
   tslib@2.8.1:
     resolution: {integrity: sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==}
+
+  types-ramda@0.31.0:
+    resolution: {integrity: sha512-vaoC35CRC3xvL8Z6HkshDbi6KWM1ezK0LHN0YyxXWUn9HKzBNg/T3xSGlJZjCYspnOD3jE7bcizsp0bUXZDxnQ==}
 
   typescript@5.9.3:
     resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
@@ -419,6 +437,10 @@ snapshots:
 
   '@types/mpv-script@0.32.8': {}
 
+  '@types/ramda@0.31.1':
+    dependencies:
+      types-ramda: 0.31.0
+
   '@types/resolve@1.20.2': {}
 
   commondir@1.0.1: {}
@@ -477,6 +499,8 @@ snapshots:
 
   picomatch@4.0.3: {}
 
+  ramda@0.32.0: {}
+
   resolve@1.22.11:
     dependencies:
       is-core-module: 2.16.1
@@ -513,6 +537,12 @@ snapshots:
 
   supports-preserve-symlinks-flag@1.0.0: {}
 
+  ts-toolbelt@9.6.0: {}
+
   tslib@2.8.1: {}
+
+  types-ramda@0.31.0:
+    dependencies:
+      ts-toolbelt: 9.6.0
 
   typescript@5.9.3: {}

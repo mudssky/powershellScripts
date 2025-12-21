@@ -13,12 +13,14 @@
   "license": "ISC",
   "dependencies": {
     "@types/mpv-script": "^0.32.8",
-    "glob": "^13.0.0"
+    "glob": "^13.0.0",
+    "ramda": "^0.32.0"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^29.0.0",
     "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-typescript": "^12.3.0",
+    "@types/ramda": "^0.31.1",
     "rollup": "^4.13.0",
     "tslib": "^2.6.2",
     "typescript": "^5.4.3"
