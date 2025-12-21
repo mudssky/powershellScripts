@@ -228,29 +228,6 @@ function Install-NbStripout {
     else {
         Write-Host "✓ nbstripout 已安装在系统中" -ForegroundColor Green
     }
-
-    # 2. 配置当前仓库的 git filter
-    if (Test-Path ".git") {
-        # 使用 nbstripout --is-installed 检查是否已配置
-        # 注意：该命令在未配置时返回退出码 1
-        $null = nbstripout --is-installed 2>$null
-        if ($LASTEXITCODE -eq 0) {
-            Write-Host "✓ nbstripout 已在当前仓库配置" -ForegroundColor Green
-        }
-        else {
-            Write-Host "正在为当前仓库配置 nbstripout git filter..." -ForegroundColor Cyan
-            nbstripout --install --attributes .gitattributes
-            if ($LASTEXITCODE -eq 0) {
-                Write-Host "✓ nbstripout 配置完成 (.gitattributes)" -ForegroundColor Green
-            }
-            else {
-                Write-Warning "nbstripout --install 执行失败"
-            }
-        }
-    }
-    else {
-        Write-Warning "当前目录不是 Git 仓库根目录，跳过 nbstripout --install 配置"
-    }
 }
 
 # --- 主执行逻辑 ---
