@@ -17,6 +17,10 @@
       "path": "profile"
     },
     {
+      "name": "docs",
+      "path": "docs"
+    },
+    {
       "name": "root",
       "path": "."
     },
