@@ -37,50 +37,7 @@ param(
 . $PSScriptRoot/loadModule.ps1
 
 # 自定义别名配置
-$customUserAlias = @(
-    [PSCustomObject]@{
-        cliName     = 'dust'
-        aliasName   = 'du'
-        aliasValue  = 'dust'
-        description = 'dust 是一个用于清理磁盘空间的命令行工具。它可以扫描指定目录并显示占用空间较大的文件和目录，以便用户确定是否删除它们。'
-    }
-    [PSCustomObject]@{
-        cliName     = 'duf'
-        aliasName   = 'df'
-        aliasValue  = 'duf'
-        description = 'df 是 du 的别名，用于显示目录内容。'
-    }
-    [PSCustomObject]@{
-        cliName     = 'zoxide'
-        aliasName   = 'zq'
-        aliasValue  = ''
-        description = 'zoxide query 用于查询zoxide的数据库，显示最近访问的目录。'
-        command     = 'zoxide query'
-
-    }
-    [PSCustomObject]@{
-        cliName     = 'zoxide'
-        aliasName   = 'za'
-        aliasValue  = ''
-        description = 'zoxide add 用于将当前目录添加到zoxide的数据库中，以便下次快速访问。'
-        command     = 'zoxide add'
-    }
-    [PSCustomObject]@{
-        cliName     = 'zoxide'
-        aliasName   = 'zr'
-        aliasValue  = 'zoxide'
-        description = '如果你不希望某个目录再出现在 zoxide 的候选项中'
-        command     = 'zoxide remove'
-
-    }
-    # scoop下载下来就是btm，不用设置别名
-    # [PSCustomObject]@{
-    # 	cliName     = 'bottom'
-    # 	aliasName   = 'btm'
-    # 	aliasValue  = 'bottom'
-    # 	description = 'bottom 是一个用于显示系统资源使用情况的命令行工具。它可以实时显示CPU、内存、磁盘和网络等系统资源的使用情况，帮助用户监控系统性能。'
-    # }
-)
+$customUserAlias = . $PSScriptRoot/user_aliases.ps1
 function Set-AliasProfile {
     [CmdletBinding()]
     param (
@@ -226,7 +183,6 @@ function Initialize-Environment {
     
     Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
     if (-not $SkipAliases) { Set-AliasProfile }
-    if (-not $SkipAliases) { Set-CustomAliasesProfile }
     if (-not $Global:__ZoxideInitialized -and -not $SkipZoxide -and (Test-EXEProgram -Name 'zoxide')) {
         function Global:z { & (Invoke-WithFileCache -Key "zoxide-init-powershell" -MaxAge ([TimeSpan]::FromDays(7)) -Generator { zoxide init powershell } -BaseDir (Join-Path $PSScriptRoot '.cache')); Remove-Item function:Global:z -Force; & z @args }
     }
@@ -270,63 +226,6 @@ function Show-MyProfileHelp {
     }
 
     Write-Host "`n要重新加载环境, 请运行: Initialize-Environment" -ForegroundColor Green
-}
-
-function Set-CustomAliasesProfile {
-    <#
-    .SYNOPSIS
-        设置自定义别名
-    
-    .DESCRIPTION
-        为常用命令设置别名，提高命令行使用效率
-    #>
-    [CmdletBinding()]
-    param()
-    
-    # 使用脚本级别的别名描述前缀
-    
-    # 定义用户别名配置
-    $userAlias = @(
-        [PSCustomObject]@{
-            cliName     = 'du'
-            aliasName   = 'du'
-            aliasValue  = 'dust'
-            description = 'dust 是一个用于清理磁盘空间的命令行工具。它可以扫描指定目录并显示占用空间较大的文件和目录，以便用户确定是否删除它们。'
-        }
-        [PSCustomObject]@{
-            cliName     = 'duf'
-            aliasName   = 'df'
-            aliasValue  = 'duf'
-            description = 'df 是 du 的别名，用于显示目录内容。'
-        }
-        # macOS 下可能使用 homebrew 安装的 bottom
-        # [PSCustomObject]@{
-        #     cliName     = 'bottom'
-        #     aliasName   = 'btm'
-        #     aliasValue  = 'bottom'
-        #     description = 'bottom 是一个用于显示系统资源使用情况的命令行工具。它可以实时显示CPU、内存、磁盘和网络等系统资源的使用情况，帮助用户监控系统性能。'
-        # }
-    )
-    
-    foreach ($alias in $userAlias) {
-        if (Test-EXEProgram -Name $alias.cliName) {
-            Set-CustomAlias -Name $alias.aliasName -Value $alias.aliasValue -Description $alias.description  -Scope Global
-            Write-Verbose "已设置别名: $($alias.aliasName) -> $($alias.aliasValue)"
-        }
-        else {
-            switch ($alias.cliName) {
-                'dust' {
-                    Write-Host -ForegroundColor Yellow "未安装 dust（磁盘使用分析工具），可运行以下命令安装：`nbrew install dust"
-                }
-                'duf' {
-                    Write-Host -ForegroundColor Yellow "未安装 duf（磁盘使用显示工具），可运行以下命令安装：`nbrew install duf"
-                }
-                default {
-                    Write-Warning "未找到 $($alias.cliName) 命令，无法设置别名: $($alias.aliasName)"
-                }
-            }
-        }
-    }
 }
 
 function Set-PowerShellProfile {
