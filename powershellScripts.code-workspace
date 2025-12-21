@@ -21,6 +21,10 @@
       "path": "docs"
     },
     {
+      "name": "mpv_config",
+      "path": "config/software/mpv"
+    },
+    {
       "name": "root",
       "path": "."
     },
