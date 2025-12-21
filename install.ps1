@@ -17,13 +17,6 @@
 [CmdletBinding()]
 param()
 
-# --- 防止无限循环 ---
-if ($env:PWSH_SCRIPTS_INSTALL_RUNNING -eq 'true') {
-    Write-Host "检测到 install.ps1 正在运行，跳过递归调用以防止无限循环。" -ForegroundColor Yellow
-    return
-}
-$env:PWSH_SCRIPTS_INSTALL_RUNNING = 'true'
-
 # --- 配置部分 ---
 $ProjectRoot = $PSScriptRoot
 $BinDir = Join-Path $ProjectRoot 'bin'
