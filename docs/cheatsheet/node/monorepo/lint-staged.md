@@ -130,5 +130,11 @@ module.exports = {
 * 如果是**Lerna / Yarn Workspaces / PNPM Workspaces**：优先尝试**策略二（分散配置）**。它最符合 Monorepo 模块化的精神。
 * 如果是**Nx / Turborepo**：通常需要**策略一**或**策略三**，因为这些工具更倾向于从根目录统一编排任务。
 
-turborepo如果是刚起步的项目，可以采用策略一。主要是为了速度，采用策略一要在每个项目安装lint-staged,并且会启动多个eslint实例。包多了以后占用很多。
+turborepo如果是刚起步的项目，可以采用策略一。主要是为了速度，采用策略一会启动多个eslint实例。包多了以后占用很多。
 我们包少的情况，用策略二也是没问题的
+
+批量卸载子项目的husky lint-staged，只保留根目录的就可以了
+
+```
+pnpm -r --filter "!." uninstall husky lint-staged
+```
