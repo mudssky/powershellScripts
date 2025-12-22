@@ -745,6 +745,14 @@
         "description": "JetBrains Mono Nerd Font",
         "command": "brew install --cask font-jetbrains-mono-nerd-font",
         "supportOs": ["macOS"]
+      },
+      {
+        "name": "zellij",
+        "cliName": "zellij",
+        "description": "现代终端复用器",
+        "command": "brew install zellij",
+        "supportOs": ["macOS", "linux"],
+        "tag": ["linuxserver"]
       }
     ],
     "npm": [
