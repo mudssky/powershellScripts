@@ -380,6 +380,12 @@
         "cliName": "git-sizer",
         "description": "计算 git 仓库的大小及其各个部分的大小",
         "command": "scoop install git-sizer"
+      },
+      {
+        "name": "sshs",
+        "cliName": "sshs",
+        "description": "SSH 会话管理器 (TUI)",
+        "command": "scoop install sshs"
       }
     ],
     "winget": [
