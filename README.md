@@ -14,6 +14,7 @@
 - [文件管理工具](#文件管理工具)
 - [配置和环境](#配置和环境)
 - [自动化脚本 (AutoHotkey)](#自动化脚本-autohotkey)
+- [播放器配置](#播放器配置)
 - [使用说明](#使用说明)
 - [贡献指南](#贡献指南)
 
@@ -203,6 +204,29 @@ ls *.flv | % { ffmpegPreset -path $_.Name }
 #### `webpCompress`
 
 **功能**: WebP 图片压缩工具
+
+### 播放器配置
+
+#### `mpv-config`
+
+**位置**: `config/software/mpv`
+
+**功能**: MPV 播放器的高级配置文件和增强脚本集合。
+
+**安装**:
+
+```powershell
+# 自动安装 mpv (需 Scoop/Homebrew) 并链接配置文件
+.\config\software\mpv\install.ps1
+```
+
+**主要特性**:
+
+- **增强脚本**:
+  - `mpv-gif.js`: 快捷生成 GIF/WebP 动图 (`Ctrl+g/G`, `Ctrl+w/W`)
+  - `switch-audio-channel.js`: 高级声道控制 (`Alt+t` 互换, `Alt+l/r` 单声道)
+  - `audio-playback`: 短视频自动循环播放
+- **预设配置**: 优化的高质量播放参数
 
 ## 🖥️ 系统管理工具
 
