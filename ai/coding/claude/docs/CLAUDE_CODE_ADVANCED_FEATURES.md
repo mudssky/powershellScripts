@@ -1,0 +1,216 @@
+# Claude Code Advanced Features: Subagents & Skills
+
+本文档介绍了 Claude Code 的高级功能：**Subagents (子智能体)** 和 **Agent Skills (智能体技能)**。这些功能允许你创建更强大、更自主的 AI 工作流。
+
+## 🤖 Subagents (子智能体)
+
+子智能体是处理复杂、多步骤任务的自主子进程。它们拥有独立的系统提示词（System Prompt）和工具集，可以由主智能体根据任务需求自动唤起。
+
+### 1. 核心概念
+
+- **自主性**：独立处理任务，直到完成或需要帮助。
+- **触发机制**：通过 YAML Frontmatter 中的 `description` 和示例触发。
+- **隔离性**：拥有独立的上下文和工具权限。
+
+### 2. 目录结构
+
+通常位于项目或插件的 `agents/` 目录下：
+
+```text
+my-plugin/
+└── agents/
+    ├── bug-fixer.md
+    └── code-reviewer.md
+```
+
+### 3. 定义格式 (`agents/*.md`)
+
+每个 Agent 定义文件是一个 Markdown 文件，包含 YAML Frontmatter 和 System Prompt。
+
+**示例：`agents/bug-fixer.md`**
+
+```markdown
+---
+name: bug-fixer
+description: 专注于修复代码中的 bug 和逻辑错误。
+model: claude-3-5-sonnet-20241022
+color: "#ff0000"
+examples:
+  - "修复 auth.ts 中的空指针异常"
+  - "解决登录页面的状态同步问题"
+---
+
+# Bug Fixer Agent System Prompt
+
+你是一个专业的 Bug 修复专家。你的目标是分析错误、定位根因并修复代码。
+
+## 工作流程
+1. **重现**：首先尝试编写测试用例重现 bug。
+2. **分析**：阅读相关代码，理解逻辑。
+3. **修复**：修改代码。
+4. **验证**：运行测试确保修复有效且无回归。
+
+## 规则
+- 必须在修改前运行测试。
+- 修改后必须再次运行测试。
+```
+
+### 4. 生命周期控制
+
+- **SubagentStop Hook**: 可以定义 Hook 来拦截子智能体的停止行为，确保任务真正完成（例如强制要求所有测试通过）。
+
+---
+
+## 🧠 Agent Skills (智能体技能)
+
+技能是模块化的知识包，用于扩展 Claude 的能力。它们就像是特定领域的"入职指南"，包含专业知识、工作流和工具。
+
+### 1. 核心概念
+
+- **模块化**：自包含的知识单元。
+- **渐进式披露**：通过 `SKILL.md` 提供核心概念，详细内容放在 `references/` 中按需加载。
+- **结构化**：包含文档、示例和脚本。
+
+### 2. 目录结构
+
+通常位于 `skills/` 目录下，每个技能一个子目录：
+
+```text
+my-plugin/
+└── skills/
+    └── database-migration/
+        ├── SKILL.md          # 核心定义 (必须)
+        ├── references/       # 详细参考文档
+        │   └── schema-rules.md
+        ├── examples/         # 示例用法
+        │   └── migration-example.sql
+        └── scripts/          # 辅助脚本
+            └── verify-db.py
+```
+
+### 3. 定义格式 (`skills/*/SKILL.md`)
+
+**示例：`skills/database-migration/SKILL.md`**
+
+```markdown
+---
+name: database-migration
+description: 当用户需要编写或执行数据库迁移脚本时使用此技能。
+---
+
+# Database Migration Skill
+
+本技能指导如何安全地进行数据库迁移。
+
+## 核心原则
+1. **向后兼容**：所有迁移必须保持向后兼容。
+2. **事务性**：迁移脚本必须在事务中运行。
+3. **可回滚**：必须提供 Down 脚本。
+
+## 常用命令
+- 创建迁移: `npm run migration:create`
+- 执行迁移: `npm run migration:up`
+
+## 参考资料
+- [Schema 规范](references/schema-rules.md)
+```
+
+### 4. 最佳实践
+
+- **明确触发条件**：在 `description` 中使用第三人称清晰描述何时使用此技能（例如 "This skill should be used when..."）。
+- **引用分离**：将长篇大论的文档放入 `references/`，保持 `SKILL.md` 精简（约 1500 词以内）。
+- **提供示例**：在 `examples/` 目录提供具体的代码或命令示例。
+
+---
+
+## �️ Agent SDK (程序化开发)
+
+除了通过配置和 Markdown 定义 Agent，Claude Code 还提供了 **Agent SDK** (支持 Python 和 TypeScript)，允许你以编程方式构建复杂的 Agent 应用。
+
+### 1. 快速开始
+
+使用内置命令脚手架创建新项目：
+
+```bash
+/new-sdk-app my-agent-app
+```
+
+### 2. SDK 核心组件
+
+- **Agent**: 定义智能体的核心逻辑和 System Prompt。
+- **Tools**: 注册自定义工具函数。
+- **Workflows**: 定义多步执行流程。
+
+### 3. 自动验证
+
+Claude Code 提供了验证 Agent 来确保你的 SDK 应用遵循最佳实践：
+
+- **TypeScript**: `agent-sdk-verifier-ts`
+- **Python**: `agent-sdk-verifier-py`
+
+验证器会自动检查 SDK 版本兼容性、配置正确性以及错误处理模式。
+
+---
+
+## 🐙 Git 工作流集成 (Git Integration)
+
+Claude Code 内置了强大的 Git 自动化插件 (`commit-commands`)，通过 Slash Commands 简化日常版本控制操作。
+
+### 常用 Git 命令
+
+| 命令 | 说明 |
+|------|------|
+| `/commit` | 自动分析暂存区更改，生成 Commit Message 并提交 |
+| `/commit-push-pr` | 提交更改，推送到远程，并使用 `gh` CLI 创建 Pull Request |
+| `/clean_gone` | 清理本地已合并或删除的废弃分支 |
+| `/review` | (需插件) 读取 PR diff 并进行代码审查 |
+
+**注意**：`/commit-push-pr` 和 PR 相关功能需要预先安装并登录 GitHub CLI (`gh`)。
+
+---
+
+## 🎨 输出风格 (Output Styles)
+
+你可以通过插件或 Hook 改变 Claude 的输出风格，使其适应不同的使用场景。
+
+### 常见风格插件
+
+- **Explanatory Style (解释型)**: 适合教学或学习。Claude 会在编写代码前后提供详细的解释，分析实现选择和权衡。
+- **Learning Style (学习型)**: 交互式学习模式。Claude 会在关键决策点暂停，引导用户思考或补全代码，而非直接给出答案。
+
+### 实现原理
+
+这些风格通常通过 **SessionStart Hook** 实现，在会话开始时向 System Prompt 注入特定的指令集。
+
+```json
+"hooks": {
+  "SessionStart": [
+    {
+      "type": "prompt",
+      "content": "你现在是教学模式。每写一段代码前，请先解释其背后的设计模式..."
+    }
+  ]
+}
+```
+
+---
+
+## �🔌 插件架构 (Plugin Architecture)
+
+Subagents 和 Skills 通常打包在插件中发布或管理。
+
+**Plugin 结构示例：**
+
+```text
+my-awesome-plugin/
+├── plugin.json
+├── agents/
+│   └── specialist.md
+├── skills/
+│   └── domain-knowledge/
+│       └── SKILL.md
+└── commands/
+    └── specific-task.md
+```
+
+通过这种架构，你可以构建复杂的 AI 辅助开发环境，让 Claude 不仅是一个通用助手，更是懂你项目特性的专家。
