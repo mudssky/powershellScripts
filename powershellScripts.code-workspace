@@ -25,6 +25,10 @@
       "path": "config/software/mpv"
     },
     {
+      "name": "ai",
+      "path": "ai"
+    },
+    {
       "name": "root",
       "path": "."
     },
