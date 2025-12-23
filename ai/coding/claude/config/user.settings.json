@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "_": "自动接受编辑，减少确认次数",
+    "permissionMode": "acceptEdits"
+  },
+  "statusLine": {
+    "enabled": true
+  }
+}
