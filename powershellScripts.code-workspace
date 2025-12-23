@@ -1,6 +1,10 @@
 {
   "folders": [
     {
+      "name": "root",
+      "path": "."
+    },
+    {
       "name": "pwsh",
       "path": "scripts/pwsh"
     },
@@ -27,10 +31,6 @@
     {
       "name": "ai",
       "path": "ai"
-    },
-    {
-      "name": "root",
-      "path": "."
     },
     {
       "name": "json-diff-tool",
