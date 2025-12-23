@@ -1,6 +1,6 @@
 ---
 alwaysApply: false
-globs: scripts/pwsh/**/*.ps1
+globs: **/*.ps1, **/*.psm1
 ---
 # 📂 Project Specific Rules (PowerShell)
 
