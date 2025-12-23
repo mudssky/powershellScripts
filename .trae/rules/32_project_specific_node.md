@@ -1,6 +1,6 @@
 ---
 alwaysApply: false
-globs: scripts/node/**/*.ts
+globs: scripts/node/**/*
 ---
 # 📂 Project Specific Rules (Node.js)
 
