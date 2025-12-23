@@ -12,15 +12,37 @@
 
 .EXAMPLE
     .\install.ps1
+    安装命令行工具，支持windows，linux平台
+    .\install.ps1 -installApp
 #>
 
 [CmdletBinding()]
-param()
+param(
+    [switch]$installApp
+)
+
 
 # --- 配置部分 ---
 $ProjectRoot = $PSScriptRoot
 $BinDir = Join-Path $ProjectRoot 'bin'
 $NodeScriptsDir = Join-Path $ProjectRoot 'scripts/node'
+
+
+if ($installApp) {
+    Write-Host "安装应用..." -ForegroundColor Cyan
+    if ($IsWindows) {
+        . "$ProjectRoot/profile/installer/installApp.ps1"
+    }
+    elseif ($IsMacOS -or $IsLinux) {
+        . "$ProjectRoot/linux/03installApps.ps1"
+    }
+    else {
+        Write-Host "不支持的平台: $($PSVersionTable.OS)" -ForegroundColor Red
+    }
+ 
+    exit 0
+}
+
 
 # --- 函数定义 ---
 
