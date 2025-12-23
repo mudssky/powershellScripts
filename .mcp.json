@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "context7": {
-      "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp@latest"],
+      "command": "bun",
+      "args": ["x", "@upstash/context7-mcp@latest"],
       "env": {
         "DEFAULT_MINIMUM_TOKENS": "10000"
       },
@@ -16,14 +16,14 @@
       "disabled": true
     },
     "gitmcp": {
-      "command": "npx",
-      "args": ["mcp-remote", "https://gitmcp.io/docs"],
+      "command": "bun",
+      "args": ["x", "mcp-remote", "https://gitmcp.io/docs"],
       "disabled": true
     },
     "promptx": {
-      "command": "npx",
+      "command": "bun",
       "args": [
-        "-y",
+        "x",
         "-f",
         "--registry",
         "https://registry.npmjs.org",
@@ -32,8 +32,8 @@
       ]
     },
     "Playwright": {
-      "command": "npx",
-      "args": ["-y", "@playwright/mcp@latest"],
+      "command": "bun",
+      "args": ["x", "@playwright/mcp@latest"],
       "env": {},
       "fromGalleryId": "executeautomation.mcp-playwright",
       "disabled": true
@@ -45,22 +45,22 @@
       "autoApprove": ["interactive_feedback"]
     },
     "Sequential Thinking": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+      "command": "bun",
+      "args": ["x", "@modelcontextprotocol/server-sequential-thinking"],
       "env": {},
       "fromGalleryId": "modelcontextprotocol.servers_sequentialthinking"
     },
     "Memory": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-memory"],
+      "command": "bun",
+      "args": ["x", "@modelcontextprotocol/server-memory"],
       "env": {
         "MEMORY_FILE_PATH": "memory.json"
       },
       "fromGalleryId": "modelcontextprotocol.servers_memory"
     },
     "shrimp-task-manager": {
-      "command": "npx",
-      "args": ["-y", "mcp-shrimp-task-manager"],
+      "command": "bun",
+      "args": ["x", "mcp-shrimp-task-manager"],
       "env": {
         "DATA_DIR": ".shrimp-data",
         "TEMPLATES_USE": "zh",
