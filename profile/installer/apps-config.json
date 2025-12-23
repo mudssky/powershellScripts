@@ -841,6 +841,12 @@
         "cliName": "openspec",
         "description": "Fission AI OpenSpec tool",
         "command": "bun add -g @fission-ai/openspec"
+      },
+      {
+        "name": "opencode-ai",
+        "cliName": "opencode-ai",
+        "description": "OpenCode AI 命令行工具",
+        "command": "bun add -g opencode-ai"
       }
     ],
     "pacman": [
