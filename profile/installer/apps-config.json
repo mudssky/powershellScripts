@@ -386,6 +386,12 @@
         "cliName": "sshs",
         "description": "SSH 会话管理器 (TUI)",
         "command": "scoop install sshs"
+      },
+      {
+        "name": "rclone",
+        "cliName": "rclone",
+        "description": "命令行云存储管理工具",
+        "command": "scoop install rclone"
       }
     ],
     "winget": [
