@@ -91,6 +91,7 @@
     - rustfs: RustFS对象存储服务
     - beszel: 轻量级服务器监控 Hub
     - gotify: 简单的消息推送服务器
+    - open-webui: 适用于 LLM 的 WebUI
 
 .PARAMETER RestartPolicy
     容器重启策略，默认为'unless-stopped'。可选值：
@@ -176,7 +177,8 @@ param (
         "beszel", 
         "rustdesk", 
         "gotify",
-        "sillytavern"
+        "sillytavern",
+        "open-webui"
     )]
     [string]$ServiceName, # 更合理的参数名
     
