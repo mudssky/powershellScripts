@@ -4,7 +4,7 @@
     Claude Code 配置管理工具
 
 .DESCRIPTION
-    支持部署用户全局配置、初始化项目级配置以及生成项目记忆文件 CLAUDE.md。
+    支持部署用户全局配置、初始化项目级配置、查看配置以及生成项目记忆文件 CLAUDE.md。
     兼容 Windows, Linux, macOS。
 
 .EXAMPLE
@@ -14,11 +14,15 @@
 .EXAMPLE
     .\Manage-ClaudeConfig.ps1 -Action InitProject
     在当前目录初始化项目配置。
+
+.EXAMPLE
+    .\Manage-ClaudeConfig.ps1 -Action ViewUserConfig
+    查看并格式化显示用户全局配置。
 #>
 [CmdletBinding(SupportsShouldProcess = $true)]
 param (
     [Parameter(Mandatory = $false)]
-    [ValidateSet("LoadUserConfig", "InitProject", "ShowStatus")]
+    [ValidateSet("LoadUserConfig", "InitProject", "ShowStatus", "ViewUserConfig", "ViewProjectConfig", "OpenUserConfig")]
     [string]$Action = "ShowStatus"
 )
 
@@ -57,6 +61,30 @@ function Write-Success {
 function Write-Warning {
     param([string]$Message)
     Write-Host "[WARN] $Message" -ForegroundColor Yellow
+}
+
+function Write-JsonPretty {
+    param([string]$FilePath)
+    
+    if (-not (Test-Path $FilePath)) {
+        Write-Warning "文件不存在: $FilePath"
+        return
+    }
+
+    try {
+        $Content = Get-Content -Path $FilePath -Raw -Encoding utf8
+        if ([string]::IsNullOrWhiteSpace($Content)) {
+            Write-Warning "文件为空: $FilePath"
+            return
+        }
+        # 尝试格式化 JSON
+        $Json = $Content | ConvertFrom-Json
+        $Json | ConvertTo-Json -Depth 10 | Write-Host -ForegroundColor Gray
+    }
+    catch {
+        Write-Warning "JSON 解析失败，显示原始内容:"
+        Get-Content -Path $FilePath -Encoding utf8 | Write-Host -ForegroundColor Gray
+    }
 }
 
 # 1. 加载/同步用户全局配置
@@ -178,9 +206,53 @@ function Show-ConfigStatus {
     Write-Host "---------------------------`n"
 }
 
+# 4. 查看用户配置
+function View-UserConfig {
+    Write-Host "`n--- 用户全局配置 ($GlobalConfigFile) ---" -ForegroundColor Cyan
+    Write-JsonPretty -FilePath $GlobalConfigFile
+}
+
+# 5. 查看项目配置
+function View-ProjectConfig {
+    $ProjectSettings = Join-Path (Get-Location) ".claude" "settings.json"
+    Write-Host "`n--- 项目配置 ($ProjectSettings) ---" -ForegroundColor Cyan
+    Write-JsonPretty -FilePath $ProjectSettings
+}
+
+# 6. 打开用户配置 (尝试使用默认编辑器)
+function Open-UserConfig {
+    if (-not (Test-Path $GlobalConfigFile)) {
+        Write-Warning "配置文件不存在: $GlobalConfigFile"
+        return
+    }
+
+    Write-Info "正在打开配置文件: $GlobalConfigFile"
+    
+    if (Get-Command "code" -ErrorAction SilentlyContinue) {
+        code $GlobalConfigFile
+    }
+    elseif ($IsWindows) {
+        Invoke-Item $GlobalConfigFile
+    }
+    elseif ($IsMacOS) {
+        open $GlobalConfigFile
+    }
+    elseif ($IsLinux) {
+        if (Get-Command "xdg-open" -ErrorAction SilentlyContinue) {
+            xdg-open $GlobalConfigFile
+        }
+        else {
+            nano $GlobalConfigFile
+        }
+    }
+}
+
 # 执行逻辑
 switch ($Action) {
     "LoadUserConfig" { Load-UserConfig }
     "InitProject" { Initialize-Project }
     "ShowStatus" { Show-ConfigStatus }
+    "ViewUserConfig" { View-UserConfig }
+    "ViewProjectConfig" { View-ProjectConfig }
+    "OpenUserConfig" { Open-UserConfig }
 }
