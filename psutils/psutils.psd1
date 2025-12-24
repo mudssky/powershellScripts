@@ -89,7 +89,8 @@
         'modules\string.psm1',
         'modules\test.psm1',
         'modules\win.psm1',
-        'modules\wrapper.psm1'
+        'modules\wrapper.psm1',
+        'modules\web.psm1'
     )
 
     # 要从此模块导出的函数，为获得最佳性能，请不要使用通配符，如果没有要导出的函数，请使用空数组
@@ -130,8 +131,8 @@
         'Add-Startup', 'New-Shortcut',
         # 包装器模块 (wrapper.psm1)
         'Set-CustomAlias', 'Get-CustomAlias',
-        # Git 工具模块 (git.psm1)
-        'Get-GitIgnorePatterns', 'New-7ZipExcludeArgs'
+        # Web 工具模块 (web.psm1)
+        'New-WebShortcut'
     )
 
     # 要从此模块导出的 Cmdlet，为获得最佳性能，请不要使用通配符，如果没有要导出的 Cmdlet，请使用空数组
@@ -204,4 +205,6 @@
     # DefaultCommandPrefix = ''
 
 }
+
+
 
