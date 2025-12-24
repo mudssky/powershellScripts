@@ -98,7 +98,7 @@
         # 缓存管理模块 (cache.psm1)
         'Invoke-WithCache', 'Clear-ExpiredCache', 'Get-CacheStats', 'Invoke-WithFileCache',
         # 环境管理模块 (env.psm1)
-        'Get-Dotenv', 'Install-Dotenv', 'Import-EnvPath', 'Set-EnvPath', 'Add-EnvPath', 'Get-EnvParam', 'Remove-FromEnvPath', 'Sync-PathFromBash'
+        'Get-Dotenv', 'Install-Dotenv', 'Import-EnvPath', 'Set-EnvPath', 'Add-EnvPath', 'Get-EnvParam', 'Remove-FromEnvPath', 'Sync-PathFromBash',
         # 错误处理模块 (error.psm1)
         'Debug-CommandExecution',
         # 文件系统模块 (filesystem.psm1)
@@ -109,6 +109,8 @@
         'Get-HistoryCommandRank', 'Get-ScriptFolder', 'Start-Ipython', 'Start-PSReadline', 'New-Shortcut', 'Set-Script', 'Update-Semver', 'Get-FormatLength', 'Get-NeedBinaryDigit', 'Get-ReversedMap',
         # 硬件信息模块 (hardware.psm1)
         'Get-GpuInfo', 'Get-SystemMemoryInfo',
+        # Git 工具模块 (git.psm1)
+        'Get-GitIgnorePatterns', 'New-7ZipExcludeArgs',
         # 帮助搜索模块 (help.psm1)
         'Search-ModuleHelp', 'Find-PSUtilsFunction', 'Get-FunctionHelp', 'Test-HelpSearchPerformance', 'Convert-HelpBlock',
         # 安装管理模块 (install.psm1)
@@ -205,6 +207,3 @@
     # DefaultCommandPrefix = ''
 
 }
-
-
-
