@@ -1,6 +1,10 @@
 {
   "folders": [
     {
+      "name": "root",
+      "path": "."
+    },
+    {
       "name": "pwsh",
       "path": "scripts/pwsh"
     },
@@ -31,10 +35,6 @@
     {
       "name": "json-diff-tool",
       "path": "projects/clis/json-diff-tool"
-    },
-    {
-      "name": "root",
-      "path": "."
     }
   ],
   "settings": {
