@@ -1,9 +1,11 @@
+#!/usr/bin/env pwsh
 <#
 .SYNOPSIS
     Claude Code 配置管理工具
 
 .DESCRIPTION
     支持部署用户全局配置、初始化项目级配置以及生成项目记忆文件 CLAUDE.md。
+    兼容 Windows, Linux, macOS。
 
 .EXAMPLE
     .\Manage-ClaudeConfig.ps1 -Action LoadUserConfig
@@ -13,15 +15,33 @@
     .\Manage-ClaudeConfig.ps1 -Action InitProject
     在当前目录初始化项目配置。
 #>
-
+[CmdletBinding(SupportsShouldProcess = $true)]
 param (
     [Parameter(Mandatory = $false)]
     [ValidateSet("LoadUserConfig", "InitProject", "ShowStatus")]
     [string]$Action = "ShowStatus"
 )
 
-$TemplateDir = "$PSScriptRoot\config"
-$GlobalConfigDir = Join-Path $env:USERPROFILE ".claude"
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+# 跨平台路径配置
+$TemplateDir = Join-Path $PSScriptRoot "config"
+
+# 获取用户主目录 (兼容 Windows/Linux/macOS)
+if ($IsLinux -or $IsMacOS) {
+    $HomeDir = $env:HOME
+}
+else {
+    $HomeDir = $env:USERPROFILE
+}
+
+# 如果上述检测失败，尝试使用 .NET 方法作为后备
+if ([string]::IsNullOrEmpty($HomeDir)) {
+    $HomeDir = [System.Environment]::GetFolderPath('UserProfile')
+}
+
+$GlobalConfigDir = Join-Path $HomeDir ".claude"
 $GlobalConfigFile = Join-Path $GlobalConfigDir "settings.json"
 
 function Write-Info {
@@ -48,16 +68,19 @@ function Load-UserConfig {
     }
 
     if (-not (Test-Path $GlobalConfigDir)) {
+        # New-Item 支持 WhatIf
         New-Item -Path $GlobalConfigDir -ItemType Directory -Force | Out-Null
         Write-Info "创建全局配置目录: $GlobalConfigDir"
     }
 
     if (Test-Path $GlobalConfigFile) {
         $BackupFile = $GlobalConfigFile + ".bak"
+        # Copy-Item 支持 WhatIf
         Copy-Item $GlobalConfigFile $BackupFile -Force
         Write-Info "已备份现有配置到: $BackupFile"
     }
 
+    # Copy-Item 支持 WhatIf
     Copy-Item $SourceFile $GlobalConfigFile -Force
     Write-Success "用户全局配置已部署至: $GlobalConfigFile"
 }
@@ -93,6 +116,7 @@ function Initialize-Project {
     } | ConvertTo-Json -Depth 10
 
     if (-not (Test-Path $ProjectSettings)) {
+        # Out-File 支持 WhatIf
         $DefaultSettings | Out-File -FilePath $ProjectSettings -Encoding utf8
         Write-Success "已生成项目配置文件: .claude/settings.json"
     }
