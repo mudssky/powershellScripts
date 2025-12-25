@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest'
 import { execa } from 'execa'
-import path from 'path'
 import fs from 'fs'
+import path from 'path'
+import { describe, expect, it } from 'vitest'
 
 // Helper to run the built script
 const runScript = async (scriptName: string, args: string[] = []) => {
