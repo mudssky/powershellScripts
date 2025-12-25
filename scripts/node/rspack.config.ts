@@ -1,21 +1,47 @@
-import path from 'path'
-import fs from 'fs'
 import { defineConfig } from '@rspack/cli'
 import { rspack } from '@rspack/core'
+import fs from 'fs'
+import path from 'path'
 
 // Get all .ts files in src
+// 注意：对于包含 index.ts 的子目录（如 rule-loader），只将 index.ts 作为入口
 const srcDir = path.resolve(__dirname, 'src')
 const entries: Record<string, string> = {}
 
-if (fs.existsSync(srcDir)) {
-  const files = fs.readdirSync(srcDir)
+function scanDir(dir: string, basePrefix = '') {
+  if (!fs.existsSync(dir)) {
+    return
+  }
+
+  const files = fs.readdirSync(dir)
   files.forEach((file) => {
-    if (file.endsWith('.ts')) {
-      const name = file.replace('.ts', '')
-      entries[name] = path.join(srcDir, file)
+    const fullPath = path.join(dir, file)
+    const stat = fs.statSync(fullPath)
+
+    if (stat.isDirectory()) {
+      // 检查是否有 index.ts
+      const indexPath = path.join(fullPath, 'index.ts')
+      if (fs.existsSync(indexPath)) {
+        // 如果有 index.ts，只将 index.ts 作为入口
+        const newPrefix = basePrefix ? `${basePrefix}/${file}` : file
+        const entryName = newPrefix.split(path.sep).join('/')
+        entries[entryName] = indexPath
+      } else {
+        // 否则递归扫描子目录
+        const newPrefix = basePrefix ? `${basePrefix}/${file}` : file
+        scanDir(fullPath, newPrefix)
+      }
+    } else if (file.endsWith('.ts') && file !== 'index.ts') {
+      // 对于非 index.ts 的文件，直接作为入口（如 load-trae-rules.ts）
+      if (!basePrefix) {
+        const nameWithoutExt = file.replace('.ts', '')
+        entries[nameWithoutExt] = fullPath
+      }
     }
   })
 }
+
+scanDir(srcDir)
 
 export default defineConfig({
   mode: 'production',
@@ -53,7 +79,12 @@ export default defineConfig({
     }),
   ],
   resolve: {
-    extensions: ['.ts', '.js'],
+    extensions: ['.ts', '.js', '.json'],
     modules: ['node_modules', path.resolve(__dirname, 'node_modules')],
+    // 添加完全解析配置，确保相对路径正确解析
+    fullySpecified: false,
+    // 添加 mainFields 和 mainFiles 配置
+    mainFields: ['main', 'module'],
+    mainFiles: ['index', 'index.ts', 'index.js'],
   },
 })

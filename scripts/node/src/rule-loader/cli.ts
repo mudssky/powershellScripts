@@ -6,11 +6,10 @@
  */
 
 import { Command } from 'commander'
-
-import type { CliOptions } from './types.js'
-import { loadRules } from './loader.js'
-import { formatOutput } from './formatters.js'
-import { RuleLoadError } from './utils.js'
+import { formatOutput } from './formatters'
+import { loadRules } from './loader'
+import type { CliOptions } from './types'
+import { RuleLoadError } from './utils'
 
 /**
  * 创建 CLI 命令

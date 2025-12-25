@@ -5,21 +5,20 @@
  * 负责从 .trae/rules 目录加载和解析规则文件。
  */
 
-import path from 'path'
-import fs from 'fs/promises'
 import glob from 'fast-glob'
+import fs from 'fs/promises'
 import matter from 'gray-matter'
+import path from 'path'
 
-import type { TraeRule, TraeRuleMetadata, LoadOptions } from './types.js'
+import type { LoadOptions, TraeRule, TraeRuleMetadata } from './types'
 import {
+  extractCategory,
+  extractMatchPatterns,
+  extractRuleName,
+  generateRuleId,
   parseLooseYaml,
   RuleLoadError,
-  RuleParseError,
-  extractMatchPatterns,
-  generateRuleId,
-  extractRuleName,
-  extractCategory,
-} from './utils.js'
+} from './utils'
 
 /**
  * 默认规则目录

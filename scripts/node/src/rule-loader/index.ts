@@ -19,16 +19,15 @@
  */
 
 // 导出 main 函数供其他模块使用
-export { main } from './cli.js'
-
+export { main } from './cli'
+export * from './formatters'
+export * from './loader'
 // 导出类型和工具供其他模块使用
-export * from './types.js'
-export * from './loader.js'
-export * from './formatters.js'
-export * from './utils.js'
+export * from './types'
+export * from './utils'
 
 // 当直接运行此文件时，执行 CLI
-import { main } from './cli.js'
+import { main } from './cli'
 
 main().catch((error) => {
   console.error('致命错误:', error)

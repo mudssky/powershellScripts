@@ -5,7 +5,7 @@
  * 将规则列表转换为不同格式的输出字符串。
  */
 
-import type { TraeRule, FormatOptions } from './types.js'
+import type { FormatOptions, TraeRule } from './types'
 
 /**
  * 格式化输出
@@ -145,7 +145,7 @@ function formatRuleIndex(rule: TraeRule): string {
  */
 export function formatJson(
   rules: TraeRule[],
-  options: FormatOptions = {},
+  _options: FormatOptions = {},
 ): string {
   const output = {
     version: '1.0.0',
