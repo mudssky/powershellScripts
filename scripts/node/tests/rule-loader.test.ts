@@ -225,7 +225,7 @@ describe('rule-loader - 格式化器测试', () => {
   describe('formatMarkdown', () => {
     it('应该输出全局规则的完整内容', () => {
       const result = formatMarkdown(mockRules)
-      expect(result).toContain('=== 🚨 CRITICAL GLOBAL RULES (MUST FOLLOW) ===')
+      expect(result).toContain('=== 🚨 CRITICAL GLOBAL RULES (AGENT MODE) ===')
       expect(result).toContain('### GLOBAL RULE (.trae/rules/00_global.md):')
       expect(result).toContain('# 全局规则内容')
       expect(result).toContain('这是必须遵循的规则。')
@@ -233,8 +233,12 @@ describe('rule-loader - 格式化器测试', () => {
 
     it('应该输出条件规则的索引', () => {
       const result = formatMarkdown(mockRules)
-      expect(result).toContain('=== 📂 CONDITIONAL RULES INDEX ===')
-      expect(result).toContain('Claude, please READ the specific rule file')
+      expect(result).toContain(
+        '=== 📂 CONDITIONAL RULES INDEX (DYNAMIC CONTEXT) ===',
+      )
+      expect(result).toContain(
+        "If the user's request involves the files/topics below, you **MUST** first execute `Read`",
+      )
       expect(result).toContain('- Rule File: .trae/rules/10_conditional.md')
       expect(result).toContain('Match Files: *.js, *.ts')
       expect(result).toContain('Trigger: 条件规则')
@@ -243,7 +247,9 @@ describe('rule-loader - 格式化器测试', () => {
     it('应该支持禁用标题', () => {
       const result = formatMarkdown(mockRules, { includeHeader: false })
       expect(result).not.toContain('=== 🚨 CRITICAL GLOBAL RULES')
-      expect(result).not.toContain('=== 📂 CONDITIONAL RULES INDEX ===')
+      expect(result).not.toContain(
+        '=== 📂 CONDITIONAL RULES INDEX (DYNAMIC CONTEXT) ===',
+      )
     })
 
     it('应该只包含全局规则', () => {
