@@ -21,6 +21,7 @@
   "devDependencies": {
     "@rspack/cli": "^1.6.7",
     "@rspack/core": "^1.6.7",
+    "@types/minimatch": "^6.0.0",
     "@types/node": "^25.0.1",
     "cross-env": "^10.1.0",
     "execa": "^9.6.1",
@@ -30,5 +31,11 @@
     "typescript": "^5.9.3",
     "vitest": "^4.0.14"
   },
-  "private": "true"
+  "private": "true",
+  "dependencies": {
+    "commander": "^14.0.2",
+    "fast-glob": "^3.3.3",
+    "gray-matter": "^4.0.3",
+    "minimatch": "^10.1.1"
+  }
 }

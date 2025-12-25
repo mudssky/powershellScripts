@@ -1,2 +1,3 @@
 dist/
 .claude/plan
+*.local.json

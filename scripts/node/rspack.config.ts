@@ -54,5 +54,6 @@ export default defineConfig({
   ],
   resolve: {
     extensions: ['.ts', '.js'],
+    modules: ['node_modules', path.resolve(__dirname, 'node_modules')],
   },
 })
