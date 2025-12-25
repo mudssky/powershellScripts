@@ -1,0 +1,6 @@
+{
+  "name": "m",
+  "version": "0.0.1",
+  "description": "Task management commands (plan-*)",
+  "commands": "./commands"
+}
