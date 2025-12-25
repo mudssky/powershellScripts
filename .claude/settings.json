@@ -15,5 +15,18 @@
     "Sequential Thinking",
     "Memory",
     "shrimp-task-manager"
-  ]
+  ],
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": " echo '以下是本项目的重要规范，请严格遵守' && rule-loader"
+          }
+        ]
+      }
+    ]
+  }
 }
