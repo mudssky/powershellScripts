@@ -67,6 +67,15 @@
         "ENABLE_GUI": "true",
         "WEB_PORT": "36601"
       }
+    },
+    "serena": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/oraios/serena",
+        "serena",
+        "start-mcp-server"
+      ]
     }
   }
 }
