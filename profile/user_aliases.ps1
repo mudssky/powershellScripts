@@ -1,3 +1,5 @@
+$projectRoot = Split-Path -Parent $PSScriptRoot
+
 $userAlias = @(
     [PSCustomObject]@{
         cliName     = 'dust'
@@ -45,6 +47,13 @@ $userAlias = @(
         aliasValue  = ''
         description = 'tree 使用 eza 显示目录树结构（含图标）。'
         command     = 'eza --tree --git --icons --git-ignore'
+    }
+    [PSCustomObject]@{
+        cliName     = 'claude'
+        aliasName   = 'ccm'
+        aliasValue  = ''
+        description = 'ccm (Claude M) 启动 Claude 并加载 m 插件（任务管理）。'
+        command     = "claude --plugin-dir '$projectRoot\.claude\m'"
     }
 )
 return $userAlias
