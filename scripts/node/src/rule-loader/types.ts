@@ -236,6 +236,22 @@ export interface FormatOptions {
    * 为 `true` 时，包含分隔线和标题等装饰性内容。
    */
   includeHeader?: boolean
+
+  /**
+   * 当前工作目录
+   *
+   * @description
+   * 用于生成 [System Info] 中的 Project Root。
+   */
+  cwd?: string
+
+  /**
+   * 规则目录
+   *
+   * @description
+   * 用于生成 [System Info] 中的 Rule Base。
+   */
+  rulesDir?: string
 }
 
 /**

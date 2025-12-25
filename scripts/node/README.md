@@ -2,6 +2,10 @@
 
 这是一个用于管理和打包 TypeScript 脚本的工具箱。基于 Rspack 构建，支持生成单文件脚本，并自动创建 Windows (.cmd) 和 Linux (Shell) 的可执行封装。
 
+## 包含的工具
+
+* **[rule-loader](docs/rule-loader.md)**: AI 编码规则加载器 CLI。用于加载 `.trae/rules` 目录下的规则文件，支持 Markdown/JSON 输出。
+
 ## 目录结构
 
 ```text
@@ -62,11 +66,11 @@ my-tool
 
 ## 技术栈
 
-*   **构建工具**: [Rspack](https://www.rspack.dev/) - 高性能构建引擎
-*   **语言**: TypeScript
-*   **运行时**: Node.js
+* **构建工具**: [Rspack](https://www.rspack.dev/) - 高性能构建引擎
+* **语言**: TypeScript
+* **运行时**: Node.js
 
 ## 注意事项
 
-*   打包后的文件默认为 CommonJS 格式 (`.cjs`)，以兼容不同环境。
-*   Shim 脚本会自动处理跨平台兼容性 (Windows/Linux)。
+* 打包后的文件默认为 CommonJS 格式 (`.cjs`)，以兼容不同环境。
+* Shim 脚本会自动处理跨平台兼容性 (Windows/Linux)。

@@ -73,6 +73,7 @@ async function run(options: CliOptions): Promise<void> {
   const output = formatOutput(rules, {
     format: options.format,
     includeHeader: true,
+    cwd: process.cwd(),
   })
 
   // 输出结果

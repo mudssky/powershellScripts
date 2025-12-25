@@ -54,6 +54,12 @@ export function formatMarkdown(
 ): string {
   const sections: string[] = []
 
+  // 输出系统信息
+  const systemInfo = formatSystemInfo(options)
+  if (systemInfo) {
+    sections.push(systemInfo)
+  }
+
   // 分离全局规则和条件规则
   const globalRules = rules.filter((r) => r.alwaysApply)
   const conditionalRules = rules.filter((r) => !r.alwaysApply)
@@ -72,6 +78,27 @@ export function formatMarkdown(
 }
 
 /**
+ * 格式化系统信息
+ *
+ * @param options - 格式化选项
+ * @returns Markdown 字符串
+ */
+function formatSystemInfo(options: FormatOptions): string {
+  const cwd = options.cwd
+  const rulesDir = options.rulesDir
+
+  if (!cwd) return ''
+
+  // 确保路径分隔符统一
+  const cleanCwd = cwd.replace(/\\/g, '/')
+  const cleanRulesDir = rulesDir
+    ? rulesDir.replace(/\\/g, '/')
+    : `${cleanCwd}/.trae/rules`
+
+  return `[System Info]\nProject Root: ${cleanCwd}\nRule Base: ${cleanRulesDir}`
+}
+
+/**
  * 格式化全局规则
  *
  * @param rules - 全局规则数组
@@ -82,7 +109,7 @@ function formatGlobalRules(rules: TraeRule[], options: FormatOptions): string {
   const includeHeader = options.includeHeader !== false
 
   const header = includeHeader
-    ? '=== 🚨 CRITICAL GLOBAL RULES (MUST FOLLOW) ==='
+    ? '=== 🚨 CRITICAL GLOBAL RULES (AGENT MODE) ==='
     : ''
 
   const content = rules.map(formatSingleRule).join('\n\n')
@@ -114,7 +141,7 @@ function formatConditionalRules(
   const includeHeader = options.includeHeader !== false
 
   const header = includeHeader
-    ? '=== 📂 CONDITIONAL RULES INDEX ===\nClaude, please READ the specific rule file using `Read` tool if your task matches the criteria below:'
+    ? "=== 📂 CONDITIONAL RULES INDEX (DYNAMIC CONTEXT) ===\n⚠️ **MANDATORY ACTION**:\nIf the user's request involves the files/topics below, you **MUST** first execute `Read` on the corresponding Rule File to load the specific standards into your context BEFORE generating a Plan."
     : ''
 
   const items = rules.map(formatRuleIndex).join('\n')
