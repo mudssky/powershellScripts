@@ -4,5 +4,15 @@
     "deny": [],
     "ask": []
   },
-  "enabledMcpjsonServers": ["context7", "promptx"]
+  "enabledMcpjsonServers": ["context7"],
+  "disabledMcpjsonServers": [
+    "git",
+    "gitmcp",
+    "promptx",
+    "Playwright",
+    "mcp-feedback-enhanced",
+    "Sequential Thinking",
+    "Memory",
+    "shrimp-task-manager"
+  ]
 }
