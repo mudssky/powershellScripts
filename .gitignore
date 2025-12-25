@@ -32,3 +32,5 @@ fstab
 
 # 单文件脚本存放的地方
 bin/
+
+*.local.json
