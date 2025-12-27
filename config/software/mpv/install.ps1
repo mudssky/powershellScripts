@@ -192,7 +192,12 @@ if ($IsWindows) {
         # Check if it is a reparse point (symlink/junction)
         if ($item.Attributes.HasFlag([System.IO.FileAttributes]::ReparsePoint)) {
             Write-Host "Removing existing link..."
-            Remove-Item $targetPath -Force
+            # Use cmd /c rmdir which is more reliable for removing junctions than Remove-Item
+            cmd /c "rmdir `"$targetPath`""
+            
+            if (Test-Path $targetPath) {
+                Remove-Item $targetPath -Force
+            }
         }
         else {
             Write-Warning "Directory '$targetPath' already exists and is not a link."
