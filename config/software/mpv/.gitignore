@@ -1,6 +1,3 @@
-
-watch_later/
-shaders_cache/
 # Logs
 logs
 *.log
@@ -106,12 +103,19 @@ dist
 # TernJS port file
 .tern-port
 
+# mpv应用相关
+# 播放记录
+watch_later/
+# 着色器缓存
+shaders_cache/
+# 着色器目录
+shaders
+# 缓存
 cache
-
+# 本地配置文件
+mpv_local.conf
 # uosc相关内容
 # 插件可以通过脚本下载，所以就忽略掉
 scripts/uosc
 fonts
 *.zip
-# 本地配置文件
-mpv_local.conf
