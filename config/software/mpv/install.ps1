@@ -20,12 +20,16 @@
     Verifies the installation status.
 
 .PARAMETER InstallPlugins
-    If specified, installs recommended plugins (uosc and thumbfast).
+    If specified, installs recommended plugins (uosc and thumbfast) via tools/install/install_plugins.ps1.
+
+.PARAMETER InstallShaders
+    If specified, downloads and installs shaders via tools/install/download_shaders.ps1.
 #>
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
     [switch]$Check,
-    [switch]$InstallPlugins
+    [switch]$InstallPlugins,
+    [switch]$InstallShaders
 )
 
 Set-StrictMode -Version Latest
@@ -38,63 +42,36 @@ if (-not $sourcePath) {
 }
 # Resolve to absolute path to ensure consistency
 $sourcePath = (Resolve-Path $sourcePath).Path
+$toolsDir = Join-Path $sourcePath "tools/install"
 
 # -----------------------------------------------------------------------------
 # Plugin Installation (uosc, thumbfast)
 # -----------------------------------------------------------------------------
 if ($InstallPlugins) {
-    Write-Host "`n------------------------------------------------"
-    Write-Host "Installing Plugins (uosc, thumbfast)..." -ForegroundColor Cyan
-    Write-Host "------------------------------------------------"
+    $pluginScript = Join-Path $toolsDir "install_plugins.ps1"
+    if (Test-Path $pluginScript) {
+        & $pluginScript -MpvConfigRoot $sourcePath
+    }
+    else {
+        Write-Warning "Plugin installation script not found at $pluginScript"
+    }
+}
 
-    # Ensure directories exist
-    $scriptsDir = Join-Path $sourcePath "scripts"
-    $scriptOptsDir = Join-Path $sourcePath "script-opts"
-    if (!(Test-Path $scriptsDir)) { New-Item -ItemType Directory -Path $scriptsDir | Out-Null }
-    if (!(Test-Path $scriptOptsDir)) { New-Item -ItemType Directory -Path $scriptOptsDir | Out-Null }
+# -----------------------------------------------------------------------------
+# Shader Installation
+# -----------------------------------------------------------------------------
+if ($InstallShaders) {
+    $shaderScript = Join-Path $toolsDir "download_shaders.ps1"
+    if (Test-Path $shaderScript) {
+        & $shaderScript -MpvConfigRoot $sourcePath
+    }
+    else {
+        Write-Warning "Shader download script not found at $shaderScript"
+    }
+}
 
-    # 1. Install uosc
-    Write-Host "Downloading and installing uosc..."
-    $uoscUrl = "https://github.com/tomasklaen/uosc/releases/latest/download/uosc.zip"
-    $uoscZip = Join-Path $sourcePath "uosc.zip"
-    try {
-        Invoke-WebRequest -Uri $uoscUrl -OutFile $uoscZip -ErrorAction Stop
-        # Expand to sourcePath. uosc.zip typically contains contents ready for root (scripts/, script-opts/) or a folder.
-        # Standard release zip has folders at root.
-        Expand-Archive -Path $uoscZip -DestinationPath $sourcePath -Force
-        Remove-Item $uoscZip -Force
-        Write-Host "uosc installed successfully." -ForegroundColor Green
-    }
-    catch {
-        Write-Warning "Failed to install uosc: $_"
-    }
-
-    # 2. Install thumbfast
-    Write-Host "Downloading and installing thumbfast..."
-    $thumbfastBase = "https://raw.githubusercontent.com/po5/thumbfast/master"
-    try {
-        # thumbfast.lua
-        $thumbfastLua = Join-Path $scriptsDir "thumbfast.lua"
-        Invoke-WebRequest -Uri "$thumbfastBase/thumbfast.lua" -OutFile $thumbfastLua -ErrorAction Stop
-        Write-Host "thumbfast.lua installed." -ForegroundColor Green
-        
-        # thumbfast.conf (Only if not exists to avoid overwriting user config? Or always? User said "install function")
-        # Let's download it to script-opts if it doesn't exist, or overwrite if forced? 
-        # Standard behavior: install default config.
-        $thumbfastConf = Join-Path $scriptOptsDir "thumbfast.conf"
-        if (!(Test-Path $thumbfastConf)) {
-            Invoke-WebRequest -Uri "$thumbfastBase/thumbfast.conf" -OutFile $thumbfastConf -ErrorAction Stop
-            Write-Host "thumbfast.conf installed." -ForegroundColor Green
-        }
-        else {
-            Write-Host "thumbfast.conf already exists, skipping." -ForegroundColor Gray
-        }
-    }
-    catch {
-        Write-Warning "Failed to install thumbfast: $_"
-    }
-    
-    exit 0
+if ($InstallPlugins -or $InstallShaders) {
+    if (-not $Check) { exit 0 }
 }
 
 if (-not $Check) {
@@ -122,7 +99,7 @@ if ($Check) {
                             # Resolve target to absolute path if possible, or compare strings
                             if ($target -and ((Resolve-Path $target).Path -eq $sourcePath)) {
                                 # Also check if registered
-                                $registerScript = Join-Path $sourcePath "registerMpv.ps1"
+                                $registerScript = Join-Path $toolsDir "registerMpv.ps1"
                                 if (Test-Path $registerScript) {
                                     $isRegistered = & $registerScript -Check
                                     if ($isRegistered -eq $true) {
@@ -131,7 +108,6 @@ if ($Check) {
                                 }
                                 else {
                                     # If register script is missing but link is OK, we consider it partially installed
-                                    # But for the sake of this task, let's say it's OK if link is OK
                                     $isInstalled = $true
                                 }
                             }
@@ -239,7 +215,7 @@ if ($IsWindows) {
     # -----------------------------------------------------------------------------
     # Register mpv as a system-wide handler (Windows only)
     # -----------------------------------------------------------------------------
-    $registerScript = Join-Path $sourcePath "registerMpv.ps1"
+    $registerScript = Join-Path $toolsDir "registerMpv.ps1"
     if (Test-Path $registerScript) {
         Write-Host "Registering mpv as system-wide handler..."
         & $registerScript
@@ -308,6 +284,7 @@ else {
 }
 
 if (-not $Check) {
-    Write-Host "`n[Tip] You can install uosc and thumbfast plugins by running:" -ForegroundColor Yellow
+    Write-Host "`n[Tip] You can install extras by running:" -ForegroundColor Yellow
     Write-Host "      .\install.ps1 -InstallPlugins" -ForegroundColor Yellow
+    Write-Host "      .\install.ps1 -InstallShaders" -ForegroundColor Yellow
 }
