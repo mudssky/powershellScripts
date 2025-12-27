@@ -10,6 +10,7 @@
 **1. 路径定义 (Absolute Paths)**
 
 * **ROOT:** `[YOUR_PROJECT_ROOT]`
+* **TARGET_NAME:** `[TARGET_NAME]`
 * **缓存文件 (Cache):** `{ROOT}/个人笔记/Dating Dossier/[TARGET_NAME]/context_cache.md`
 * **原始日记:** `{ROOT}/daily_notes`
 * **女生档案 (Target):** `{ROOT}/个人笔记/Dating Dossier/[TARGET_NAME]/herprofile.md`
