@@ -107,3 +107,8 @@ dist
 .tern-port
 
 cache
+
+# uosc相关内容
+# 插件可以通过脚本下载，所以就忽略掉
+scripts/uosc
+fonts
