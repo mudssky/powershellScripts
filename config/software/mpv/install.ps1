@@ -165,10 +165,17 @@ if ($IsWindows) {
         exit 1
     }
 
-    Write-Host "Installing/Updating mpv via scoop..."
-    scoop install mpv
+    Write-Host "Checking if mpv is already installed..."
+    $mpvPrefix = scoop prefix mpv 2>$null
+    if ($null -eq $mpvPrefix -or !(Test-Path $mpvPrefix)) {
+        Write-Host "mpv not found. Installing via scoop..."
+        scoop install mpv
+    }
+    else {
+        Write-Host "mpv is already installed at: $mpvPrefix"
+    }
 
-    # Locate mpv installation
+    # Locate mpv installation again to be sure (or use the one we found)
     try {
         $mpvPath = scoop prefix mpv
     }
@@ -192,9 +199,23 @@ if ($IsWindows) {
         # Check if it is a reparse point (symlink/junction)
         if ($item.Attributes.HasFlag([System.IO.FileAttributes]::ReparsePoint)) {
             Write-Host "Removing existing link..."
+            
+            # Ensure mpv is not running
+            Get-Process mpv -ErrorAction SilentlyContinue | Stop-Process -Force
+
+            # Remove ReadOnly attribute if present
+            if ($item.Attributes.HasFlag([System.IO.FileAttributes]::ReadOnly)) {
+                $item.Attributes = $item.Attributes -band -not [System.IO.FileAttributes]::ReadOnly
+            }
+
             # Use cmd /c rmdir which is more reliable for removing junctions than Remove-Item
             cmd /c "rmdir `"$targetPath`""
             
+            if (Test-Path $targetPath) {
+                # Fallback to .NET method
+                try { [System.IO.Directory]::Delete($targetPath) } catch {}
+            }
+
             if (Test-Path $targetPath) {
                 Remove-Item $targetPath -Force
             }
