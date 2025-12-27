@@ -1,8 +1,30 @@
 #!/usr/bin/env pwsh
+<#
+.SYNOPSIS
+    Installs and configures mpv with portable_config and system-wide registration.
+
+.DESCRIPTION
+    This script automates the installation of mpv (via Scoop on Windows or Homebrew on macOS/Linux),
+    links the local configuration to the mpv config directory, and on Windows, 
+    registers mpv as a system-wide file handler.
+
+.PARAMETER Check
+    If specified, checks if the configuration is correctly installed and linked.
+
+.EXAMPLE
+    .\install.ps1
+    Installs mpv and links configuration.
+
+.EXAMPLE
+    .\install.ps1 -Check
+    Verifies the installation status.
+#>
+[CmdletBinding(SupportsShouldProcess = $true)]
 param(
     [switch]$Check
 )
 
+Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 # Get the script's root directory (source of configuration)
@@ -36,9 +58,20 @@ if ($Check) {
                             # Verify target
                             $target = $item.Target
                             # Resolve target to absolute path if possible, or compare strings
-                            # On Windows, Target usually comes back absolute for Junctions created by New-Item
                             if ($target -and ((Resolve-Path $target).Path -eq $sourcePath)) {
-                                $isInstalled = $true
+                                # Also check if registered
+                                $registerScript = Join-Path $sourcePath "registerMpv.ps1"
+                                if (Test-Path $registerScript) {
+                                    $isRegistered = & $registerScript -Check
+                                    if ($isRegistered -eq $true) {
+                                        $isInstalled = $true
+                                    }
+                                }
+                                else {
+                                    # If register script is missing but link is OK, we consider it partially installed
+                                    # But for the sake of this task, let's say it's OK if link is OK
+                                    $isInstalled = $true
+                                }
                             }
                         }
                     }
@@ -140,6 +173,18 @@ if ($IsWindows) {
     Write-Host "Creating Junction..."
     New-Item -ItemType Junction -Path $targetPath -Target $sourcePath | Out-Null
     Write-Host "Success! mpv is now using this portable_config."
+
+    # -----------------------------------------------------------------------------
+    # Register mpv as a system-wide handler (Windows only)
+    # -----------------------------------------------------------------------------
+    $registerScript = Join-Path $sourcePath "registerMpv.ps1"
+    if (Test-Path $registerScript) {
+        Write-Host "Registering mpv as system-wide handler..."
+        & $registerScript
+    }
+    else {
+        Write-Warning "Registration script not found at $registerScript"
+    }
 }
 
 # -----------------------------------------------------------------------------
