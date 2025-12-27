@@ -113,3 +113,5 @@ cache
 scripts/uosc
 fonts
 *.zip
+# 本地配置文件
+mpv_local.conf
