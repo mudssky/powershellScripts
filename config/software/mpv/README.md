@@ -2,6 +2,7 @@
 
 - [mpv-config](#mpv-config)
   - [使用方法](#使用方法)
+    - [安装插件 (uosc + thumbfast)](#安装插件-uosc--thumbfast)
   - [mpv-gif.js](#mpv-gifjs)
     - [运行环境需求](#运行环境需求)
     - [feature](#feature)
@@ -14,13 +15,30 @@
 
 ## 使用方法
 
-  执行以下命令直接把仓库内容创建到mpv目录下的portable_config文件夹中
+  本配置已集成在 `powershellScripts` 仓库中。
 
+  运行安装脚本创建软连接（Windows需管理员权限）：
+
+  ```powershell
+  # 方法 1: 在仓库根目录下运行
+  .\config\software\mpv\install.ps1
+
+  # 方法 2: 进入目录运行
+  cd config\software\mpv
+  .\install.ps1
   ```
-  gh repo clone mudssky/mpv-config portable_config
-  ```
+
+  脚本会自动检测系统（Windows/macOS/Linux），安装 mpv（如果未安装），并将配置文件链接到正确的位置。
 
   修改src文件夹中的ts代码后,使用npm run build,就会调用tsc构建es5的代码到scripts文件夹
+
+### 安装插件 (uosc + thumbfast)
+
+  你可以通过附加 `-InstallPlugins` 参数来自动安装/更新 [uosc](https://github.com/tomasklaen/uosc) (UI界面) 和 [thumbfast](https://github.com/po5/thumbfast) (缩略图) 插件：
+
+  ```powershell
+  .\install.ps1 -InstallPlugins
+  ```
 
 ## mpv-gif.js
 

@@ -216,8 +216,11 @@ ls *.flv | % { ffmpegPreset -path $_.Name }
 **安装**:
 
 ```powershell
-# 自动安装 mpv (需 Scoop/Homebrew) 并链接配置文件
+# 1. 自动安装 mpv (需 Scoop/Homebrew) 并链接配置文件
 .\config\software\mpv\install.ps1
+
+# 2. (可选) 安装 uosc 和 thumbfast 插件
+.\config\software\mpv\install.ps1 -InstallPlugins
 ```
 
 **主要特性**:
