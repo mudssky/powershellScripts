@@ -13,7 +13,10 @@ permissions:
   pull-requests: write # 如果需要评论 PR
 
 jobs:
-  test:
+  # ==========================================
+  # Job 1: PowerShell Pester 测试 
+  # ==========================================
+  pester-test:
     name: Run Pester on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -36,3 +39,44 @@ jobs:
         name: Pester Tests (${{ matrix.os }})
         path: testResults.xml
         reporter: dotnet-nunit
+  # ==========================================
+  # Job 2: Node.js Vitest 测试 (新增部分)
+  # ==========================================
+  node-test:
+    name: Node Vitest (Ubuntu)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 1. 安装 pnpm
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10 # 指定你使用的 pnpm 版本
+
+      # 2. 安装 Node 并开启 pnpm 缓存 (这是 Monorepo 速度的关键)
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'pnpm'
+
+      # 3. 安装依赖
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      # 4. 运行 Vitest 并生成报告
+      # 注意：你需要配置 Vitest 输出 JUnit 格式的 XML
+      - name: Run Vitest
+        run: |
+          pnpm exec vitest run --reporter=junit --outputFile=vitest-report.xml
+
+      # 5. 上传 Vitest 报告
+      - name: Report Vitest
+        uses: dorny/test-reporter@v2
+        if: success() || failure()
+        with:
+          name: Vitest Results
+          path: vitest-report.xml
+          reporter: java-junit # Vitest 的 JUnit 输出对应 java-junit 解析器
+          fail-on-error: false
