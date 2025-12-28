@@ -56,7 +56,7 @@ jobs:
 
       # 2. 安装 Node 并开启 pnpm 缓存 (这是 Monorepo 速度的关键)
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: 'pnpm'
