@@ -1,4 +1,4 @@
-name: PowerShell Tests
+name: Pester Test
 
 on:
   push:
@@ -8,13 +8,22 @@ on:
 
 jobs:
   test:
-    name: Run Pester Tests
-    runs-on: windows-latest
+    name: Run Pester on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4 
-    - name: Perform a Pester test 
+    - uses: actions/checkout@v4
+    
+    - name: Run Pester
       shell: pwsh
-      run: 
-        Invoke-Pester -Configuration (./PesterConfiguration.ps1) 
+      run: Invoke-Pester -Configuration (./PesterConfiguration.ps1) -CI
+    # 测试图形化报告
+    - name: Publish Test Results
+      uses: EnricoMi/publish-unit-test-result-action@v2
+      if: always() # 即使上面的 Pester 跑挂了，这一步也要运行
+      with:
+        files: '**/test-results.xml'

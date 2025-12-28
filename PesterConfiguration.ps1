@@ -68,9 +68,10 @@ $config = @{
         # Verbosity = 'Detailed'
     }
     TestResult   = @{
-        Enabled    = $true
-        OutputPath = "./testResults.xml"
-        # OutputFormat = 'NUnitXml'
+        Enabled       = $true
+        OutputPath    = "testResults.xml"
+        OutputFormat  = 'NUnit3'
+        TestSuiteName = "PsUtils.Tests"  ## 可选：给你的测试套件起个名字
     }
 
 }
