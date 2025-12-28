@@ -24,12 +24,16 @@
 
 .PARAMETER InstallShaders
     If specified, downloads and installs shaders via tools/install/download_shaders.ps1.
+
+.PARAMETER Full
+    If specified, performs a full installation: MPV, Plugins, Shaders, and Registration.
 #>
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
     [switch]$Check,
     [switch]$InstallPlugins,
-    [switch]$InstallShaders
+    [switch]$InstallShaders,
+    [switch]$Full
 )
 
 Set-StrictMode -Version Latest
@@ -43,6 +47,172 @@ if (-not $sourcePath) {
 # Resolve to absolute path to ensure consistency
 $sourcePath = (Resolve-Path $sourcePath).Path
 $toolsDir = Join-Path $sourcePath "tools/install"
+
+# -----------------------------------------------------------------------------
+# Configuration Initialization
+# -----------------------------------------------------------------------------
+# Ensure mpv_local.conf exists
+$localConfPath = Join-Path $sourcePath "mpv_local.conf"
+if (-not (Test-Path $localConfPath)) {
+    Write-Host "Creating empty mpv_local.conf..."
+    New-Item -Path $localConfPath -ItemType File -Force | Out-Null
+}
+
+if ($Full) {
+    Write-Host "Full installation mode selected." -ForegroundColor Cyan
+    $InstallPlugins = $true
+    $InstallShaders = $true
+}
+
+$doExtras = $InstallPlugins -or $InstallShaders
+$doCore = (-not $doExtras) -or $Full
+$doRegister = $IsWindows -and $doCore
+
+if (-not $Check) {
+    Write-Host "Source Config Path: $sourcePath"
+}
+
+# -----------------------------------------------------------------------------
+# Core Installation (mpv + link)
+# -----------------------------------------------------------------------------
+if ($doCore -and -not $Check) {
+    if ($IsWindows) {
+        Write-Host "Detected OS: Windows"
+
+        # Check if scoop is installed
+        if (!(Get-Command scoop -ErrorAction SilentlyContinue)) {
+            Write-Error "Scoop is not installed. Please install Scoop first (https://scoop.sh)."
+            exit 1
+        }
+
+        Write-Host "Checking if mpv is already installed..."
+        $mpvPrefix = scoop prefix mpv 2>$null
+        if ($null -eq $mpvPrefix -or !(Test-Path $mpvPrefix)) {
+            Write-Host "mpv not found. Installing via scoop..."
+            scoop install mpv
+        }
+        else {
+            Write-Host "mpv is already installed at: $mpvPrefix"
+        }
+
+        # Locate mpv installation again to be sure (or use the one we found)
+        try {
+            $mpvPath = scoop prefix mpv
+        }
+        catch {
+            Write-Error "Failed to determine mpv path using 'scoop prefix mpv'."
+            exit 1
+        }
+
+        if (!(Test-Path $mpvPath)) {
+            Write-Error "Could not find mpv installation at $mpvPath"
+            exit 1
+        }
+
+        # Define target path for portable_config
+        $targetPath = Join-Path $mpvPath "portable_config"
+        Write-Host "Target Path: $targetPath"
+
+        # Handle existing target
+        if (Test-Path $targetPath) {
+            $item = Get-Item $targetPath
+            # Check if it is a reparse point (symlink/junction)
+            if ($item.Attributes.HasFlag([System.IO.FileAttributes]::ReparsePoint)) {
+                Write-Host "Removing existing link..."
+                
+                # Ensure mpv is not running
+                Get-Process mpv -ErrorAction SilentlyContinue | Stop-Process -Force
+
+                # Remove ReadOnly attribute if present
+                if ($item.Attributes.HasFlag([System.IO.FileAttributes]::ReadOnly)) {
+                    $item.Attributes = $item.Attributes -band -not [System.IO.FileAttributes]::ReadOnly
+                }
+
+                # Use cmd /c rmdir which is more reliable for removing junctions than Remove-Item
+                cmd /c "rmdir `"$targetPath`""
+                
+                if (Test-Path $targetPath) {
+                    # Fallback to .NET method
+                    try { [System.IO.Directory]::Delete($targetPath) } catch {}
+                }
+
+                if (Test-Path $targetPath) {
+                    Remove-Item $targetPath -Force
+                }
+            }
+            else {
+                Write-Warning "Directory '$targetPath' already exists and is not a link."
+                $confirm = Read-Host "Do you want to delete it and replace with symlink? (y/n)"
+                if ($confirm -eq 'y') {
+                    Remove-Item $targetPath -Recurse -Force
+                }
+                else {
+                    Write-Error "Aborted."
+                    exit 1
+                }
+            }
+        }
+
+        # Create Junction
+        Write-Host "Creating Junction..."
+        New-Item -ItemType Junction -Path $targetPath -Target $sourcePath | Out-Null
+        Write-Host "Success! mpv is now using this portable_config."
+    }
+    elseif ($IsMacOS -or $IsLinux) {
+        if ($IsMacOS) { Write-Host "Detected OS: macOS" }
+        else { Write-Host "Detected OS: Linux" }
+
+        # Check for Homebrew
+        if (!(Get-Command brew -ErrorAction SilentlyContinue)) {
+            Write-Error "Homebrew is not installed. Please install Homebrew first."
+            exit 1
+        }
+
+        Write-Host "Installing/Updating mpv via Homebrew..."
+        brew install mpv
+
+        # Define target path (~/.config/mpv)
+        $configDir = Join-Path $HOME ".config"
+        $targetPath = Join-Path $configDir "mpv"
+        Write-Host "Target Path: $targetPath"
+
+        # Handle existing target
+        if (Test-Path $targetPath) {
+            # Check if it's a symlink
+            $isSymlink = (Get-Item $targetPath).LinkType -ne $null
+            
+            if ($isSymlink) {
+                Write-Host "Removing existing symlink..."
+                Remove-Item $targetPath -Force
+            }
+            else {
+                Write-Warning "Directory '$targetPath' already exists and is not a symlink."
+                $confirm = Read-Host "Do you want to overwrite it with a symlink to this repo? (y/n)"
+                if ($confirm -eq 'y') {
+                    Remove-Item $targetPath -Recurse -Force
+                }
+                else {
+                    Write-Error "Aborted."
+                    exit 1
+                }
+            }
+        }
+
+        # Ensure parent directory exists
+        if (!(Test-Path $configDir)) {
+            New-Item -ItemType Directory -Path $configDir | Out-Null
+        }
+
+        # Create Symlink
+        Write-Host "Creating Symlink..."
+        New-Item -ItemType SymbolicLink -Path $targetPath -Target $sourcePath | Out-Null
+        Write-Host "Success! Linked $sourcePath to $targetPath"
+    }
+    else {
+        Write-Error "Unsupported Operating System."
+        exit 1
+    }
+}
 
 # -----------------------------------------------------------------------------
 # Plugin Installation (uosc, thumbfast)
@@ -70,12 +240,18 @@ if ($InstallShaders) {
     }
 }
 
-if ($InstallPlugins -or $InstallShaders) {
-    if (-not $Check) { exit 0 }
-}
-
-if (-not $Check) {
-    Write-Host "Source Config Path: $sourcePath"
+# -----------------------------------------------------------------------------
+# Register mpv as a system-wide handler (Windows only)
+# -----------------------------------------------------------------------------
+if ($doRegister -and -not $Check) {
+    $registerScript = Join-Path $toolsDir "registerMpv.ps1"
+    if (Test-Path $registerScript) {
+        Write-Host "Registering mpv as system-wide handler..."
+        & $registerScript
+    }
+    else {
+        Write-Warning "Registration script not found at $registerScript"
+    }
 }
 
 # -----------------------------------------------------------------------------
@@ -153,164 +329,9 @@ if ($Check) {
     if ($isInstalled) { exit 0 } else { exit 1 }
 }
 
-# -----------------------------------------------------------------------------
-# Windows Implementation (Scoop)
-# -----------------------------------------------------------------------------
-if ($IsWindows) {
-    Write-Host "Detected OS: Windows"
-
-    # Check if scoop is installed
-    if (!(Get-Command scoop -ErrorAction SilentlyContinue)) {
-        Write-Error "Scoop is not installed. Please install Scoop first (https://scoop.sh)."
-        exit 1
-    }
-
-    Write-Host "Checking if mpv is already installed..."
-    $mpvPrefix = scoop prefix mpv 2>$null
-    if ($null -eq $mpvPrefix -or !(Test-Path $mpvPrefix)) {
-        Write-Host "mpv not found. Installing via scoop..."
-        scoop install mpv
-    }
-    else {
-        Write-Host "mpv is already installed at: $mpvPrefix"
-    }
-
-    # Locate mpv installation again to be sure (or use the one we found)
-    try {
-        $mpvPath = scoop prefix mpv
-    }
-    catch {
-        Write-Error "Failed to determine mpv path using 'scoop prefix mpv'."
-        exit 1
-    }
-
-    if (!(Test-Path $mpvPath)) {
-        Write-Error "Could not find mpv installation at $mpvPath"
-        exit 1
-    }
-
-    # Define target path for portable_config
-    $targetPath = Join-Path $mpvPath "portable_config"
-    Write-Host "Target Path: $targetPath"
-
-    # Handle existing target
-    if (Test-Path $targetPath) {
-        $item = Get-Item $targetPath
-        # Check if it is a reparse point (symlink/junction)
-        if ($item.Attributes.HasFlag([System.IO.FileAttributes]::ReparsePoint)) {
-            Write-Host "Removing existing link..."
-            
-            # Ensure mpv is not running
-            Get-Process mpv -ErrorAction SilentlyContinue | Stop-Process -Force
-
-            # Remove ReadOnly attribute if present
-            if ($item.Attributes.HasFlag([System.IO.FileAttributes]::ReadOnly)) {
-                $item.Attributes = $item.Attributes -band -not [System.IO.FileAttributes]::ReadOnly
-            }
-
-            # Use cmd /c rmdir which is more reliable for removing junctions than Remove-Item
-            cmd /c "rmdir `"$targetPath`""
-            
-            if (Test-Path $targetPath) {
-                # Fallback to .NET method
-                try { [System.IO.Directory]::Delete($targetPath) } catch {}
-            }
-
-            if (Test-Path $targetPath) {
-                Remove-Item $targetPath -Force
-            }
-        }
-        else {
-            Write-Warning "Directory '$targetPath' already exists and is not a link."
-            $confirm = Read-Host "Do you want to delete it and replace with symlink? (y/n)"
-            if ($confirm -eq 'y') {
-                Remove-Item $targetPath -Recurse -Force
-            }
-            else {
-                Write-Error "Aborted."
-                exit 1
-            }
-        }
-    }
-
-    # Create Junction
-    Write-Host "Creating Junction..."
-    New-Item -ItemType Junction -Path $targetPath -Target $sourcePath | Out-Null
-    Write-Host "Success! mpv is now using this portable_config."
-
-    # -----------------------------------------------------------------------------
-    # Register mpv as a system-wide handler (Windows only)
-    # -----------------------------------------------------------------------------
-    $registerScript = Join-Path $toolsDir "registerMpv.ps1"
-    if (Test-Path $registerScript) {
-        Write-Host "Registering mpv as system-wide handler..."
-        & $registerScript
-    }
-    else {
-        Write-Warning "Registration script not found at $registerScript"
-    }
-}
-
-# -----------------------------------------------------------------------------
-# macOS / Linux Implementation (Homebrew)
-# -----------------------------------------------------------------------------
-elseif ($IsMacOS -or $IsLinux) {
-    if ($IsMacOS) { Write-Host "Detected OS: macOS" }
-    else { Write-Host "Detected OS: Linux" }
-
-    # Check for Homebrew
-    if (!(Get-Command brew -ErrorAction SilentlyContinue)) {
-        Write-Error "Homebrew is not installed. Please install Homebrew first."
-        exit 1
-    }
-
-    Write-Host "Installing/Updating mpv via Homebrew..."
-    brew install mpv
-
-    # Define target path (~/.config/mpv)
-    $configDir = Join-Path $HOME ".config"
-    $targetPath = Join-Path $configDir "mpv"
-    Write-Host "Target Path: $targetPath"
-
-    # Handle existing target
-    if (Test-Path $targetPath) {
-        # Check if it's a symlink
-        $isSymlink = (Get-Item $targetPath).LinkType -ne $null
-        
-        if ($isSymlink) {
-            Write-Host "Removing existing symlink..."
-            Remove-Item $targetPath -Force
-        }
-        else {
-            Write-Warning "Directory '$targetPath' already exists and is not a symlink."
-            $confirm = Read-Host "Do you want to overwrite it with a symlink to this repo? (y/n)"
-            if ($confirm -eq 'y') {
-                Remove-Item $targetPath -Recurse -Force
-            }
-            else {
-                Write-Error "Aborted."
-                exit 1
-            }
-        }
-    }
-
-    # Ensure parent directory exists
-    if (!(Test-Path $configDir)) {
-        New-Item -ItemType Directory -Path $configDir | Out-Null
-    }
-
-    # Create Symlink
-    Write-Host "Creating Symlink..."
-    New-Item -ItemType SymbolicLink -Path $targetPath -Target $sourcePath | Out-Null
-    Write-Host "Success! Linked $sourcePath to $targetPath"
-}
-else {
-    Write-Error "Unsupported Operating System."
-    exit 1
-}
-
-if (-not $Check) {
+if (-not $Check -and -not $Full) {
     Write-Host "`n[Tip] You can install extras by running:" -ForegroundColor Yellow
     Write-Host "      .\install.ps1 -InstallPlugins" -ForegroundColor Yellow
     Write-Host "      .\install.ps1 -InstallShaders" -ForegroundColor Yellow
+    Write-Host "      .\install.ps1 -Full" -ForegroundColor Yellow
 }
