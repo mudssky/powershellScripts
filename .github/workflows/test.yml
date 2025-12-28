@@ -51,8 +51,6 @@ jobs:
       # 1. 安装 pnpm
       - name: Install pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 10 # 指定你使用的 pnpm 版本
 
       # 2. 安装 Node 并开启 pnpm 缓存 (这是 Monorepo 速度的关键)
       - name: Setup Node
@@ -69,8 +67,7 @@ jobs:
       # 注意：你需要配置 Vitest 输出 JUnit 格式的 XML
       - name: Run Vitest
         run: |
-          pnpm exec vitest run --reporter=junit --outputFile=vitest-report.xml
-
+          pnpm exec vitest run --reporter=default --reporter=junit --outputFile.junit=vitest-report.xml
       # 5. 上传 Vitest 报告
       - name: Report Vitest
         uses: dorny/test-reporter@v2
