@@ -1,0 +1,45 @@
+version: 2
+updates:
+  # 维护 GitHub Actions 版本
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly" # 每月检查一次，避免频繁打扰
+    # 可选：配置提交信息前缀
+    commit-message:
+      prefix: "ci"
+  - package-ecosystem: "npm"
+    # 使用 directories 配合通配符，同时扫描根目录和 packages/apps 下的所有子包
+    directories:
+      - "/"                # 扫描根目录 (管理开发依赖等)
+      - "/projects/**"      # 扫描 projects 目录下的所有子目录
+      - "scripts/node"          # 扫描 scripts/node 目录
+      
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Shanghai"
+
+    # 针对 pnpm monorepo 的分组策略，减少 PR 数量
+    groups:
+      # 策略1：将所有次要版本和补丁版本的更新合并为一个 PR
+      # 这样你每周只会收到一个包含所有非破坏性更新的大 PR
+      all-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      
+      # 策略2：(可选) 也可以按功能分组，比如将所有 eslint 相关包合为一个 PR
+      linting:
+        patterns:
+          - "eslint"
+          - "eslint-*"
+          - "@typescript-eslint/*"
+
+    # 忽略某些不想自动升级的包
+    ignore:
+      - dependency-name: "react"
+        versions: ["^19.0.0"] # 比如暂时不想升到 React 19
