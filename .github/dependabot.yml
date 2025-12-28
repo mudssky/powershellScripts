@@ -16,7 +16,7 @@ updates:
       - "scripts/node"          # 扫描 scripts/node 目录
       
     schedule:
-      interval: "weekly"
+      interval: "monthly"
       day: "monday"
       time: "09:00"
       timezone: "Asia/Shanghai"
@@ -43,3 +43,5 @@ updates:
     ignore:
       - dependency-name: "react"
         versions: ["^19.0.0"] # 比如暂时不想升到 React 19
+      - dependency-name: "@typescript/native-preview"
+        versions: ["*"] # 忽略所有版本
