@@ -29,4 +29,4 @@ jobs:
       with:
         name: Pester Tests (${{ matrix.os }})
         path: testResults.xml
-        reporter: java-junit # Pester 的 NUnit3/NUnitXml 输出通常兼容 JUnit 解析器
+        reporter: dotnet-nunit
