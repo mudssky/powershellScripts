@@ -10,7 +10,7 @@ Describe "Get-HistoryCommandRank 函数测试" {
 }
 
 
-Describe "New-Shortcut 函数测试" -Tag 'windows' {
+Describe "New-Shortcut 函数测试" -Tag 'windowsOnly' {
     BeforeAll {
         $testTarget = "$TestDrive\target.txt"
         "" | Out-File -FilePath $testTarget -Encoding utf8

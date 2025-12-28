@@ -1,6 +1,6 @@
 param()
 
-Describe 'Windows Profile 性能基准' -Tag 'profile', 'performance', 'windows' {
+Describe 'Windows Profile 性能基准' -Tag 'profile', 'performance', 'windowsOnly' {
     BeforeAll {
         $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
         $script:ProfilePath = Join-Path $RepoRoot 'profile' 'profile.ps1'

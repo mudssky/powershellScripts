@@ -29,8 +29,11 @@ $ErrorActionPreference = 'Stop'
 
 $excludeTags = @('Slow')
 if ($IsLinux -or $IsMacOS) {
-    $excludeTags += 'windows'
+    $excludeTags += 'windowsOnly'
 }
+
+
+$isCI = [bool]$env:CI
 
 $config = @{
     Run          = @{
@@ -43,6 +46,11 @@ $config = @{
             Enabled    = $true
             MaxThreads = 4
         }
+
+        # 关键点：
+        # 本地运行 (False): 测试失败仅仅显示红色，不退出 PowerShell 进程
+        # CI 运行 (True): 测试失败会返回非零 ExitCode，让 GitHub Action 标记为失败
+        Exit     = $isCI 
     }
 
     # Filter 模块: 定义筛选规则
@@ -66,6 +74,8 @@ $config = @{
     Output       = @{
         # 使用详细输出，方便查看哪些测试被跳过了
         # Verbosity = 'Detailed'
+        # CI 环境用详细输出方便排错，本地用 Normal 保持清爽
+        Verbosity = if ($isCI) { 'Detailed' } else { 'Normal' }
     }
     TestResult   = @{
         Enabled       = $true
