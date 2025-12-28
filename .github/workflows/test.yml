@@ -77,6 +77,6 @@ jobs:
         if: success() || failure()
         with:
           name: Vitest Results
-          path: vitest-report.xml
+          path: '**/vitest-report.xml'
           reporter: java-junit # Vitest 的 JUnit 输出对应 java-junit 解析器
           fail-on-error: false
