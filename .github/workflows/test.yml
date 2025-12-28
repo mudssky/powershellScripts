@@ -5,6 +5,12 @@ on:
     branches: [ master ]
   pull_request:
     branches: [ master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write # 如果需要评论 PR
 
 jobs:
   test:
@@ -25,7 +31,7 @@ jobs:
     # 测试图形化报告
     - name: Publish Test Report
       uses: dorny/test-reporter@v2
-      if: always()
+      if: always() || failure() 
       with:
         name: Pester Tests (${{ matrix.os }})
         path: testResults.xml
