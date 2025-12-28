@@ -20,7 +20,8 @@ jobs:
     
     - name: Run Pester
       shell: pwsh
-      run: Invoke-Pester -Configuration (./PesterConfiguration.ps1) -CI
+      run: 
+        Invoke-Pester -Configuration (./PesterConfiguration.ps1) -CI
     # 测试图形化报告
     - name: Publish Test Results
       uses: EnricoMi/publish-unit-test-result-action@v2
