@@ -66,6 +66,9 @@ jobs:
       # 4. 运行 Vitest 并生成报告
       # 注意：你需要配置 Vitest 输出 JUnit 格式的 XML
       - name: Run Vitest
+        env:
+          # 开启颜色输出，防止颜色测试代码报错          
+          FORCE_COLOR: 1
         run: |
           pnpm exec vitest run --reporter=default --reporter=junit --outputFile.junit=vitest-report.xml
       # 5. 上传 Vitest 报告
