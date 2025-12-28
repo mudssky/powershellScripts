@@ -24,7 +24,7 @@ jobs:
         Invoke-Pester -Configuration (./PesterConfiguration.ps1)
     # 测试图形化报告
     - name: Publish Test Report
-      uses: dorny/test-reporter@v1
+      uses: dorny/test-reporter@v2
       if: always()
       with:
         name: Pester Tests (${{ matrix.os }})
