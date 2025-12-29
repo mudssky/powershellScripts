@@ -120,8 +120,8 @@ function Set-Proxy {
 
     begin {
         # 配置常量
-        $DefaultHost = "127.0.0.1"
-        $DefaultPort = "7890"
+        $DefaultHost = if (-not [string]::IsNullOrWhiteSpace($env:PROXY_DEFAULT_HOST)) { $env:PROXY_DEFAULT_HOST } else { "127.0.0.1" }
+        $DefaultPort = if (-not [string]::IsNullOrWhiteSpace($env:PROXY_DEFAULT_PORT)) { $env:PROXY_DEFAULT_PORT } else { "7890" }
         $NoProxyList = "localhost,127.0.0.1,::1,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12"
         
         # 内部辅助函数：解析主机和端口
@@ -168,7 +168,7 @@ function Set-Proxy {
                 $env:ALL_PROXY = $url
                 $env:NO_PROXY = $NoProxyList
 
-                Write-Host "✅ 代理已开启: $url" -ForegroundColor Green
+                Write-Verbose "✅ 代理已开启: $url"
                 
                 # 简单连通性检查
                 try {
