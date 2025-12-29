@@ -1,0 +1,12 @@
+ccline.exe
+.claude/shell-snapshots
+.claude/projects
+.claude/todos
+.claude/thedotmack
+.claude/debug
+.claude/file-history
+.claude/stats-cache.json
+.claude/history.jsonl
+.claude/plugins
+
+
