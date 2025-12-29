@@ -76,6 +76,10 @@ function Set-Proxy {
         用于快速开启、关闭或查看代理状态，支持当前 Shell 会话、Docker Daemon 和 Docker Container 配置。
         此函数旨在简化在 Linux (Ubuntu) 环境下的代理配置工作。
         
+        支持通过环境变量配置默认代理：
+        - $env:PROXY_DEFAULT_HOST: 默认代理主机 (默认: 127.0.0.1)
+        - $env:PROXY_DEFAULT_PORT: 默认代理端口 (默认: 7890)
+        
     .PARAMETER Command
         操作命令: on, off, status, test, docker, container, auto, help。
         默认值为 'status'。

@@ -5,12 +5,11 @@
 # =============================================================================
 
 # --- 内部配置 (只读，不暴露) ---
-if [ -z "${_PM_DEFAULT_HOST:-}" ]; then
-    readonly _PM_DEFAULT_HOST="127.0.0.1"
-fi
-if [ -z "${_PM_DEFAULT_PORT:-}" ]; then
-    readonly _PM_DEFAULT_PORT="7890"
-fi
+# 优先使用通用环境变量 PROXY_DEFAULT_HOST/PORT
+_PM_DEFAULT_HOST="${PROXY_DEFAULT_HOST:-${_PM_DEFAULT_HOST:-127.0.0.1}}"
+_PM_DEFAULT_PORT="${PROXY_DEFAULT_PORT:-${_PM_DEFAULT_PORT:-7890}}"
+readonly _PM_DEFAULT_HOST
+readonly _PM_DEFAULT_PORT
 if [ -z "${_PM_NO_PROXY:-}" ]; then
     readonly _PM_NO_PROXY="localhost,127.0.0.1,::1,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12"
 fi
@@ -230,13 +229,17 @@ proxy() {
 
         help|--help|-h)
             echo "用法: proxy [命令]"
-            echo "  on [port]        开启代理 (默认 7890)"
+            echo "  on [port]        开启代理 (默认: $_PM_DEFAULT_HOST:$_PM_DEFAULT_PORT)"
             echo "  on [host] [port] 开启自定义代理"
             echo "  off              关闭代理"
             echo "  docker [on|off]  配置 Docker Daemon 代理 (需重启, 影响 pull)"
             echo "  container [on]   配置 Docker Container 代理 (无需重启, 影响 run)"
             echo "  status           查看状态 (默认)"
             echo "  test [url]       测试连接"
+            echo ""
+            echo "配置 (环境变量):"
+            echo "  PROXY_DEFAULT_HOST   自定义默认主机 (当前: $_PM_DEFAULT_HOST)"
+            echo "  PROXY_DEFAULT_PORT   自定义默认端口 (当前: $_PM_DEFAULT_PORT)"
             ;;
 
         *)
