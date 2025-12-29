@@ -168,7 +168,7 @@ function Set-Proxy {
                 $env:ALL_PROXY = $url
                 $env:NO_PROXY = $NoProxyList
 
-                Write-Verbose "✅ 代理已开启: $url" -ForegroundColor Green
+                Write-Host "✅ 代理已开启: $url" -ForegroundColor Green
                 
                 # 简单连通性检查
                 try {
