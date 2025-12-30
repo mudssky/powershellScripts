@@ -17,5 +17,20 @@
       ],
       "url": "https://json.schemastore.org/claude-code-settings.json"
     }
-  ]
+  ],
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/node_modules/**": true,
+    "**/backup/**": true,
+    "**/.claude/backup/**": true,
+    "**/.claude/history.jsonl": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/bower_components": true,
+    "**/*.code-search": true,
+    "**/backup": true,
+    "**/.claude/backup": true
+  }
 }
