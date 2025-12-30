@@ -14,7 +14,8 @@
     "mcp-feedback-enhanced",
     "Sequential Thinking",
     "Memory",
-    "shrimp-task-manager"
+    "shrimp-task-manager",
+    "serena"
   ],
   "hooks": {
     "SessionStart": [
