@@ -1,7 +1,7 @@
-import { constants } from 'fs'
-import fs from 'fs/promises'
-import path from 'path'
-import { fileURLToPath } from 'url'
+import { constants } from 'node:fs'
+import fs from 'node:fs/promises'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 // ESM environment helpers
 const __filename = fileURLToPath(import.meta.url)
@@ -103,7 +103,7 @@ async function generateBinWrappers() {
 
       try {
         await fs.chmod(unixPath, '755') // Make executable
-      } catch (e) {
+      } catch (_e) {
         // Ignore chmod errors on Windows if they occur, though fs/promises might throw
       }
 

@@ -5,10 +5,11 @@
  * 测试规则加载器的核心功能：工具函数、加载器、格式化器
  */
 
-import fs from 'fs/promises'
-import path from 'path'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import { beforeAll, describe, expect, it } from 'vitest'
-
+import { formatJson, formatMarkdown } from '../src/rule-loader/formatters'
+import { loadRules } from '../src/rule-loader/loader'
 // 导入被测试的模块
 import {
   extractCategory,
@@ -19,8 +20,6 @@ import {
   RuleLoadError,
   RuleParseError,
 } from '../src/rule-loader/utils'
-import { formatJson, formatMarkdown } from '../src/rule-loader/formatters'
-import { loadRules } from '../src/rule-loader/loader'
 
 // 测试 fixtures 目录
 const FIXTURES_DIR = path.resolve(__dirname, './fixtures/rule-loader')

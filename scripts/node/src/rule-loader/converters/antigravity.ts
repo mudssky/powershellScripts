@@ -1,7 +1,7 @@
-import fs from 'fs/promises'
-import path from 'path'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import matter from 'gray-matter'
-import type { TraeRule, AntigravityRuleMetadata } from '../types'
+import type { AntigravityRuleMetadata, TraeRule } from '../types'
 
 /**
  * Antigravity 规则转换器

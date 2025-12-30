@@ -1,6 +1,3 @@
-import path from 'path'
-import fs from 'fs'
-
 console.log('Hello from Rspack bundled script!')
 console.log('Args:', process.argv.slice(2))
 console.log('CWD:', process.cwd())

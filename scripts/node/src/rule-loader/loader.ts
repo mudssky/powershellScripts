@@ -5,10 +5,10 @@
  * 负责从 .trae/rules 目录加载和解析规则文件。
  */
 
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import glob from 'fast-glob'
-import fs from 'fs/promises'
 import matter from 'gray-matter'
-import path from 'path'
 
 import type { LoadOptions, TraeRule, TraeRuleMetadata } from './types'
 import {

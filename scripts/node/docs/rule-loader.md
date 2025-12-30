@@ -41,6 +41,30 @@ rule-loader
 | `--verbose` | `-v` | 显示详细日志 | `false` |
 | `--help` | `-h` | 显示帮助信息 | |
 
+### 自动配置 (Install)
+
+`rule-loader` 提供 `install` 命令，用于自动配置 AI 编码助手（如 Claude Code）的集成 Hook。
+
+```bash
+# 交互式选择要配置的 AI 助手
+rule-loader install
+
+# 指定目标并自动确认
+rule-loader install --target claude --yes
+```
+
+**选项**:
+
+| 选项 | 缩写 | 描述 | 默认值 |
+| :--- | :--- | :--- | :--- |
+| `--target <types...>` | `-t` | 目标 AI 助手 (目前支持 `claude`) | 交互式选择 |
+| `--yes` | `-y` | 自动确认变更 (跳过 Diff 确认) | `false` |
+
+**特性**:
+* **智能合并**: 读取现有配置，合并新增的 Hooks，避免覆盖用户已有配置。
+* **Diff 预览**: 在应用更改前显示 JSON Diff，让用户确认。
+* **多目标支持**: 支持同时配置多个 AI 助手。
+
 ### 常见场景
 
 **1. 为 AI 会话加载所有规则**

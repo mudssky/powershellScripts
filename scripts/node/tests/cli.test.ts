@@ -1,6 +1,6 @@
+import fs from 'node:fs'
+import path from 'node:path'
 import { execa } from 'execa'
-import fs from 'fs'
-import path from 'path'
 import { describe, expect, it } from 'vitest'
 
 // Helper to run the built script

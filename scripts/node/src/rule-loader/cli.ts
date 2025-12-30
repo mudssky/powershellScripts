@@ -5,10 +5,12 @@
  * 使用 Commander.js 配置命令行接口。
  */
 
+import path from 'node:path'
 import { Command } from 'commander'
-import path from 'path'
+import inquirer from 'inquirer'
 import { AntigravityConverter } from './converters/antigravity'
 import { formatOutput } from './formatters'
+import { installers } from './installers'
 import { loadRules } from './loader'
 import type { CliOptions } from './types'
 import { RuleLoadError } from './utils'
@@ -69,6 +71,54 @@ export function createCli(): Command {
         }
       } catch (error) {
         console.error('转换失败:', error)
+        process.exit(1)
+      }
+    })
+
+  program
+    .command('install')
+    .description('安装/配置 AI 助手集成')
+    .option('-t, --target <types...>', '目标 AI 助手 (例如: claude)')
+    .option('-y, --yes', '自动确认变更', false)
+    .option('-v, --verbose', '详细输出')
+    .action(async (options) => {
+      try {
+        let targets = options.target || []
+
+        if (targets.length === 0) {
+          const { selected } = await inquirer.prompt([
+            {
+              type: 'checkbox',
+              name: 'selected',
+              message: '选择要配置的 AI 助手:',
+              choices: Object.keys(installers).map((name) => ({
+                name,
+                checked: name === 'claude',
+              })),
+            },
+          ])
+          targets = selected
+        }
+
+        if (targets.length === 0) {
+          console.log('未选择任何目标。')
+          return
+        }
+
+        for (const targetName of targets) {
+          const installer = installers[targetName]
+          if (!installer) {
+            console.warn(`未知的目标: ${targetName}`)
+            continue
+          }
+          await installer.install({
+            cwd: process.cwd(),
+            force: options.yes,
+            verbose: options.verbose,
+          })
+        }
+      } catch (error) {
+        console.error('安装失败:', error)
         process.exit(1)
       }
     })

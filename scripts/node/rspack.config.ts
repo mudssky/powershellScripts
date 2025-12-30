@@ -1,7 +1,7 @@
+import fs from 'node:fs'
+import path from 'node:path'
 import { defineConfig } from '@rspack/cli'
 import { rspack } from '@rspack/core'
-import fs from 'fs'
-import path from 'path'
 
 // Get all .ts files in src
 // 注意：对于包含 index.ts 的子目录（如 rule-loader），只将 index.ts 作为入口
