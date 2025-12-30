@@ -8,5 +8,4 @@ ccline.exe
 .claude/stats-cache.json
 .claude/history.jsonl
 .claude/plugins
-
-
+.claude/statsig
