@@ -6,6 +6,8 @@
  */
 
 import { Command } from 'commander'
+import path from 'path'
+import { AntigravityConverter } from './converters/antigravity'
 import { formatOutput } from './formatters'
 import { loadRules } from './loader'
 import type { CliOptions } from './types'
@@ -28,6 +30,52 @@ export function createCli(): Command {
     .version('1.0.0')
 
   program
+    .command('convert')
+    .description('将规则转换为其他格式')
+    .option('-t, --target <type>', '目标格式 (antigravity)', 'antigravity')
+    .option('-o, --output <dir>', '输出目录')
+    .option('-s, --source <dir>', '源规则目录')
+    .option('-v, --verbose', '详细输出')
+    .action(async (options) => {
+      try {
+        const cwd = process.cwd()
+        // 1. 加载规则
+        const rules = await loadRules({
+          cwd,
+          rulesDir: options.source,
+          verbose: options.verbose,
+        })
+
+        // 2. 确定输出目录
+        let outputDir = options.output
+        if (!outputDir) {
+          if (options.target === 'antigravity') {
+            outputDir = path.resolve(cwd, '.agent/rules')
+          } else {
+            throw new Error('必须指定输出目录')
+          }
+        } else {
+          outputDir = path.resolve(cwd, outputDir)
+        }
+
+        // 3. 执行转换
+        if (options.target === 'antigravity') {
+          const converter = new AntigravityConverter()
+          await converter.convert(rules, outputDir)
+          console.log(`成功转换 ${rules.length} 条规则到: ${outputDir}`)
+        } else {
+          console.error(`不支持的目标格式: ${options.target}`)
+          process.exit(1)
+        }
+      } catch (error) {
+        console.error('转换失败:', error)
+        process.exit(1)
+      }
+    })
+
+  program
+    .command('load', { isDefault: true })
+    .description('加载并输出规则 (默认命令)')
     .option('-f, --format <type>', '输出格式 (markdown, json)', 'markdown')
     .option('--filter-apply', '只显示 alwaysApply 规则')
     .option('-v, --verbose', '详细输出')

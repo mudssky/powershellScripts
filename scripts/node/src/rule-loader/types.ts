@@ -72,6 +72,37 @@ export interface TraeRuleMetadata {
 }
 
 /**
+ * Antigravity 规则元数据
+ */
+export interface AntigravityRuleMetadata {
+  /**
+   * 触发方式
+   * - manual: 手动触发
+   * - always_on: 常驻
+   * - model_decision: 模型决策
+   * - glob: 文件匹配
+   */
+  trigger: 'manual' | 'always_on' | 'model_decision' | 'glob'
+
+  /**
+   * 规则描述
+   */
+  description?: string
+
+  /**
+   * 文件匹配模式
+   */
+  globs?: string | string[]
+
+  [key: string]: unknown
+}
+
+/**
+ * 转换目标格式
+ */
+export type ConversionTarget = 'antigravity'
+
+/**
  * 规则数据结构
  *
  * @description

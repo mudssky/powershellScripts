@@ -116,6 +116,48 @@ description: "规则描述"    # 可选描述
   * `false`: 仅输出规则的索引信息（文件名、匹配模式、触发条件），AI 需要使用 `Read` 工具按需读取。
 * **globs**: 定义规则适用的文件类型。
 
+## 规则转换 (Rule Conversion)
+
+`rule-loader` 支持将 Trae 格式的规则转换为其他 AI 代理（如 Antigravity）支持的格式。
+
+### 使用方法
+
+```bash
+rule-loader convert [options]
+```
+
+### 选项
+
+| 选项 | 缩写 | 描述 | 默认值 |
+| :--- | :--- | :--- | :--- |
+| `--target <type>` | `-t` | 目标格式 (`antigravity`) | `antigravity` |
+| `--output <dir>` | `-o` | 输出目录 (默认根据目标格式自动决定) | |
+| `--source <dir>` | `-s` | 源规则目录 | `.trae/rules` |
+
+### Antigravity 转换说明
+
+默认输出目录: `.agent/rules`
+
+**映射规则**:
+
+| Trae (`.trae/rules`) | Antigravity (`.agent/rules`) | 说明 |
+| :--- | :--- | :--- |
+| `alwaysApply: true` (且无 `globs`) | `trigger: always_on` | 全局强制规则 |
+| `alwaysApply: true` (且有 `globs`) | `trigger: glob` | 文件匹配时自动加载 |
+| `alwaysApply: false` | `trigger: manual` | 需手动读取 |
+| `globs` | `globs` | 保持不变 |
+| `description` | `description` | 保持不变 |
+
+**示例**:
+
+```bash
+# 转换当前项目的 Trae 规则到 Antigravity 格式
+rule-loader convert
+
+# 指定输出目录
+rule-loader convert --output ./custom-rules
+```
+
 ## 开发说明
 
 源码位于 `scripts/node/src/rule-loader/`。
