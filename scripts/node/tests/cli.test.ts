@@ -3,13 +3,24 @@ import path from "node:path";
 import { execa } from "execa";
 import { describe, expect, it } from "vitest";
 
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+
 // Helper to run the script (preferring source, falling back to built bin)
 const runScript = async (scriptName: string, args: string[] = []) => {
   // 1. Try running from source first (faster feedback, no build needed)
   const sourcePath = path.resolve(__dirname, `../src/${scriptName}/index.ts`);
 
   if (fs.existsSync(sourcePath)) {
-    return execa("tsx", [sourcePath, ...args], { preferLocal: true });
+    try {
+      // Try to resolve tsx using node module resolution (handles hoisting, etc.)
+      const tsxPath = require.resolve("tsx/cli");
+      return execa(process.execPath, [tsxPath, sourcePath, ...args]);
+    } catch {
+      // Fallback to searching in PATH if resolution fails
+      return execa("tsx", [sourcePath, ...args], { preferLocal: true });
+    }
   }
 
   // 2. Fallback to built binary
