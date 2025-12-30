@@ -3,8 +3,16 @@ import path from "node:path";
 import { execa } from "execa";
 import { describe, expect, it } from "vitest";
 
-// Helper to run the built script
+// Helper to run the script (preferring source, falling back to built bin)
 const runScript = async (scriptName: string, args: string[] = []) => {
+  // 1. Try running from source first (faster feedback, no build needed)
+  const sourcePath = path.resolve(__dirname, `../src/${scriptName}/index.ts`);
+
+  if (fs.existsSync(sourcePath)) {
+    return execa("tsx", [sourcePath, ...args], { preferLocal: true });
+  }
+
+  // 2. Fallback to built binary
   const binPath = path.resolve(
     __dirname,
     "../../../bin",
