@@ -24,7 +24,9 @@
     "**/node_modules/**": true,
     "**/backup/**": true,
     "**/.claude/backup/**": true,
-    "**/.claude/history.jsonl": true
+    "**/.claude/history.jsonl": true,
+    "**/ai/coding/claude/.claude/commands/**": true,
+    "**/ai/coding/claude/.claude/plans/**": true
   },
   "search.exclude": {
     "**/node_modules": true,
