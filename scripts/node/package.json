@@ -19,8 +19,8 @@
   "license": "ISC",
   "description": "",
   "devDependencies": {
-    "@rspack/cli": "^1.6.8",
-    "@rspack/core": "^1.6.8",
+    "@rspack/cli": "^1.7.0",
+    "@rspack/core": "^1.7.0",
     "@types/inquirer": "^9.0.9",
     "@types/json-diff": "^1.0.3",
     "@types/minimatch": "^6.0.0",
