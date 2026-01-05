@@ -8,7 +8,7 @@ $ErrorActionPreference = 'Stop'
 # SYNOPSIS: Manage-ClaudeConfig.ps1
 # DESCRIPTION: 同步 Claude Code 配置到全局配置目录
 
-$LocalPath = "c:\home\env\powershellScripts\ai\coding\claude\.claude"
+$LocalPath = Join-Path $PSScriptRoot ".claude"
 $GlobalPath = Join-Path $HOME ".claude"
 
 Write-Host "--- Claude Code 配置同步任务 ---" -ForegroundColor Cyan
@@ -26,7 +26,7 @@ else {
 
 # 2. 处理全局配置
 if (Test-Path -Path $GlobalPath) {
-    $Item = Get-Item -Path $GlobalPath
+    $Item = Get-Item -Path $GlobalPath -Force
     
     # 检查是否已经是软链接 (ReparsePoint)
     # 使用 .HasFlag() 方法检查属性
