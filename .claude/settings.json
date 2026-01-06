@@ -5,7 +5,7 @@
     "deny": [],
     "ask": []
   },
-  "enabledMcpjsonServers": ["context7"],
+  "enabledMcpjsonServers": ["context7", "serena"],
   "disabledMcpjsonServers": [
     "git",
     "gitmcp",
@@ -14,8 +14,7 @@
     "mcp-feedback-enhanced",
     "Sequential Thinking",
     "Memory",
-    "shrimp-task-manager",
-    "serena"
+    "shrimp-task-manager"
   ],
   "hooks": {
     "SessionStart": [
