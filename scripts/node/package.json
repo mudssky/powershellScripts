@@ -38,7 +38,7 @@
     "commander": "^14.0.2",
     "fast-glob": "^3.3.3",
     "gray-matter": "^4.0.3",
-    "inquirer": "^9.3.8",
+    "inquirer": "^13.1.0",
     "json-diff": "^1.0.6",
     "minimatch": "^10.1.1"
   }
