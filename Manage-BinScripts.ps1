@@ -47,7 +47,7 @@ param(
     [string]$Action = 'sync',
     
     [Parameter(Mandatory = $false)]
-    [string[]]$Patterns = @('scripts/pwsh/**/*.ps1', 'ai/coding/claude/*.ps1'),
+    [string[]]$Patterns = @('scripts/pwsh/**/*.ps1', 'scripts/python/*.py', 'scripts/python/**/*.py', 'ai/coding/claude/*.ps1'),
 
     [Parameter(Mandatory = $false)]
     [ValidateSet('PrefixParent', 'Overwrite', 'Skip')]
@@ -75,8 +75,10 @@ function Find-ProjectScripts {
     function Walk {
         param ($Dir)
         try {
-            # 1. 获取当前目录下的 .ps1 文件
-            [System.IO.Directory]::EnumerateFiles($Dir, "*.ps1") | ForEach-Object { 
+            # 1. 获取当前目录下的 .ps1 和 .py 文件
+            [System.IO.Directory]::EnumerateFiles($Dir, "*.*") | Where-Object { 
+                $_.EndsWith('.ps1') -or $_.EndsWith('.py') 
+            } | ForEach-Object { 
                 $results.Add($_) 
             }
             
@@ -112,14 +114,25 @@ function Resolve-ScriptTargetNames {
     
     if ($Strategy -eq 'Overwrite') {
         foreach ($s in $Scripts) {
-            $mapping[$s] = [System.IO.Path]::GetFileName($s)
+            $name = [System.IO.Path]::GetFileName($s)
+            if ($name.EndsWith('.py')) {
+                $name = [System.IO.Path]::ChangeExtension($name, '.ps1')
+            }
+            $mapping[$s] = $name
         }
         return $mapping
     }
 
     # 初始化：全部使用原始文件名
     foreach ($s in $Scripts) {
-        $mapping[$s] = [System.IO.Path]::GetFileName($s)
+        $ext = [System.IO.Path]::GetExtension($s)
+        $baseName = [System.IO.Path]::GetFileNameWithoutExtension($s)
+        if ($ext -eq '.py') {
+            $mapping[$s] = "${baseName}.ps1"
+        }
+        else {
+            $mapping[$s] = [System.IO.Path]::GetFileName($s)
+        }
     }
     
     if ($Strategy -eq 'Skip') {
@@ -259,86 +272,115 @@ function Sync-BinScripts {
             try {
                 # 计算相对路径
                 $sourceRelPath = [System.IO.Path]::GetRelativePath($BinDir, $scriptFullPath)
+                $extension = [System.IO.Path]::GetExtension($scriptFullPath).ToLower()
                 
-                # --- 解析源脚本元数据 ---
-                $sourceContent = Get-Content -Path $scriptFullPath -Raw
-                $tokens = $null
-                $errors = $null
-                $ast = [System.Management.Automation.Language.Parser]::ParseInput($sourceContent, [ref]$tokens, [ref]$errors)
+                $shimContentLines = @()
                 
-                $paramBlockText = $null
-                $helpText = $null
-                $hasCmdletBinding = $false
-                $cmdletBindingText = $null
-                $shimProfileMode = 'NoProfile'
+                if ($extension -eq '.py') {
+                    # --- Python Script Shim (via uv) ---
+                    $shimContentLines += "#!/usr/bin/env pwsh"
+                    $shimContentLines += ""
+                    $shimContentLines += "# Auto-generated shim by Manage-BinScripts.ps1"
+                    $shimContentLines += "# Source: $scriptFullPath"
+                    $shimContentLines += ""
+                    $shimContentLines += "`$SourcePath = Join-Path `$PSScriptRoot '$sourceRelPath'"
+                    $shimContentLines += "if (-not (Test-Path `$SourcePath)) {"
+                    $shimContentLines += "    Write-Error ""Cannot find source script at `$SourcePath"""
+                    $shimContentLines += "    exit 1"
+                    $shimContentLines += "}"
+                    $shimContentLines += ""
+                    $shimContentLines += "# Check for uv"
+                    $shimContentLines += "if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {"
+                    $shimContentLines += "    Write-Error ""'uv' is required to run this script. Please install it: https://github.com/astral-sh/uv"""
+                    $shimContentLines += "    exit 1"
+                    $shimContentLines += "}"
+                    $shimContentLines += ""
+                    $shimContentLines += "uv run `$SourcePath @args"
+                    $shimContentLines += "exit `$LASTEXITCODE"
+                }
+                elseif ($extension -eq '.ps1') {
+                    # --- PowerShell Script Shim ---
+                    $sourceContent = Get-Content -Path $scriptFullPath -Raw
+                    $tokens = $null
+                    $errors = $null
+                    $ast = [System.Management.Automation.Language.Parser]::ParseInput($sourceContent, [ref]$tokens, [ref]$errors)
+                    
+                    $paramBlockText = $null
+                    $helpText = $null
+                    $hasCmdletBinding = $false
+                    $cmdletBindingText = $null
+                    $shimProfileMode = 'NoProfile'
 
-                if ($ast.ParamBlock) {
-                    $paramBlockText = $ast.ParamBlock.Extent.Text
-                    foreach ($attr in $ast.ParamBlock.Attributes) {
-                        if ($attr.TypeName.FullName -match 'CmdletBinding') {
-                            $hasCmdletBinding = $true
-                            $cmdletBindingText = $attr.Extent.Text
-                            break
+                    if ($ast.ParamBlock) {
+                        $paramBlockText = $ast.ParamBlock.Extent.Text
+                        foreach ($attr in $ast.ParamBlock.Attributes) {
+                            if ($attr.TypeName.FullName -match 'CmdletBinding') {
+                                $hasCmdletBinding = $true
+                                $cmdletBindingText = $attr.Extent.Text
+                                break
+                            }
                         }
                     }
-                }
 
-                foreach ($token in $tokens) {
-                    if ($token.Kind -eq 'Comment' -and $token.Text -match '^\s*<#\s*\.(SYNOPSIS|DESCRIPTION)') {
-                        $helpText = $token.Text
-                        break
+                    foreach ($token in $tokens) {
+                        if ($token.Kind -eq 'Comment' -and $token.Text -match '^\s*<#\s*\.(SYNOPSIS|DESCRIPTION)') {
+                            $helpText = $token.Text
+                            break
+                        }
+                        if ($token.Kind -eq 'Comment' -and $token.Text -match '@ShimProfile:\s*(?<mode>\w+)') {
+                            $shimProfileMode = $matches['mode']
+                        }
                     }
-                    if ($token.Kind -eq 'Comment' -and $token.Text -match '@ShimProfile:\s*(?<mode>\w+)') {
-                        $shimProfileMode = $matches['mode']
+
+                    $shebangLine = "#!/usr/bin/env pwsh"
+                    switch ($shimProfileMode) {
+                        'NoProfile' { $shebangLine = "#!/usr/bin/env -S pwsh -NoProfile" }
+                        'Silent' { $shebangLine = "#!/usr/bin/env -S pwsh -NoLogo" }
+                        'Default' { $shebangLine = "#!/usr/bin/env pwsh" }
                     }
-                }
 
-                $shebangLine = "#!/usr/bin/env pwsh"
-                switch ($shimProfileMode) {
-                    'NoProfile' { $shebangLine = "#!/usr/bin/env -S pwsh -NoProfile" }
-                    'Silent' { $shebangLine = "#!/usr/bin/env -S pwsh -NoLogo" }
-                    'Default' { $shebangLine = "#!/usr/bin/env pwsh" }
-                }
-
-                # --- 构建 Shim 内容 ---
-                $shimContentLines = @()
-                $shimContentLines += $shebangLine
-                $shimContentLines += ""
-                $shimContentLines += "# Auto-generated shim by Manage-BinScripts.ps1"
-                $shimContentLines += "# Source: $scriptFullPath"
-                $shimContentLines += ""
-                
-                if (-not [string]::IsNullOrWhiteSpace($helpText)) {
-                    $shimContentLines += $helpText
+                    # --- 构建 Shim 内容 ---
+                    $shimContentLines += $shebangLine
                     $shimContentLines += ""
-                }
-                
-                if ($hasCmdletBinding) {
-                    $shimContentLines += $cmdletBindingText
-                }
-                elseif ($null -ne $paramBlockText) {
-                    $shimContentLines += "[CmdletBinding()]"
-                }
-                
-                if (-not [string]::IsNullOrWhiteSpace($paramBlockText)) {
-                    $shimContentLines += $paramBlockText
+                    $shimContentLines += "# Auto-generated shim by Manage-BinScripts.ps1"
+                    $shimContentLines += "# Source: $scriptFullPath"
                     $shimContentLines += ""
+                    
+                    if (-not [string]::IsNullOrWhiteSpace($helpText)) {
+                        $shimContentLines += $helpText
+                        $shimContentLines += ""
+                    }
+                    
+                    if ($hasCmdletBinding) {
+                        $shimContentLines += $cmdletBindingText
+                    }
+                    elseif ($null -ne $paramBlockText) {
+                        $shimContentLines += "[CmdletBinding()]"
+                    }
+                    
+                    if (-not [string]::IsNullOrWhiteSpace($paramBlockText)) {
+                        $shimContentLines += $paramBlockText
+                        $shimContentLines += ""
+                    }
+
+                    $shimContentLines += "`$SourcePath = Join-Path `$PSScriptRoot '$sourceRelPath'"
+                    $shimContentLines += "if (-not (Test-Path `$SourcePath)) {"
+                    $shimContentLines += "    Write-Error ""Cannot find source script at `$SourcePath"""
+                    $shimContentLines += "    exit 1"
+                    $shimContentLines += "}"
+                    
+                    if (-not [string]::IsNullOrWhiteSpace($paramBlockText)) {
+                        $shimContentLines += "& `$SourcePath @PSBoundParameters"
+                    }
+                    else {
+                        $shimContentLines += "& `$SourcePath @args"
+                    }
+                    
+                    $shimContentLines += "exit `$LASTEXITCODE"
                 }
 
-                $shimContentLines += "`$SourcePath = Join-Path `$PSScriptRoot '$sourceRelPath'"
-                $shimContentLines += "if (-not (Test-Path `$SourcePath)) {"
-                $shimContentLines += "    Write-Error ""Cannot find source script at `$SourcePath"""
-                $shimContentLines += "    exit 1"
-                $shimContentLines += "}"
-                
-                if (-not [string]::IsNullOrWhiteSpace($paramBlockText)) {
-                    $shimContentLines += "& `$SourcePath @PSBoundParameters"
-                }
-                else {
-                    $shimContentLines += "& `$SourcePath @args"
-                }
-                
-                $shimContentLines += "exit `$LASTEXITCODE"
+                # 写入文件
+                Set-Content -Path $targetPath -Value $shimContentLines -Encoding utf8NoBOM -Force
 
                 # 写入文件
                 Set-Content -Path $targetPath -Value $shimContentLines -Encoding utf8NoBOM -Force
