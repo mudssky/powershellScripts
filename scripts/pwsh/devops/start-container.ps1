@@ -31,7 +31,6 @@
     services:
       your-new-service:
         image: your-image:tag
-        container_name: ${COMPOSE_PROJECT_NAME}-your-new-service
         restart: ${RESTART_POLICY}
         profiles:
           - your-new-service
