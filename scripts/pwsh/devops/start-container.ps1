@@ -302,6 +302,29 @@ function Get-NetworkExists {
     try { & docker network ls -q -f name=$Name } catch { return $null }
 }
 
+function Import-EnvFile {
+    param([string]$FilePath)
+    if (Test-Path $FilePath) {
+        Write-Verbose "Loading environment file: $FilePath"
+        foreach ($line in Get-Content -LiteralPath $FilePath) {
+            $line = $line.Trim()
+            if ([string]::IsNullOrWhiteSpace($line) -or $line.StartsWith('#')) { continue }
+            $index = $line.IndexOf('=')
+            if ($index -gt 0) {
+                $key = $line.Substring(0, $index).Trim()
+                $value = $line.Substring($index + 1).Trim()
+                # 移除可能的引号
+                if ($value.StartsWith('"') -and $value.EndsWith('"')) { $value = $value.Substring(1, $value.Length - 2) }
+                elseif ($value.StartsWith("'") -and $value.EndsWith("'")) { $value = $value.Substring(1, $value.Length - 2) }
+                
+                if (-not [string]::IsNullOrWhiteSpace($key)) {
+                    [System.Environment]::SetEnvironmentVariable($key, $value)
+                }
+            }
+        }
+    }
+}
+
 function New-NetworkIfMissing {
     param([string]$Name)
     if ([string]::IsNullOrWhiteSpace($Name)) { return }
@@ -432,13 +455,6 @@ function Get-ComposeServiceNames {
 
 
 try {
-    ${env:DATA_PATH} = $DataPath
-    ${env:DEFAULT_USER} = $DefaultUser
-    ${env:DEFAULT_PASSWORD} = (Get-PlainTextFromSecure -Secure $DefaultPassword)
-    ${env:RESTART_POLICY} = $RestartPolicy
-    $projectName = Get-DefaultProjectName -ServiceName $ServiceName -ProjectName $ProjectName
-    ${env:COMPOSE_PROJECT_NAME} = $projectName
-    
     # 计算项目根目录路径 (动态查找)
     $current = $PSScriptRoot
     $projectRoot = $null
@@ -465,14 +481,29 @@ try {
     $composePath = Join-Path $composeDir 'docker-compose.yml'
     $mongoReplComposePath = Join-Path $composeDir 'mongo-repl.compose.yml'
 
+    # 依次加载 .env 和 .env.local (后者覆盖前者)
+    Import-EnvFile -FilePath (Join-Path $composeDir '.env')
+    Import-EnvFile -FilePath (Join-Path $composeDir '.env.local')
+
+    # 处理通过 -Env 参数传入的额外变量 (优先级最高)
     if ($Env) { foreach ($k in $Env.Keys) { ${env:$k} = [string]$Env[$k] } }
 
-    if ($UseEnvFile -and $Env) {
-        $envFile = Join-Path $composeDir '.env'
-        $lines = @()
-        foreach ($k in $Env.Keys) { $lines += ("$k=" + [string]$Env[$k]) }
-        Set-Content -LiteralPath $envFile -Value $lines -Encoding utf8
-    }
+    $plainPwd = (Get-PlainTextFromSecure -Secure $DefaultPassword)
+
+    # 显式参数强制覆盖 (优先级 > 文件)
+    if ($PSBoundParameters.ContainsKey('DataPath')) { ${env:DATA_PATH} = $DataPath }
+    if ($PSBoundParameters.ContainsKey('DefaultUser')) { ${env:DEFAULT_USER} = $DefaultUser }
+    if ($PSBoundParameters.ContainsKey('DefaultPassword')) { ${env:DEFAULT_PASSWORD} = $plainPwd }
+    if ($PSBoundParameters.ContainsKey('RestartPolicy')) { ${env:RESTART_POLICY} = $RestartPolicy }
+
+    # 注入默认值，但优先保留已存在的环境变量 (来自 .env, .env.local 或 Shell)
+    if ([string]::IsNullOrWhiteSpace(${env:DATA_PATH})) { ${env:DATA_PATH} = $DataPath }
+    if ([string]::IsNullOrWhiteSpace(${env:DEFAULT_USER})) { ${env:DEFAULT_USER} = $DefaultUser }
+    if ([string]::IsNullOrWhiteSpace(${env:DEFAULT_PASSWORD})) { ${env:DEFAULT_PASSWORD} = $plainPwd }
+    
+    if ([string]::IsNullOrWhiteSpace(${env:RESTART_POLICY})) { ${env:RESTART_POLICY} = $RestartPolicy }
+    $projectName = Get-DefaultProjectName -ServiceName $ServiceName -ProjectName $ProjectName
+    if ([string]::IsNullOrWhiteSpace(${env:COMPOSE_PROJECT_NAME})) { ${env:COMPOSE_PROJECT_NAME} = $projectName }
 
     if ($List) {
         if (Test-Path $composePath) {
@@ -488,9 +519,13 @@ try {
     Initialize-ServiceEnvironment -ServiceName $ServiceName -DataPath $DataPath
 
     if ($ServiceName -eq 'mongodb-replica' -and (Test-Path $mongoReplComposePath)) {
-        $env:DOCKER_DATA_PATH = $DataPath
-        $env:MONGO_USER = $DefaultUser
-        $env:MONGO_PASSWORD = (Get-PlainTextFromSecure -Secure $DefaultPassword)
+        if ($PSBoundParameters.ContainsKey('DataPath')) { ${env:DOCKER_DATA_PATH} = $DataPath }
+        if ($PSBoundParameters.ContainsKey('DefaultUser')) { ${env:MONGO_USER} = $DefaultUser }
+        if ($PSBoundParameters.ContainsKey('DefaultPassword')) { ${env:MONGO_PASSWORD} = $plainPwd }
+
+        if ([string]::IsNullOrWhiteSpace(${env:DOCKER_DATA_PATH})) { ${env:DOCKER_DATA_PATH} = $DataPath }
+        if ([string]::IsNullOrWhiteSpace(${env:MONGO_USER})) { ${env:MONGO_USER} = $DefaultUser }
+        if ([string]::IsNullOrWhiteSpace(${env:MONGO_PASSWORD})) { ${env:MONGO_PASSWORD} = $plainPwd }
         Invoke-DockerCompose -File $mongoReplComposePath -Project $projectName -Action 'up -d' -DryRun:$DryRun
         if (-not $DryRun) { [void](Wait-ServiceHealthy -Service 'mongo1' -Project $projectName) }
         return

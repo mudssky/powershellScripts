@@ -36,3 +36,5 @@ bin/
 *.local.json
 # 使用rule-loader转换
 .agent/rules
+
+.env.local
