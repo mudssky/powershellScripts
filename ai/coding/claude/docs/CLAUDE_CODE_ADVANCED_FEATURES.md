@@ -4,6 +4,8 @@
 
 ## 🤖 Subagents (子智能体)
 
+> 💡 **速查表**: [Subagent Cheatsheet](./CLAUDE_CODE_SUB_AGENT_CHEATSHEET.md)
+
 子智能体是处理复杂、多步骤任务的自主子进程。它们拥有独立的系统提示词（System Prompt）和工具集，可以由主智能体根据任务需求自动唤起。
 
 ### 1. 核心概念
