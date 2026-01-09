@@ -63,6 +63,8 @@ examples:
 
 ## 🧠 Agent Skills (智能体技能)
 
+> 💡 **速查表**: [Agent Skill Cheatsheet](./CLAUDE_CODE_AGENT_SKILL_CHEATSHEET.md)
+
 技能是模块化的知识包，用于扩展 Claude 的能力。它们就像是特定领域的"入职指南"，包含专业知识、工作流和工具。
 
 ### 1. 核心概念

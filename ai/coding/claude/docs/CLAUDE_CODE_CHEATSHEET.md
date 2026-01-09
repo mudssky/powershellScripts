@@ -182,4 +182,4 @@ Claude Code 支持通过 **Subagents** 和 **Skills** 扩展能力。
 - **Agent SDK**: 使用 Python/TS 编程构建自定义 Agent。
 - **Git Integration**: 内置的智能提交和 PR 工作流。
 
-👉 **详细文档请参考**: [CLAUDE_CODE_ADVANCED_FEATURES.md](./CLAUDE_CODE_ADVANCED_FEATURES.md)
+👉 **详细文档请参考**: [Advanced Features](./CLAUDE_CODE_ADVANCED_FEATURES.md) | [Agent Skill Cheatsheet](./CLAUDE_CODE_AGENT_SKILL_CHEATSHEET.md)
