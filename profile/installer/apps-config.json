@@ -803,6 +803,13 @@
         "cliName": "openspec",
         "description": "Fission AI OpenSpec tool",
         "command": "npm install -g @fission-ai/openspec"
+      },
+      {
+        "name": "uipro-cli",
+        "cliName": "uipro",
+        "description": "UIPro 命令行工具",
+        "command": "npm install -g uipro-cli",
+        "tag": ["aicoding"]
       }
     ],
     "bun": [
