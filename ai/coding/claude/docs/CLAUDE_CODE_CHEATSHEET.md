@@ -145,6 +145,8 @@ Claude Code 支持三级配置，优先级从高到低：**Enterprise > User > P
 
 ## 🪝 Hooks (自动化钩子)
 
+> 💡 **速查表**: [Workflow & Hooks Cheatsheet](./CLAUDE_CODE_WORKFLOW_CHEATSHEET.md)
+
 在工具执行前后自动运行命令，用于增强安全性或自动化流程。
 
 **示例：修改代码后自动 Lint**
@@ -182,4 +184,4 @@ Claude Code 支持通过 **Subagents** 和 **Skills** 扩展能力。
 - **Agent SDK**: 使用 Python/TS 编程构建自定义 Agent。
 - **Git Integration**: 内置的智能提交和 PR 工作流。
 
-👉 **详细文档请参考**: [Advanced Features](./CLAUDE_CODE_ADVANCED_FEATURES.md) | [Agent Skill](./CLAUDE_CODE_AGENT_SKILL_CHEATSHEET.md) | [Subagent](./CLAUDE_CODE_SUB_AGENT_CHEATSHEET.md)
+👉 **详细文档请参考**: [Advanced Features](./CLAUDE_CODE_ADVANCED_FEATURES.md) | [Agent Skill](./CLAUDE_CODE_AGENT_SKILL_CHEATSHEET.md) | [Subagent](./CLAUDE_CODE_SUB_AGENT_CHEATSHEET.md) | [Workflow](./CLAUDE_CODE_WORKFLOW_CHEATSHEET.md)
