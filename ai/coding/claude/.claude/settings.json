@@ -49,5 +49,6 @@
     "feature-dev@claude-plugins-official": true,
     "claude-mem@thedotmack": false
   },
-  "outputStyle": "engineer-professional"
+  "outputStyle": "engineer-professional",
+  "language": "chinese"
 }

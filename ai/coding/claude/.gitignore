@@ -9,3 +9,4 @@ ccline.exe
 .claude/history.jsonl
 .claude/plugins
 .claude/statsig
+.claude/paste-cache
