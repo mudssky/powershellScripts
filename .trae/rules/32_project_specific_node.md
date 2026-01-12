@@ -18,3 +18,4 @@ globs: scripts/node/**/*
   - `pnpm build:dev`: 开发构建 (不压缩)。
   - `pnpm build:standalone`: 独立构建 (复制 JS 到 bin)。
   - `pnpm test`: 运行 Vitest。
+  - `pnpm qa`: format && lint && test (完成需求后必须执行，修复出现的问题)。
