@@ -344,7 +344,6 @@ description: 全局测试规则
     await fs.writeFile(
       path.join(FIXTURES_DIR, '10_conditional.md'),
       `---
-alwaysApply: false
 globs: *.js,*.ts
 description: 条件测试规则
 ---
@@ -358,6 +357,17 @@ description: 条件测试规则
       `# 无 Frontmatter 规则
 这个规则没有 frontmatter，应该默认 alwaysApply 为 true。`,
     )
+
+    await fs.writeFile(
+      path.join(FIXTURES_DIR, 'explicit_false.md'),
+      `---
+alwaysApply: false
+description: 显式禁用
+---
+
+# 显式禁用规则
+即使没有 glob，也应该是 alwaysApply: false。`,
+    )
   })
 
   describe('loadRules', () => {
@@ -365,7 +375,7 @@ description: 条件测试规则
       const rules = await loadRules({
         rulesDir: FIXTURES_DIR,
       })
-      expect(rules).toHaveLength(3)
+      expect(rules).toHaveLength(4)
     })
 
     it('应该解析 frontmatter', async () => {
@@ -378,13 +388,14 @@ description: 条件测试规则
       expect(globalRule?.description).toBe('全局测试规则')
     })
 
-    it('应该解析 globs 字段', async () => {
+    it('应该自动推断 alwaysApply (有 glob 默认为 false)', async () => {
       const rules = await loadRules({
         rulesDir: FIXTURES_DIR,
       })
       const conditionalRule = rules.find((r) => r.id === '10_conditional')
       expect(conditionalRule).toBeDefined()
       expect(conditionalRule?.matchPatterns).toEqual(['*.js', '*.ts'])
+      expect(conditionalRule?.alwaysApply).toBe(false)
     })
 
     it('应该默认 alwaysApply 为 true（无 frontmatter）', async () => {
@@ -394,6 +405,15 @@ description: 条件测试规则
       const noFrontmatterRule = rules.find((r) => r.id === 'no_frontmatter')
       expect(noFrontmatterRule).toBeDefined()
       expect(noFrontmatterRule?.alwaysApply).toBe(true)
+    })
+
+    it('应该尊重显式 alwaysApply: false', async () => {
+      const rules = await loadRules({
+        rulesDir: FIXTURES_DIR,
+      })
+      const explicitFalseRule = rules.find((r) => r.id === 'explicit_false')
+      expect(explicitFalseRule).toBeDefined()
+      expect(explicitFalseRule?.alwaysApply).toBe(false)
     })
 
     it('应该支持过滤 alwaysApply 规则', async () => {

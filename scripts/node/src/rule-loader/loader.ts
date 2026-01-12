@@ -73,7 +73,7 @@ export async function loadRules(
 
   for (const filePath of files) {
     try {
-      const rule = await parseRuleFile(filePath, cwd)
+      const rule = await parseRuleFile(filePath, cwd, options)
       rules.push(rule)
     } catch (error) {
       errors.push({ file: filePath, error })
@@ -116,7 +116,11 @@ async function scanRuleFiles(rulesDir: string): Promise<string[]> {
  * @returns 规则对象
  * @throws {RuleParseError} 解析失败
  */
-async function parseRuleFile(filePath: string, cwd: string): Promise<TraeRule> {
+async function parseRuleFile(
+  filePath: string,
+  cwd: string,
+  _options: LoadOptions,
+): Promise<TraeRule> {
   const content = await fs.readFile(filePath, 'utf-8')
 
   // 使用 gray-matter 解析 frontmatter
@@ -132,9 +136,13 @@ async function parseRuleFile(filePath: string, cwd: string): Promise<TraeRule> {
 
   // 处理 globs 字段（支持复数形式）
   const matchPatterns = extractMatchPatterns(metadata)
+  const hasGlobs = matchPatterns !== undefined && matchPatterns.length > 0
 
-  // 默认 alwaysApply: true（无 frontmatter 时）
-  const alwaysApply = metadata.alwaysApply ?? true
+  // 默认 alwaysApply 逻辑：
+  // 1. 如果 metadata 中显式指定，使用指定值
+  // 2. 如果没有指定，且有 glob 模式，默认为 false (按需加载)
+  // 3. 否则默认为 true (全局加载)
+  const alwaysApply = metadata.alwaysApply ?? !hasGlobs
 
   const rule: TraeRule = {
     id: generateRuleId(filename),

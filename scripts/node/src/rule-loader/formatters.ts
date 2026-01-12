@@ -61,8 +61,13 @@ export function formatMarkdown(
   }
 
   // 分离全局规则和条件规则
-  const globalRules = rules.filter((r) => r.alwaysApply)
-  const conditionalRules = rules.filter((r) => !r.alwaysApply)
+  const globalRules = options.fullMode
+    ? rules
+    : rules.filter((r) => r.alwaysApply)
+
+  const conditionalRules = options.fullMode
+    ? []
+    : rules.filter((r) => !r.alwaysApply)
 
   // 输出全局规则
   if (globalRules.length > 0) {

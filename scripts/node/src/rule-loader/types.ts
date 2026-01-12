@@ -283,6 +283,16 @@ export interface FormatOptions {
    * 用于生成 [System Info] 中的 Rule Base。
    */
   rulesDir?: string
+
+  /**
+   * 全量模式
+   *
+   * @default false
+   *
+   * @description
+   * 为 `true` 时，强制输出所有规则内容，忽略 alwaysApply 设置。
+   */
+  fullMode?: boolean
 }
 
 /**
@@ -305,6 +315,13 @@ export interface CliOptions {
    * @default false
    */
   filterApply?: boolean
+
+  /**
+   * 全量模式
+   *
+   * @default false
+   */
+  full?: boolean
 
   /**
    * 详细输出

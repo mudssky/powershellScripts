@@ -1,5 +1,4 @@
 ---
-alwaysApply: false
 globs: *.js,*.ts
 description: 条件测试规则
 ---

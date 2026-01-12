@@ -128,6 +128,7 @@ export function createCli(): Command {
     .description('加载并输出规则 (默认命令)')
     .option('-f, --format <type>', '输出格式 (markdown, json)', 'markdown')
     .option('--filter-apply', '只显示 alwaysApply 规则')
+    .option('--full', '全量模式 (强制输出所有规则内容)')
     .option('-v, --verbose', '详细输出')
     .action(async (options: CliOptions) => {
       try {
@@ -172,6 +173,7 @@ async function run(options: CliOptions): Promise<void> {
     format: options.format,
     includeHeader: true,
     cwd: process.cwd(),
+    fullMode: options.full,
   })
 
   // 输出结果
