@@ -22,6 +22,11 @@ if ($loadProfile) {
         Write-Warning "发现现有的profile文件，备份为 $backupPath"
         Copy-Item -Path $profile -Destination $backupPath -Force
     }
+    # 确保profile目录存在
+    $profileDir = Split-Path -Parent $profile
+    if (-not (Test-Path -Path $profileDir)) {
+        New-Item -ItemType Directory -Path $profileDir -Force | Out-Null
+    }
     Set-Content -Path $profile  -Value  ". $PSCommandPath"
     return 
 }
