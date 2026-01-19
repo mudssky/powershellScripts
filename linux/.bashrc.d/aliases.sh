@@ -11,8 +11,18 @@
 alias mkdir='mkdir -pv'
 
 # df 和 du 默认显示人类可读单位 (KB, MB, GB) 而不是字节
-alias df='df -h'
-alias du='du -h'
+if command -v duf &> /dev/null; then
+    alias df='duf'
+else
+    alias df='df -h'
+fi
+
+if command -v dust &> /dev/null; then
+    alias du='dust'
+else
+    alias du='du -h'
+fi
+
 alias free='free -h'
 
 # grep 搜索自动高亮关键字
@@ -24,7 +34,14 @@ alias egrep='egrep --color=auto'
 
 
 # 快速列出文件
-alias ll='ls -alF --color=auto'  # 列出所有文件(含隐藏)、详细信息、颜色
+if command -v eza &> /dev/null; then
+    alias ll='eza --long --header --icons --git --all --time-style=iso'
+    alias tree='eza --tree --git --icons --git-ignore'
+else
+    alias ll='ls -alF --color=auto'  # 列出所有文件(含隐藏)、详细信息、颜色
+    alias tree='tree -C'             # 如果没 eza，尝试使用系统自带 tree
+fi
+
 alias la='ls -A --color=auto'    # 列出所有(不含 . 和 ..)
 alias l='ls -CF --color=auto'    # 简单列表
 
@@ -73,5 +90,15 @@ export HISTTIMEFORMAT="%F %T "
 export HISTSIZE=10000
 export HISTFILESIZE=20000
 
+
+### 7. 🚀 现代 CLI 工具 (Modern CLI Tools)
+
+# zoxide (更好的 cd)
+if command -v zoxide &> /dev/null; then
+    eval "$(zoxide init bash)"
+    alias zq='zoxide query'
+    alias za='zoxide add'
+    alias zr='zoxide remove'
+fi
 
 
