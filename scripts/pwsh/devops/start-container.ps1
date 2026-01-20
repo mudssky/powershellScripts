@@ -197,7 +197,8 @@ param (
     [string]$ProjectName,
     [string]$NetworkName,
     [hashtable]$Env,
-    [switch]$UseEnvFile
+    [switch]$UseEnvFile,
+    [switch]$AskPass
 )
   
 # 设置默认 docker 映射路径
@@ -487,12 +488,16 @@ try {
     # 处理通过 -Env 参数传入的额外变量 (优先级最高)
     if ($Env) { foreach ($k in $Env.Keys) { ${env:$k} = [string]$Env[$k] } }
 
+    if ($AskPass) {
+        $DefaultPassword = Read-Host -AsSecureString -Prompt "请输入默认密码 (DefaultPassword)"
+    }
+
     $plainPwd = (Get-PlainTextFromSecure -Secure $DefaultPassword)
 
     # 显式参数强制覆盖 (优先级 > 文件)
     if ($PSBoundParameters.ContainsKey('DataPath')) { ${env:DATA_PATH} = $DataPath }
     if ($PSBoundParameters.ContainsKey('DefaultUser')) { ${env:DEFAULT_USER} = $DefaultUser }
-    if ($PSBoundParameters.ContainsKey('DefaultPassword')) { ${env:DEFAULT_PASSWORD} = $plainPwd }
+    if ($PSBoundParameters.ContainsKey('DefaultPassword') -or $AskPass) { ${env:DEFAULT_PASSWORD} = $plainPwd }
     if ($PSBoundParameters.ContainsKey('RestartPolicy')) { ${env:RESTART_POLICY} = $RestartPolicy }
 
     # 注入默认值，但优先保留已存在的环境变量 (来自 .env, .env.local 或 Shell)
