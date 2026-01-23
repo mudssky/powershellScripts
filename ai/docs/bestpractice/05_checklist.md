@@ -7,3 +7,8 @@
 3. **延迟优化**：是否使用了流式输出（Streaming）？用户看到第一个字的时间（TTFT）是多少？
 4. **成本控制**：是否统计了 Token 用量？有没有死循环烧钱的风险？
 5. **数据闭环**：用户的反馈（点赞/点踩）有没有存下来？这些数据应该成为你下一次优化 Prompt 或微调模型的燃料。
+
+## 相关工具链接
+
+- Trace / 可观测性：<https://github.com/langchain-ai/langsmith-sdk>，<https://github.com/langfuse/langfuse>，<https://github.com/Helicone/helicone>
+- 可观测性标准：<https://github.com/open-telemetry/opentelemetry-collector>，<https://github.com/open-telemetry/opentelemetry-python>
