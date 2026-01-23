@@ -19,3 +19,10 @@
 * **实践**：
   * **精确缓存**：完全相同的输入，直接返回上次结果（Redis/Memcached）。
   * **语义缓存 (Semantic Cache)**：如果用户问“推荐个手机”和“手机推荐”意思一样，直接返回缓存。可以使用向量数据库来实现语义相似度匹配。
+
+## 相关工具链接
+
+- 模型路由/代理：<https://github.com/BerriAI/litellm>
+- 编排与结构化输出：<https://github.com/langchain-ai/langchain>
+- 类型与 Schema 校验：<https://github.com/pydantic/pydantic>
+- 缓存：<https://github.com/redis/redis>
