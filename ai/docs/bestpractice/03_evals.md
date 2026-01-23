@@ -16,3 +16,10 @@
 
 * **代码逻辑**（Tool 调用是否正确、JSON 解析是否报错）必须过传统的 CI/CD 单元测试。
 * **回答质量**（语气是否友好、内容是否正确）通过离线批量跑 Evaluation Pipeline 监控。
+
+## 相关工具链接
+
+- RAG 评测：<https://github.com/explodinggradients/ragas>
+- LLM Evals 框架：<https://github.com/confident-ai/deepeval>
+- Prompt/回归测试：<https://github.com/promptfoo/promptfoo>
+- 评估与 Trace（LangSmith SDK）：<https://github.com/langchain-ai/langsmith-sdk>
