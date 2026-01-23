@@ -3,9 +3,7 @@
     "context7": {
       "command": "bun",
       "args": ["x", "@upstash/context7-mcp@latest"],
-      "env": {
-        "DEFAULT_MINIMUM_TOKENS": "10000"
-      },
+      "env": { "DEFAULT_MINIMUM_TOKENS": "10000" },
       "fromGalleryId": "upstash.context7",
       "disabled": false
     },
@@ -29,7 +27,9 @@
         "https://registry.npmjs.org",
         "dpml-prompt@beta",
         "mcp-server"
-      ]
+      ],
+      "disabled": true,
+      "alwaysAllow": []
     },
     "Playwright": {
       "command": "bun",
@@ -42,21 +42,25 @@
       "command": "uvx",
       "args": ["mcp-feedback-enhanced@latest"],
       "timeout": 600,
-      "autoApprove": ["interactive_feedback"]
+      "autoApprove": ["interactive_feedback"],
+      "disabled": true,
+      "alwaysAllow": []
     },
     "Sequential Thinking": {
       "command": "bun",
       "args": ["x", "@modelcontextprotocol/server-sequential-thinking"],
       "env": {},
-      "fromGalleryId": "modelcontextprotocol.servers_sequentialthinking"
+      "fromGalleryId": "modelcontextprotocol.servers_sequentialthinking",
+      "disabled": true,
+      "alwaysAllow": []
     },
     "Memory": {
       "command": "bun",
       "args": ["x", "@modelcontextprotocol/server-memory"],
-      "env": {
-        "MEMORY_FILE_PATH": "memory.json"
-      },
-      "fromGalleryId": "modelcontextprotocol.servers_memory"
+      "env": { "MEMORY_FILE_PATH": "memory.json" },
+      "fromGalleryId": "modelcontextprotocol.servers_memory",
+      "disabled": true,
+      "alwaysAllow": []
     },
     "shrimp-task-manager": {
       "command": "bun",
@@ -66,7 +70,9 @@
         "TEMPLATES_USE": "zh",
         "ENABLE_GUI": "true",
         "WEB_PORT": "36601"
-      }
+      },
+      "disabled": true,
+      "alwaysAllow": []
     },
     "serena": {
       "command": "uvx",
@@ -75,7 +81,9 @@
         "git+https://github.com/oraios/serena",
         "serena",
         "start-mcp-server"
-      ]
+      ],
+      "disabled": true,
+      "alwaysAllow": []
     }
   }
 }
