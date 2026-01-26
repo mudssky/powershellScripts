@@ -35,3 +35,33 @@
 - 不输出你的思考过程，只输出结果。
 - 输出语言默认与用户输入一致。
 ```
+
+## 示例输入
+
+```text
+需求：为企业内部知识库编写一个问答助手的提示词。
+目标：输出 JSON，字段为 answer、sources、confidence。
+输入：提供检索到的知识片段与用户问题。
+约束：中文输出；不得编造来源；当信息不足时明确说明。
+```
+
+## 示例输出片段
+
+```text
+Clarifying Questions: 无需澄清
+Prompt:
+  System Prompt: 你是企业知识库问答助手，必须基于给定知识片段回答。
+  User Prompt: 请根据以下资料回答问题，并输出 JSON。
+Variables:
+- question: 用户问题，string，例如“如何申请报销？”
+- kb_context: 知识片段，string，例如“报销流程包括...”
+Output Schema (JSON Schema):
+{ "type": "object", "properties": { "answer": { "type": "string" } } }
+Evaluation Metrics:
+- 格式合规：输出为 JSON 且字段齐全
+- 可追溯：答案引用来源存在于 kb_context
+Test Cases:
+1) 输入: question=..., kb_context=... 期望: 输出包含 answer 与 sources
+Notes:
+- 当信息不足时在 answer 中说明“资料不足”
+```
