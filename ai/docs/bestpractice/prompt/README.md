@@ -11,6 +11,10 @@
 - [05. CRAFT：Context / Role / Action / Format / Tone](./05_craft.md)
 - [06. CARE：Context / Action / Result / Example](./06_care.md)
 - [07. 5W1H：Who / What / When / Where / Why / How](./07_5w1h.md)
+- [10. 提示词大师（Prompt Master）](./10_prompt_master.md)
+- [11. 提示词优化大师（Prompt Optimizer）](./11_prompt_optimizer.md)
+- [12. 提示词大师（高级版）](./12_prompt_master_advanced.md)
+- [13. 提示词优化大师（高级版）](./13_prompt_optimizer_advanced.md)
 
 ## 选择建议
 
