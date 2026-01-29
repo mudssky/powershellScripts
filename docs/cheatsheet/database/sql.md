@@ -105,7 +105,35 @@ psql -h localhost -U user dbname < dump.sql
 sqlite3 data.db ".backup backup.db"
 ```
 
+### DBeaver (GUI)
+
+- **防手滑模式 (Manual Commit)**:
+  - 默认 `Auto-Commit` (自动提交) 极其危险。
+  - **设置**: 工具栏点击 `Tx` / `Auto` -> 切换为 `Manual Commit` (手动提交)。
+  - **流程**: `执行` -> `验证` -> `Commit` (提交) 或 `Rollback` (回滚)。
+- **常用快捷键**:
+  - `Ctrl + Enter`: 执行当前语句
+  - `Ctrl + Alt + Shift + X`: 执行脚本
+
 ## 4. 💡 高频代码片段
+
+### 安全事务 (Safe Update)
+
+**场景**: 确保 UPDATE/DELETE 可撤销。
+
+```sql
+BEGIN; -- 开启事务 (DBeaver: 切换为 Manual Commit)
+
+-- 1. 执行修改
+UPDATE material_items SET ...;
+
+-- 2. 验证结果
+SELECT * FROM material_items WHERE ...;
+
+-- 3. 提交或回滚
+-- COMMIT;   -- 确认
+-- ROLLBACK; -- 撤销
+```
 
 ### UPSERT (插入或更新)
 
@@ -231,3 +259,56 @@ SELECT pg_size_pretty(pg_total_relation_size('my_table'));
 -- SQLite: 检查完整性
 PRAGMA integrity_check;
 ```
+
+## 7. 📊 聚合与统计 (Aggregation & Statistics)
+
+### 基础聚合函数
+
+```sql
+SELECT 
+    COUNT(*) as total_rows,          -- 总行数
+    COUNT(column) as non_null_count, -- 非空行数
+    SUM(price) as total_price,       -- 求和
+    AVG(score) as average_score,     -- 平均值
+    MAX(created_at) as latest,       -- 最大值
+    MIN(amount) as minimum           -- 最小值
+FROM orders;
+```
+
+### 分组过滤 (GROUP BY & HAVING)
+
+**场景**: 统计每个类别的订单数，并筛选出订单数大于 5 的类别。
+
+```sql
+SELECT category, COUNT(*) as count
+FROM products
+GROUP BY category
+HAVING COUNT(*) > 5
+ORDER BY count DESC;
+```
+
+### 窗口函数 (Window Functions - PG 强项)
+
+**场景**: 在不合并行的情况下计算排名或累计总和。
+
+```sql
+-- 计算每个部门内员工的薪资排名
+SELECT 
+    name, 
+    dept, 
+    salary,
+    RANK() OVER (PARTITION BY dept ORDER BY salary DESC) as salary_rank,
+    SUM(salary) OVER (PARTITION BY dept) as dept_total_budget
+FROM employees;
+```
+
+### 差异提示 (PostgreSQL vs SQLite)
+
+- **Distinct Count**:
+  - PG/SQLite 均支持 `COUNT(DISTINCT column)`。
+- **Median (中位数)**:
+  - PostgreSQL: `PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY column)`。
+  - SQLite: 无原生中位数函数，需使用 CTE 或扩展。
+- **String Aggregation (字符串聚合)**:
+  - PostgreSQL: `STRING_AGG(name, ', ')`。
+  - SQLite: `GROUP_CONCAT(name, ', ')`。
