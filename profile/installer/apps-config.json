@@ -823,7 +823,8 @@
         "name": "qwen-coder",
         "cliName": "qwen",
         "description": "qwen的命令行工具",
-        "command": "bun add -g @qwen-code/qwen-code@latest"
+        "command": "bun add -g @qwen-code/qwen-code@latest",
+        "skipInstall": true
       },
       {
         "name": "claude-code",
