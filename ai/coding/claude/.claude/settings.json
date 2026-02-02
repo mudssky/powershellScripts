@@ -48,5 +48,6 @@
     "feature-dev@claude-plugins-official": false
   },
   "language": "chinese",
-  "outputStyle": "engineer-professional"
+  "outputStyle": "engineer-professional",
+  "plansDirectory": "./plans"
 }
