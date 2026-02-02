@@ -47,5 +47,6 @@
     "serena@claude-plugins-official": true,
     "feature-dev@claude-plugins-official": true
   },
-  "language": "chinese"
+  "language": "chinese",
+  "outputStyle": "engineer-professional"
 }
