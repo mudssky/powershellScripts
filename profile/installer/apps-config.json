@@ -238,6 +238,14 @@
         "command": "scoop install tokei"
       },
       {
+        "name": "just",
+        "cliName": "just",
+        "description": "命令运行器，类似 make 但更现代",
+        "command": "brew install just",
+        "supportOs": ["linux", "macOS"],
+        "tag": ["linuxserver"]
+      },
+      {
         "name": "lazygit",
         "cliName": "lazygit",
         "description": "git的TUI界面",
@@ -823,7 +831,8 @@
         "name": "qwen-coder",
         "cliName": "qwen",
         "description": "qwen的命令行工具",
-        "command": "bun add -g @qwen-code/qwen-code@latest"
+        "command": "bun add -g @qwen-code/qwen-code@latest",
+        "skipInstall": true
       },
       {
         "name": "claude-code",

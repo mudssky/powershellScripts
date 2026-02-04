@@ -432,6 +432,101 @@ function Show-RustDeskInfo {
 }
 
 
+function Get-LanIpAddress {
+    try {
+        $hostEntry = [System.Net.Dns]::GetHostEntry([System.Net.Dns]::GetHostName())
+        $ip = $hostEntry.AddressList | 
+            Where-Object { $_.AddressFamily -eq 'InterNetwork' } | 
+            Select-Object -ExpandProperty IPAddressToString -First 1
+        return $ip
+    }
+    catch {
+        return $null
+    }
+}
+
+function Show-ServiceAccessInfo {
+    param(
+        [string[]]$Services,
+        [string]$ProjectName
+    )
+    if (-not $Services) { return }
+
+    $lanIp = Get-LanIpAddress
+    $hasPrintedHeader = $false
+
+    foreach ($svc in $Services) {
+        try {
+            $psArgs = @('ps', '-q', '--filter', "label=com.docker.compose.service=$svc")
+            if ($ProjectName) { $psArgs += @('--filter', "label=com.docker.compose.project=$ProjectName") }
+            
+            $containerIds = & docker @psArgs
+            if ([string]::IsNullOrWhiteSpace($containerIds)) { continue }
+            
+            foreach ($cid in ($containerIds -split '\s+')) {
+                if ([string]::IsNullOrWhiteSpace($cid)) { continue }
+                
+                $portOutput = & docker port $cid 2>$null
+                if ([string]::IsNullOrWhiteSpace($portOutput)) { continue }
+                
+                if (-not $hasPrintedHeader) {
+                    Write-Host "`n=== 服务访问信息 ($ProjectName) ===" -ForegroundColor Cyan
+                    $hasPrintedHeader = $true
+                }
+
+                Write-Host "Service: $svc" -ForegroundColor Green
+                
+                $lines = $portOutput -split '\r?\n'
+                foreach ($line in $lines) {
+                    if ($line -match '^(\d+)/(\w+)\s*->\s*(.+):(\d+)$') {
+                        $containerPort = $Matches[1]
+                        $proto = $Matches[2]
+                        $hostIp = $Matches[3]
+                        $hostPort = $Matches[4]
+                        
+                        $isBindAll = ($hostIp -eq '0.0.0.0' -or $hostIp -eq '::')
+                        if ($isBindAll) { $hostIp = 'localhost' }
+                        
+                        # Helper closure for formatting URL
+                        $formatUrl = {
+                            param($ip, $port, $cPort, $proto)
+                            $u = "${ip}:${port}"
+                            if ($proto -eq 'tcp') {
+                                if ($cPort -eq '80' -or $cPort -match '^(3000|5000|8000|8080|8888|9000|9999)$') {
+                                    return "http://$u"
+                                }
+                                elseif ($cPort -eq '443') {
+                                    return "https://$u"
+                                }
+                            }
+                            return $u
+                        }
+
+                        $localUrl = & $formatUrl -ip $hostIp -port $hostPort -cPort $containerPort -proto $proto
+                        Write-Host "  - Port $containerPort/$proto"
+                        Write-Host "    Local: $localUrl"
+                        
+                        if ($isBindAll -and -not [string]::IsNullOrWhiteSpace($lanIp) -and $lanIp -ne '127.0.0.1') {
+                            $lanUrl = & $formatUrl -ip $lanIp -port $hostPort -cPort $containerPort -proto $proto
+                            Write-Host "    LAN:   $lanUrl"
+                        }
+                    }
+                    else {
+                        Write-Host "  - $line"
+                    }
+                }
+            }
+        }
+        catch {
+            Write-Verbose "Error getting info for ${svc}: $_"
+        }
+    }
+    if ($hasPrintedHeader) {
+        Write-Host "================================`n" -ForegroundColor Cyan
+    }
+}
+
+
 function Get-ComposeServiceNames {
     param(
         [string]$ComposePath,
@@ -552,6 +647,7 @@ try {
                     [void](Wait-ServiceHealthy -Service $tp -Project $projectName)
                 }
                 Show-RustDeskInfo -ServiceName $ServiceName -DataPath $DataPath
+                Show-ServiceAccessInfo -Services $targetProfiles -ProjectName $projectName
             }
             return
         }
@@ -564,6 +660,7 @@ try {
                         [void](Wait-ServiceHealthy -Service $tp -Project $projectName)
                     }
                     Show-RustDeskInfo -ServiceName $ServiceName -DataPath $DataPath
+                    Show-ServiceAccessInfo -Services $targetProfiles -ProjectName $projectName
                 }
             }
             else {
@@ -574,6 +671,7 @@ try {
                         [void](Wait-ServiceHealthy -Service $tp -Project $projectName)
                     }
                     Show-RustDeskInfo -ServiceName $ServiceName -DataPath $DataPath
+                    Show-ServiceAccessInfo -Services $targetProfiles -ProjectName $projectName
                 }
             }
             return
@@ -610,6 +708,7 @@ try {
                     [void](Wait-ServiceHealthy -Service $tp -Project $projectName)
                 }
                 Show-RustDeskInfo -ServiceName $ServiceName -DataPath $DataPath
+                Show-ServiceAccessInfo -Services $targetProfiles -ProjectName $projectName
             }
             return
         }

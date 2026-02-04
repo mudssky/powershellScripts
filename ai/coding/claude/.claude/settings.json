@@ -6,20 +6,19 @@
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
     "MCP_TIMEOUT": "60000",
     "ANTHROPIC_BASE_URL": "http://127.0.0.1:3456",
+    "API_TIMEOUT_MS": "3000000",
     "ANTHROPIC_API_KEY": "sk-zcf-x-ccr"
   },
   "includeCoAuthoredBy": false,
   "permissions": {
     "allow": [
       "Bash",
-      "BashOutput",
       "Edit",
       "Glob",
       "Grep",
       "KillShell",
       "NotebookEdit",
       "Read",
-      "SlashCommand",
       "Task",
       "TodoWrite",
       "WebFetch",
@@ -35,20 +34,20 @@
       "mcp__serena"
     ],
     "deny": [],
-    "defaultMode": "acceptEdits",
-    "_": "自动接受编辑，减少确认次数"
+    "defaultMode": "acceptEdits"
   },
   "hooks": {},
   "statusLine": {
     "type": "command",
-    "command": "%USERPROFILE%\\.claude\\ccline\\ccline.exe",
+    "command": "ccline",
     "padding": 0
   },
   "enabledPlugins": {
-    "frontend-design@claude-plugins-official": true,
-    "feature-dev@claude-plugins-official": true,
-    "claude-mem@thedotmack": false
+    "frontend-design@claude-plugins-official": false,
+    "serena@claude-plugins-official": true,
+    "feature-dev@claude-plugins-official": false
   },
+  "language": "chinese",
   "outputStyle": "engineer-professional",
-  "language": "chinese"
+  "plansDirectory": "./plans"
 }

@@ -10,3 +10,7 @@ ccline.exe
 .claude/plugins
 .claude/statsig
 .claude/paste-cache
+.claude/cache
+.claude/ccline/ccline
+.claude/tasks
+.claude/transcripts
