@@ -1,6 +1,10 @@
 [wsl2]
 # 推荐: 设置为镜像模式，与主机共享网络，解决大部分网络问题
 networkingMode=mirrored
+dnsTunneling=true
+firewall=true
+autoProxy=true
+
 # 关键: 限制内存使用，防止 WSL 吃掉所有内存。建议为主机物理内存的 25%-50%
 memory=16GB 
 # 关键: 限制 CPU 核心数，建议为主机逻辑核心数的 50%
