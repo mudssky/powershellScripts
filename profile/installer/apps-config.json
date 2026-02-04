@@ -238,6 +238,14 @@
         "command": "scoop install tokei"
       },
       {
+        "name": "just",
+        "cliName": "just",
+        "description": "命令运行器，类似 make 但更现代",
+        "command": "brew install just",
+        "supportOs": ["linux", "macOS"],
+        "tag": ["linuxserver"]
+      },
+      {
         "name": "lazygit",
         "cliName": "lazygit",
         "description": "git的TUI界面",
