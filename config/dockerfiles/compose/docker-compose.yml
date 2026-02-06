@@ -89,9 +89,16 @@ services:
     profiles: ["nacos"]
 
   rabbitmq:
-    image: rabbitmq:latest
+    image: rabbitmq:4-management
     restart: ${RESTART_POLICY:-unless-stopped}
-
+    environment:
+      RABBITMQ_DEFAULT_USER: ${DEFAULT_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${DEFAULT_PASSWORD:-guest}
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     ports: ["5672:5672", "15672:15672"]
     logging:
       driver: "json-file"
@@ -270,11 +277,11 @@ services:
     restart: ${RESTART_POLICY:-unless-stopped}
     command: hbbs
     ports:
-      - "21114:21114"  # TCP: web console (Pro version only)
-      - "21115:21115"  # TCP: NAT type test
-      - "21116:21116"  # TCP/UDP: ID registration and heartbeat service
+      - "21114:21114" # TCP: web console (Pro version only)
+      - "21115:21115" # TCP: NAT type test
+      - "21116:21116" # TCP/UDP: ID registration and heartbeat service
       - "21116:21116/udp"
-      - "21118:21118"  # TCP: web client support
+      - "21118:21118" # TCP: web client support
     volumes:
       - "${DATA_PATH}/rustdesk:/root"
     logging:
@@ -289,8 +296,8 @@ services:
     restart: ${RESTART_POLICY:-unless-stopped}
     command: hbbr
     ports:
-      - "21117:21117"  # TCP: Relay services
-      - "21119:21119"  # TCP: web client support
+      - "21117:21117" # TCP: Relay services
+      - "21119:21119" # TCP: web client support
     volumes:
       - "${DATA_PATH}/rustdesk:/root"
     depends_on:
@@ -310,7 +317,7 @@ services:
       - "9001:9001"
     volumes:
       - "${DATA_PATH}/rustfs/data:/data"
-    environment:  
+    environment:
       - RUSTFS_ACCESS_KEY=${DEFAULT_USER:-root}
       - RUSTFS_SECRET_KEY=${DEFAULT_PASSWORD:-12345678}
       - RUSTFS_CONSOLE_ENABLE=true
