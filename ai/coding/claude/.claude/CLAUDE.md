@@ -1,1 +1,2 @@
-Always respond in Chinese-simplified
+- 默认用简体中文回复（除非我明确要求英文/其他语言）。
+- 代码/命令/报错信息保留原样，不要翻译代码块内容。
