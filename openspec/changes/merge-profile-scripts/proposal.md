@@ -1,4 +1,4 @@
-## Why
+# Why
 
 `profile.ps1`（Windows）和 `profile_unix.ps1`（Linux/macOS）之间存在约 70% 的代码重复——`Set-AliasProfile`、`Initialize-Environment`、`Show-MyProfileHelp`、工具初始化、`z` 懒加载等逻辑几乎完全相同。真正的平台差异仅约 25-30 行（~10%）。这导致每次修改共享逻辑时需要同步两个文件，极易遗漏（事实上 `Show-MyProfileHelp` 两版已经不一致，Unix 版缺少函数别名和持久变量显示；Unix 版未加载 `wrapper.ps1`）。
 

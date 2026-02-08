@@ -1,4 +1,4 @@
-## Context
+# Context
 
 当前 `profile/` 目录下维护两个平台入口脚本：
 
@@ -56,7 +56,7 @@
 **选择**: 统一 `$tools` 哈希表，所有工具共存，每个工具的 ScriptBlock 内部通过平台检查或 `$SkipTools` 控制是否执行。
 
 | 工具 | 平台 |
-|------|------|
+| ---- | ---- |
 | starship | 通用 |
 | zoxide | 通用 |
 | sccache | 仅 Windows |
