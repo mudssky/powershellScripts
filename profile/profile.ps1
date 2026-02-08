@@ -1,40 +1,26 @@
-
+# PSScriptAnalyzer 抑制：PS 5.1 兼容性赋值，仅在 $IsWindows 未定义时执行
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidAssignmentToAutomaticVariable', '')]
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
 [CmdletBinding()]
 param(
-    [switch]$loadProfile,
+    [Parameter(HelpMessage = "是否将配置加载到 PowerShell 配置文件中")]
+    [switch]$LoadProfile,
     [string]$AliasDescPrefix = '[mudssky]'
 )
+
+# PowerShell 5.1 兼容性：$IsWindows 等变量未定义时回退
+if ($null -eq $IsWindows) { $IsWindows = $true; $IsLinux = $false; $IsMacOS = $false }
+
 $profileLoadStartTime = Get-Date
 
-# 加载自定义模块 (例如包含 Test-EXEProgram 的文件)
+# 加载自定义模块 (包含 Test-EXEProgram、Set-CustomAlias 等)
 . $PSScriptRoot/loadModule.ps1
 
-# 加载自定义函数包装
+# 加载自定义函数包装 (yaz, Add-CondaEnv 等)
 . $PSScriptRoot/wrapper.ps1
 
-# 初次使用时，执行loadProfile覆盖本地profile
-if ($loadProfile) {
-    # 备份逻辑，执行覆盖时备份，防止数据丢失
-    if (Test-Path -Path $profile) {
-        # 备份文件名添加时间戳，支持多次备份
-        $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
-        $backupPath = "$profile.$timestamp.bak"
-        Write-Warning "发现现有的profile文件，备份为 $backupPath"
-        Copy-Item -Path $profile -Destination $backupPath -Force
-    }
-    # 确保profile目录存在
-    $profileDir = Split-Path -Parent $profile
-    if (-not (Test-Path -Path $profileDir)) {
-        New-Item -ItemType Directory -Path $profileDir -Force | Out-Null
-    }
-    Set-Content -Path $profile  -Value  ". $PSCommandPath"
-    return 
-}
 # 自定义别名配置
 $userAlias = . $PSScriptRoot/user_aliases.ps1
-
-
- 
 
 <#
 .SYNOPSIS
@@ -42,21 +28,19 @@ $userAlias = . $PSScriptRoot/user_aliases.ps1
 #>
 function Show-MyProfileHelp {
     [CmdletBinding()]
-    param(
+    param()
 
-    )
     Write-Host "--- PowerShell Profile 帮助 ---" -ForegroundColor Cyan
 
-    # 1. 显示自定义别名
+    # 1. 自定义别名
     Write-Host "`n[自定义别名]" -ForegroundColor Yellow
     Get-CustomAlias -AliasDespPrefix $AliasDescPrefix | Format-Table -AutoSize
 
-    # 1.5 函数别名
+    # 2. 自定义函数别名
     Write-Host "`n[自定义函数别名]" -ForegroundColor Yellow
     $userAlias | Where-Object { $_.PSObject.Properties.Name -contains 'command' } | Select-Object @{N = '函数名'; E = 'aliasName' }, @{N = '底层命令'; E = 'command' }, @{N = '描述'; E = 'description' } | Format-Table -AutoSize
-	
-    # 2. 显示自定义函数包装
-    # 动态获取自定义函数包装配置
+
+    # 3. 自定义函数包装
     $customFunctionWrappers = Get-CustomFunctionWrapperInfos
     Write-Host "`n[自定义函数包装]" -ForegroundColor Yellow
     if ($customFunctionWrappers -and $customFunctionWrappers.Count -gt 0) {
@@ -69,21 +53,12 @@ function Show-MyProfileHelp {
     else {
         Write-Host "  暂无自定义函数包装" -ForegroundColor Gray
     }
-	
-    # 3. 显示此 Profile 文件中定义的核心函数
-    Write-Host "`n[核心管理函数]" -ForegroundColor Yellow
-    # 假设你的自定义函数都在一个模块里，或者你可以用其他方式过滤
-    # 这里我们简单地列出几个关键函数
-    "Initialize-Environment", "Show-MyProfileHelp", "Add-CondaEnv" | ForEach-Object { 
-        try {
-            Get-Command $_ -ErrorAction Stop
-        }
-        catch {
-            # 忽略不存在的函数
-        }
-    } | Format-Table Name, CommandType, Source -AutoSize
 
-    # 4. 显示关键环境变量  
+    # 4. 核心管理函数
+    Write-Host "`n[核心管理函数]" -ForegroundColor Yellow
+    "Initialize-Environment", "Show-MyProfileHelp", "Add-CondaEnv" | ForEach-Object { Get-Command $_ -ErrorAction SilentlyContinue } | Where-Object { $_ } | Format-Table Name, CommandType, Source -AutoSize
+
+    # 5. 关键环境变量
     Write-Host "`n[关键环境变量]" -ForegroundColor Yellow
     $envVars = @(
         'POWERSHELL_SCRIPTS_ROOT',
@@ -99,84 +74,80 @@ function Show-MyProfileHelp {
         }
     }
 
-    Write-Host "`n[用户级持久环境变量]" -ForegroundColor Yellow
-    $persistVars = @('POWERSHELL_SCRIPTS_ROOT', 'http_proxy', 'https_proxy')
-    foreach ($var in $persistVars) {
-        $uval = [Environment]::GetEnvironmentVariable($var, "User")
-        if ($uval) { Write-Host ("{0,-25} : {1}" -f "$var(用户级)", $uval) }
+    # 6. 用户级持久环境变量（仅 Windows 支持）
+    if ($IsWindows) {
+        Write-Host "`n[用户级持久环境变量]" -ForegroundColor Yellow
+        $persistVars = @('POWERSHELL_SCRIPTS_ROOT', 'http_proxy', 'https_proxy')
+        foreach ($var in $persistVars) {
+            $uval = [Environment]::GetEnvironmentVariable($var, "User")
+            if ($uval) { Write-Host ("{0,-25} : {1}" -f "$var(用户级)", $uval) }
+        }
     }
 
     Write-Host "`n要重新加载环境, 请运行: Initialize-Environment" -ForegroundColor Green
 }
-
 
 function Set-AliasProfile {
     [CmdletBinding()]
     param (
         [PSCustomObject]$userAlias = $userAlias
     )
-    begin {
-    }
-	
+
     process {
-        # 设置PowerShell别名
+        # 设置 PowerShell 别名
         Write-Verbose "设置PowerShell别名"
-        Set-CustomAlias -Name ise -Value powershell_ise  -AliasDespPrefix $AliasDescPrefix -Scope Global
-        Set-CustomAlias -Name ipython -Value Start-Ipython  -AliasDespPrefix $AliasDescPrefix  -Scope Global
+        Set-CustomAlias -Name ise -Value powershell_ise -AliasDespPrefix $AliasDescPrefix -Scope Global
+        Set-CustomAlias -Name ipython -Value Start-Ipython -AliasDespPrefix $AliasDescPrefix -Scope Global
         foreach ($alias in $userAlias) {
             if ($alias.command) {
                 Write-Verbose "别名 $($alias.aliasName) 已设置函数，执行函数创建"
                 $scriptBlock = [scriptblock]::Create("$($alias.command) `$args")
-                New-Item -Path "Function:Global:$($alias.aliasName)" -Value $scriptBlock -Force  | Out-Null
+                New-Item -Path "Function:Global:$($alias.aliasName)" -Value $scriptBlock -Force | Out-Null
                 Write-Verbose "已创建函数: $($alias.aliasName)"
                 continue
             }
-            # 设置别名时，PowerShell 不需要目标命令当前就存在。它只在你使用该别名时才会去解析命令。因此，可以安全地移除所有 Test-ExeProgram 检查。
-            # if (Test-ExeProgram -Name $alias.cliName) {
             Set-CustomAlias -Name $alias.aliasName -Value $alias.aliasValue -Description $alias.description -AliasDespPrefix $AliasDescPrefix -Scope Global
             Write-Verbose "已设置别名: $($alias.aliasName) -> $($alias.aliasValue)"
         }
-        # else {
-        # 	Write-Warning "未找到 $($alias.cliName) 命令，无法设置别名: $($alias.aliasName)"
-        # }
-	
-    }
-	
-    end {
-		
     }
 }
 
 function Initialize-Environment {
     <#
-	.SYNOPSIS
-		初始化PowerShell环境配置
-	.DESCRIPTION
-		初始化PowerShell环境配置，包括代理设置、编码配置、别名设置、工具初始化等。
-		这个函数封装了所有对环境变量有影响的配置，便于重复调用。
-	.PARAMETER ScriptRoot
-		脚本根目录路径，默认为当前脚本所在目录
-	.PARAMETER EnableProxy
-		是否启用代理设置，默认根据enableProxy文件存在性决定
-	.PARAMETER ProxyUrl
-		代理服务器地址，默认为 http://127.0.0.1:7890
-	.EXAMPLE
-		Initialize-Environment
-		使用默认配置初始化环境
-	.EXAMPLE
-		Initialize-Environment -EnableProxy $false
-		初始化环境但不启用代理
-	.EXAMPLE
-		Initialize-Environment -ProxyUrl "http://127.0.0.1:8080"
-		使用自定义代理地址初始化环境
-	.NOTES
-		此函数会影响当前PowerShell会话的环境变量和配置
-	#>
-	
+    .SYNOPSIS
+        初始化 PowerShell 环境配置（跨平台统一入口）
+    .DESCRIPTION
+        初始化 PowerShell 环境配置，包括代理设置、编码配置、别名设置、工具初始化等。
+        通过 $IsWindows/$IsLinux/$IsMacOS 自动适配平台差异。
+    .PARAMETER ScriptRoot
+        脚本根目录路径，默认为当前脚本所在目录
+    .PARAMETER ProxyUrl
+        代理服务器地址，默认为 http://127.0.0.1:7890
+    .PARAMETER SkipTools
+        跳过所有工具初始化
+    .PARAMETER SkipStarship
+        跳过 Starship 初始化
+    .PARAMETER SkipZoxide
+        跳过 Zoxide 初始化
+    .PARAMETER SkipAliases
+        跳过别名设置
+    .PARAMETER Minimal
+        最小化模式，等同于同时指定 -SkipTools -SkipAliases
+    .EXAMPLE
+        Initialize-Environment
+        使用默认配置初始化环境
+    .EXAMPLE
+        Initialize-Environment -Minimal
+        最小化模式初始化（跳过工具和别名）
+    .EXAMPLE
+        Initialize-Environment -ProxyUrl "http://127.0.0.1:8080"
+        使用自定义代理地址初始化环境
+    .NOTES
+        此函数会影响当前 PowerShell 会话的环境变量和配置
+    #>
     [CmdletBinding()]
     param (
         [string]$ScriptRoot = $PSScriptRoot,
-        [bool]$EnableProxy = (Test-Path -Path "$PSScriptRoot\enableProxy"),
         [ValidatePattern('^https?://')][string]$ProxyUrl = "http://127.0.0.1:7890",
         [switch]$SkipTools,
         [switch]$SkipStarship,
@@ -185,68 +156,85 @@ function Initialize-Environment {
         [switch]$Minimal
     )
 
-    Write-Verbose "开始初始化PowerShell环境配置"
-    $ErrorActionPreference = 'Stop'
-	
-    if ($Minimal -or (Test-Path -Path "$PSScriptRoot\minimal") -or $env:POWERSHELL_PROFILE_MINIMAL) {
+    Write-Verbose "开始初始化 PowerShell 环境配置"
+
+    if ($Minimal -or (Test-Path -Path (Join-Path $PSScriptRoot 'minimal')) -or $env:POWERSHELL_PROFILE_MINIMAL) {
         $SkipTools = $true
         $SkipAliases = $true
     }
-    # 设置代理环境变量
+
     # 设置项目根目录环境变量
     $Global:Env:POWERSHELL_SCRIPTS_ROOT = Split-Path -Parent $PSScriptRoot
+
+    # === 平台特定：Linux PATH 同步 ===
+    if ($IsLinux) {
+        # 添加 Linuxbrew bin 目录到 PATH
+        if (Test-Path -Path "/home/linuxbrew/.linuxbrew/bin") {
+            $env:PATH += ":/home/linuxbrew/.linuxbrew/bin/"
+        }
+        try {
+            # 从 Bash 同步 PATH（缓存 4 小时）
+            Sync-PathFromBash -CacheSeconds (4 * 3600) -ErrorAction Stop | Out-Null
+        }
+        catch {
+            Write-Error "同步 PATH 失败: $($_.Exception.Message)" -ErrorAction Continue
+        }
+    }
+
     # 自动检测代理
     Set-Proxy -Command auto
+
     # 加载自定义环境变量脚本 (用于存放机密或个人配置)
-    if (Test-Path -Path (Join-Path -Path $ScriptRoot -ChildPath 'env.ps1')) {
-        Write-Verbose "加载自定义环境变量脚本: $(Join-Path -Path $ScriptRoot -ChildPath 'env.ps1')"
-        . (Join-Path -Path $ScriptRoot -ChildPath 'env.ps1')
+    $envScriptPath = Join-Path -Path $ScriptRoot -ChildPath 'env.ps1'
+    if (Test-Path -Path $envScriptPath) {
+        Write-Verbose "加载自定义环境变量脚本: $envScriptPath"
+        try {
+            . $envScriptPath
+        }
+        catch {
+            Write-Warning "加载环境变量脚本时出错: $($_.Exception.Message)"
+        }
     }
-	
+
+    # 设置控制台编码为 UTF8
     Write-Verbose "设置控制台编码为UTF8"
     $utf8 = [System.Text.UTF8Encoding]::new($false)
     $Global:OutputEncoding = [console]::InputEncoding = [console]::OutputEncoding = $utf8
     $Global:PSDefaultParameterValues["Out-File:Encoding"] = "UTF8"
     Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
-	
-    # 导入PSReadLine模块
-    # pwsh 7.x版本以上是自动启用了，所以也不用导入
-    # 	Write-Verbose "导入PSReadLine模块"
-    # 	try {
-    # 		Import-Module PSReadLine -ErrorAction Stop
-    # 	}
-    #  catch {
-    # 		Write-Warning "无法导入PSReadLine模块: $($_.Exception.Message)"
-    # 	}
-	
-    # 初始化开发工具
+
+    # === 工具初始化 ===
     Write-Verbose "初始化开发工具"
     $Global:__ZoxideInitialized = $false
     $tools = @{
-        starship = { 
+        starship = {
             if ($SkipTools -or $SkipStarship) { return }
-            Write-Verbose "初始化Starship提示符"
+            Write-Verbose "初始化 Starship 提示符"
             $starshipFile = Invoke-WithFileCache -Key "starship-init-powershell" -MaxAge ([TimeSpan]::FromDays(7)) -Generator { & starship init powershell } -BaseDir (Join-Path $PSScriptRoot '.cache')
             . $starshipFile
         }
-        sccache  = {
-            if ($SkipTools) { return }
-            Write-Verbose "设置sccache用于Rust编译缓存"
-            $Global:Env:RUSTC_WRAPPER = 'sccache' 
-        }
-        zoxide   = { 
+        zoxide   = {
             if ($SkipTools -or $SkipZoxide) { return }
-            Write-Verbose "初始化zoxide目录跳转工具"
+            Write-Verbose "初始化 zoxide 目录跳转工具"
             $zoxideFile = Invoke-WithFileCache -Key "zoxide-init-powershell" -MaxAge ([TimeSpan]::FromDays(7)) -Generator { zoxide init powershell } -BaseDir (Join-Path $PSScriptRoot '.cache')
             . $zoxideFile
             $Global:__ZoxideInitialized = $true
         }
-    }
-	
-    foreach ($tool in $tools.GetEnumerator()) {
-        if ($SkipTools -and ($tool.Key -ne 'starship' -and $tool.Key -ne 'zoxide' -and $tool.Key -ne 'sccache')) {
-            continue
+        sccache  = {
+            # 仅 Windows：Rust 编译缓存
+            if (-not $IsWindows -or $SkipTools) { return }
+            Write-Verbose "设置 sccache 用于 Rust 编译缓存"
+            $Global:Env:RUSTC_WRAPPER = 'sccache'
         }
+        fnm      = {
+            # 仅 Unix：Node.js 版本管理器
+            if ($IsWindows -or $SkipTools) { return }
+            Write-Verbose "初始化 fnm Node.js 版本管理器"
+            fnm env --use-on-cd | Out-String | Invoke-Expression
+        }
+    }
+
+    foreach ($tool in $tools.GetEnumerator()) {
         if (Test-EXEProgram -Name $tool.Key) {
             try {
                 & $tool.Value
@@ -257,40 +245,101 @@ function Initialize-Environment {
             }
         }
         else {
-            if ($tool.Key -eq 'starship') {
-                Write-Host -ForegroundColor Yellow '未安装starship（一款开源提示符美化工具），可以运行以下命令进行安装：
+            # 工具未安装提示（仅对关键工具）
+            switch ($tool.Key) {
+                'starship' {
+                    if ($IsWindows) {
+                        Write-Host -ForegroundColor Yellow '未安装starship（一款开源提示符美化工具），可以运行以下命令进行安装：
 1. choco install starship
 2. scoop install starship
 3. winget install starship'
-            }
-            else {
-                Write-Verbose "工具 $($tool.Key) 未安装，跳过初始化"
+                    }
+                    else {
+                        Write-Host -ForegroundColor Yellow "未安装 starship（跨平台提示符美化工具），可运行以下命令安装：`nbrew install starship"
+                    }
+                }
+                'fnm' {
+                    if (-not $IsWindows) {
+                        Write-Host -ForegroundColor Yellow "未安装 fnm（Node.js 版本管理器），可运行以下命令安装：`nbrew install fnm"
+                    }
+                }
+                'zoxide' {
+                    if ($IsWindows) {
+                        Write-Verbose "工具 zoxide 未安装，跳过初始化"
+                    }
+                    else {
+                        Write-Host -ForegroundColor Yellow "未安装 zoxide（智能目录跳转工具），可运行以下命令安装：`nbrew install zoxide"
+                    }
+                }
+                default {
+                    Write-Verbose "工具 $($tool.Key) 未安装，跳过初始化"
+                }
             }
         }
     }
-	
+
     if (-not $SkipAliases) { Set-AliasProfile }
+
+    # z 函数懒加载：zoxide 已安装但未在初始化阶段加载时，首次调用自动初始化
     if (-not $Global:__ZoxideInitialized -and -not $SkipZoxide -and (Test-EXEProgram -Name 'zoxide')) {
         function Global:z { & (Invoke-WithFileCache -Key "zoxide-init-powershell" -MaxAge ([TimeSpan]::FromDays(7)) -Generator { zoxide init powershell } -BaseDir (Join-Path $PSScriptRoot '.cache')); Remove-Item function:Global:z -Force; & z @args }
     }
-    # 载入conda环境（如果环境变量中没有conda命令）
-    # if (-not (Test-EXEProgram -Name conda)) {
-    # 	Write-Verbose "尝试加载Conda环境"
-    # 	Add-CondaEnv
-    # }
-	
-    # Write-Host "PowerShell环境初始化完成" -ForegroundColor Green
-    Write-Debug "PowerShell环境初始化完成" 
+
+    Write-Debug "PowerShell 环境初始化完成"
 }
 
+<#
+.SYNOPSIS
+    设置 PowerShell 配置文件
+.DESCRIPTION
+    将当前脚本路径写入到 PowerShell 配置文件中，确保每次启动时自动加载。
+    如果已有配置文件，会先备份（带时间戳后缀）。
+#>
+function Set-PowerShellProfile {
+    [CmdletBinding()]
+    param()
 
+    try {
+        # 备份逻辑：覆盖前备份，防止数据丢失
+        if (Test-Path -Path $profile) {
+            $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+            $backupPath = "$profile.$timestamp.bak"
+            Write-Warning "发现现有的profile文件，备份为 $backupPath"
+            Copy-Item -Path $profile -Destination $backupPath -Force
+        }
 
-# 调用环境初始化函数
-Initialize-Environment 
+        # 确保 profile 目录存在
+        $profileDir = Split-Path -Path $profile -Parent
+        if (-not (Test-Path -Path $profileDir)) {
+            Write-Verbose "创建 PowerShell 配置文件目录: $profileDir"
+            New-Item -Path $profileDir -ItemType Directory -Force | Out-Null
+        }
 
-# 配置git,解决中文文件名不能正常显示的问题
-# git config --global core.quotepath false
+        # 写入配置文件
+        $profileContent = ". `"$PSCommandPath`""
+        Set-Content -Path $profile -Value $profileContent -Encoding UTF8
+        Write-Host -ForegroundColor Green "已成功将配置写入 PowerShell 配置文件: $profile"
+    }
+    catch {
+        Write-Error "设置 PowerShell 配置文件时出错: $($_.Exception.Message)"
+    }
+}
 
+# === 主执行逻辑 ===
+try {
+    # 调用环境初始化函数
+    Initialize-Environment
+
+    # 如果指定了 LoadProfile 参数，则设置配置文件
+    if ($LoadProfile) {
+        Set-PowerShellProfile
+    }
+}
+catch {
+    Write-Error "脚本执行过程中出现错误: $($_.Exception.Message)"
+}
+
+# 加载耗时统计
 $profileLoadEndTime = Get-Date
 $profileLoadTime = ($profileLoadEndTime - $profileLoadStartTime).TotalMilliseconds
 if ($profileLoadTime -gt 1000) {
