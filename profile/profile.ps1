@@ -14,13 +14,34 @@ if ($null -eq $IsWindows) { $IsWindows = $true; $IsLinux = $false; $IsMacOS = $f
 $profileLoadStartTime = Get-Date
 
 # 加载自定义模块 (包含 Test-EXEProgram、Set-CustomAlias 等)
-. $PSScriptRoot/loadModule.ps1
+$loadModuleScript = Join-Path $PSScriptRoot 'loadModule.ps1'
+try {
+    . $loadModuleScript
+}
+catch {
+    Write-Error "[profile/profile.ps1] dot-source 失败: $loadModuleScript :: $($_.Exception.Message)"
+    throw
+}
 
 # 加载自定义函数包装 (yaz, Add-CondaEnv 等)
-. $PSScriptRoot/wrapper.ps1
+$wrapperScript = Join-Path $PSScriptRoot 'wrapper.ps1'
+try {
+    . $wrapperScript
+}
+catch {
+    Write-Error "[profile/profile.ps1] dot-source 失败: $wrapperScript :: $($_.Exception.Message)"
+    throw
+}
 
 # 自定义别名配置
-$userAlias = . $PSScriptRoot/user_aliases.ps1
+$userAliasScript = Join-Path $PSScriptRoot 'user_aliases.ps1'
+try {
+    $userAlias = . $userAliasScript
+}
+catch {
+    Write-Error "[profile/profile.ps1] dot-source 失败: $userAliasScript :: $($_.Exception.Message)"
+    throw
+}
 
 <#
 .SYNOPSIS
@@ -38,7 +59,22 @@ function Show-MyProfileHelp {
 
     # 2. 自定义函数别名
     Write-Host "`n[自定义函数别名]" -ForegroundColor Yellow
-    $userAlias | Where-Object { $_.PSObject.Properties.Name -contains 'command' } | Select-Object @{N = '函数名'; E = 'aliasName' }, @{N = '底层命令'; E = 'command' }, @{N = '描述'; E = 'description' } | Format-Table -AutoSize
+    $userAlias |
+        Where-Object { $_.PSObject.Properties.Name -contains 'command' } |
+        Select-Object @{
+            N = '函数名'; E = 'aliasName'
+        }, @{
+            N = '底层命令'; E = {
+                if ($_.PSObject.Properties.Name -contains 'commandArgs' -and $null -ne $_.commandArgs -and @($_.commandArgs).Count -gt 0) {
+                    "$($_.command) $((@($_.commandArgs)) -join ' ')"
+                }
+                else {
+                    $_.command
+                }
+            }
+        }, @{
+            N = '描述'; E = 'description'
+        } | Format-Table -AutoSize
 
     # 3. 自定义函数包装
     $customFunctionWrappers = Get-CustomFunctionWrapperInfos
@@ -99,9 +135,20 @@ function Set-AliasProfile {
         Set-CustomAlias -Name ise -Value powershell_ise -AliasDespPrefix $AliasDescPrefix -Scope Global
         Set-CustomAlias -Name ipython -Value Start-Ipython -AliasDespPrefix $AliasDescPrefix -Scope Global
         foreach ($alias in $userAlias) {
-            if ($alias.command) {
+            if ($alias.PSObject.Properties.Name -contains 'command' -and -not [string]::IsNullOrWhiteSpace([string]$alias.command)) {
+                $command = [string]$alias.command
+                $commandArgs = @()
+                if ($alias.PSObject.Properties.Name -contains 'commandArgs' -and $null -ne $alias.commandArgs) {
+                    $commandArgs = @($alias.commandArgs)
+                }
                 Write-Verbose "别名 $($alias.aliasName) 已设置函数，执行函数创建"
-                $scriptBlock = [scriptblock]::Create("$($alias.command) `$args")
+                $scriptBlock = {
+                    param(
+                        [Parameter(ValueFromRemainingArguments = $true)]
+                        [object[]]$RemainingArgs
+                    )
+                    & $command @commandArgs @RemainingArgs
+                }.GetNewClosure()
                 New-Item -Path "Function:Global:$($alias.aliasName)" -Value $scriptBlock -Force | Out-Null
                 Write-Verbose "已创建函数: $($alias.aliasName)"
                 continue
@@ -345,4 +392,3 @@ $profileLoadTime = ($profileLoadEndTime - $profileLoadStartTime).TotalMillisecon
 if ($profileLoadTime -gt 1000) {
     Write-Host "Profile 加载耗时: $($profileLoadTime) 毫秒" -ForegroundColor Green
 }
-

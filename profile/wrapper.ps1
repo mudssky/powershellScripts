@@ -54,7 +54,7 @@ function yaz {
     }
     
     # 检查yazi是否可用
-    if (-not (Test-ExeProgram -Name 'yazi')) {
+    if (-not (Test-EXEProgram -Name 'yazi')) {
         Write-Error "未找到yazi命令，请先安装yazi文件管理器"
         return
     }
@@ -107,21 +107,31 @@ function Get-FunctionWrapperInfo {
         [string]$FunctionName
     )
 	
+    $cacheKey = "wrapper-help-$FunctionName"
     try {
-        # 获取函数的帮助信息
-        $help = Get-Help $FunctionName -ErrorAction Stop
+        $description = Invoke-WithCache -Key $cacheKey -MaxAge ([TimeSpan]::FromHours(24)) -CacheType Text -ScriptBlock {
+            $help = Get-Help $FunctionName -ErrorAction Stop
+            return ($help.Description.Text -join ' ')
+        }
 
-        # 从描述中提取基础CLI和功能特性
-        $description = $help.Description.Text -join ' '
-		
         return [PSCustomObject]@{
             functionName = $FunctionName
             description  = $description
         }
     }
     catch {
-        Write-Warning "无法获取函数 $FunctionName 的帮助信息: $($_.Exception.Message)"
-        return $null
+        try {
+            $help = Get-Help $FunctionName -ErrorAction Stop
+            $description = $help.Description.Text -join ' '
+            return [PSCustomObject]@{
+                functionName = $FunctionName
+                description  = $description
+            }
+        }
+        catch {
+            Write-Warning "无法获取函数 $FunctionName 的帮助信息: $($_.Exception.Message)"
+            return $null
+        }
     }
 }
 
@@ -185,9 +195,34 @@ function Get-CustomFunctionWrapperInfos {
 		用途: 在PowerShell中启用Conda环境管理
 	#>
 function Add-CondaEnv {
-    $condaPath = "$env:USERPROFILE\anaconda3\shell\condabin\conda-hook.ps1"
-    if (Test-Path -Path $condaPath) {
+    $condaHookCandidates = @()
+
+    if (-not [string]::IsNullOrWhiteSpace($env:CONDA_HOOK_PATH)) {
+        $condaHookCandidates += $env:CONDA_HOOK_PATH
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($env:CONDA_ROOT)) {
+        $condaHookCandidates += (Join-Path $env:CONDA_ROOT 'shell/condabin/conda-hook.ps1')
+    }
+
+    if ($IsWindows -or $env:OS -eq 'Windows_NT') {
+        if (-not [string]::IsNullOrWhiteSpace($env:USERPROFILE)) {
+            $condaHookCandidates += (Join-Path $env:USERPROFILE 'anaconda3\shell\condabin\conda-hook.ps1')
+            $condaHookCandidates += (Join-Path $env:USERPROFILE 'miniconda3\shell\condabin\conda-hook.ps1')
+        }
+    }
+    else {
+        if (-not [string]::IsNullOrWhiteSpace($env:HOME)) {
+            $condaHookCandidates += (Join-Path $env:HOME 'anaconda3/shell/condabin/conda-hook.ps1')
+            $condaHookCandidates += (Join-Path $env:HOME 'miniconda3/shell/condabin/conda-hook.ps1')
+            $condaHookCandidates += (Join-Path $env:HOME 'mambaforge/shell/condabin/conda-hook.ps1')
+            $condaHookCandidates += (Join-Path $env:HOME 'miniforge3/shell/condabin/conda-hook.ps1')
+        }
+    }
+
+    $condaPath = $condaHookCandidates | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique | Where-Object { Test-Path -Path $_ } | Select-Object -First 1
+    if ($condaPath) {
         Write-Verbose "加载Conda环境: $condaPath"
-        . $condaPath 
+        . $condaPath
     }
 }
