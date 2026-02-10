@@ -160,8 +160,15 @@ function Invoke-FzfHistorySmart {
         return
     }
 
-    $result = $historyUnique |
-        fzf --no-sort --height=40% --reverse --header='[Enter]:放入命令行 | [Ctrl-E]:立即执行 | [Ctrl-Y]:复制到剪贴板' --expect=ctrl-e, ctrl-y
+    $fzfArgs = @(
+        '--no-sort',
+        '--height=40%',
+        '--reverse',
+        '--header=[Enter]:放入命令行 | [Ctrl-E]:立即执行 | [Ctrl-Y]:复制到剪贴板',
+        '--expect=ctrl-e,ctrl-y'
+    )
+
+    $result = $historyUnique | fzf @fzfArgs
 
     if (-not $result) {
         return
