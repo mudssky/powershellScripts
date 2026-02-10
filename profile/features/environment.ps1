@@ -156,7 +156,7 @@ function Initialize-Environment {
     }
 
     # 加载自定义环境变量脚本 (用于存放机密或个人配置)
-    $envScriptPath = Join-Path -Path $ScriptRoot -ChildPath 'env.ps1'
+    $envScriptPath = Join-Path -Path $profileRoot -ChildPath 'env.ps1'
     if (Test-Path -Path $envScriptPath) {
         Write-Verbose "加载自定义环境变量脚本: $envScriptPath"
         try {

@@ -267,7 +267,7 @@ function Main {
                 Write-Warning "指定的路径不存在: $singlePath"
                 continue
             }
-            
+
             # 直接处理单个文件或使用 Get-PowerShellFiles 处理目录
             if (Test-Path -Path $singlePath -PathType Leaf) {
                 # 单个文件 - 直接检查扩展名
@@ -286,10 +286,10 @@ function Main {
             }
         }
     }
-    
+
     # 去重
     $allFilesToFormat = $allFilesToFormat | Sort-Object -Unique
-    
+
     if ($allFilesToFormat.Count -eq 0) {
         if ($GitChanged) {
             Write-Warning "未找到 Git 改动的 PowerShell 文件"
