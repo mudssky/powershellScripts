@@ -35,17 +35,25 @@ if ($IsLinux -or $IsMacOS) {
 
 $isCI = [bool]$env:CI
 $testMode = if ([string]::IsNullOrWhiteSpace($env:PWSH_TEST_MODE)) { 'full' } else { $env:PWSH_TEST_MODE }
-$isFast = $testMode -eq 'fast'
+$isFast = $testMode -in @('fast', 'serial', 'debug')
+$isSerial = $testMode -eq 'serial'
+$isDebug = $testMode -eq 'debug'
+$isVerbose = -not [string]::IsNullOrWhiteSpace($env:PWSH_TEST_VERBOSE)
+
+$runPaths = @("./psutils", "./tests")
+if (-not [string]::IsNullOrWhiteSpace($env:PWSH_TEST_PATH)) {
+    $runPaths = $env:PWSH_TEST_PATH -split '[;,]' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+}
 
 $config = @{
     Run          = @{
-        Path     = @("./psutils", "./tests")
+        Path     = $runPaths
         # 输出测试结果对象，因为我不需要解析结果对象，所以关掉
         # PassThru = $True
         PassThru = $False
         # 多线程执行测试
         Parallel = @{
-            Enabled    = $true
+            Enabled    = -not $isSerial
             MaxThreads = 4
         }
 
@@ -77,13 +85,16 @@ $config = @{
         # 使用详细输出，方便查看哪些测试被跳过了
         # Verbosity = 'Detailed'
         # CI 环境用详细输出方便排错，本地用 Normal 保持清爽
-        Verbosity = if ($isCI) { 'Detailed' } else { 'Normal' }
+        Verbosity = if ($isCI -or $isDebug -or $isVerbose) { 'Detailed' } else { 'Normal' }
     }
     TestResult   = @{
         Enabled       = $true
         OutputPath    = "testResults.xml"
         OutputFormat  = 'NUnit3'
         TestSuiteName = "PsUtils.Tests"  ## 可选：给你的测试套件起个名字
+    }
+    TestRegistry = @{
+        Enabled = $false
     }
 
 }

@@ -317,8 +317,30 @@ pnpm test
 # 快速本地测试（无 Profile、无覆盖率）
 pnpm test:fast
 
+# 串行模式（用于排查卡住的发现阶段）
+pnpm test:serial
+
+# 调试输出（更详细的发现/执行日志）
+pnpm test:debug
+
+# 串行 + 详细输出（排查发现阶段卡顿）
+pnpm test:serial:debug
+
+# 仅跑 profile 相关测试（排查卡住的 profile 测试）
+pnpm test:profile
+
 # 明确全量测试
 pnpm test:full
+```
+
+**格式化命令**:
+
+```powershell
+# 仅格式化 Git 改动文件（默认）
+pnpm format:pwsh
+
+# 全量格式化
+pnpm format:pwsh:all
 ```
 
 ### 版本控制

@@ -1,15 +1,11 @@
 Set-StrictMode -Version Latest
 
-$pesterModule = Get-Module -ListAvailable Pester | Sort-Object Version -Descending | Select-Object -First 1
-if (-not $pesterModule -or $pesterModule.Version.Major -lt 5) {
-    throw 'Pester 5.x is required to run this test. Install-Module Pester -Scope CurrentUser -Force'
+BeforeAll {
+    $script:ProfileRootDir = Join-Path $PSScriptRoot '..' 'profile'
+    . (Join-Path $script:ProfileRootDir 'core/mode.ps1')
+    . (Join-Path $script:ProfileRootDir 'core/encoding.ps1')
+    . (Join-Path $script:ProfileRootDir 'features/environment.ps1')
 }
-Import-Module Pester -MinimumVersion 5.0 -Force
-
-$profileRootDir = Join-Path $PSScriptRoot '..' 'profile'
-. (Join-Path $profileRootDir 'core/mode.ps1')
-. (Join-Path $profileRootDir 'core/encoding.ps1')
-. (Join-Path $profileRootDir 'features/environment.ps1')
 
 Describe 'Profile mode decision priority' {
     BeforeAll {
@@ -84,7 +80,7 @@ Describe 'Profile mode decision priority' {
 
 Describe 'Initialize-Environment UltraMinimal path' {
     BeforeEach {
-        $script:ProfileRoot = (Resolve-Path $profileRootDir).Path
+        $script:ProfileRoot = (Resolve-Path $script:ProfileRootDir).Path
         $script:ProfileMode = 'UltraMinimal'
         $script:UseUltraMinimalProfile = $true
         $script:UseMinimalProfile = $false
@@ -116,19 +112,20 @@ Describe 'Initialize-Environment UltraMinimal path' {
             return $null
         }
 
-        function global:Set-ProfileUtf8Encoding {
-            $script:utf8Invoked = $true
-        }
+        $script:OriginalSetProfileUtf8Encoding = (Get-Command Set-ProfileUtf8Encoding).ScriptBlock
+        Set-Item -Path Function:\Set-ProfileUtf8Encoding -Value { $script:utf8Invoked = $true } -Force
     }
 
     AfterEach {
         Remove-Item Function:\Set-Proxy -ErrorAction SilentlyContinue
         Remove-Item Function:\Sync-PathFromBash -ErrorAction SilentlyContinue
-        Remove-Item Function:\Set-ProfileUtf8Encoding -ErrorAction SilentlyContinue
+        if ($script:OriginalSetProfileUtf8Encoding) {
+            Set-Item -Path Function:\Set-ProfileUtf8Encoding -Value $script:OriginalSetProfileUtf8Encoding -Force
+        }
     }
 
     It 'should keep minimal init and skip proxy/path sync in UltraMinimal mode' {
-        Initialize-Environment
+        Initialize-Environment -ScriptRoot (Resolve-Path $script:ProfileRootDir).Path
 
         $env:POWERSHELL_SCRIPTS_ROOT | Should -Be (Split-Path -Parent $script:ProfileRoot)
         $script:utf8Invoked | Should -Be $true

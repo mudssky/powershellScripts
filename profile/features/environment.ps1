@@ -90,13 +90,25 @@ function Initialize-Environment {
     Write-Verbose "开始初始化 PowerShell 环境配置"
     Write-Verbose ("Profile 模式提示: {0}" -f $script:ProfileMode)
 
-    $profileRoot = $script:ProfileRoot
+    if (-not [string]::IsNullOrWhiteSpace($ScriptRoot)) {
+        $script:ProfileRoot = $ScriptRoot
+    }
+    $profileRoot = if (-not [string]::IsNullOrWhiteSpace($script:ProfileRoot)) {
+        $script:ProfileRoot
+    }
+    elseif (-not [string]::IsNullOrWhiteSpace($PSScriptRoot)) {
+        $PSScriptRoot
+    }
+    else {
+        (Get-Location).Path
+    }
 
     if ($script:UseUltraMinimalProfile) {
         Write-Verbose "UltraMinimal 模式：仅执行最小初始化路径"
 
         # 极简模式仅保留两项：根目录变量、UTF8 编码
-        $Global:Env:POWERSHELL_SCRIPTS_ROOT = Split-Path -Parent $profileRoot
+        $rootForEnv = if (-not [string]::IsNullOrWhiteSpace($ScriptRoot)) { $ScriptRoot } else { $profileRoot }
+        $env:POWERSHELL_SCRIPTS_ROOT = Split-Path -Parent $rootForEnv
         Set-ProfileUtf8Encoding
 
         Write-ProfileModeDecisionSummary
@@ -118,7 +130,7 @@ function Initialize-Environment {
     }
 
     # 设置项目根目录环境变量
-    $Global:Env:POWERSHELL_SCRIPTS_ROOT = Split-Path -Parent $profileRoot
+    $env:POWERSHELL_SCRIPTS_ROOT = Split-Path -Parent $profileRoot
 
     # === 平台特定：Linux PATH 同步 ===
     if ($IsLinux) {

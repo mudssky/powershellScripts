@@ -16,6 +16,9 @@
 #>
 
 BeforeAll {
+    $script:OriginalLocalAppData = $env:LOCALAPPDATA
+    $env:LOCALAPPDATA = $TestDrive
+
     # 导入被测试的模块
     $ModulePath = Join-Path $PSScriptRoot ".." "modules" "cache.psm1"
     Import-Module $ModulePath -Force
@@ -55,6 +58,8 @@ BeforeAll {
 AfterAll {
     # 清理测试缓存
     Clear-TestCache
+
+    $env:LOCALAPPDATA = $script:OriginalLocalAppData
     
     # 移除导入的模块
     Remove-Module cache -Force -ErrorAction SilentlyContinue

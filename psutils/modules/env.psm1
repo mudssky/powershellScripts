@@ -528,6 +528,11 @@ function Sync-PathFromBash {
         Write-Information "正在从 Bash 登录 Shell 中获取 PATH..."
         $bashPathOutput = ''
         $source = ''
+        $mockPath = $env:PWSH_TEST_BASH_PATH
+        if (-not [string]::IsNullOrWhiteSpace($mockPath)) {
+            $bashPathOutput = [string]$mockPath
+            $source = 'mock-env'
+        }
         $cacheDir = Join-Path $HOME ".cache/powershellScripts"
         $cacheFile = Join-Path $cacheDir "bash_path.json"
         $useCache = $CacheSeconds -gt 0 -and (Test-Path -LiteralPath $cacheFile)
@@ -544,7 +549,7 @@ function Sync-PathFromBash {
             }
             catch { }
         }
-        if ($Login) {
+        if ([string]::IsNullOrWhiteSpace($bashPathOutput) -and $Login) {
             $bashPathOutput = bash -lc 'echo $PATH'
             $source = 'bash-login'
             if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($bashPathOutput)) {
@@ -557,7 +562,7 @@ function Sync-PathFromBash {
                 }
             }
         }
-        else {
+        elseif ([string]::IsNullOrWhiteSpace($bashPathOutput)) {
             $bashPathOutput = bash -ci 'echo $PATH'
             $source = 'bash-nologin-bashrc'
             if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($bashPathOutput)) {

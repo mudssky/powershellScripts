@@ -20,6 +20,9 @@
 .PARAMETER ShowOnly
     显示将要格式化的文件列表，但不实际执行格式化操作。
 
+.PARAMETER GitChanged
+    仅格式化 Git 工作区中有改动的 PowerShell 文件（含已暂存与未暂存）。
+
 .EXAMPLE
     .\Format-PowerShellCode.ps1 script.ps1
     格式化单个文件
@@ -39,6 +42,10 @@
 .EXAMPLE
     # lint-staged 配置示例
     pwsh -File ./scripts/Format-PowerShellCode.ps1
+
+.EXAMPLE
+    .\Format-PowerShellCode.ps1 -GitChanged
+    仅格式化 Git 改动文件
 
 .OUTPUTS
     System.String
@@ -62,15 +69,11 @@ param(
     [string]$Settings,
     
     [Parameter(HelpMessage = "显示将要格式化的文件，但不实际执行")]
-    [switch]$ShowOnly
-)
+    [switch]$ShowOnly,
 
-# 验证是否有路径参数
-if (-not $Path -or $Path.Count -eq 0) {
-    Write-Error "请提供要格式化的文件或目录路径"
-    Write-Host "使用方法: .\\Format-PowerShellCode.ps1 file1.ps1 file2.psm1" -ForegroundColor Yellow
-    exit 1
-}
+    [Parameter(HelpMessage = "仅格式化 Git 改动文件")]
+    [switch]$GitChanged
+)
 
 # 检查 PSScriptAnalyzer 模块是否已安装
 function Test-ModuleInstalled {
@@ -187,6 +190,43 @@ function Get-PowerShellFiles {
     return $files
 }
 
+# 获取 Git 改动的 PowerShell 文件
+function Get-GitChangedPowerShellFiles {
+    [CmdletBinding()]
+    param()
+
+    try {
+        $gitRoot = (git rev-parse --show-toplevel 2>$null)
+    }
+    catch {
+        Write-Error "无法检测到 Git 仓库根目录，请确认当前目录在 Git 仓库内"
+        return @()
+    }
+
+    if ([string]::IsNullOrWhiteSpace($gitRoot)) {
+        Write-Error "无法检测到 Git 仓库根目录，请确认当前目录在 Git 仓库内"
+        return @()
+    }
+
+    $changed = @()
+    $changed += git diff --name-only --diff-filter=ACMRT
+    $changed += git diff --name-only --diff-filter=ACMRT --cached
+
+    $changed = $changed | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique
+    if ($changed.Count -eq 0) {
+        return @()
+    }
+
+    $fullPaths = foreach ($rel in $changed) {
+        Join-Path $gitRoot $rel
+    }
+
+    $fullPaths | Where-Object {
+        $ext = [System.IO.Path]::GetExtension($_)
+        $ext -in @('.ps1', '.psm1', '.psd1')
+    }
+}
+
 # 主函数
 function Main {
     # 检查并安装 PSScriptAnalyzer 模块
@@ -208,30 +248,42 @@ function Main {
     }
     
     $allFilesToFormat = @()
-    
-    # 处理每个传入的路径
-    foreach ($singlePath in $Path) {
-        # 验证路径
-        if (-not (Test-Path -Path $singlePath)) {
-            Write-Warning "指定的路径不存在: $singlePath"
-            continue
+
+    if ($GitChanged) {
+        $allFilesToFormat += Get-GitChangedPowerShellFiles
+    }
+    else {
+        # 验证是否有路径参数
+        if (-not $Path -or $Path.Count -eq 0) {
+            Write-Error "请提供要格式化的文件或目录路径"
+            Write-Host "使用方法: .\\Format-PowerShellCode.ps1 file1.ps1 file2.psm1" -ForegroundColor Yellow
+            exit 1
         }
-        
-        # 直接处理单个文件或使用 Get-PowerShellFiles 处理目录
-        if (Test-Path -Path $singlePath -PathType Leaf) {
-            # 单个文件 - 直接检查扩展名
-            $fileInfo = Get-Item -Path $singlePath
-            if ($fileInfo.Extension -in @('.ps1', '.psm1', '.psd1')) {
-                $allFilesToFormat += $fileInfo.FullName
+    
+        # 处理每个传入的路径
+        foreach ($singlePath in $Path) {
+            # 验证路径
+            if (-not (Test-Path -Path $singlePath)) {
+                Write-Warning "指定的路径不存在: $singlePath"
+                continue
+            }
+            
+            # 直接处理单个文件或使用 Get-PowerShellFiles 处理目录
+            if (Test-Path -Path $singlePath -PathType Leaf) {
+                # 单个文件 - 直接检查扩展名
+                $fileInfo = Get-Item -Path $singlePath
+                if ($fileInfo.Extension -in @('.ps1', '.psm1', '.psd1')) {
+                    $allFilesToFormat += $fileInfo.FullName
+                }
+                else {
+                    Write-Warning "文件 $singlePath 不是支持的 PowerShell 文件类型"
+                }
             }
             else {
-                Write-Warning "文件 $singlePath 不是支持的 PowerShell 文件类型"
+                # 目录 - 使用现有函数
+                $filesToFormat = Get-PowerShellFiles -Path $singlePath -Recurse $Recurse.IsPresent
+                $allFilesToFormat += $filesToFormat
             }
-        }
-        else {
-            # 目录 - 使用现有函数
-            $filesToFormat = Get-PowerShellFiles -Path $singlePath -Recurse $Recurse.IsPresent
-            $allFilesToFormat += $filesToFormat
         }
     }
     
@@ -239,7 +291,12 @@ function Main {
     $allFilesToFormat = $allFilesToFormat | Sort-Object -Unique
     
     if ($allFilesToFormat.Count -eq 0) {
-        Write-Warning "在指定路径中未找到 PowerShell 文件"
+        if ($GitChanged) {
+            Write-Warning "未找到 Git 改动的 PowerShell 文件"
+        }
+        else {
+            Write-Warning "在指定路径中未找到 PowerShell 文件"
+        }
         return
     }
     

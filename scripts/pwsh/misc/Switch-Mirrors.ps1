@@ -51,7 +51,7 @@
 
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)]
+    [Parameter(Mandatory = $false)]
     [ValidateSet('docker')]
     [string]$Target,
 
@@ -199,8 +199,10 @@ function Set-DockerRegistryMirror {
         [int]$Retry = 1
     )
     $target = Get-DockerDaemonPath
-    $dir = [System.IO.Path]::GetDirectoryName($target)
-    if (-not [string]::IsNullOrWhiteSpace($dir)) { if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null } }
+    if (-not $DryRun) {
+        $dir = [System.IO.Path]::GetDirectoryName($target)
+        if (-not [string]::IsNullOrWhiteSpace($dir)) { if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null } }
+    }
 
     $config = @{}
     if (Test-Path -LiteralPath $target) {
@@ -241,6 +243,7 @@ function Set-DockerRegistryMirror {
 }
 
 function Invoke-Main {
+    if ([string]::IsNullOrWhiteSpace($Target)) { throw 'Target 为必填参数（当前仅支持 Target=docker）' }
     if ($Target -ne 'docker') { throw '当前仅支持 Target=docker' }
     Set-DockerRegistryMirror -MirrorUrls $MirrorUrls -UseChinaMirror:$UseChinaMirror -Disable:$Disable -DryRun:$DryRun -TimeoutSec $TimeoutSec -Retry $Retry
 }

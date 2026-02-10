@@ -2,8 +2,17 @@ Set-StrictMode -Version Latest
 Import-Module "$PSScriptRoot/../psutils/modules/env.psm1" -Force
 
 Describe 'Sync-PathFromBash basic behavior' {
+    BeforeAll {
+        $script:OriginalMockPath = $env:PWSH_TEST_BASH_PATH
+        $env:PWSH_TEST_BASH_PATH = "C:\Fake\Bin;C:\Windows\System32"
+    }
+
+    AfterAll {
+        $env:PWSH_TEST_BASH_PATH = $script:OriginalMockPath
+    }
+
     It 'should return object with fields when ReturnObject=true' {
-        $result = Sync-PathFromBash -WhatIf -ReturnObject
+        $result = Sync-PathFromBash -WhatIf -ReturnObject:$true
         $result | Should -Not -BeNullOrEmpty
         $result | Should -BeOfType 'System.Management.Automation.PSCustomObject'
         $result.PSObject.Properties.Name | Should -Contain 'SourcePathsCount'
@@ -24,6 +33,15 @@ Describe 'Sync-PathFromBash basic behavior' {
 }
 
 Describe 'Sync-PathFromBash cache and error semantics' {
+    BeforeAll {
+        $script:OriginalMockPath = $env:PWSH_TEST_BASH_PATH
+        $env:PWSH_TEST_BASH_PATH = "C:\Fake\Bin;C:\Windows\System32"
+    }
+
+    AfterAll {
+        $env:PWSH_TEST_BASH_PATH = $script:OriginalMockPath
+    }
+
     It 'should use cache when CacheSeconds > 0 and write cache file' {
         $r = Sync-PathFromBash -WhatIf -ReturnObject:$true -Verbose
         $r | Should -Not -BeNullOrEmpty

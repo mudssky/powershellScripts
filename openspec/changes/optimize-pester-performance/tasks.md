@@ -11,4 +11,4 @@
 ## 3. Documentation & Verification
 
 - [x] 3.1 Document how to run fast vs full tests in README or contributing docs
-- [ ] 3.2 Verify fast mode runtime improvement and full mode coverage still runs
+- [x] 3.2 Verify fast mode runtime improvement and full mode coverage still runs
