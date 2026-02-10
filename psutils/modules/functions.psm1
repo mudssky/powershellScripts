@@ -186,6 +186,11 @@ function Invoke-FzfHistorySmart {
         $selection = [string]$resultLines[1]
     }
 
+    $key = $key.Trim()
+    if ($null -ne $selection) {
+        $selection = $selection.TrimEnd("`r", "`n")
+    }
+
     if ([string]::IsNullOrWhiteSpace($selection)) {
         return
     }
@@ -193,7 +198,12 @@ function Invoke-FzfHistorySmart {
     switch ($key) {
         'ctrl-e' {
             Write-Host "`n[Running]: $selection" -ForegroundColor Cyan
-            Invoke-Expression $selection
+            try {
+                Invoke-Expression $selection
+            }
+            catch {
+                Write-Error "执行历史命令失败: $($_.Exception.Message)"
+            }
         }
         'ctrl-y' {
             if (Get-Command -Name Set-Clipboard -ErrorAction SilentlyContinue) {
@@ -205,11 +215,22 @@ function Invoke-FzfHistorySmart {
             }
         }
         default {
+            $inserted = $false
             if ([System.Management.Automation.PSTypeName]'Microsoft.PowerShell.PSConsoleReadLine'.Type) {
-                [Microsoft.PowerShell.PSConsoleReadLine]::DeleteLine()
-                [Microsoft.PowerShell.PSConsoleReadLine]::Insert($selection)
+                try {
+                    $line = ''
+                    $cursor = 0
+                    [Microsoft.PowerShell.PSConsoleReadLine]::GetBufferState([ref]$line, [ref]$cursor)
+                    [Microsoft.PowerShell.PSConsoleReadLine]::Replace(0, $line.Length, $selection)
+                    [Microsoft.PowerShell.PSConsoleReadLine]::EndOfLine()
+                    $inserted = $true
+                }
+                catch {
+                    Write-Verbose "PSReadLine 回填失败，降级为输出文本: $($_.Exception.Message)"
+                }
             }
-            else {
+
+            if (-not $inserted) {
                 Write-Output $selection
             }
         }
