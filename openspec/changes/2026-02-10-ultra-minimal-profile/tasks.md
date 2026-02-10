@@ -22,6 +22,10 @@
 - [ ] 3.2 增加简短模式提示（可通过 `Verbose` 控制）
 - [ ] 3.3 增加模式决策摘要日志（mode/source/markers）
 - [ ] 3.4 增加手动兜底文案（`FULL`/`MODE`/`ULTRA_MINIMAL` 的用法）
+- [ ] 3.5 固化 V1 字段集合：`mode/source/reason/markers`（含 `elapsed_ms`）
+- [ ] 3.6 固化 `reason` 枚举并在文档中示例
+- [ ] 3.7 固化 `markers` 输出策略：输出全部命中变量
+- [ ] 3.8 预留 V2 扩展字段：`phase_ms/ps_version/host/pid`
 
 ## 4. 验证
 
@@ -30,3 +34,4 @@
 - [ ] 4.3 性能验证：记录 Full/Minimal/UltraMinimal/baseline 四组耗时（至少 10 次）
 - [ ] 4.4 优先级验证：`FULL > MODE > ULTRA_MINIMAL > auto > default`
 - [ ] 4.5 误判/漏判演练：通过手动开关可即时回退到期望模式
+- [ ] 4.6 日志验证：V1 字段完整、`reason` 在枚举内、`markers` 为全命中集合

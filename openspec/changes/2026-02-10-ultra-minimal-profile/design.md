@@ -68,9 +68,29 @@
    - 若未加载 `psutils`，`Show-MyProfileHelp` 仅显示“当前处于极简模式，已跳过高级功能加载”。
 
 6. **误判/漏判与诊断策略**
+   - 诊断分层：
+     - 基础版（V1）：先保证稳定可观测
+     - 增强版（V2）：在不影响默认体验前提下补充更细指标
    - 模式决策可观测：
      - 在 `Verbose` 模式下输出单行决策摘要（最终模式 + 决策来源 + 命中的变量）
-     - 建议格式：`[ProfileMode] mode=UltraMinimal source=auto markers=CODEX_THREAD_ID`
+     - V1 建议格式：`[ProfileMode] mode=UltraMinimal source=auto reason=auto_codex_thread markers=CODEX_THREAD_ID elapsed_ms=128`
+     - V2 可选扩展：`phase_ms`、`ps_version`、`host`、`pid`
+   - 字段约定：
+     - V1 必选：`mode`、`source`、`reason`、`markers`
+     - V1 推荐：`elapsed_ms`
+     - V2 扩展：`phase_ms`、`ps_version`、`host`、`pid`
+   - `reason` 枚举（固定值）：
+     - `explicit_full`
+     - `explicit_mode_full`
+     - `explicit_mode_minimal`
+     - `explicit_mode_ultra`
+     - `explicit_ultra_minimal`
+     - `auto_codex_thread`
+     - `auto_codex_sandbox_network_disabled`
+     - `default_full`
+   - `markers` 输出策略：
+     - V1 输出全部命中变量（非首个命中）
+     - 日志中允许出现未参与判定的参考变量，但须以 `diag_only` 标记
    - 手动兜底（用户可立即修正）：
      - 误判为 `UltraMinimal`：通过 `POWERSHELL_PROFILE_FULL=1` 强制回到 `Full`
      - 漏判未降级：通过 `POWERSHELL_PROFILE_MODE=ultra` 或 `POWERSHELL_PROFILE_ULTRA_MINIMAL=1` 强制极简
