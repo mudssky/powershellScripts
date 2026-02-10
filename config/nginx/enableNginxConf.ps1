@@ -1,6 +1,6 @@
 [CmdletBinding()] 
 param(
-    [Parameter(Mandatory=$true)]
+    [Parameter(Mandatory = $true)]
     [ValidateNotNullOrEmpty()]
     [string]$Name,
 
@@ -61,10 +61,12 @@ try {
     if ($BasicUser) {
         if ($DryRun) {
             Write-Output "[DryRun] 将创建/更新 htpasswd: 用户=$BasicUser"
-        } else {
+        }
+        else {
             try {
                 New-NginxHtpasswd -User $BasicUser -Password $BasicPassword
-            } catch {
+            }
+            catch {
                 Write-Warning "创建 htpasswd 失败：$($_.Exception.Message)"
                 Write-Warning "尝试以 sudo 或将 FilePath 指向可写路径（默认 /etc/nginx/.htpasswd）"
             }
@@ -73,12 +75,14 @@ try {
 
     if ($DryRun) {
         Write-Output "[DryRun] 将执行 Enable-NginxConf：Name=$Name, Overwrite=$($OverwriteAvailable.IsPresent), UseSystemctl=$($UseSystemctl.IsPresent)"
-    } else {
+    }
+    else {
         Start-Nginx -UseSystemctl:$UseSystemctl.IsPresent
         Enable-NginxConf -Name $Name -RepoConfPath $RepoConfPath -OverwriteAvailable:$OverwriteAvailable.IsPresent -UseSystemctl:$UseSystemctl.IsPresent
         Write-Output "配置 $Name 已启用并重载 Nginx"
     }
-} catch {
+}
+catch {
     Write-Error "启用配置失败：$($_.Exception.Message)"
     exit 1
 }

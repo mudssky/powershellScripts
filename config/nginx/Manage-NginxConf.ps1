@@ -34,17 +34,18 @@ function Test-NginxConfig {
         $stderr = Get-Content -Raw -Path $proc.RedirectStandardError
         $success = ($proc.ExitCode -eq 0)
         [PSCustomObject]@{
-            Success = $success
+            Success  = $success
             ExitCode = $proc.ExitCode
-            StdOut  = $stdout
-            StdErr  = $stderr
+            StdOut   = $stdout
+            StdErr   = $stderr
         }
-    } catch {
+    }
+    catch {
         [PSCustomObject]@{
-            Success = $false
+            Success  = $false
             ExitCode = -1
-            StdOut  = $stdout
-            StdErr  = $_.Exception.Message
+            StdOut   = $stdout
+            StdErr   = $_.Exception.Message
         }
     }
 }
@@ -85,7 +86,8 @@ function Reload-Nginx {
             $result = & systemctl reload nginx 2>&1
             return [PSCustomObject]@{ Method = 'systemctl'; Output = $result }
         }
-    } catch {}
+    }
+    catch {}
     $result = & nginx -s reload 2>&1
     [PSCustomObject]@{ Method = 'nginx -s reload'; Output = $result }
 }
@@ -124,7 +126,8 @@ function Start-Nginx {
             if ($status -ne 'active') { & systemctl start nginx 2>&1 | Out-Null }
             return
         }
-    } catch {}
+    }
+    catch {}
     # 回退到直接启动
     & nginx 2>&1 | Out-Null
 }
@@ -173,7 +176,7 @@ function Enable-NginxConf {
     }
 
     $availablePath = "/etc/nginx/sites-available/$Name"
-    $enabledPath   = "/etc/nginx/sites-enabled/$Name"
+    $enabledPath = "/etc/nginx/sites-enabled/$Name"
 
     if ((Test-Path -Path $availablePath) -and -not $OverwriteAvailable.IsPresent) {
         throw "目标已存在: $availablePath。若需覆盖，请添加 -OverwriteAvailable"

@@ -21,19 +21,21 @@ function Test-NginxConfig {
         $stderr = Get-Content -Raw -Path $stderrPath
         $success = ($proc.ExitCode -eq 0)
         [PSCustomObject]@{
-            Success = $success
+            Success  = $success
             ExitCode = $proc.ExitCode
-            StdOut  = $stdout
-            StdErr  = $stderr
+            StdOut   = $stdout
+            StdErr   = $stderr
         }
-    } catch {
+    }
+    catch {
         [PSCustomObject]@{
-            Success = $false
+            Success  = $false
             ExitCode = -1
-            StdOut  = ''
-            StdErr  = $_.Exception.Message
+            StdOut   = ''
+            StdErr   = $_.Exception.Message
         }
-    } finally {
+    }
+    finally {
         Remove-Item -Force -ErrorAction SilentlyContinue $stdoutPath, $stderrPath
     }
 }
@@ -64,7 +66,8 @@ function Reload-Nginx {
             $result = & systemctl reload nginx 2>&1
             return [PSCustomObject]@{ Method = 'systemctl'; Output = $result }
         }
-    } catch {}
+    }
+    catch {}
     $result = & nginx -s reload 2>&1
     [PSCustomObject]@{ Method = 'nginx -s reload'; Output = $result }
 }
@@ -95,7 +98,8 @@ function Start-Nginx {
             if ($status -ne 'active') { & systemctl start nginx 2>&1 | Out-Null }
             return
         }
-    } catch {}
+    }
+    catch {}
     & nginx 2>&1 | Out-Null
 }
 
@@ -133,7 +137,7 @@ function Enable-NginxConf {
     }
 
     $availablePath = "/etc/nginx/sites-available/$Name"
-    $enabledPath   = "/etc/nginx/sites-enabled/$Name"
+    $enabledPath = "/etc/nginx/sites-enabled/$Name"
 
     if ((Test-Path -Path $availablePath) -and -not $OverwriteAvailable.IsPresent) {
         throw "目标已存在: $availablePath。若需覆盖，请添加 -OverwriteAvailable"
@@ -226,7 +230,8 @@ function New-NginxHtpasswd {
 
     try {
         $Password | & htpasswd @args
-    } catch {
+    }
+    catch {
         # 针对没有权限写入 /etc/nginx 的场景，给予清晰提示
         throw "创建/更新 htpasswd 失败：请确认有写入权限或使用 sudo。当前路径: $FilePath"
     }
@@ -252,11 +257,11 @@ function Get-NginxEnabledConfs {
         $availablePath = "/etc/nginx/sites-available/$name"
         $isSymlink = $_.Attributes -band [IO.FileAttributes]::ReparsePoint
         [PSCustomObject]@{
-            Name = $name
-            EnabledPath = $enabledPath
+            Name          = $name
+            EnabledPath   = $enabledPath
             AvailablePath = $availablePath
-            IsSymlink = [bool]$isSymlink
-            TargetExists = (Test-Path -Path $availablePath)
+            IsSymlink     = [bool]$isSymlink
+            TargetExists  = (Test-Path -Path $availablePath)
         }
     }
 }
@@ -281,7 +286,7 @@ function Get-NginxConfContent {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)] [string]$Name,
-        [ValidateSet('available','enabled','repo')] [string]$Source = 'available'
+        [ValidateSet('available', 'enabled', 'repo')] [string]$Source = 'available'
     )
     <#
     .SYNOPSIS
@@ -293,8 +298,8 @@ function Get-NginxConfContent {
     #>
     switch ($Source) {
         'available' { $path = "/etc/nginx/sites-available/$Name" }
-        'enabled'   { $path = "/etc/nginx/sites-enabled/$Name" }
-        'repo'      {
+        'enabled' { $path = "/etc/nginx/sites-enabled/$Name" }
+        'repo' {
             $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..') | Select-Object -ExpandProperty Path
             $path = Join-Path $repoRoot ("config/nginx/sites-available/$Name.conf")
         }
@@ -360,7 +365,8 @@ function Test-NginxEndpoint {
         if ($BasicUser) { $params['Authentication'] = 'basic'; $params['Credential'] = New-Object System.Management.Automation.PSCredential($BasicUser, (ConvertTo-SecureString $BasicPassword -AsPlainText -Force)) }
         $resp = Invoke-WebRequest @params
         [PSCustomObject]@{ StatusCode = $resp.StatusCode; Success = ($resp.StatusCode -ge 200 -and $resp.StatusCode -lt 300); BodyPreview = ($resp.Content.Substring(0, [Math]::Min(200, $resp.Content.Length))) ; Error = '' }
-    } catch {
+    }
+    catch {
         [PSCustomObject]@{ StatusCode = 0; Success = $false; BodyPreview = ''; Error = $_.Exception.Message }
     }
 }
@@ -390,11 +396,11 @@ function Verify-NginxConf {
     $http = $null
     if ($Url) { $http = Test-NginxEndpoint -Url $Url -BasicUser $BasicUser -BasicPassword $BasicPassword -BearerToken $BearerToken }
     [PSCustomObject]@{
-        HasSymlink = $hasSymlink
+        HasSymlink   = $hasSymlink
         TargetExists = $targetExists
-        SyntaxOk = $syntax.Success
-        HttpOk = if ($http) { $http.Success } else { $null }
-        Diagnostics = @{ NginxTest = $syntax; Endpoint = $http }
+        SyntaxOk     = $syntax.Success
+        HttpOk       = if ($http) { $http.Success } else { $null }
+        Diagnostics  = @{ NginxTest = $syntax; Endpoint = $http }
     }
 }
 
