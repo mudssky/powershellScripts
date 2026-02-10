@@ -248,8 +248,10 @@ function Initialize-Environment {
     $utf8 = [System.Text.UTF8Encoding]::new($false)
     $Global:OutputEncoding = [console]::InputEncoding = [console]::OutputEncoding = $utf8
     $Global:PSDefaultParameterValues["Out-File:Encoding"] = "UTF8"
-    Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
-    Register-FzfHistorySmartKeyBinding | Out-Null
+    if (Get-Command -Name Set-PSReadLineKeyHandler -ErrorAction SilentlyContinue) {
+        Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
+        Register-FzfHistorySmartKeyBinding | Out-Null
+    }
 
     # === 工具初始化 ===
     Write-Verbose "初始化开发工具"
