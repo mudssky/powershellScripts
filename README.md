@@ -308,6 +308,19 @@ proxyHelper -UnsetProxyProgram git
 
 **功能**: Pester 测试配置
 
+**测试命令**:
+
+```powershell
+# 完整测试（默认，含覆盖率与 Profile）
+pnpm test
+
+# 快速本地测试（无 Profile、无覆盖率）
+pnpm test:fast
+
+# 明确全量测试
+pnpm test:full
+```
+
 ### 版本控制
 
 #### `gitconfig_personal`

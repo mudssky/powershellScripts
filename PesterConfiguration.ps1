@@ -34,6 +34,8 @@ if ($IsLinux -or $IsMacOS) {
 
 
 $isCI = [bool]$env:CI
+$testMode = if ([string]::IsNullOrWhiteSpace($env:PWSH_TEST_MODE)) { 'full' } else { $env:PWSH_TEST_MODE }
+$isFast = $testMode -eq 'fast'
 
 $config = @{
     Run          = @{
@@ -58,7 +60,7 @@ $config = @{
         ExcludeTag = $excludeTags
     }
     CodeCoverage = @{
-        Enabled                 = $true
+        Enabled                 = -not $isFast
         Path                    = "./psutils/modules/*.psm1"
         # OutputPath   = "./coverge.xml"
         OutputFormat            = 'CoverageGutters'

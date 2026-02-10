@@ -1,8 +1,21 @@
 BeforeAll {
     Import-Module "$PSScriptRoot\..\modules\install.psm1" -Force
+    $script:IsFastTestMode = $env:PWSH_TEST_MODE -eq 'fast'
 }
 
 Describe "Test-ModuleInstalled 函数测试" {
+    BeforeAll {
+        if ($script:IsFastTestMode) {
+            Mock -CommandName Get-Module -ModuleName install -MockWith {
+                param([string]$Name)
+                if ($Name -eq "Microsoft.PowerShell.Management") {
+                    return [pscustomobject]@{ Name = $Name }
+                }
+                return $null
+            }
+        }
+    }
+
     It "应该能够检测已安装的模块" {
         # 测试一个通常已安装的核心模块
         $result = Test-ModuleInstalled -ModuleName "Microsoft.PowerShell.Management"
@@ -26,4 +39,3 @@ Describe "Test-ModuleInstalled 函数测试" {
         $result | Should -Be $false
     }
 }
-

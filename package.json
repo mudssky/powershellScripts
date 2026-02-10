@@ -13,6 +13,8 @@
     "format": "pnpm format:pwsh && pnpm format:python",
     "pwsh:install": "pwsh -File ./install.ps1",
     "test": "pwsh -Command \"Invoke-Pester -Configuration ( ./PesterConfiguration.ps1 )\"",
+    "test:full": "pwsh -Command \"$env:PWSH_TEST_MODE='full'; Invoke-Pester -Configuration ( ./PesterConfiguration.ps1 )\"",
+    "test:fast": "pwsh -NoProfile -Command \"$env:PWSH_TEST_MODE='fast'; Invoke-Pester -Configuration ( ./PesterConfiguration.ps1 )\"",
     "test:detailed": "pwsh -Command \"Invoke-Pester -Output Detailed\"",
     "scripts:install": "pwsh  -File ./install.ps1",
     "scoop:update": "scoop update -a",

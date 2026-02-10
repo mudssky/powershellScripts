@@ -1,8 +1,21 @@
 BeforeAll {
     Import-Module "$PSScriptRoot\..\modules\test.psm1" -Force
+    $script:IsFastTestMode = $env:PWSH_TEST_MODE -eq 'fast'
 }
 
 Describe "Test-EXEProgram 函数测试" {
+    BeforeAll {
+        if ($script:IsFastTestMode) {
+            Mock -CommandName Get-Command -ModuleName test -MockWith {
+                param([string]$Name)
+                if ($Name -eq "pwsh") {
+                    return [pscustomobject]@{ Name = $Name }
+                }
+                return $null
+            }
+        }
+    }
+
     It "检测存在的可执行程序返回true" {
         Test-EXEProgram -Name "pwsh" | Should -Be $true
     }
