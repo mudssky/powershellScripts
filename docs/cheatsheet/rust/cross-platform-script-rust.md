@@ -1,188 +1,152 @@
-使用 TypeScript 编写跨平台、单文件、可直接执行的脚本，目前的**最佳实践是使用 Deno**（或者 Google 的 `zx` 库）。
+Rust 跨平台单文件脚本的核心目标通常有三个：
 
-传统的 Node.js 需要 `package.json`、`node_modules` 文件夹以及编译步骤（`tsc`），这违背了“轻量级脚本”的初衷。而 **Deno** 天生支持 TypeScript，支持 URL 导入依赖（无需 `node_modules`），并且拥有强大的权限控制。
+- 单文件源码，便于复制与维护
+- 跨平台执行（Windows / Linux / macOS）
+- 兼顾开发效率与最终分发体验
 
-以下是实现方案：
+Rust 本质是编译型语言，不是传统脚本语言，所以“单文件直接运行”最佳实践一般分为两条线：
+
+- **开发态**：像脚本一样快速运行（`cargo-script` / `rust-script`）
+- **分发态**：编译成单一可执行文件（`cargo build --release`）
 
 ---
 
-### 方案一：使用 Deno (推荐，原生支持 TS)
+## 方案一：`rust-script`（推荐开发态）
 
-Deno 是 Node.js 之父开发的现代运行时，完美符合你的“单文件引入依赖”和“直接执行”的需求。
+`rust-script` 可以直接运行单个 `.rs` 文件，并支持在文件头内声明依赖，体验最接近 Python `uv` 或 Deno。
 
-#### 1. 编写脚本 (`script.ts`)
+### 1) 安装
 
-在 Deno 中，你可以直接在代码顶部 `import` 依赖（支持 CDN URL 或 `npm:` 前缀），无需 `npm install`。
+```bash
+cargo install rust-script
+```
 
-```typescript
-#!/usr/bin/env -S deno run --allow-net --allow-read --allow-env
+### 2) 编写单文件脚本（含依赖）
 
-/**
- * 解释器说明 (Shebang):
- * 1. #!/usr/bin/env -S : 使用 env 的 -S 选项来传递参数 (Linux/macOS 必需)。
- * 2. deno run : 运行命令。
- * 3. --allow-... : Deno 默认沙盒隔离，必须显式赋予网络、读取文件等权限。
- */
+```rust
+#!/usr/bin/env rust-script
+//! ```cargo
+//! [dependencies]
+//! anyhow = "1"
+//! clap = { version = "4", features = ["derive"] }
+//! reqwest = { version = "0.12", features = ["blocking", "json", "rustls-tls"] }
+//! serde = { version = "1", features = ["derive"] }
+//! ```
 
-// --- 依赖管理 (单文件核心) ---
-// 直接从 URL 或 npm 导入，Deno 会在第一次运行时缓存它们
-import { format } from "https://deno.land/std@0.208.0/datetime/mod.ts";
-import { green, bold } from "https://deno.land/std@0.208.0/fmt/colors.ts";
-// 甚至可以直接引用 npm 包
-import figlet from "npm:figlet"; 
+use anyhow::Result;
+use clap::Parser;
 
-// --- 主逻辑 ---
-async function main() {
-    // 1. 打印 ASCII 艺术字
-    const text = await new Promise<string>((resolve, reject) => {
-        figlet("Hello TS Script", (err, data) => {
-            if (err) reject(err);
-            else resolve(data || "");
-        });
-    });
-    
-    console.log(green(text));
-
-    // 2. 平台检测
-    const os = Deno.build.os; // "darwin", "linux", "windows"
-    console.log(`Running on: ${bold(os.toUpperCase())}`);
-
-    // 3. 执行 Shell 命令 (跨平台调用)
-    const cmd = os === "windows" ? ["powershell", "-c", "echo 'Hi from PS'"] : ["echo", "Hi from Bash"];
-    
-    const command = new Deno.Command(cmd[0], {
-        args: cmd.slice(1),
-    });
-    
-    const { code, stdout } = await command.output();
-    console.log(`Command output: ${new TextDecoder().decode(stdout).trim()}`);
+#[derive(Parser, Debug)]
+struct Args {
+    #[arg(long, default_value = "https://httpbin.org/get")]
+    url: String,
 }
 
-// 支持 Top-level await
-await main();
-```
-
-#### 2. 实现直接执行
-
-**Linux / macOS:**
-
-```bash
-chmod +x script.ts
-./script.ts
-```
-
-*注意：第一次运行时，Deno 会自动下载并缓存 import 的依赖，之后运行速度会很快。*
-
-**Windows:**
-Windows 不支持 Shebang。你有两个选择：
-
-* **方法 A (推荐): 编译为 exe**
-    Deno 可以将脚本打包成独立的二进制文件（包含运行时），这样不需要对方安装 Deno 也能跑。
-
-    ```powershell
-    deno compile --allow-net --allow-read --allow-env --output mytool script.ts
-    # 生成 mytool.exe (Windows) 或 mytool (Linux/Mac)
-    .\mytool.exe
-    ```
-
-* **方法 B: 使用 cmd 包装器**
-    创建一个 `script.cmd` 文件：
-
-    ```batch
-    @deno run --allow-net --allow-read --allow-env "%~dp0script.ts" %*
-    ```
-
----
-
-### 方案二：使用 Google `zx` (适合重度 Shell 交互)
-
-如果你写脚本的主要目的是为了替代 Bash/PowerShell 来调用系统命令，Google 的 `zx` 库是最佳选择。它封装了 Node.js，让 Shell 操作极其简单。
-
-虽然它依赖 Node.js，但它也支持 Markdown 里的 TS 代码块，或者直接运行 `.mjs/.ts`。
-
-#### 1. 安装 zx
-
-```bash
-npm install -g zx
-```
-
-#### 2. 编写脚本 (`script.mjs` 或 `script.ts`)
-
-`zx` 最大的特点是可以通过 `$` 直接调用 shell 命令。
-
-```typescript
-#!/usr/bin/env zx
-
-// 依赖无需手动 import，zx 自动注入了 $, fs, path, chalk 等常用库
-// 如果需要额外依赖，依然建议配合 npm 安装，不如 Deno 方便
-
-async function main() {
-    // 直接调用 shell，类似 bash
-    await $`echo "Hello from zx!"`
-
-    // 获取命令输出
-    const branch = await $`git branch --show-current`
-    echo(chalk.blue(`Current branch is: ${branch}`))
-
-    // 跨平台处理
-    if (process.platform === 'win32') {
-        await $`powershell -c Get-Date`
-    } else {
-        await $`date`
-    }
+fn main() -> Result<()> {
+    let args = Args::parse();
+    let body = reqwest::blocking::get(&args.url)?.text()?;
+    println!("fetched {} bytes", body.len());
+    Ok(())
 }
-
-main()
 ```
 
-#### 3. 执行
+### 3) 执行
+
+Linux / macOS:
 
 ```bash
-chmod +x script.mjs
-./script.mjs
+chmod +x script.rs
+./script.rs --url https://httpbin.org/get
 ```
+
+Windows（建议直接调用）：
+
+```powershell
+rust-script .\script.rs --url https://httpbin.org/get
+```
+
+可选 `.cmd` 包装器：
+
+```bat
+@rust-script "%~dp0script.rs" %*
+```
+
+**优点**：开发快、单文件清晰、依赖声明集中。  
+**缺点**：目标机器需要 Rust 工具链或 `rust-script`。
 
 ---
 
-### 方案三：使用 Node.js 22+ (原生支持，但依赖管理较弱)
+## 方案二：标准 Cargo 项目（推荐分发态）
 
-Node.js v22 增加了 `--experimental-strip-types` 标志，可以直接运行 TypeScript 文件，而无需 `ts-node`。
+如果要给其他人“拿来即用”，最稳妥的是编译成单一可执行文件。
 
-**缺点**：Node.js 依然不支持像 Deno 那样的 URL import。如果你的脚本需要第三方库（比如 `lodash`），你依然得创建一个 `package.json` 并运行 `npm install`。这使得它不适合“单文件脚本”。
+### 1) 初始化
 
-**脚本示例 (`script.ts`):**
-
-```typescript
-#!/usr/bin/env node --experimental-strip-types
-
-// Node 只能 import 本地 node_modules，不能 import URL
-// import _ from "lodash"; // 只有在 npm install 后才有效
-
-const msg: string = "Hello Native Node TS";
-console.log(msg);
+```bash
+cargo new mytool
+cd mytool
 ```
+
+### 2) 编译
+
+```bash
+cargo build --release
+```
+
+输出位于：
+
+- Windows: `target/release/mytool.exe`
+- Linux/macOS: `target/release/mytool`
+
+### 3) 跨平台构建（可选）
+
+```bash
+rustup target add x86_64-pc-windows-msvc
+rustup target add x86_64-unknown-linux-gnu
+rustup target add aarch64-apple-darwin
+```
+
+可配合 CI 分平台构建并发布二进制。
+
+**优点**：启动快、运行快、分发友好。  
+**缺点**：不再是“仅单文件源码”体验，需要构建步骤。
 
 ---
 
-### 总结：最佳实践对比
+## 方案三：shebang + `cargo`（轻量但受限）
 
-| 特性 | **Deno (推荐)** | **Google zx** | **Node.js (原生)** |
-| :--- | :--- | :--- | :--- |
-| **单文件依赖** | ✅ **完美** (支持 `import "https://..."`) | ❌ (通常需 `package.json`) | ❌ (需 `package.json`) |
-| **类型支持** | ✅ 原生 TS | ✅ 支持 TS/JS | ✅ (v22+ 实验性支持) |
-| **Shell 交互** | 需使用 `Deno.Command` (略繁琐) | ✅ **极佳** (使用 `$` 语法) | 需使用 `child_process` (繁琐) |
-| **跨平台执行** | ✅ (可编译成单一 Binary) | 需安装 Node 和 zx | 需安装 Node |
-| **权限安全** | ✅ (默认禁止网络/文件访问) | ❌ (无沙盒) | ❌ (无沙盒) |
+可以用 shebang 调用 `cargo run`，但通常需要项目目录（`Cargo.toml`），对“真正单文件”帮助有限，因此不作为首选。
 
-### 最终建议
+---
 
-1. **对于通用工具脚本**：使用 **Deno**。
-    * 它解决了依赖地狱，代码拷给别人就能跑（只要对方有 Deno）。
-    * 如果对方连 Deno 都不想装，你可以用 `deno compile` 把它变成一个 `.exe` 给对方。
+## 依赖管理最佳实践
 
-2. **对于主要是为了调用 Shell 命令的脚本**：使用 **zx**。
-    * 代码写起来最像 Bash，最简洁。
+- 开发态单文件：优先 `rust-script` 头部依赖块。
+- 稳定工具开发：迁移到标准 `Cargo.toml`，便于版本锁定与测试。
+- 网络请求优先 `rustls`（跨平台更稳，减少系统 OpenSSL 差异）。
 
-3. **在 Windows 上直接执行**：
-    * 最优雅的方式是 `deno compile` 生成 exe。
-    * 或者是写一个同名的 `.cmd` 或 `.bat` 文件来引导执行。
+---
+
+## 跨平台脚本设计建议
+
+- 路径处理使用 `std::path::Path` / `PathBuf`。
+- 命令行参数统一用 `clap`。
+- 错误处理统一返回 `anyhow::Result<()>`。
+- 文件遍历用 `walkdir`，忽略规则可用 `ignore`。
+- 不要硬编码 shell 命令；确需调用时分平台封装。
+
+---
+
+## 场景建议
+
+1. **个人自动化脚本（追求迭代速度）**：`rust-script`
+2. **团队共享工具（追求稳定分发）**：Cargo + release 二进制
+3. **高性能批处理/扫描器**：直接 Rust 二进制，不走脚本运行器
+
+---
+
+## 总结
+
+- 想要“Rust 也像脚本一样快写快跑”：选 `rust-script`。
+- 想要“跨平台一键可用、性能稳定”：编译成 release 二进制。
+- 实战里通常是：**开发态用 `rust-script`，发布态用二进制**。
