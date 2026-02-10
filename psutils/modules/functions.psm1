@@ -104,6 +104,145 @@ function Start-PSReadline() {
     Set-PSReadLineOption -PredictionSource History
 }
 
+<#
+.SYNOPSIS
+    使用 fzf 智能检索 PowerShell 历史命令
+.DESCRIPTION
+    打开 fzf 历史命令选择器，并支持三种动作：
+    - Enter: 仅填充到当前命令行，不立即执行
+    - Ctrl+E: 立即执行选中命令
+    - Ctrl+Y: 复制选中命令到剪贴板
+    默认会对历史去重，并优先保留最近一次出现的命令。
+.OUTPUTS
+    无
+#>
+function Invoke-FzfHistorySmart {
+    [CmdletBinding()]
+    param()
+
+    if (-not (Get-Command -Name fzf -ErrorAction SilentlyContinue)) {
+        Write-Warning '未检测到 fzf，跳过历史检索。'
+        return
+    }
+
+    $historyFile = $null
+    try {
+        $historyFile = (Get-PSReadLineOption).HistorySavePath
+    }
+    catch {
+        Write-Verbose "无法获取 PSReadLine 历史文件路径: $($_.Exception.Message)"
+        return
+    }
+
+    if ([string]::IsNullOrWhiteSpace($historyFile) -or -not (Test-Path -LiteralPath $historyFile)) {
+        return
+    }
+
+    $historyRaw = @(Get-Content -LiteralPath $historyFile -ErrorAction SilentlyContinue)
+    if ($historyRaw.Count -eq 0) {
+        return
+    }
+
+    # 从最近命令向前去重，保留每条命令的最新一条
+    $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    $historyUnique = [System.Collections.Generic.List[string]]::new()
+    for ($i = $historyRaw.Count - 1; $i -ge 0; $i--) {
+        $line = [string]$historyRaw[$i]
+        if ([string]::IsNullOrWhiteSpace($line)) {
+            continue
+        }
+        if ($seen.Add($line)) {
+            $historyUnique.Add($line) | Out-Null
+        }
+    }
+
+    if ($historyUnique.Count -eq 0) {
+        return
+    }
+
+    $result = $historyUnique |
+        fzf --no-sort --height=40% --reverse --header='[Enter]:放入命令行 | [Ctrl-E]:立即执行 | [Ctrl-Y]:复制到剪贴板' --expect=ctrl-e, ctrl-y
+
+    if (-not $result) {
+        return
+    }
+
+    $resultLines = @($result)
+    $key = ''
+    $selection = $null
+
+    if ($resultLines.Count -eq 1) {
+        $selection = [string]$resultLines[0]
+    }
+    elseif ($resultLines.Count -ge 2) {
+        $key = [string]$resultLines[0]
+        $selection = [string]$resultLines[1]
+    }
+
+    if ([string]::IsNullOrWhiteSpace($selection)) {
+        return
+    }
+
+    switch ($key) {
+        'ctrl-e' {
+            Write-Host "`n[Running]: $selection" -ForegroundColor Cyan
+            Invoke-Expression $selection
+        }
+        'ctrl-y' {
+            if (Get-Command -Name Set-Clipboard -ErrorAction SilentlyContinue) {
+                $selection | Set-Clipboard
+                Write-Host "`n[Copied to clipboard]" -ForegroundColor Green
+            }
+            else {
+                Write-Warning '当前环境不支持 Set-Clipboard，无法复制到剪贴板。'
+            }
+        }
+        default {
+            if ([System.Management.Automation.PSTypeName]'Microsoft.PowerShell.PSConsoleReadLine'.Type) {
+                [Microsoft.PowerShell.PSConsoleReadLine]::DeleteLine()
+                [Microsoft.PowerShell.PSConsoleReadLine]::Insert($selection)
+            }
+            else {
+                Write-Output $selection
+            }
+        }
+    }
+}
+
+<#
+.SYNOPSIS
+    绑定 fzf 智能历史搜索快捷键
+.DESCRIPTION
+    为 PSReadLine 注册快捷键，默认 `Alt+h`，触发 `Invoke-FzfHistorySmart`。
+.PARAMETER Key
+    要绑定的快捷键，默认 `Alt+h`。
+.OUTPUTS
+    System.Boolean
+    绑定成功返回 `$true`，否则返回 `$false`。
+#>
+function Register-FzfHistorySmartKeyBinding {
+    [CmdletBinding()]
+    param(
+        [string]$Key = 'Alt+h'
+    )
+
+    if (-not (Get-Command -Name Set-PSReadLineKeyHandler -ErrorAction SilentlyContinue)) {
+        Write-Verbose '未检测到 PSReadLine，跳过 fzf 历史快捷键绑定。'
+        return $false
+    }
+
+    if (-not (Get-Command -Name fzf -ErrorAction SilentlyContinue)) {
+        Write-Verbose '未检测到 fzf，跳过历史快捷键绑定。'
+        return $false
+    }
+
+    Set-PSReadLineKeyHandler -Key $Key -BriefDescription 'fzf-history-smart' -Description '使用 fzf 搜索历史命令' -ScriptBlock {
+        Invoke-FzfHistorySmart
+    }
+
+    return $true
+}
+
 
 
 
@@ -401,4 +540,4 @@ function Get-ReversedMap($map) {
 }
 
 
-Export-ModuleMember -Function Get-HistoryCommandRank, Get-ScriptFolder, Start-Ipython, Start-PSReadline, New-Shortcut, Set-Script, Update-Semver, Get-FormatLength, Get-NeedBinaryDigit, Get-ReversedMap
+Export-ModuleMember -Function Get-HistoryCommandRank, Get-ScriptFolder, Start-Ipython, Start-PSReadline, Invoke-FzfHistorySmart, Register-FzfHistorySmartKeyBinding, New-Shortcut, Set-Script, Update-Semver, Get-FormatLength, Get-NeedBinaryDigit, Get-ReversedMap

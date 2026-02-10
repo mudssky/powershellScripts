@@ -106,7 +106,7 @@
         # 字体管理模块 (font.psm1)
         'Test-Font', 'Install-Font', 'Uninstall-Font',
         # 通用函数模块 (functions.psm1)
-        'Get-HistoryCommandRank', 'Get-ScriptFolder', 'Start-Ipython', 'Start-PSReadline', 'New-Shortcut', 'Set-Script', 'Update-Semver', 'Get-FormatLength', 'Get-NeedBinaryDigit', 'Get-ReversedMap',
+        'Get-HistoryCommandRank', 'Get-ScriptFolder', 'Start-Ipython', 'Start-PSReadline', 'Invoke-FzfHistorySmart', 'Register-FzfHistorySmartKeyBinding', 'New-Shortcut', 'Set-Script', 'Update-Semver', 'Get-FormatLength', 'Get-NeedBinaryDigit', 'Get-ReversedMap',
         # 硬件信息模块 (hardware.psm1)
         'Get-GpuInfo', 'Get-SystemMemoryInfo',
         # Git 工具模块 (git.psm1)
