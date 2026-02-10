@@ -1,0 +1,1 @@
+修改完powershell相关文件后，执行pnpm qa:pwsh修复出现的问题
