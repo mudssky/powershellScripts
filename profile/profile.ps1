@@ -13,6 +13,106 @@ if ($null -eq $IsWindows) { $IsWindows = $true; $IsLinux = $false; $IsMacOS = $f
 
 $profileLoadStartTime = Get-Date
 
+function Test-EnvSwitchEnabled {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Name
+    )
+
+    $item = Get-Item -Path "Env:$Name" -ErrorAction SilentlyContinue
+    if (-not $item) { return $false }
+
+    $rawValue = [string]$item.Value
+    if ([string]::IsNullOrWhiteSpace($rawValue)) { return $false }
+
+    switch ($rawValue.Trim().ToLowerInvariant()) {
+        '0' { return $false }
+        'false' { return $false }
+        'off' { return $false }
+        'no' { return $false }
+        'n' { return $false }
+        default { return $true }
+    }
+}
+
+function Test-ShouldUseMinimalProfile {
+    [CmdletBinding()]
+    param()
+
+    # 手动强制完整模式（优先级最高）
+    if (Test-EnvSwitchEnabled -Name 'POWERSHELL_PROFILE_FULL') {
+        return $false
+    }
+
+    # 手动开启通用精简模式
+    $manualMinimalMarkers = @(
+        'POWERSHELL_PROFILE_MINIMAL',
+        'POWERSHELL_PROFILE_FAST',
+        'POWERSHELL_PROFILE_LIGHT'
+    )
+    foreach ($marker in $manualMinimalMarkers) {
+        if (Test-EnvSwitchEnabled -Name $marker) {
+            return $true
+        }
+    }
+
+    # 通过模式字符串显式指定
+    $profileMode = [string]$env:POWERSHELL_PROFILE_MODE
+    if (-not [string]::IsNullOrWhiteSpace($profileMode)) {
+        switch ($profileMode.Trim().ToLowerInvariant()) {
+            'minimal' { return $true }
+            'fast' { return $true }
+            'light' { return $true }
+            'full' { return $false }
+            'normal' { return $false }
+        }
+    }
+
+    # 通用自动化/CI 场景
+    $automationMarkers = @(
+        'CI',
+        'GITHUB_ACTIONS',
+        'TF_BUILD',
+        'BUILD_BUILDID',
+        'JENKINS_URL'
+    )
+    foreach ($marker in $automationMarkers) {
+        $item = Get-Item -Path "Env:$marker" -ErrorAction SilentlyContinue
+        if ($item -and -not [string]::IsNullOrWhiteSpace([string]$item.Value)) {
+            return $true
+        }
+    }
+
+    # Codex 仅作为“自动化环境”的一个检测来源，不作为模式命名
+    $codexMarkers = @(
+        'CODEX_THREAD_ID',
+        'CODEX_CI',
+        'CODEX_SANDBOX_NETWORK_DISABLED',
+        'CODEX_MANAGED_BY_NPM',
+        'CODEX_MANAGED_BY_BUN'
+    )
+
+    foreach ($marker in $codexMarkers) {
+        $item = Get-Item -Path "Env:$marker" -ErrorAction SilentlyContinue
+        if ($item -and -not [string]::IsNullOrWhiteSpace([string]$item.Value)) {
+            return $true
+        }
+    }
+
+    if (Get-ChildItem -Path Env:CODEX_* -ErrorAction SilentlyContinue | Select-Object -First 1) {
+        return $true
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($env:PATH) -and $env:PATH -match '(?i)[\\/]\\.codex[\\/]') {
+        return $true
+    }
+
+    return $false
+}
+
+$script:UseMinimalProfile = Test-ShouldUseMinimalProfile
+
 # 加载自定义模块 (包含 Test-EXEProgram、Set-CustomAlias 等)
 $loadModuleScript = Join-Path $PSScriptRoot 'loadModule.ps1'
 try {
@@ -172,6 +272,8 @@ function Initialize-Environment {
         代理服务器地址，默认为 http://127.0.0.1:7890
     .PARAMETER SkipTools
         跳过所有工具初始化
+    .PARAMETER SkipProxy
+        跳过代理自动检测
     .PARAMETER SkipStarship
         跳过 Starship 初始化
     .PARAMETER SkipZoxide
@@ -197,6 +299,7 @@ function Initialize-Environment {
         [string]$ScriptRoot = $PSScriptRoot,
         [ValidatePattern('^https?://')][string]$ProxyUrl = "http://127.0.0.1:7890",
         [switch]$SkipTools,
+        [switch]$SkipProxy,
         [switch]$SkipStarship,
         [switch]$SkipZoxide,
         [switch]$SkipAliases,
@@ -205,7 +308,16 @@ function Initialize-Environment {
 
     Write-Verbose "开始初始化 PowerShell 环境配置"
 
-    if ($Minimal -or (Test-Path -Path (Join-Path $PSScriptRoot 'minimal')) -or $env:POWERSHELL_PROFILE_MINIMAL) {
+    if ($script:UseMinimalProfile) {
+        $SkipTools = $true
+        $SkipProxy = $true
+        $SkipStarship = $true
+        $SkipZoxide = $true
+        $SkipAliases = $true
+        Write-Verbose "检测到自动化/精简场景，自动启用轻量初始化（跳过代理/工具/别名）"
+    }
+
+    if ($Minimal -or (Test-Path -Path (Join-Path $PSScriptRoot 'minimal')) -or (Test-EnvSwitchEnabled -Name 'POWERSHELL_PROFILE_MINIMAL')) {
         $SkipTools = $true
         $SkipAliases = $true
     }
@@ -229,7 +341,12 @@ function Initialize-Environment {
     }
 
     # 自动检测代理
-    Set-Proxy -Command auto
+    if (-not $SkipProxy) {
+        Set-Proxy -Command auto
+    }
+    else {
+        Write-Verbose "跳过代理自动检测"
+    }
 
     # 加载自定义环境变量脚本 (用于存放机密或个人配置)
     $envScriptPath = Join-Path -Path $ScriptRoot -ChildPath 'env.ps1'
@@ -393,5 +510,7 @@ catch {
 $profileLoadEndTime = Get-Date
 $profileLoadTime = ($profileLoadEndTime - $profileLoadStartTime).TotalMilliseconds
 if ($profileLoadTime -gt 1000) {
-    Write-Host "Profile 加载耗时: $($profileLoadTime) 毫秒" -ForegroundColor Green
+    if (-not $script:UseMinimalProfile) {
+        Write-Host "Profile 加载耗时: $($profileLoadTime) 毫秒" -ForegroundColor Green
+    }
 }
