@@ -44,7 +44,7 @@ function Initialize-Environment {
         模式差异：
         - Full：默认全能力初始化。
         - Minimal：仅跳过工具初始化与别名注册（保留模块能力，不自动触发）。
-        - UltraMinimal：仅保留 UTF8、基础兼容变量与 POWERSHELL_SCRIPTS_ROOT，跳过其余步骤。
+        - UltraMinimal：仅保留 UTF8 与 POWERSHELL_SCRIPTS_ROOT，跳过其余步骤。
     .PARAMETER ScriptRoot
         脚本根目录路径，默认为当前脚本所在目录
     .PARAMETER ProxyUrl
@@ -72,6 +72,7 @@ function Initialize-Environment {
         使用自定义代理地址初始化环境
     .NOTES
         此函数会影响当前 PowerShell 会话的环境变量和配置
+        运行时基线为 PowerShell 7+（pwsh）
         当前不实现 CI 自动判定与自动降级逻辑（YAGNI）
     #>
     [CmdletBinding()]
@@ -94,7 +95,7 @@ function Initialize-Environment {
     if ($script:UseUltraMinimalProfile) {
         Write-Verbose "UltraMinimal 模式：仅执行最小初始化路径"
 
-        # 极简模式仅保留三项：根目录变量、UTF8 编码、基础兼容变量（顶部已处理）
+        # 极简模式仅保留两项：根目录变量、UTF8 编码
         $Global:Env:POWERSHELL_SCRIPTS_ROOT = Split-Path -Parent $profileRoot
         Set-ProfileUtf8Encoding
 

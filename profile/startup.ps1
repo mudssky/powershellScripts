@@ -7,7 +7,7 @@ param(
 # 开机执行的脚本
 # 启动stable-diffusion-webui
 
-# 注意要设置一下ps1脚本的打开方式,用powershell或者pwsh打开,不然脚本无法正常执行.
+# 注意要使用 pwsh（PowerShell 7+）运行此脚本，否则可能无法正常执行。
 function StartSdWebUI() {
     [CmdLetBinding()]
     param()

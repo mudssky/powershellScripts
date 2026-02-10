@@ -1,6 +1,3 @@
-# PSScriptAnalyzer 抑制：PS 5.1 兼容性赋值，仅在 $IsWindows 未定义时执行
-[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidAssignmentToAutomaticVariable', '')]
-[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
 [CmdletBinding()]
 param(
     [Parameter(HelpMessage = "是否将配置加载到 PowerShell 配置文件中")]
@@ -8,8 +5,7 @@ param(
     [string]$AliasDescPrefix = '[mudssky]'
 )
 
-# PowerShell 5.1 兼容性：$IsWindows 等变量未定义时回退
-if ($null -eq $IsWindows) { $IsWindows = $true; $IsLinux = $false; $IsMacOS = $false }
+# 运行时基线：仅支持 PowerShell 7+（pwsh）
 
 $profileLoadStartTime = Get-Date
 $script:ProfileRoot = $PSScriptRoot

@@ -25,8 +25,8 @@ $script:InvokeProfileCoreLoaders = {
             throw
         }
 
-        # 自定义别名配置
-        $userAliasScript = Join-Path $profileRoot 'user_aliases.ps1'
+        # 自定义别名配置（配置目录）
+        $userAliasScript = Join-Path $profileRoot 'config/aliases/user_aliases.ps1'
         try {
             $script:userAlias = . $userAliasScript
         }

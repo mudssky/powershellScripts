@@ -8,6 +8,7 @@ function Show-MyProfileHelp {
 
     Write-Host "--- PowerShell Profile 帮助 ---" -ForegroundColor Cyan
     Write-Host ("当前模式: {0}" -f $script:ProfileMode) -ForegroundColor DarkCyan
+    Write-Host "运行时基线: PowerShell 7+ (pwsh)" -ForegroundColor DarkCyan
 
     if (-not $script:ProfileExtendedFeaturesLoaded) {
         Write-Host "`n[功能降级提示]" -ForegroundColor Yellow
