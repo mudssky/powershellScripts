@@ -37,7 +37,7 @@ $isCI = [bool]$env:CI
 
 $config = @{
     Run          = @{
-        Path     = "./psutils"
+        Path     = @("./psutils", "./tests")
         # 输出测试结果对象，因为我不需要解析结果对象，所以关掉
         # PassThru = $True
         PassThru = $False
