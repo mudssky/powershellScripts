@@ -3,6 +3,11 @@
 - [ ] 1.1 在 `profile/profile.ps1` 引入 `UltraMinimal` 模式判定（含环境变量优先级）
 - [ ] 1.2 保留并兼容现有 `Minimal` 语义，明确与 `UltraMinimal` 的边界
 - [ ] 1.3 在代码注释中写明三种模式差异（Full/Minimal/UltraMinimal）
+- [ ] 1.4 固化默认策略：默认 `Full`，`Minimal` 仅手动触发
+- [ ] 1.5 固化自动降级策略：仅 Codex/沙盒命中时自动降级到 `UltraMinimal`
+- [ ] 1.6 明确当前不实现 CI 自动判定（YAGNI）
+- [ ] 1.7 固化自动判定最小变量集合（V1）：`CODEX_THREAD_ID` 或 `CODEX_SANDBOX_NETWORK_DISABLED`
+- [ ] 1.8 明确 `CODEX_MANAGED_BY_NPM/BUN` 不参与自动判定
 
 ## 2. 极简执行路径
 
@@ -15,9 +20,13 @@
 
 - [ ] 3.1 `Show-MyProfileHelp` 在未加载模块时降级输出（不报错）
 - [ ] 3.2 增加简短模式提示（可通过 `Verbose` 控制）
+- [ ] 3.3 增加模式决策摘要日志（mode/source/markers）
+- [ ] 3.4 增加手动兜底文案（`FULL`/`MODE`/`ULTRA_MINIMAL` 的用法）
 
 ## 4. 验证
 
 - [ ] 4.1 语法检查：`pwsh -NoProfile` 解析 `profile/profile.ps1`
 - [ ] 4.2 行为验证：UltraMinimal 下无 starship/zoxide/proxy 初始化日志
 - [ ] 4.3 性能验证：记录 Full/Minimal/UltraMinimal/baseline 四组耗时（至少 10 次）
+- [ ] 4.4 优先级验证：`FULL > MODE > ULTRA_MINIMAL > auto > default`
+- [ ] 4.5 误判/漏判演练：通过手动开关可即时回退到期望模式
