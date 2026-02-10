@@ -36,111 +36,300 @@ function Test-EnvSwitchEnabled {
     }
 }
 
-function Test-ShouldUseMinimalProfile {
+function Test-EnvValuePresent {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Name
+    )
+
+    $item = Get-Item -Path "Env:$Name" -ErrorAction SilentlyContinue
+    if (-not $item) { return $false }
+    return -not [string]::IsNullOrWhiteSpace([string]$item.Value)
+}
+
+function Set-ProfileUtf8Encoding {
     [CmdletBinding()]
     param()
 
-    # 手动强制完整模式（优先级最高）
-    if (Test-EnvSwitchEnabled -Name 'POWERSHELL_PROFILE_FULL') {
-        return $false
+    Write-Verbose "设置控制台编码为 UTF8"
+    $utf8 = [System.Text.UTF8Encoding]::new($false)
+    $Global:OutputEncoding = [console]::InputEncoding = [console]::OutputEncoding = $utf8
+    $Global:PSDefaultParameterValues["Out-File:Encoding"] = "UTF8"
+
+    if (Get-Command -Name Set-PSReadLineKeyHandler -ErrorAction SilentlyContinue) {
+        Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
+        if (Get-Command -Name Register-FzfHistorySmartKeyBinding -ErrorAction SilentlyContinue) {
+            Register-FzfHistorySmartKeyBinding | Out-Null
+        }
+    }
+}
+
+function Get-ProfileModeDecision {
+    [CmdletBinding()]
+    param()
+
+    # reason 枚举（V1 固化）
+    # explicit_full
+    # explicit_mode_full
+    # explicit_mode_minimal
+    # explicit_mode_ultra
+    # explicit_ultra_minimal
+    # auto_codex_thread
+    # auto_codex_sandbox_network_disabled
+    # default_full
+
+    $v2Fields = [ordered]@{
+        phase_ms   = $null
+        ps_version = [string]$PSVersionTable.PSVersion
+        host       = [string]$Host.Name
+        pid        = $PID
     }
 
-    # 手动开启通用精简模式
+    $diagOnlyMarkers = @()
+    if (Test-EnvValuePresent -Name 'CODEX_MANAGED_BY_NPM') { $diagOnlyMarkers += 'CODEX_MANAGED_BY_NPM(diag_only)' }
+    if (Test-EnvValuePresent -Name 'CODEX_MANAGED_BY_BUN') { $diagOnlyMarkers += 'CODEX_MANAGED_BY_BUN(diag_only)' }
+
+    # 优先级：FULL > MODE > ULTRA_MINIMAL > auto > default
+    if (Test-EnvSwitchEnabled -Name 'POWERSHELL_PROFILE_FULL') {
+        return [PSCustomObject]@{
+            Mode      = 'Full'
+            Source    = 'explicit'
+            Reason    = 'explicit_full'
+            Markers   = @('POWERSHELL_PROFILE_FULL') + $diagOnlyMarkers
+            ElapsedMs = 0
+            V2        = [PSCustomObject]$v2Fields
+        }
+    }
+
+    $profileMode = [string]$env:POWERSHELL_PROFILE_MODE
+    if (-not [string]::IsNullOrWhiteSpace($profileMode)) {
+        switch ($profileMode.Trim().ToLowerInvariant()) {
+            'full' {
+                return [PSCustomObject]@{
+                    Mode      = 'Full'
+                    Source    = 'explicit_mode'
+                    Reason    = 'explicit_mode_full'
+                    Markers   = @("POWERSHELL_PROFILE_MODE=$profileMode") + $diagOnlyMarkers
+                    ElapsedMs = 0
+                    V2        = [PSCustomObject]$v2Fields
+                }
+            }
+            'normal' {
+                return [PSCustomObject]@{
+                    Mode      = 'Full'
+                    Source    = 'explicit_mode'
+                    Reason    = 'explicit_mode_full'
+                    Markers   = @("POWERSHELL_PROFILE_MODE=$profileMode") + $diagOnlyMarkers
+                    ElapsedMs = 0
+                    V2        = [PSCustomObject]$v2Fields
+                }
+            }
+            'minimal' {
+                return [PSCustomObject]@{
+                    Mode      = 'Minimal'
+                    Source    = 'explicit_mode'
+                    Reason    = 'explicit_mode_minimal'
+                    Markers   = @("POWERSHELL_PROFILE_MODE=$profileMode") + $diagOnlyMarkers
+                    ElapsedMs = 0
+                    V2        = [PSCustomObject]$v2Fields
+                }
+            }
+            'fast' {
+                return [PSCustomObject]@{
+                    Mode      = 'Minimal'
+                    Source    = 'explicit_mode'
+                    Reason    = 'explicit_mode_minimal'
+                    Markers   = @("POWERSHELL_PROFILE_MODE=$profileMode") + $diagOnlyMarkers
+                    ElapsedMs = 0
+                    V2        = [PSCustomObject]$v2Fields
+                }
+            }
+            'light' {
+                return [PSCustomObject]@{
+                    Mode      = 'Minimal'
+                    Source    = 'explicit_mode'
+                    Reason    = 'explicit_mode_minimal'
+                    Markers   = @("POWERSHELL_PROFILE_MODE=$profileMode") + $diagOnlyMarkers
+                    ElapsedMs = 0
+                    V2        = [PSCustomObject]$v2Fields
+                }
+            }
+            'ultra' {
+                return [PSCustomObject]@{
+                    Mode      = 'UltraMinimal'
+                    Source    = 'explicit_mode'
+                    Reason    = 'explicit_mode_ultra'
+                    Markers   = @("POWERSHELL_PROFILE_MODE=$profileMode") + $diagOnlyMarkers
+                    ElapsedMs = 0
+                    V2        = [PSCustomObject]$v2Fields
+                }
+            }
+            'ultraminimal' {
+                return [PSCustomObject]@{
+                    Mode      = 'UltraMinimal'
+                    Source    = 'explicit_mode'
+                    Reason    = 'explicit_mode_ultra'
+                    Markers   = @("POWERSHELL_PROFILE_MODE=$profileMode") + $diagOnlyMarkers
+                    ElapsedMs = 0
+                    V2        = [PSCustomObject]$v2Fields
+                }
+            }
+            'ultra-minimal' {
+                return [PSCustomObject]@{
+                    Mode      = 'UltraMinimal'
+                    Source    = 'explicit_mode'
+                    Reason    = 'explicit_mode_ultra'
+                    Markers   = @("POWERSHELL_PROFILE_MODE=$profileMode") + $diagOnlyMarkers
+                    ElapsedMs = 0
+                    V2        = [PSCustomObject]$v2Fields
+                }
+            }
+        }
+    }
+
+    # 兼容旧版 Minimal 环境开关（手动触发）
     $manualMinimalMarkers = @(
         'POWERSHELL_PROFILE_MINIMAL',
         'POWERSHELL_PROFILE_FAST',
         'POWERSHELL_PROFILE_LIGHT'
     )
+    $hitManualMinimalMarkers = @()
     foreach ($marker in $manualMinimalMarkers) {
         if (Test-EnvSwitchEnabled -Name $marker) {
-            return $true
+            $hitManualMinimalMarkers += $marker
+        }
+    }
+    if ($hitManualMinimalMarkers.Count -gt 0) {
+        return [PSCustomObject]@{
+            Mode      = 'Minimal'
+            Source    = 'explicit_mode'
+            Reason    = 'explicit_mode_minimal'
+            Markers   = $hitManualMinimalMarkers + $diagOnlyMarkers
+            ElapsedMs = 0
+            V2        = [PSCustomObject]$v2Fields
         }
     }
 
-    # 通过模式字符串显式指定
-    $profileMode = [string]$env:POWERSHELL_PROFILE_MODE
-    if (-not [string]::IsNullOrWhiteSpace($profileMode)) {
-        switch ($profileMode.Trim().ToLowerInvariant()) {
-            'minimal' { return $true }
-            'fast' { return $true }
-            'light' { return $true }
-            'full' { return $false }
-            'normal' { return $false }
+    if (Test-EnvSwitchEnabled -Name 'POWERSHELL_PROFILE_ULTRA_MINIMAL') {
+        return [PSCustomObject]@{
+            Mode      = 'UltraMinimal'
+            Source    = 'explicit'
+            Reason    = 'explicit_ultra_minimal'
+            Markers   = @('POWERSHELL_PROFILE_ULTRA_MINIMAL') + $diagOnlyMarkers
+            ElapsedMs = 0
+            V2        = [PSCustomObject]$v2Fields
         }
     }
 
-    # 通用自动化/CI 场景
-    $automationMarkers = @(
-        'CI',
-        'GITHUB_ACTIONS',
-        'TF_BUILD',
-        'BUILD_BUILDID',
-        'JENKINS_URL'
+    # 自动降级仅检测 V1 变量：CODEX_THREAD_ID / CODEX_SANDBOX_NETWORK_DISABLED
+    $autoMarkers = @()
+    if (Test-EnvValuePresent -Name 'CODEX_THREAD_ID') { $autoMarkers += 'CODEX_THREAD_ID' }
+    if (Test-EnvValuePresent -Name 'CODEX_SANDBOX_NETWORK_DISABLED') { $autoMarkers += 'CODEX_SANDBOX_NETWORK_DISABLED' }
+
+    if ($autoMarkers.Count -gt 0) {
+        $autoReason = 'auto_codex_sandbox_network_disabled'
+        if ($autoMarkers -contains 'CODEX_THREAD_ID') {
+            $autoReason = 'auto_codex_thread'
+        }
+
+        return [PSCustomObject]@{
+            Mode      = 'UltraMinimal'
+            Source    = 'auto'
+            Reason    = $autoReason
+            Markers   = $autoMarkers + $diagOnlyMarkers
+            ElapsedMs = 0
+            V2        = [PSCustomObject]$v2Fields
+        }
+    }
+
+    return [PSCustomObject]@{
+        Mode      = 'Full'
+        Source    = 'default'
+        Reason    = 'default_full'
+        Markers   = $diagOnlyMarkers
+        ElapsedMs = 0
+        V2        = [PSCustomObject]$v2Fields
+    }
+}
+
+function Write-ProfileModeDecisionSummary {
+    [CmdletBinding()]
+    param()
+
+    $script:ProfileModeDecision.ElapsedMs = [int]((Get-Date) - $profileLoadStartTime).TotalMilliseconds
+    $markerText = '-'
+    if ($script:ProfileModeDecision.Markers -and $script:ProfileModeDecision.Markers.Count -gt 0) {
+        $markerText = ($script:ProfileModeDecision.Markers -join ',')
+    }
+
+    Write-Verbose ("[ProfileMode] mode={0} source={1} reason={2} markers={3} elapsed_ms={4}" -f $script:ProfileModeDecision.Mode, $script:ProfileModeDecision.Source, $script:ProfileModeDecision.Reason, $markerText, $script:ProfileModeDecision.ElapsedMs)
+}
+
+function Write-ProfileModeFallbackGuide {
+    [CmdletBinding()]
+    param(
+        [switch]$VerboseOnly
     )
-    foreach ($marker in $automationMarkers) {
-        $item = Get-Item -Path "Env:$marker" -ErrorAction SilentlyContinue
-        if ($item -and -not [string]::IsNullOrWhiteSpace([string]$item.Value)) {
-            return $true
-        }
-    }
 
-    # Codex 仅作为“自动化环境”的一个检测来源，不作为模式命名
-    $codexMarkers = @(
-        'CODEX_THREAD_ID',
-        'CODEX_CI',
-        'CODEX_SANDBOX_NETWORK_DISABLED',
-        'CODEX_MANAGED_BY_NPM',
-        'CODEX_MANAGED_BY_BUN'
+    $guideLines = @(
+        '手动兜底：POWERSHELL_PROFILE_FULL=1 强制 Full',
+        '手动兜底：POWERSHELL_PROFILE_MODE=full|minimal|ultra 显式指定模式',
+        '手动兜底：POWERSHELL_PROFILE_ULTRA_MINIMAL=1 强制 UltraMinimal'
     )
 
-    foreach ($marker in $codexMarkers) {
-        $item = Get-Item -Path "Env:$marker" -ErrorAction SilentlyContinue
-        if ($item -and -not [string]::IsNullOrWhiteSpace([string]$item.Value)) {
-            return $true
+    foreach ($line in $guideLines) {
+        if ($VerboseOnly) {
+            Write-Verbose $line
+        }
+        else {
+            Write-Host "  - $line" -ForegroundColor Gray
         }
     }
+}
 
-    if (Get-ChildItem -Path Env:CODEX_* -ErrorAction SilentlyContinue | Select-Object -First 1) {
-        return $true
+$script:ProfileModeDecision = Get-ProfileModeDecision
+$script:ProfileMode = [string]$script:ProfileModeDecision.Mode
+$script:UseMinimalProfile = $script:ProfileMode -eq 'Minimal'
+$script:UseUltraMinimalProfile = $script:ProfileMode -eq 'UltraMinimal'
+$script:ProfileExtendedFeaturesLoaded = $false
+$userAlias = @()
+
+if (-not $script:UseUltraMinimalProfile) {
+    # 加载自定义模块 (包含 Test-EXEProgram、Set-CustomAlias 等)
+    $loadModuleScript = Join-Path $PSScriptRoot 'loadModule.ps1'
+    try {
+        . $loadModuleScript
+    }
+    catch {
+        Write-Error "[profile/profile.ps1] dot-source 失败: $loadModuleScript :: $($_.Exception.Message)"
+        throw
     }
 
-    if (-not [string]::IsNullOrWhiteSpace($env:PATH) -and $env:PATH -match '(?i)[\\/]\\.codex[\\/]') {
-        return $true
+    # 加载自定义函数包装 (yaz, Add-CondaEnv 等)
+    $wrapperScript = Join-Path $PSScriptRoot 'wrapper.ps1'
+    try {
+        . $wrapperScript
+    }
+    catch {
+        Write-Error "[profile/profile.ps1] dot-source 失败: $wrapperScript :: $($_.Exception.Message)"
+        throw
     }
 
-    return $false
-}
+    # 自定义别名配置
+    $userAliasScript = Join-Path $PSScriptRoot 'user_aliases.ps1'
+    try {
+        $userAlias = . $userAliasScript
+    }
+    catch {
+        Write-Error "[profile/profile.ps1] dot-source 失败: $userAliasScript :: $($_.Exception.Message)"
+        throw
+    }
 
-$script:UseMinimalProfile = Test-ShouldUseMinimalProfile
-
-# 加载自定义模块 (包含 Test-EXEProgram、Set-CustomAlias 等)
-$loadModuleScript = Join-Path $PSScriptRoot 'loadModule.ps1'
-try {
-    . $loadModuleScript
+    $script:ProfileExtendedFeaturesLoaded = $true
 }
-catch {
-    Write-Error "[profile/profile.ps1] dot-source 失败: $loadModuleScript :: $($_.Exception.Message)"
-    throw
-}
-
-# 加载自定义函数包装 (yaz, Add-CondaEnv 等)
-$wrapperScript = Join-Path $PSScriptRoot 'wrapper.ps1'
-try {
-    . $wrapperScript
-}
-catch {
-    Write-Error "[profile/profile.ps1] dot-source 失败: $wrapperScript :: $($_.Exception.Message)"
-    throw
-}
-
-# 自定义别名配置
-$userAliasScript = Join-Path $PSScriptRoot 'user_aliases.ps1'
-try {
-    $userAlias = . $userAliasScript
-}
-catch {
-    Write-Error "[profile/profile.ps1] dot-source 失败: $userAliasScript :: $($_.Exception.Message)"
-    throw
+else {
+    Write-Verbose 'UltraMinimal 模式已生效：跳过模块、包装函数与用户别名脚本加载'
 }
 
 <#
@@ -152,6 +341,16 @@ function Show-MyProfileHelp {
     param()
 
     Write-Host "--- PowerShell Profile 帮助 ---" -ForegroundColor Cyan
+    Write-Host ("当前模式: {0}" -f $script:ProfileMode) -ForegroundColor DarkCyan
+
+    if (-not $script:ProfileExtendedFeaturesLoaded) {
+        Write-Host "`n[功能降级提示]" -ForegroundColor Yellow
+        Write-Host "  当前处于 UltraMinimal 模式，已跳过模块/别名/工具等高级功能加载。" -ForegroundColor Gray
+        Write-Host "  如需完整能力，请使用以下任一方式后重新加载：" -ForegroundColor Gray
+        Write-ProfileModeFallbackGuide
+        Write-Host "`n要重新加载环境, 请运行: Initialize-Environment" -ForegroundColor Green
+        return
+    }
 
     # 1. 自定义别名
     Write-Host "`n[自定义别名]" -ForegroundColor Yellow
@@ -266,6 +465,10 @@ function Initialize-Environment {
     .DESCRIPTION
         初始化 PowerShell 环境配置，包括代理设置、编码配置、别名设置、工具初始化等。
         通过 $IsWindows/$IsLinux/$IsMacOS 自动适配平台差异。
+        模式差异：
+        - Full：默认全能力初始化。
+        - Minimal：仅跳过工具初始化与别名注册（保留模块能力，不自动触发）。
+        - UltraMinimal：仅保留 UTF8、基础兼容变量与 POWERSHELL_SCRIPTS_ROOT，跳过其余步骤。
     .PARAMETER ScriptRoot
         脚本根目录路径，默认为当前脚本所在目录
     .PARAMETER ProxyUrl
@@ -293,6 +496,7 @@ function Initialize-Environment {
         使用自定义代理地址初始化环境
     .NOTES
         此函数会影响当前 PowerShell 会话的环境变量和配置
+        当前不实现 CI 自动判定与自动降级逻辑（YAGNI）
     #>
     [CmdletBinding()]
     param (
@@ -307,19 +511,31 @@ function Initialize-Environment {
     )
 
     Write-Verbose "开始初始化 PowerShell 环境配置"
+    Write-Verbose ("Profile 模式提示: {0}" -f $script:ProfileMode)
+
+    if ($script:UseUltraMinimalProfile) {
+        Write-Verbose "UltraMinimal 模式：仅执行最小初始化路径"
+
+        # 极简模式仅保留三项：根目录变量、UTF8 编码、基础兼容变量（顶部已处理）
+        $Global:Env:POWERSHELL_SCRIPTS_ROOT = Split-Path -Parent $PSScriptRoot
+        Set-ProfileUtf8Encoding
+
+        Write-ProfileModeDecisionSummary
+        Write-ProfileModeFallbackGuide -VerboseOnly
+        Write-Debug "PowerShell 环境初始化完成（UltraMinimal）"
+        return
+    }
 
     if ($script:UseMinimalProfile) {
         $SkipTools = $true
-        $SkipProxy = $true
-        $SkipStarship = $true
-        $SkipZoxide = $true
         $SkipAliases = $true
-        Write-Verbose "检测到自动化/精简场景，自动启用轻量初始化（跳过代理/工具/别名）"
+        Write-Verbose "检测到 Minimal 模式，自动跳过工具初始化与别名注册"
     }
 
     if ($Minimal -or (Test-Path -Path (Join-Path $PSScriptRoot 'minimal')) -or (Test-EnvSwitchEnabled -Name 'POWERSHELL_PROFILE_MINIMAL')) {
         $SkipTools = $true
         $SkipAliases = $true
+        Write-Verbose "命中 Minimal 开关，跳过工具初始化与别名注册"
     }
 
     # 设置项目根目录环境变量
@@ -361,14 +577,7 @@ function Initialize-Environment {
     }
 
     # 设置控制台编码为 UTF8
-    Write-Verbose "设置控制台编码为UTF8"
-    $utf8 = [System.Text.UTF8Encoding]::new($false)
-    $Global:OutputEncoding = [console]::InputEncoding = [console]::OutputEncoding = $utf8
-    $Global:PSDefaultParameterValues["Out-File:Encoding"] = "UTF8"
-    if (Get-Command -Name Set-PSReadLineKeyHandler -ErrorAction SilentlyContinue) {
-        Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
-        Register-FzfHistorySmartKeyBinding | Out-Null
-    }
+    Set-ProfileUtf8Encoding
 
     # === 工具初始化 ===
     Write-Verbose "初始化开发工具"
@@ -452,6 +661,8 @@ function Initialize-Environment {
         function Global:z { & (Invoke-WithFileCache -Key "zoxide-init-powershell" -MaxAge ([TimeSpan]::FromDays(7)) -Generator { zoxide init powershell } -BaseDir (Join-Path $PSScriptRoot '.cache')); Remove-Item function:Global:z -Force; & z @args }
     }
 
+    Write-ProfileModeDecisionSummary
+    Write-ProfileModeFallbackGuide -VerboseOnly
     Write-Debug "PowerShell 环境初始化完成"
 }
 
