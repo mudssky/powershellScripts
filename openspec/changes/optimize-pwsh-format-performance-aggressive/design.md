@@ -65,3 +65,19 @@
 
 - CI 默认是否立即切到严格模式，还是先保持现状并新增独立命令？
 - `PSUseCorrectCasing` 是否需要仅在严格模式启用，还是拆到独立校验脚本？
+
+## Performance Baseline / After
+
+测试日期：2026-02-11
+
+测试口径：
+- 空改动：`pnpm format:pwsh`（无 PowerShell 改动）
+- 少量改动：对 `config/software/gitea/__sync.ps1` 注入一个换行后执行 `pnpm format:pwsh`
+- 重文件场景：复制 `psutils/modules/help.psm1` 到临时文件并执行
+  `pwsh -NoProfile -File ./scripts/pwsh/devops/Format-PowerShellCode.ps1 -Path <temp-file>`
+
+| 场景 | 变更前 | 变更后 | 提升 |
+| --- | ---: | ---: | ---: |
+| 空改动 | 8.631s | 1.827s | 78.8% |
+| 少量改动 | 8.580s | 1.652s | 80.7% |
+| 重文件 | 42.379s | 0.854s | 98.0% |

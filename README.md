@@ -341,7 +341,13 @@ pnpm format:pwsh
 
 # 全量格式化
 pnpm format:pwsh:all
+
+# 严格模式（完整规则，含大小写修正）
+pnpm format:pwsh:strict
 ```
+
+默认 `format:pwsh` 使用激进性能模式（排除高耗时 `PSUseCorrectCasing`）以提升本地反馈速度；
+当需要与历史完整规则一致（例如发布前或兼容性敏感场景）时，请使用 `format:pwsh:strict`。
 
 ### 版本控制
 

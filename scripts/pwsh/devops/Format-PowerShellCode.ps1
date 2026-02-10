@@ -23,6 +23,9 @@
 .PARAMETER GitChanged
     仅格式化 Git 工作区中有改动的 PowerShell 文件（含已暂存与未暂存）。
 
+.PARAMETER Strict
+    启用严格模式，使用 Invoke-Formatter 默认完整规则集（包含大小写修正）。
+
 .EXAMPLE
     .\Format-PowerShellCode.ps1 script.ps1
     格式化单个文件
@@ -46,6 +49,10 @@
 .EXAMPLE
     .\Format-PowerShellCode.ps1 -GitChanged
     仅格式化 Git 改动文件
+
+.EXAMPLE
+    .\Format-PowerShellCode.ps1 -GitChanged -Strict
+    严格模式下仅格式化 Git 改动文件
 
 .OUTPUTS
     System.String
@@ -72,19 +79,58 @@ param(
     [switch]$ShowOnly,
 
     [Parameter(HelpMessage = "仅格式化 Git 改动文件")]
-    [switch]$GitChanged
+    [switch]$GitChanged,
+
+    [Parameter(HelpMessage = "严格模式：使用 Invoke-Formatter 默认完整规则")]
+    [switch]$Strict
 )
 
-# 检查 PSScriptAnalyzer 模块是否已安装
-function Test-ModuleInstalled {
+# 默认激进规则：保留核心排版规则，排除高耗时大小写修正规则
+function Get-AggressiveFormatterSettings {
+    [CmdletBinding()]
+    param()
+
+    return @{
+        IncludeRules = @(
+            'PSPlaceOpenBrace',
+            'PSPlaceCloseBrace',
+            'PSUseConsistentWhitespace',
+            'PSUseConsistentIndentation',
+            'PSUseConsistentLineEndings',
+            'PSAlignAssignmentStatement'
+        )
+    }
+}
+
+function Get-FormatterSettingsSource {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory = $true)]
-        [string]$ModuleName
+        [string]$SettingsPath,
+        [switch]$UseStrictMode
     )
-    
-    $module = Get-Module -ListAvailable -Name $ModuleName
-    return ($null -ne $module)
+
+    if (-not [string]::IsNullOrWhiteSpace($SettingsPath)) {
+        if (-not (Test-Path -Path $SettingsPath -PathType Leaf)) {
+            throw "指定的 Settings 文件不存在: $SettingsPath"
+        }
+
+        return @{
+            Kind = 'Path'
+            Value = $SettingsPath
+        }
+    }
+
+    if ($UseStrictMode) {
+        return @{
+            Kind = 'Default'
+            Value = $null
+        }
+    }
+
+    return @{
+        Kind = 'Hashtable'
+        Value = Get-AggressiveFormatterSettings
+    }
 }
 
 # 安装必需的模块
@@ -107,37 +153,76 @@ function Install-RequiredModule {
     return $true
 }
 
+# 确保所需模块可用（直接导入，失败后再安装）
+function Ensure-PSScriptAnalyzerModule {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ModuleName
+    )
+
+    try {
+        Import-Module -Name $ModuleName -Force -ErrorAction Stop
+        return $true
+    }
+    catch {
+        Write-Host "$ModuleName 模块未安装或无法导入，正在安装..." -ForegroundColor Yellow
+    }
+
+    if (-not (Install-RequiredModule -ModuleName $ModuleName)) {
+        return $false
+    }
+
+    try {
+        Import-Module -Name $ModuleName -Force -ErrorAction Stop
+        return $true
+    }
+    catch {
+        Write-Error "导入 $ModuleName 模块失败: $($_.Exception.Message)"
+        return $false
+    }
+}
+
 # 格式化单个文件
 function Format-SingleFile {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
         [string]$FilePath,
-        
-        [string]$SettingsPath
+
+        [Parameter(Mandatory = $true)]
+        [hashtable]$FormatterSettingsSource
     )
     
     try {
         Write-Verbose "正在格式化文件: $FilePath"
         
         # 读取文件内容
-        $content = Get-Content -Path $FilePath -Raw -Encoding UTF8
+        $content = [System.IO.File]::ReadAllText($FilePath, [System.Text.Encoding]::UTF8)
         
         # 准备 Invoke-Formatter 参数
         $formatterParams = @{
             ScriptDefinition = $content
         }
         
-        # 如果指定了设置文件，添加到参数中
-        if (-not [string]::IsNullOrWhiteSpace($SettingsPath) -and (Test-Path $SettingsPath)) {
-            $formatterParams.Settings = $SettingsPath
+        # 根据模式注入 formatter settings
+        if ($FormatterSettingsSource.Kind -eq 'Path') {
+            $formatterParams.Settings = $FormatterSettingsSource.Value
+        }
+        elseif ($FormatterSettingsSource.Kind -eq 'Hashtable') {
+            $formatterParams.Settings = $FormatterSettingsSource.Value
         }
         
         # 执行格式化
         $formattedContent = Invoke-Formatter @formatterParams
+
+        if ($content -ceq $formattedContent) {
+            Write-Verbose "文件内容未变化，跳过写回: $FilePath"
+            return $true
+        }
         
         # 将格式化后的内容写回文件
-        Set-Content -Path $FilePath -Value $formattedContent -Encoding UTF8 -NoNewline
+        [System.IO.File]::WriteAllText($FilePath, $formattedContent, [System.Text.Encoding]::UTF8)
         
         Write-Host "✓ 已格式化: $FilePath" -ForegroundColor Green
         return $true
@@ -158,27 +243,31 @@ function Get-PowerShellFiles {
         [bool]$Recurse
     )
     
-    $extensions = @('*.ps1', '*.psm1', '*.psd1')
-    $files = @()
+    $extensions = @('.ps1', '.psm1', '.psd1')
+    $files = [System.Collections.Generic.List[string]]::new()
     
     if (Test-Path -Path $Path -PathType Leaf) {
         # 单个文件
         $fileInfo = Get-Item -Path $Path
         if ($fileInfo.Extension -in @('.ps1', '.psm1', '.psd1')) {
-            $files += $fileInfo.FullName
+            $null = $files.Add($fileInfo.FullName)
         }
         else {
             Write-Warning "文件 $Path 不是支持的 PowerShell 文件类型"
         }
     }
     elseif (Test-Path -Path $Path -PathType Container) {
-        # 目录
-        foreach ($extension in $extensions) {
-            if ($Recurse) {
-                $files += Get-ChildItem -Path $Path -Filter $extension -Recurse -File | Select-Object -ExpandProperty FullName
-            }
-            else {
-                $files += Get-ChildItem -Path $Path -Filter $extension -File | Select-Object -ExpandProperty FullName
+        # 目录：单次遍历后按扩展名筛选
+        if ($Recurse) {
+            $items = Get-ChildItem -Path $Path -Recurse -File
+        }
+        else {
+            $items = Get-ChildItem -Path $Path -File
+        }
+
+        foreach ($item in $items) {
+            if ($item.Extension -in $extensions) {
+                $null = $files.Add($item.FullName)
             }
         }
     }
@@ -187,7 +276,7 @@ function Get-PowerShellFiles {
         return @()
     }
     
-    return $files
+    return @($files)
 }
 
 # 获取 Git 改动的 PowerShell 文件
@@ -208,9 +297,11 @@ function Get-GitChangedPowerShellFiles {
         return @()
     }
 
+    $powerShellPathspec = @('*.ps1', '*.psm1', '*.psd1')
+
     $changed = @()
-    $changed += git diff --name-only --diff-filter=ACMRT
-    $changed += git diff --name-only --diff-filter=ACMRT --cached
+    $changed += git -C $gitRoot diff --name-only --diff-filter=ACMRT -- @powerShellPathspec
+    $changed += git -C $gitRoot diff --name-only --diff-filter=ACMRT --cached -- @powerShellPathspec
 
     $changed = $changed | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique
     if ($changed.Count -eq 0) {
@@ -218,35 +309,17 @@ function Get-GitChangedPowerShellFiles {
     }
 
     $fullPaths = foreach ($rel in $changed) {
-        Join-Path $gitRoot $rel
+        $candidate = Join-Path $gitRoot $rel
+        if (Test-Path -Path $candidate -PathType Leaf) {
+            $candidate
+        }
     }
 
-    $fullPaths | Where-Object {
-        $ext = [System.IO.Path]::GetExtension($_)
-        $ext -in @('.ps1', '.psm1', '.psd1')
-    }
+    @($fullPaths)
 }
 
 # 主函数
 function Main {
-    # 检查并安装 PSScriptAnalyzer 模块
-    if (-not (Test-ModuleInstalled -ModuleName 'PSScriptAnalyzer')) {
-        Write-Host "PSScriptAnalyzer 模块未安装，正在安装..." -ForegroundColor Yellow
-        if (-not (Install-RequiredModule -ModuleName 'PSScriptAnalyzer')) {
-            Write-Error "无法安装 PSScriptAnalyzer 模块，脚本退出"
-            return
-        }
-    }
-    
-    # 导入模块
-    try {
-        Import-Module PSScriptAnalyzer -Force
-    }
-    catch {
-        Write-Error "导入 PSScriptAnalyzer 模块失败: $($_.Exception.Message)"
-        return
-    }
-    
     $allFilesToFormat = @()
 
     if ($GitChanged) {
@@ -292,14 +365,33 @@ function Main {
 
     if ($allFilesToFormat.Count -eq 0) {
         if ($GitChanged) {
-            Write-Warning "未找到 Git 改动的 PowerShell 文件"
+            Write-Host "未找到 Git 改动的 PowerShell 文件，已快速退出" -ForegroundColor DarkYellow
         }
         else {
             Write-Warning "在指定路径中未找到 PowerShell 文件"
         }
         return
     }
-    
+
+    # 解析 formatter settings 源：优先外部设置文件，其次 strict，再次默认 aggressive
+    try {
+        $formatterSettingsSource = Get-FormatterSettingsSource -SettingsPath $Settings -UseStrictMode:$Strict
+    }
+    catch {
+        Write-Error $_
+        return
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($Settings)) {
+        Write-Host "使用外部 formatter settings: $Settings" -ForegroundColor DarkCyan
+    }
+    elseif ($Strict) {
+        Write-Host "严格模式：使用 Invoke-Formatter 完整默认规则" -ForegroundColor DarkCyan
+    }
+    else {
+        Write-Host "默认模式：使用激进性能规则（不含 PSUseCorrectCasing）" -ForegroundColor DarkCyan
+    }
+
     Write-Host "找到 $($allFilesToFormat.Count) 个 PowerShell 文件" -ForegroundColor Cyan
     
     # ShowOnly 模式：只显示文件列表
@@ -310,6 +402,11 @@ function Main {
         }
         return
     }
+
+    if (-not (Ensure-PSScriptAnalyzerModule -ModuleName 'PSScriptAnalyzer')) {
+        Write-Error "无法使用 PSScriptAnalyzer 模块，脚本退出"
+        return
+    }
     
     # 执行格式化
     $successCount = 0
@@ -317,7 +414,7 @@ function Main {
     
     foreach ($file in $allFilesToFormat) {
         if ($PSCmdlet.ShouldProcess($file, "格式化 PowerShell 文件")) {
-            if (Format-SingleFile -FilePath $file -SettingsPath $Settings) {
+            if (Format-SingleFile -FilePath $file -FormatterSettingsSource $formatterSettingsSource) {
                 $successCount++
             }
             else {

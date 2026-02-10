@@ -6,8 +6,9 @@
   "type": "module",
   "scripts": {
     "prepare": "husky",
-    "format:pwsh": "pwsh -File ./scripts/pwsh/devops/Format-PowerShellCode.ps1 -GitChanged",
-    "format:pwsh:all": "pwsh -File ./scripts/pwsh/devops/Format-PowerShellCode.ps1 -Path . -Recurse",
+    "format:pwsh": "pwsh -NoProfile -File ./scripts/pwsh/devops/Format-PowerShellCode.ps1 -GitChanged",
+    "format:pwsh:all": "pwsh -NoProfile -File ./scripts/pwsh/devops/Format-PowerShellCode.ps1 -Path . -Recurse",
+    "format:pwsh:strict": "pwsh -NoProfile -File ./scripts/pwsh/devops/Format-PowerShellCode.ps1 -GitChanged -Strict",
     "format:biome": "biome format --write .",
     "format:python": "uvx ruff format .",
     "lint:python": "uvx ruff check --fix .",
