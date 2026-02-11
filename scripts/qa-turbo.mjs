@@ -42,6 +42,44 @@ if (!verbose) {
 }
 
 const supportedModes = new Set(['changed', 'all'])
+const turboQaTaskChain = ['typecheck:fast', 'check', 'test:fast']
+
+function buildTurboEnv({ sinceRef, affected = false } = {}) {
+  const env = {
+    ...process.env,
+    TURBO_SCM_HEAD: process.env.TURBO_SCM_HEAD ?? 'HEAD',
+  }
+
+  if (sinceRef) {
+    env.TURBO_SCM_BASE = sinceRef
+  }
+
+  const enabled = (process.env.TURBO_REMOTE_CACHE ?? '').toLowerCase()
+  const enableRemoteCache =
+    enabled === '1' || enabled === 'true' || enabled === 'yes'
+
+  if (enableRemoteCache) {
+    if (!env.TURBO_TOKEN || !env.TURBO_TEAM) {
+      throw new CommandFailedError(
+        'workspace-turbo-remote-cache-missing-config',
+        'turbo',
+        affected
+          ? ['run', ...turboQaTaskChain, '--affected']
+          : ['run', ...turboQaTaskChain],
+        1,
+        new Error('TURBO_REMOTE_CACHE requires TURBO_TOKEN and TURBO_TEAM'),
+      )
+    }
+
+    if (!env.TURBO_REMOTE_ONLY) {
+      env.TURBO_REMOTE_ONLY = process.env.CI ? 'true' : 'false'
+    }
+
+    console.log('[turbo:qa] remote cache enabled via TURBO_REMOTE_CACHE')
+  }
+
+  return env
+}
 
 if (!supportedModes.has(mode)) {
   console.error(`[turbo:qa] unsupported mode: ${mode}`)
@@ -205,22 +243,28 @@ function runWorkspaceQa(modeValue, sinceRef) {
   }
 
   if (modeValue === 'all') {
-    console.log('[turbo:qa] run workspace qa via turbo (all)')
+    const env = buildTurboEnv({ affected: false })
+
+    console.log('[turbo:qa] run workspace qa task chain via turbo (all)')
     runCommand('workspace-turbo-qa-all', turboRunner.command, [
       ...turboRunner.args,
       'run',
-      'qa',
-    ])
+      ...turboQaTaskChain,
+    ], { env })
     return
   }
 
   if (!sinceRef) {
-    console.log('[turbo:qa] no base ref found, fallback to workspace qa (all)')
+    const env = buildTurboEnv({ affected: false })
+
+    console.log(
+      '[turbo:qa] no base ref found, fallback to workspace qa task chain (all)',
+    )
     runCommand('workspace-turbo-qa-fallback-all', turboRunner.command, [
       ...turboRunner.args,
       'run',
-      'qa',
-    ])
+      ...turboQaTaskChain,
+    ], { env })
     return
   }
 
@@ -231,17 +275,15 @@ function runWorkspaceQa(modeValue, sinceRef) {
     return
   }
 
-  const env = {
-    ...process.env,
-    TURBO_SCM_BASE: sinceRef,
-    TURBO_SCM_HEAD: process.env.TURBO_SCM_HEAD ?? 'HEAD',
-  }
+  const env = buildTurboEnv({ sinceRef, affected: true })
 
-  console.log(`[turbo:qa] run workspace qa via turbo (affected, base=${sinceRef})`)
+  console.log(
+    `[turbo:qa] run workspace qa task chain via turbo (affected, base=${sinceRef})`,
+  )
   runCommand(
     'workspace-turbo-qa-changed',
     turboRunner.command,
-    [...turboRunner.args, 'run', 'qa', '--affected'],
+    [...turboRunner.args, 'run', ...turboQaTaskChain, '--affected'],
     { env },
   )
 }
@@ -298,6 +340,12 @@ try {
 
     if (error.step === 'workspace-turbo-not-found') {
       console.error('[turbo:qa:error] tip=run `pnpm add -D turbo -w` first')
+    }
+
+    if (error.step === 'workspace-turbo-remote-cache-missing-config') {
+      console.error(
+        '[turbo:qa:error] tip=set TURBO_TOKEN and TURBO_TEAM when TURBO_REMOTE_CACHE=1',
+      )
     }
 
     console.error(`[turbo:qa:error] exitCode=${error.exitCode}`)
