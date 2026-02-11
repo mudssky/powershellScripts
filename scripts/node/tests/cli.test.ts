@@ -1,31 +1,88 @@
+import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import { createRequire } from 'node:module'
+import os from 'node:os'
 import path from 'node:path'
-import { execa, type Options } from 'execa'
 import { describe, expect, it } from 'vitest'
 
 const require = createRequire(import.meta.url)
+
+type RunOptions = {
+  cwd?: string
+  env?: NodeJS.ProcessEnv
+}
+
+const runCommand = (
+  command: string,
+  args: string[],
+  options: RunOptions = {},
+) => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'node-script-cli-'))
+  const stdoutPath = path.join(tempDir, 'stdout.log')
+  const stderrPath = path.join(tempDir, 'stderr.log')
+  const stdoutFd = fs.openSync(stdoutPath, 'w')
+  const stderrFd = fs.openSync(stderrPath, 'w')
+
+  try {
+    const result = spawnSync(command, args, {
+      cwd: options.cwd,
+      env: {
+        ...process.env,
+        ...options.env,
+      },
+      stdio: ['ignore', stdoutFd, stderrFd],
+    })
+
+    const stdout = fs.readFileSync(stdoutPath, 'utf8')
+    const stderr = fs.readFileSync(stderrPath, 'utf8')
+    const exitCode = result.status ?? 1
+
+    if (exitCode !== 0) {
+      const details = [stderr.trim(), stdout.trim()].filter(Boolean).join('\n')
+      throw new Error(
+        `Command failed with exit code ${exitCode}: ${command} ${args.join(' ')}${details ? `\n${details}` : ''}`,
+      )
+    }
+
+    return {
+      stdout,
+      stderr,
+    }
+  } finally {
+    fs.closeSync(stdoutFd)
+    fs.closeSync(stderrFd)
+    fs.rmSync(tempDir, { recursive: true, force: true })
+  }
+}
 
 // Helper to run the script (preferring source, falling back to built bin)
 const runScript = async (
   scriptName: string,
   args: string[] = [],
-  options: Options = {},
+  options: RunOptions = {},
 ) => {
   // 1. Try running from source first (faster feedback, no build needed)
   const sourcePath = path.resolve(__dirname, `../src/${scriptName}/index.ts`)
 
   if (fs.existsSync(sourcePath)) {
     try {
-      // Try to resolve tsx using node module resolution (handles hoisting, etc.)
-      const tsxPath = require.resolve('tsx/cli')
-      return execa(process.execPath, [tsxPath, sourcePath, ...args], options)
+      const tsxLoaderPath = require.resolve('tsx')
+      return runCommand(
+        process.execPath,
+        ['--import', tsxLoaderPath, sourcePath, ...args],
+        options,
+      )
     } catch {
-      // Fallback to searching in PATH if resolution fails
-      return execa('tsx', [sourcePath, ...args], {
-        preferLocal: true,
-        ...options,
-      })
+      try {
+        const tsxPath = require.resolve('tsx/cli')
+        return runCommand(
+          process.execPath,
+          [tsxPath, sourcePath, ...args],
+          options,
+        )
+      } catch {
+        return runCommand('tsx', [sourcePath, ...args], options)
+      }
     }
   }
 
@@ -41,7 +98,7 @@ const runScript = async (
     throw new Error(`Script not found at ${binPath}. Did you run 'pnpm build'?`)
   }
 
-  return execa(binPath, args, options)
+  return runCommand(binPath, args, options)
 }
 
 describe('CLI Integration Tests', () => {
