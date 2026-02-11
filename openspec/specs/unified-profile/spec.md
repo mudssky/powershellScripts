@@ -58,24 +58,34 @@
 
 ### Requirement: 统一工具初始化
 
-`Initialize-Environment` 函数 SHALL 维护统一的工具初始化表，并依据当前模式控制初始化范围。每个工具的初始化逻辑 SHALL 内部判断平台适用性。
+`Initialize-Environment` 函数 SHALL 维护统一的工具初始化表，并依据当前模式控制初始化范围。每个工具的初始化逻辑 SHALL 内部判断平台适用性。工具检测 SHALL 使用批量 `Get-Command` 查询替代逐个调用 `Test-EXEProgram`，以减少 PATH 扫描次数。
 
 #### Scenario: Full 模式初始化完整工具链
 
 - **WHEN** 当前模式为 Full 且工具已安装
 - **THEN** SHALL 执行 starship、zoxide、fnm、sccache 等初始化逻辑，并按平台规则完成配置
 
+#### Scenario: 批量工具检测
+
+- **WHEN** 进入工具初始化阶段
+- **THEN** SHALL 使用单次 `Get-Command -Name @(...) -CommandType Application` 批量检测所有工具的可用性，而非对每个工具独立调用 `Test-EXEProgram`
+
 #### Scenario: 通用工具初始化
 
 - **WHEN** starship 或 zoxide 已安装
 - **THEN** SHALL 在所有平台上初始化该工具，使用 `Invoke-WithFileCache` 缓存初始化脚本
+
+#### Scenario: starship 缓存完整初始化脚本
+
+- **WHEN** 使用 `Invoke-WithFileCache` 缓存 starship 初始化脚本
+- **THEN** Generator SHALL 使用 `& starship init powershell --print-full-init` 以缓存完整的初始化脚本（约 200 行），而非缓存引导代码
 
 #### Scenario: 平台特定工具初始化
 
 - **WHEN** 在 Windows 平台且 sccache 已安装
 - **THEN** SHALL 设置 `$env:RUSTC_WRAPPER = 'sccache'`
 - **WHEN** 在 Unix 平台且 fnm 已安装
-- **THEN** SHALL 执行 `fnm env --use-on-cd | Out-String | Invoke-Expression`
+- **THEN** SHALL 使用临时文件 dot-source 方式执行 `fnm env --use-on-cd` 初始化（fnm env 输出包含会话特定 multishell 临时路径，不适合长期缓存）
 
 #### Scenario: Minimal 模式跳过交互增强
 
@@ -89,12 +99,17 @@
 
 ### Requirement: 模块化入口编排
 
-`profile.ps1` 在完成拆分后 SHALL 继续作为统一入口，并以可维护的模块化方式组织内部实现。
+`profile.ps1` 在完成拆分后 SHALL 继续作为统一入口，并以可维护的模块化方式组织内部实现。core-loaders 阶段 SHALL 使用分层延迟加载策略加载 psutils 模块。
 
 #### Scenario: 入口路径保持不变
 
 - **WHEN** 用户执行 `./profile/profile.ps1`
 - **THEN** 系统 SHALL 通过统一入口完成初始化，且不要求用户修改现有调用方式
+
+#### Scenario: wrapper.ps1 延迟加载
+
+- **WHEN** profile 进入 core-loaders 阶段
+- **THEN** `wrapper.ps1` 的 dot-source SHALL 被纳入 OnIdle 延迟加载，不在同步阶段执行
 
 ### Requirement: 模块加载顺序可控
 
@@ -122,7 +137,7 @@
 #### Scenario: Minimal 模式手动触发保持
 
 - **WHEN** 设置 `POWERSHELL_PROFILE_MODE=minimal`
-- **THEN** 系统 SHALL 进入 Minimal 模式并保持“跳过工具与别名”的语义
+- **THEN** 系统 SHALL 进入 Minimal 模式并保持"跳过工具与别名"的语义
 
 #### Scenario: UltraMinimal 自动降级保持
 
@@ -140,7 +155,7 @@
 
 ### Requirement: 模式解析优先级与自动降级
 
-`profile/profile.ps1` SHALL 按固定优先级解析运行模式，优先级为 `POWERSHELL_PROFILE_FULL` > `POWERSHELL_PROFILE_MODE` > `POWERSHELL_PROFILE_ULTRA_MINIMAL` > 自动判定 > 默认值。
+`profile/profile.ps1` SHALL 按固定优先级解析运行模式，优先级为 `POWERSHELL_PROFILE_FULL` > `POWERSHELL_PROFILE_MODE` > `POWERSHELL_PROFILE_ULTRA_MINIMAL` > 自动判定 > 默认值。环境变量检测 SHALL 使用 `[System.Environment]::GetEnvironmentVariable()` .NET 原生 API 而非 `Get-Item -Path "Env:..."` PowerShell Provider。
 
 #### Scenario: Full 开关最高优先级
 
@@ -166,6 +181,11 @@
 
 - **WHEN** 未命中任何显式配置与自动降级条件
 - **THEN** 系统 SHALL 使用 Full 模式
+
+#### Scenario: 环境变量检测性能
+
+- **WHEN** `Get-ProfileModeDecision` 执行环境变量检测
+- **THEN** SHALL 使用 `[System.Environment]::GetEnvironmentVariable()` 而非 `Get-Item -Path "Env:..."`，单次检测耗时 SHALL 低于 1ms
 
 ### Requirement: 模式诊断摘要输出
 
@@ -211,3 +231,65 @@
 #### Scenario: 根目录不再承载别名配置文件
 - **WHEN** 用户查看 `profile/` 根目录结构
 - **THEN** 系统 SHALL 不再要求 `user_aliases.ps1` 位于根目录才能完成加载
+
+### Requirement: 代理探测性能优化
+
+`Set-Proxy -Command auto` 的 TCP 探测 SHALL 使用缩短的超时时间，并缓存代理可用性状态以避免每次 profile 加载都做网络探测。
+
+#### Scenario: TCP 超时缩短
+
+- **WHEN** 执行 `Set-Proxy -Command auto`
+- **THEN** TCP 连接超时 SHALL 不超过 50ms
+
+#### Scenario: 代理状态缓存
+
+- **WHEN** Profile 加载且代理状态缓存有效（5 分钟内）
+- **THEN** SHALL 直接使用缓存的代理状态，不执行 TCP 探测
+
+#### Scenario: 缓存过期重新探测
+
+- **WHEN** Profile 加载且代理状态缓存已过期或不存在
+- **THEN** SHALL 执行 TCP 探测并更新缓存
+
+#### Scenario: 手动操作绕过缓存
+
+- **WHEN** 用户显式调用 `Set-Proxy on` 或 `Set-Proxy off`
+- **THEN** SHALL 直接执行操作并更新缓存状态
+
+### Requirement: 编码初始化优化
+
+`Set-ProfileUtf8Encoding` SHALL 直接调用 PSReadLine API 而不做 `Get-Command` 可用性检查（PowerShell 7+ 基线保证 PSReadLine 内置），仅对非内置模块（如 PSFzf）的函数用限定类型的 `Get-Command` 检查。
+
+#### Scenario: PSReadLine 直接调用
+
+- **WHEN** 执行 `Set-ProfileUtf8Encoding`
+- **THEN** SHALL 直接调用 `Set-PSReadLineKeyHandler` 而不先用 `Get-Command` 检查其是否存在
+
+#### Scenario: fzf 键绑定延迟到 OnIdle
+
+- **WHEN** profile 启动并执行 `Set-ProfileUtf8Encoding`
+- **THEN** SHALL NOT 调用 `Get-Command -Name Register-FzfHistorySmartKeyBinding`（该函数属于 `functions.psm1`，非核心模块）
+- **THEN** fzf 键绑定注册 SHALL 在 OnIdle 事件中执行（psutils 全量加载完成后）
+
+### Requirement: Tab 补全模式
+
+`Set-ProfileUtf8Encoding` SHALL 将 Tab 键绑定为 `Complete` 模式（补全最长公共前缀，多次 Tab 循环候选），不使用 `MenuComplete` 模式（一次性枚举所有候选）。
+
+#### Scenario: Tab 键使用 Complete 模式
+
+- **WHEN** Profile 加载完成后用户按下 Tab 键
+- **THEN** SHALL 使用 `Complete` 函数进行补全，仅补全到最长公共前缀
+
+### Requirement: PSModulePath 精简
+
+`profile/core/loadModule.ps1` SHALL 仅对 `PSModulePath` 执行去重操作，不向其中追加项目父目录等额外路径（psutils 兜底路径除外），以减少命令发现阶段的目录扫描开销。
+
+#### Scenario: 不添加额外模块路径
+
+- **WHEN** Profile 加载模块
+- **THEN** SHALL 不将项目父目录追加到 `PSModulePath`（psutils 模块目录的兜底追加除外）
+
+#### Scenario: 保留去重逻辑
+
+- **WHEN** `PSModulePath` 中存在重复路径
+- **THEN** SHALL 去除重复条目
