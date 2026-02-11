@@ -1,0 +1,14 @@
+# Dockerfile.pester
+# Linux container for local cross-platform Pester testing
+# Provides pwsh + Pester in an Ubuntu-based image to let developers on
+# Windows and macOS run equivalent Linux checks without WSL dependency.
+
+FROM mcr.microsoft.com/powershell:lts-ubuntu-22.04
+
+# Install Pester module (matches CI behavior)
+RUN pwsh -NoProfile -Command " \
+    Set-PSRepository -Name PSGallery -InstallationPolicy Trusted; \
+    Install-Module -Name Pester -Scope AllUsers -Force -SkipPublisherCheck -AllowClobber; \
+    "
+
+WORKDIR /workspace

@@ -1,0 +1,55 @@
+# docker-compose.pester.yml
+# Linux-local Pester test orchestration
+# Usage:
+#   docker compose -f docker-compose.pester.yml run --rm pester-fast
+#   docker compose -f docker-compose.pester.yml run --rm pester-full
+
+services:
+  pester-fast:
+    build:
+      context: .
+      dockerfile: Dockerfile.pester
+    volumes:
+      - .:/workspace
+      - pester-results:/workspace-output
+    tmpfs:
+      - /tmp
+    working_dir: /workspace
+    environment:
+      - PWSH_TEST_MODE=fast
+      - CI=false
+    command: >
+      pwsh -NoProfile -Command "
+        $$outDir = '/workspace-output';
+        if (-not (Test-Path $$outDir)) { New-Item -ItemType Directory -Path $$outDir -Force | Out-Null };
+        $$config = ./PesterConfiguration.ps1;
+        $$config.TestResult.OutputPath = Join-Path $$outDir 'testResults-linux.xml';
+        $$config.Run.Exit = $$true;
+        Invoke-Pester -Configuration $$config
+      "
+
+  pester-full:
+    build:
+      context: .
+      dockerfile: Dockerfile.pester
+    volumes:
+      - .:/workspace
+      - pester-results:/workspace-output
+    tmpfs:
+      - /tmp
+    working_dir: /workspace
+    environment:
+      - PWSH_TEST_MODE=full
+      - CI=false
+    command: >
+      pwsh -NoProfile -Command "
+        $$outDir = '/workspace-output';
+        if (-not (Test-Path $$outDir)) { New-Item -ItemType Directory -Path $$outDir -Force | Out-Null };
+        $$config = ./PesterConfiguration.ps1;
+        $$config.TestResult.OutputPath = Join-Path $$outDir 'testResults-linux.xml';
+        $$config.Run.Exit = $$true;
+        Invoke-Pester -Configuration $$config
+      "
+
+volumes:
+  pester-results:

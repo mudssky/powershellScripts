@@ -89,7 +89,8 @@ $config = @{
     }
     TestResult   = @{
         Enabled       = $true
-        OutputPath    = "testResults.xml"
+        # 支持环境变量覆盖输出路径，用于并发 host/container 运行时避免冲突
+        OutputPath    = if (-not [string]::IsNullOrWhiteSpace($env:PESTER_RESULT_PATH)) { $env:PESTER_RESULT_PATH } else { "testResults.xml" }
         OutputFormat  = 'NUnit3'
         TestSuiteName = "PsUtils.Tests"  ## 可选：给你的测试套件起个名字
     }
