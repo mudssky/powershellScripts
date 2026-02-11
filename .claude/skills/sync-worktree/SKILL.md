@@ -4,7 +4,7 @@ description: 在多个 git worktree 分支之间同步代码（rebase / merge）
 license: MIT
 metadata:
   author: mudssky
-  version: "1.1"
+  version: "1.2"
 ---
 
 在多个 git worktree 分支之间通过 rebase 同步代码，或将 feature 分支 merge 回主分支。
@@ -266,6 +266,21 @@ git -C <worktree-path> rev-parse --abbrev-ref --symbolic-full-name @{upstream} 2
 
 如果该分支有远程跟踪分支，提醒：
 > ⚠ 该分支有远程跟踪分支，rebase 后需要 `git push --force-with-lease` 来更新远程。
+
+### 5.1 询问是否合并回基准分支
+
+展示成功报告后，使用 **AskUserQuestion** 询问用户是否要将该分支合并回基准分支：
+
+| 选项 | 说明 |
+|------|------|
+| 合并回 `<base>` | 继续将 `<branch>` merge 到基准分支（跳转 Step 7.5） |
+| 不合并 | 仅完成 rebase，到此结束 |
+
+如果用户选择「合并回 `<base>`」，跳转 Step 7.5（合并预览），继续执行合并流程。此时无需重复 Step 7.1–7.4（验证、工作区检查、更新基准、同步检查），因为刚刚已经完成了这些步骤。
+
+如果用户选择「不合并」，**到此结束。**
+
+**注意**：当 Step 5 是从 Step 7（合并回主分支 → 先同步再合并）调用时，跳过此交互，直接继续 Step 7.5 的合并流程。
 
 ---
 
