@@ -8,10 +8,37 @@ Describe "Get-OperatingSystem 函数测试" {
         $validOS = @("Windows", "Linux", "macOS")
         $result | Should -BeIn $validOS -Because "应该返回已知的操作系统类型"
     }
-    
+
     It "返回值应该是字符串类型" {
         $result = Get-OperatingSystem
         $result | Should -BeOfType [string]
+    }
+
+    It "多次调用应该返回相同结果" {
+        $result1 = Get-OperatingSystem
+        $result2 = Get-OperatingSystem
+        $result1 | Should -Be $result2
+    }
+
+    It "在Linux系统上应该返回Linux" {
+        if ($IsLinux) {
+            $result = Get-OperatingSystem
+            $result | Should -Be "Linux"
+        }
+    }
+
+    It "在macOS系统上应该返回macOS" {
+        if ($IsMacOS) {
+            $result = Get-OperatingSystem
+            $result | Should -Be "macOS"
+        }
+    }
+
+    It "在Windows系统上应该返回Windows" {
+        if ($IsWindows) {
+            $result = Get-OperatingSystem
+            $result | Should -Be "Windows"
+        }
     }
 }
 
@@ -20,7 +47,7 @@ Describe "Test-Administrator 函数测试" {
         $result = Test-Administrator
         $result | Should -BeOfType [bool]
     }
-    
+
     It "在Windows系统上应该能正确检测权限" {
         # 模拟Windows环境测试
         if ((Get-OperatingSystem) -eq "Windows") {
@@ -29,18 +56,18 @@ Describe "Test-Administrator 函数测试" {
             # 注意：实际的权限状态取决于运行测试的环境
         }
     }
-    
+
     It "函数应该能处理异常情况" {
         # 测试函数的错误处理能力
         # 这个测试确保函数不会抛出未处理的异常
         { Test-Administrator } | Should -Not -Throw
     }
-    
+
     Context "跨平台兼容性测试" {
         It "在不同操作系统上都应该返回布尔值" {
             $os = Get-OperatingSystem
             $result = Test-Administrator
-            
+
             switch ($os) {
                 "Windows" {
                     $result | Should -BeOfType [bool] -Because "Windows系统应该返回布尔值"
@@ -57,7 +84,7 @@ Describe "Test-Administrator 函数测试" {
             }
         }
     }
-    
+
     Context "权限检测逻辑测试" {
         It "应该能区分管理员和普通用户" {
             # 这个测试验证函数能够返回一致的结果
@@ -66,4 +93,36 @@ Describe "Test-Administrator 函数测试" {
             $result1 | Should -Be $result2 -Because "连续调用应该返回相同结果"
         }
     }
+
+    Context "在Linux上的行为测试" {
+        It "在Linux上非root用户应该返回false" {
+            if ($IsLinux) {
+                $userId = (id -u 2>$null)
+                if ($userId -ne "0") {
+                    $result = Test-Administrator
+                    $result | Should -Be $false -Because "非root用户应该返回false"
+                }
+            }
+        }
+
+        It "Linux上Test-Administrator调用Get-OperatingSystem" {
+            if ($IsLinux) {
+                # 验证函数能正确工作（不直接mock Get-OperatingSystem，只验证行为）
+                $result = Test-Administrator
+                $result | Should -BeOfType [bool]
+            }
+        }
+    }
+
+    Context "Mock测试 - 模拟不同操作系统" {
+        It "当Get-OperatingSystem返回未知系统时应该返回false" {
+            Mock Get-OperatingSystem { return "Unknown OS" } -ModuleName os
+            $result = Test-Administrator
+            $result | Should -Be $false
+        }
+    }
+}
+
+AfterAll {
+    Remove-Module os -Force -ErrorAction SilentlyContinue
 }
