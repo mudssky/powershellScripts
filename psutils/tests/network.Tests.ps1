@@ -6,15 +6,12 @@
     使用Pester框架测试网络工具功能的各种场景
 #>
 
-BeforeAll {
-    # 导入被测试的模块
-    Import-Module "$PSScriptRoot\..\modules\network.psm1" -Force
-    
-    # 预先获取一个被占用的端口，避免在每个测试中重复查询
-    $script:occupiedPort = Get-NetTCPConnection | Where-Object { $_.State -eq "Listen" } | Select-Object -First 1 -ExpandProperty LocalPort
-}
+Describe "Test-PortOccupation 函数测试" -Tag 'Network', 'Slow', 'windowsOnly' {
+    BeforeAll {
+        Import-Module "$PSScriptRoot\..\modules\network.psm1" -Force
+        $script:occupiedPort = Get-NetTCPConnection | Where-Object { $_.State -eq "Listen" } | Select-Object -First 1 -ExpandProperty LocalPort
+    }
 
-Describe "Test-PortOccupation 函数测试" -Tag 'Network', 'Slow' {
     Context "端口占用检测" {
         It "应该能够检测到已占用的端口" {
             if ($script:occupiedPort) {
@@ -22,7 +19,6 @@ Describe "Test-PortOccupation 函数测试" -Tag 'Network', 'Slow' {
                 $result | Should -Be $true
             }
             else {
-                # 如果没有找到被占用的端口，跳过此测试
                 Set-ItResult -Skipped -Because "没有找到被占用的端口进行测试"
             }
         }
@@ -42,7 +38,12 @@ Describe "Test-PortOccupation 函数测试" -Tag 'Network', 'Slow' {
     }
 }
 
-Describe "Get-PortProcess 函数测试" -Tag 'Network', 'Slow' {
+Describe "Get-PortProcess 函数测试" -Tag 'Network', 'Slow', 'windowsOnly' {
+    BeforeAll {
+        Import-Module "$PSScriptRoot\..\modules\network.psm1" -Force
+        $script:occupiedPort = Get-NetTCPConnection | Where-Object { $_.State -eq "Listen" } | Select-Object -First 1 -ExpandProperty LocalPort
+    }
+
     Context "进程信息获取" {
         It "应该能够获取占用端口的进程信息" {
             if ($script:occupiedPort) {
@@ -83,6 +84,10 @@ Describe "Get-PortProcess 函数测试" -Tag 'Network', 'Slow' {
 }
 
 Describe "Wait-ForURL 函数测试" -Tag 'Network', 'Slow' {
+    BeforeAll {
+        Import-Module "$PSScriptRoot\..\modules\network.psm1" -Force
+    }
+
     Context "URL 可达性测试" {
         It "应该返回布尔值类型" {
             # 测试函数返回值类型，使用快速超时和短间隔避免长时间等待
