@@ -4,7 +4,7 @@ description: 在多个 git worktree 分支之间同步代码（rebase / merge）
 license: MIT
 metadata:
   author: mudssky
-  version: "1.0"
+  version: "1.1"
 ---
 
 在多个 git worktree 分支之间通过 rebase 同步代码，或将 feature 分支 merge 回主分支。
@@ -140,16 +140,42 @@ git rev-parse --verify <base>
 
 ### 4.2 检查工作区状态
 
+分别检查 **feature worktree** 和 **基准 worktree** 的工作区状态：
+
 ```bash
 git -C <worktree-path> status --porcelain
+git -C <base-worktree-path> status --porcelain
 ```
 
-如果输出**非空**，**拒绝**同步：
+如果 feature worktree 输出**非空**，**拒绝**同步：
 > ❌ `<branch>` 工作区有未提交改动，请先 commit 或 stash 后重试。
+
+如果基准 worktree 输出**非空**，**拒绝**同步：
+> ❌ 基准分支 `<base>` 工作区有未提交改动，无法更新基准分支。请先 commit 或 stash 后重试。
 
 **不得继续执行。** 不要提供自动 stash 的选项。
 
-### 4.3 检查是否已是最新
+### 4.3 更新基准分支
+
+在执行 rebase 之前，先从远程拉取基准分支的最新代码，确保同步到远程最新状态。
+
+首先检查基准分支是否有远程跟踪分支：
+```bash
+git -C <base-worktree-path> rev-parse --abbrev-ref --symbolic-full-name @{upstream} 2>/dev/null
+```
+
+如果有远程跟踪分支，执行 pull：
+```bash
+git -C <base-worktree-path> pull --rebase
+```
+
+- **如果 pull 成功**：显示 `ℹ 已更新基准分支 <base> 到最新`，继续后续步骤。
+- **如果 pull 失败**（冲突或网络问题）：显示错误信息，**中止同步**：
+  > ❌ 更新基准分支 `<base>` 失败，请手动处理后重试。
+
+如果没有远程跟踪分支，跳过此步骤（使用本地基准分支继续）。
+
+### 4.4 检查是否已是最新
 
 检查基准分支是否有该分支没有的 commit：
 ```bash
@@ -161,7 +187,7 @@ git rev-list --count <branch>..<base>
 
 **到此结束。**
 
-### 4.4 同步预览
+### 4.5 同步预览
 
 展示将要应用的 commit：
 ```bash
@@ -178,7 +204,7 @@ git log --oneline <branch>..<base>
   ...
 ```
 
-### 4.5 执行 Rebase
+### 4.6 执行 Rebase
 
 ```bash
 git -C <worktree-path> rebase <base>
@@ -186,9 +212,9 @@ git -C <worktree-path> rebase <base>
 
 **如果 rebase 成功** → 跳转 Step 5（成功报告）
 
-**如果 rebase 失败（冲突）** → 跳转 Step 4.6（冲突处理）
+**如果 rebase 失败（冲突）** → 跳转 Step 4.7（冲突处理）
 
-### 4.6 冲突处理（单分支模式）
+### 4.7 冲突处理（单分支模式）
 
 当 rebase 产生冲突时：
 
@@ -252,9 +278,31 @@ git -C <worktree-path> rev-parse --abbrev-ref --symbolic-full-name @{upstream} 2
 如果没有 feature worktree：
 > 当前没有可同步的 feature worktree。
 
-### 6.2 逐个处理分支
+### 6.2 更新基准分支
 
-对每个 feature worktree 执行单分支同步流程（Step 4.1–4.5），但有以下区别：
+在逐个处理 feature 分支之前，先更新基准分支（仅执行一次）。
+
+1. 检查基准 worktree 工作区状态：
+   ```bash
+   git -C <base-worktree-path> status --porcelain
+   ```
+   如果有未提交改动，**中止整个批量同步**：
+   > ❌ 基准分支 `<base>` 工作区有未提交改动，无法更新。请先 commit 或 stash 后重试。
+
+2. 检查是否有远程跟踪分支并拉取：
+   ```bash
+   git -C <base-worktree-path> rev-parse --abbrev-ref --symbolic-full-name @{upstream} 2>/dev/null
+   ```
+   如果有，执行：
+   ```bash
+   git -C <base-worktree-path> pull --rebase
+   ```
+   - 成功：显示 `ℹ 已更新基准分支 <base> 到最新`，继续。
+   - 失败：**中止整个批量同步**，提示用户手动处理。
+
+### 6.3 逐个处理分支
+
+对每个 feature worktree 执行单分支同步流程（Step 4.1–4.6），但有以下区别：
 
 - **脏工作区** → 记录为 `⚠ 跳过（脏工作区）`，继续处理下一个分支
 - **已是最新** → 记录为 `ℹ 已是最新`，继续处理下一个分支
@@ -263,7 +311,9 @@ git -C <worktree-path> rev-parse --abbrev-ref --symbolic-full-name @{upstream} 2
 
 **不要因任何单个分支的失败而停止。** 始终处理所有分支。
 
-### 6.3 汇总报告
+**注意**：批量模式下跳过 Step 4.3（更新基准分支），因为已在 Step 6.2 统一更新过。
+
+### 6.4 汇总报告
 
 所有分支处理完毕后，显示汇总表格：
 
@@ -309,7 +359,26 @@ git -C <main-worktree-path> status --porcelain
 或：
 > ❌ 主分支 `<base>` 工作区有未提交改动，请先 commit 或 stash 后重试。
 
-### 7.3 检查是否需要先同步
+### 7.3 更新基准分支
+
+在合并之前，先从远程拉取基准分支的最新代码。
+
+检查基准分支是否有远程跟踪分支：
+```bash
+git -C <main-worktree-path> rev-parse --abbrev-ref --symbolic-full-name @{upstream} 2>/dev/null
+```
+
+如果有远程跟踪分支，执行：
+```bash
+git -C <main-worktree-path> pull --rebase
+```
+
+- 成功：显示 `ℹ 已更新基准分支 <base> 到最新`，继续。
+- 失败：**中止合并**，提示用户手动处理。
+
+如果没有远程跟踪分支，跳过此步骤。
+
+### 7.4 检查是否需要先同步
 
 检查 feature 分支是否落后于主分支：
 ```bash
@@ -327,9 +396,9 @@ git rev-list --count <branch>..<base>
 | 直接合并 | 跳过同步，直接 merge（可能产生 merge commit） |
 | 取消 | 不执行任何操作 |
 
-如果用户选择「先同步再合并」，先执行 Step 4 的完整流程，成功后继续 Step 7.4。
+如果用户选择「先同步再合并」，先执行 Step 4 的完整流程，成功后继续 Step 7.5。
 
-### 7.4 合并预览
+### 7.5 合并预览
 
 展示将要合并到主分支的 commit：
 ```bash
@@ -346,7 +415,7 @@ git log --oneline <base>..<branch>
   ...
 ```
 
-### 7.5 执行 Merge
+### 7.6 执行 Merge
 
 在**主 worktree** 目录中执行 merge：
 ```bash
@@ -355,13 +424,13 @@ git -C <main-worktree-path> merge <branch>
 
 如果 feature 分支已经 rebase 过，这通常是一个 **fast-forward merge**（不产生额外的 merge commit）。
 
-**如果 merge 成功** → 跳转 Step 7.6（成功报告）
+**如果 merge 成功** → 跳转 Step 7.7（成功报告）
 
-**如果 merge 失败（冲突）** → 类似 Step 4.6 的冲突处理流程，但操作目录改为主 worktree：
+**如果 merge 失败（冲突）** → 类似 Step 4.7 的冲突处理流程，但操作目录改为主 worktree：
 1. 列出冲突文件：`git -C <main-worktree-path> diff --name-only --diff-filter=U`
 2. 提供三个选项：Claude 协助解决 / 手动解决后 `git -C <path> merge --continue` / 中止 `git -C <path> merge --abort`
 
-### 7.6 成功报告（Merge）
+### 7.7 成功报告（Merge）
 
 ```bash
 git -C <main-worktree-path> rev-parse --short HEAD
@@ -382,7 +451,8 @@ git -C <main-worktree-path> log --oneline -1
 ## 安全护栏
 
 - **禁止自动 stash**：工作区有未提交改动时，直接拒绝并告知用户先 commit 或 stash。
-- **禁止执行 `git push`**：本 skill 仅做本地 rebase。如需 force push，只提醒用户，不代为执行。
+- **自动更新基准分支**：在 rebase/merge 之前，自动对基准分支执行 `git pull --rebase`，确保同步到远程最新代码。仅当基准分支有远程跟踪分支且工作区 clean 时执行。pull 失败时中止操作。
+- **禁止执行 `git push`**：本 skill 仅做本地 rebase/merge。如需 force push，只提醒用户，不代为执行。
 - **禁止使用 `git rebase -i`**：交互式 rebase 需要终端输入，不受支持。
 - **批量模式冲突必须 abort**：`--all` 模式下遇到冲突时，始终执行 `git rebase --abort` 并跳过。
 - **始终验证分支存在性**：在执行任何操作前，确认目标分支存在于 worktree 列表中。
