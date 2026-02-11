@@ -20,7 +20,7 @@ function script:Record-ProfileTiming {
     $elapsed = $script:ProfileStopwatch.ElapsedMilliseconds
     $script:ProfileTimings[$Phase] = $elapsed
     $script:ProfileStopwatch.Restart()
-    Write-Verbose "[Profile Timing] $Phase: ${elapsed}ms"
+    Write-Verbose "[Profile Timing] ${Phase}: ${elapsed}ms"
 }
 
 $script:ProfileRoot = $PSScriptRoot
