@@ -123,10 +123,11 @@ fn process_file(
 
     if correction.unsafe_detected {
         if !config.strict_fallback {
-            return FileReport::failed(
-                path.to_path_buf(),
-                "检测到不安全语法，且 strict_fallback=false",
+            eprintln!(
+                "SKIPPED {} (检测到不安全语法，跳过格式化)",
+                path.display()
             );
+            return FileReport::unchanged(path.to_path_buf(), 0, 0);
         }
 
         return match mode {
