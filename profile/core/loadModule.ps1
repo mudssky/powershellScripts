@@ -58,20 +58,25 @@ $env:PSModulePath = ($uniquePaths.ToArray()) -join $sep
 
 # ── 第 3 层：OnIdle 事件延迟全量加载（空闲时静默加载完整 psutils 模块） ──
 # 将 wrapper.ps1 的加载也合并到此处
-$script:__PsutilsManifestPath = $moduleManifest
-$script:__WrapperScriptPath = Join-Path (Split-Path -Parent $PSScriptRoot) 'wrapper.ps1'
-Register-EngineEvent -SourceIdentifier PowerShell.OnIdle -MaxTriggerCount 1 -Action {
+# 注意：Action 脚本块运行在独立作用域，不能访问 $script: 变量，
+# 必须通过 -MessageData 传递数据，在 Action 中用 $Event.MessageData 获取
+$onIdleData = @{
+    ManifestPath = $moduleManifest
+    WrapperPath  = Join-Path (Split-Path -Parent $PSScriptRoot) 'wrapper.ps1'
+}
+Register-EngineEvent -SourceIdentifier PowerShell.OnIdle -MaxTriggerCount 1 -MessageData $onIdleData -Action {
+    $data = $Event.MessageData
     try {
         # 全量加载 psutils 模块（覆盖单独加载的子模块，补全其余子模块）
-        Import-Module $script:__PsutilsManifestPath -Force -Global -ErrorAction Stop
+        Import-Module $data.ManifestPath -Force -Global -ErrorAction Stop
     }
     catch {
         Write-Warning "[profile/loadModule.ps1] OnIdle psutils 全量加载失败: $($_.Exception.Message)"
     }
     try {
         # 延迟加载 wrapper.ps1（yaz, Add-CondaEnv 等函数）
-        if (Test-Path $script:__WrapperScriptPath) {
-            . $script:__WrapperScriptPath
+        if (Test-Path $data.WrapperPath) {
+            . $data.WrapperPath
         }
     }
     catch {
