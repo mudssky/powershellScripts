@@ -44,13 +44,8 @@ export default defineConfig({
     // 设置文件
     setupFiles: ['./tests/setup.ts'],
 
-    // 并发测试
+    // 并发测试（Vitest 4 默认即为多线程并发）
     pool: 'threads',
-    poolOptions: {
-      threads: {
-        singleThread: false,
-      },
-    },
   },
 
   // 解析配置

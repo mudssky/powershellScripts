@@ -382,6 +382,9 @@ pnpm qa:verbose
 pnpm qa:all:verbose
 ```
 
+默认 `pnpm qa`/`pnpm qa:all` 使用聚合输出（更便于定位失败包）；
+如需查看每一步执行细节与变更探测过程，请使用 `qa:verbose`。
+
 如需修改“变动基线分支”，可在执行前设置 `QA_BASE_REF`（默认 `origin/master`）。
 
 ### 版本控制

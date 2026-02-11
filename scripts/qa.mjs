@@ -2,6 +2,18 @@
 
 import { spawnSync } from 'node:child_process'
 
+class CommandFailedError extends Error {
+  constructor(step, command, args, exitCode, spawnError) {
+    super(step)
+    this.name = 'CommandFailedError'
+    this.step = step
+    this.command = command
+    this.args = args
+    this.exitCode = exitCode
+    this.spawnError = spawnError
+  }
+}
+
 const args = process.argv.slice(2)
 let mode = 'changed'
 let verbose = false
@@ -35,7 +47,7 @@ if (!supportedModes.has(mode)) {
   process.exit(1)
 }
 
-function runCommand(command, args, options = {}) {
+function runCommand(step, command, args, options = {}) {
   if (verbose) {
     console.log(`[qa:verbose] run: ${command} ${args.join(' ')}`)
   }
@@ -45,12 +57,14 @@ function runCommand(command, args, options = {}) {
     ...options,
   })
 
-  if (result.error) {
-    throw result.error
-  }
-
-  if (result.status !== 0) {
-    process.exit(result.status ?? 1)
+  if (result.error || result.status !== 0) {
+    throw new CommandFailedError(
+      step,
+      command,
+      args,
+      result.status ?? 1,
+      result.error,
+    )
   }
 }
 
@@ -138,26 +152,40 @@ function hasPathChanges(pathspecs, sinceRef) {
 }
 
 function runWorkspaceQa(modeValue, sinceRef) {
+  const recursiveArgs = [
+    '-r',
+    '--if-present',
+    '--reporter',
+    'append-only',
+    '--aggregate-output',
+    'run',
+    'qa',
+  ]
+
   if (modeValue === 'all') {
     console.log('[qa] run workspace qa (all)')
-    runCommand('pnpm', ['-r', '--if-present', 'run', 'qa'])
+    runCommand('workspace-qa-all', 'pnpm', recursiveArgs)
     return
   }
 
   if (!sinceRef) {
     console.log('[qa] no base ref found, fallback to workspace qa (all)')
-    runCommand('pnpm', ['-r', '--if-present', 'run', 'qa'])
+    runCommand('workspace-qa-fallback-all', 'pnpm', recursiveArgs)
     return
   }
 
   console.log(`[qa] run workspace qa (changed since ${sinceRef})`)
-  runCommand('pnpm', ['--filter', `[${sinceRef}]`, '-r', '--if-present', 'run', 'qa'])
+  runCommand('workspace-qa-changed', 'pnpm', [
+    '--filter',
+    `[${sinceRef}]`,
+    ...recursiveArgs,
+  ])
 }
 
 function runRootPwshQa(modeValue, sinceRef) {
   if (modeValue === 'all') {
     console.log('[qa] run root qa:pwsh (all)')
-    runCommand('pnpm', ['run', 'qa:pwsh'])
+    runCommand('root-qa-pwsh-all', 'pnpm', ['run', 'qa:pwsh'])
     return
   }
 
@@ -176,7 +204,7 @@ function runRootPwshQa(modeValue, sinceRef) {
   }
 
   console.log('[qa] run root qa:pwsh (changed)')
-  runCommand('pnpm', ['run', 'qa:pwsh'])
+  runCommand('root-qa-pwsh-changed', 'pnpm', ['run', 'qa:pwsh'])
 }
 
 const sinceRef = mode === 'changed' ? resolveSinceRef() : null
@@ -189,7 +217,25 @@ if (mode === 'changed' && sinceRef) {
   console.log('[qa] mode=all')
 }
 
-runWorkspaceQa(mode, sinceRef)
-runRootPwshQa(mode, sinceRef)
+try {
+  runWorkspaceQa(mode, sinceRef)
+  runRootPwshQa(mode, sinceRef)
+  console.log('[qa] done')
+} catch (error) {
+  if (error instanceof CommandFailedError) {
+    console.error(`[qa:error] step=${error.step}`)
+    console.error(
+      `[qa:error] command=${error.command} ${error.args.join(' ')}`,
+    )
 
-console.log('[qa] done')
+    if (error.spawnError) {
+      console.error(`[qa:error] spawn=${error.spawnError.message}`)
+    }
+
+    console.error(`[qa:error] exitCode=${error.exitCode}`)
+    console.error('[qa:error] tip=run `pnpm qa:verbose` for detailed traces')
+    process.exit(error.exitCode || 1)
+  }
+
+  throw error
+}
