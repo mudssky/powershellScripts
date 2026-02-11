@@ -1,4 +1,4 @@
-修改完powershell相关文件后，执行pnpm qa:pwsh修复出现的问题
+每个任务完成时，执行根目录pnpm qa修复出现的问题
 
 当创建或更新 `openspec/changes/**` 与 `openspec/specs/**` 下的 OpenSpec 工件（`proposal.md`、`design.md`、`tasks.md`、`specs/**/*.md`、`validation.md`）时：
 
