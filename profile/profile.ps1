@@ -14,6 +14,8 @@ $script:ProfileTimingEnabled = (
     $env:POWERSHELL_PROFILE_TIMING -eq '1' -or
     $env:POWERSHELL_PROFILE_TIMING -eq 'true'
 )
+# 供 mode.ps1 Write-ProfileModeDecisionSummary 引用
+$profileLoadStartTime = [DateTime]::UtcNow
 
 function script:Record-ProfileTiming {
     param([string]$Phase)
