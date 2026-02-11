@@ -12,6 +12,7 @@
     "dev": "tsc && node dist/index.js",
     "clean": "rimraf dist",
     "test": "vitest run",
+    "test:fast": "vitest run",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest --watch",
@@ -20,10 +21,12 @@
     "typecheck:tests": "tsc -p tsconfig.tests.json --noEmit",
     "typecheck:fast": "tsgo --noEmit && tsgo -p tsconfig.tests.json --noEmit",
     "biome": "biome check --apply ./src",
-    "biome:fixAll": "biome check --write .",
-    "biome:check": "biome check .",
+    "check": "biome check .",
+    "check:fix": "biome check --write .",
+    "biome:fixAll": "pnpm run check:fix",
+    "biome:check": "pnpm run check",
     "biome:ci": "biome ci .",
-    "qa": "pnpm run typecheck:fast && pnpm run biome:fixAll && pnpm run test"
+    "qa": "pnpm run typecheck:fast && pnpm run check && pnpm run test:fast"
   },
   "keywords": [
     "json",

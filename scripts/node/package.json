@@ -4,6 +4,7 @@
   "main": "index.js",
   "scripts": {
     "test": "vitest run",
+    "test:fast": "vitest run",
     "test:watch": "vitest",
     "build": "rimraf dist && rspack build && tsx generate-bin.ts",
     "build:dev": "rimraf dist && cross-env MINIFY=false rspack build && tsx generate-bin.ts",
@@ -11,8 +12,10 @@
     "dev": "tsx src/hello.ts",
     "typecheck": "tsc --noEmit",
     "typecheck:fast": "tsgo --noEmit",
-    "biome:fixAll": "biome check --write .",
-    "qa": "pnpm typecheck:fast && pnpm biome:fixAll && pnpm test"
+    "check": "biome check .",
+    "check:fix": "biome check --write .",
+    "biome:fixAll": "pnpm run check:fix",
+    "qa": "pnpm run typecheck:fast && pnpm run check && pnpm run test:fast"
   },
   "keywords": [],
   "author": "",

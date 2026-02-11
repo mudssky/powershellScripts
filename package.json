@@ -32,7 +32,11 @@
     "scoop:update": "scoop update -a",
     "choco:update": "choco upgrade all -y",
     "nb:clean": "pwsh -NoProfile -Command  \"fd -e ipynb  |ForEach-Object { nbstripout $_ }\"",
-    "qa:pwsh": "pnpm format:pwsh && pnpm test"
+    "qa:pwsh": "pnpm format:pwsh && pnpm test",
+    "qa": "node ./scripts/qa.mjs changed",
+    "qa:all": "node ./scripts/qa.mjs all",
+    "qa:verbose": "node ./scripts/qa.mjs changed --verbose",
+    "qa:all:verbose": "node ./scripts/qa.mjs all --verbose"
   },
   "keywords": [],
   "author": "",

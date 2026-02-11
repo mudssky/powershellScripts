@@ -1,0 +1,13 @@
+{
+  "name": "pwshfmt-rs-wrapper",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "typecheck:fast": "cargo check --manifest-path ./Cargo.toml",
+    "check": "cargo clippy --manifest-path ./Cargo.toml --all-targets",
+    "test:fast": "cargo test --manifest-path ./Cargo.toml -- --test-threads=1",
+    "qa": "pnpm run typecheck:fast && pnpm run check && pnpm run test:fast",
+    "format": "cargo fmt --manifest-path ./Cargo.toml",
+    "format:check": "cargo fmt --manifest-path ./Cargo.toml -- --check"
+  }
+}

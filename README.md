@@ -368,6 +368,22 @@ pnpm check:pwsh:rs
 采用子命令 `check`/`write`，并支持 `--git-changed`、`--path`、`--recurse` 与 `--strict-fallback`；
 同时保证字符串字面量、注释不被修改，以及 no-op 文件不写盘。
 
+**统一 QA 命令**:
+
+```powershell
+# 默认：仅对 Git 变动的包执行 qa（含 pwshfmt-rs）并按需执行 root qa:pwsh
+pnpm qa
+
+# 全量：执行所有包 qa + root qa:pwsh
+pnpm qa:all
+
+# 详细日志（排查过滤与命令执行路径）
+pnpm qa:verbose
+pnpm qa:all:verbose
+```
+
+如需修改“变动基线分支”，可在执行前设置 `QA_BASE_REF`（默认 `origin/master`）。
+
 ### 版本控制
 
 #### `gitconfig_personal`

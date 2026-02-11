@@ -1,6 +1,9 @@
 import { resolve } from 'node:path'
 import { defineConfig } from 'vitest/config'
 
+process.env.FORCE_COLOR ??= '1'
+delete process.env.NO_COLOR
+
 export default defineConfig({
   test: {
     // 测试环境
