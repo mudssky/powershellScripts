@@ -1,6 +1,6 @@
 param()
 
-Describe 'Unix Profile 性能基准' -Tag 'profile', 'performance', 'unix' {
+Describe 'Unix Profile 性能基准' -Tag 'profile', 'performance', 'unix', 'Slow' {
     BeforeAll {
         $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
         $script:ProfilePath = Join-Path $RepoRoot 'profile' 'profile_unix.ps1'

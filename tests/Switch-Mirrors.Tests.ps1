@@ -18,7 +18,7 @@ Describe 'Switch-Mirrors.ps1' {
         $r.Success | Should -BeFalse
     }
 
-    It 'DryRun 写入不应实际修改文件（仅输出）' {
+    It 'DryRun 写入不应实际修改文件（仅输出）' -Tag 'Slow' {
         $scriptPath = Join-Path $PSScriptRoot '..' 'scripts' 'pwsh' 'misc' 'Switch-Mirrors.ps1'
         $daemon = if ($IsLinux) { '/etc/docker/daemon.json' } elseif ($IsWindows) { Join-Path $env:ProgramData 'Docker\config\daemon.json' } else { Join-Path $HOME '.docker/daemon.json' }
         $before = if (Test-Path -LiteralPath $daemon) { Get-Content -LiteralPath $daemon -Raw } else { '' }

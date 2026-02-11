@@ -1,8 +1,8 @@
 Set-StrictMode -Version Latest
-Import-Module "$PSScriptRoot/../psutils/modules/env.psm1" -Force
 
 Describe 'Sync-PathFromBash basic behavior' {
     BeforeAll {
+        Import-Module "$PSScriptRoot/../psutils/modules/env.psm1" -Force
         $script:OriginalMockPath = $env:PWSH_TEST_BASH_PATH
         $env:PWSH_TEST_BASH_PATH = "C:\Fake\Bin;C:\Windows\System32"
     }
@@ -34,6 +34,7 @@ Describe 'Sync-PathFromBash basic behavior' {
 
 Describe 'Sync-PathFromBash cache and error semantics' {
     BeforeAll {
+        Import-Module "$PSScriptRoot/../psutils/modules/env.psm1" -Force
         $script:OriginalMockPath = $env:PWSH_TEST_BASH_PATH
         $env:PWSH_TEST_BASH_PATH = "C:\Fake\Bin;C:\Windows\System32"
     }
