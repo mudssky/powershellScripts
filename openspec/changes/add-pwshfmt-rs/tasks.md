@@ -1,29 +1,32 @@
-## 1. CLI 与项目骨架
+## 0. 清理旧实现
 
-- [x] 1.1 初始化 `projects/clis/pwshfmt-rs` Rust 项目结构与基础依赖
-- [x] 1.2 实现 CLI 参数解析（`--git-changed`、`--path`、`--recurse`、`--check`、`--write`、`--strict-fallback`）
-- [x] 1.3 增加帮助文本与退出码约定（成功/需修复/执行失败）
+- [ ] 0.1 删除 `projects/clis/pwshfmt-rs/src/main.rs` 旧实现并保留最小可编译入口
+- [ ] 0.2 清理与旧实现强绑定的测试与文档描述
 
-## 2. 文件收集与执行模型
+## 1. 重建项目骨架
 
-- [x] 2.1 实现 Git 改动文件收集，仅保留 `.ps1` / `.psm1` / `.psd1`
-- [x] 2.2 实现路径模式收集（`--path` + `--recurse`）并去重
-- [x] 2.3 接入并发处理与处理结果汇总（成功/跳过/失败）
+- [ ] 1.1 建立 `src/lib.rs` 与模块文件（`cli.rs`、`config.rs`、`discovery.rs`、`processor.rs`、`formatter/mod.rs`、`summary.rs`、`error.rs`）
+- [ ] 1.2 在 `Cargo.toml` 增加 `clap`、`figment`、`serde`、`toml`、`walkdir`、`globset`、`miette` 及测试依赖
+- [ ] 1.3 将 `src/main.rs` 收敛为薄入口（解析参数 -> 调用应用层 -> 映射退出码）
 
-## 3. Casing correction 子集
+## 2. CLI 与配置
 
-- [x] 3.1 实现命令名与参数名 casing 修复策略
-- [x] 3.2 确保字符串字面量与注释不被修改
-- [x] 3.3 实现 no-op 写回优化（内容一致不写盘）
+- [ ] 2.1 使用 `clap derive` 设计可扩展命令接口
+- [ ] 2.2 定义执行模式冲突/必填约束与帮助信息
+- [ ] 2.3 实现 `Config` 默认值与 `pwshfmt-rs.toml` 解析
+- [ ] 2.4 实现配置覆盖顺序：默认值 -> 配置文件 -> ENV -> CLI
 
-## 4. 兼容回退与接入
+## 3. 核心流程重建
 
-- [x] 4.1 实现 `--strict-fallback`：不安全场景回退现有 `pwsh` 严格链路
-- [x] 4.2 增加接入脚本/命令（例如新增 `format:pwsh:rs`）
-- [x] 4.3 编写故障输出与回退统计，便于排查
+- [ ] 3.1 重建 Git changed 与路径模式文件发现逻辑（`walkdir + globset`）
+- [ ] 3.2 重建 check/write 执行流程与 no-op 写回优化
+- [ ] 3.3 重建 strict fallback 流程与结果汇总
+- [ ] 3.4 使用 `miette` 统一错误类型与诊断输出
 
-## 5. 文档与验证
+## 4. 测试与文档
 
-- [x] 5.1 更新 Rust 与格式化相关文档，补充使用示例与边界
-- [x] 5.2 增加最小测试/样例覆盖（check/write/fallback）
-- [x] 5.3 完成端到端验证并记录性能对比基线
+- [ ] 4.1 新增集成测试覆盖 CLI、配置、check/write、fallback、文件发现
+- [ ] 4.2 补充必要单元测试（格式化状态机、关键纯函数）
+- [ ] 4.3 更新 `projects/clis/pwshfmt-rs/README.md`（新 CLI、配置、错误输出）
+- [ ] 4.4 运行 `cargo test --manifest-path projects/clis/pwshfmt-rs/Cargo.toml`
+- [ ] 4.5 运行 `pnpm qa:pwsh` 并修复出现的问题
