@@ -9,7 +9,7 @@ function Set-ProfileUtf8Encoding {
 
     # PSReadLine 是 PowerShell 7+ 内置模块，无需 Get-Command 检查
     Set-PSReadLineKeyHandler -Key Tab -Function Complete
-    if (Get-Command -Name Register-FzfHistorySmartKeyBinding -CommandType Function -ErrorAction SilentlyContinue) {
-        Register-FzfHistorySmartKeyBinding | Out-Null
-    }
+    # 注意：Register-FzfHistorySmartKeyBinding 定义在 functions.psm1（非核心模块），
+    # 同步路径中 Get-Command 查找会触发 PSModulePath 自动导入 psutils 全量模块（~1200ms）。
+    # 已移至 loadModule.ps1 的 OnIdle 事件中延迟执行。
 }

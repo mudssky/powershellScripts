@@ -79,4 +79,14 @@ Register-EngineEvent -SourceIdentifier PowerShell.OnIdle -MaxTriggerCount 1 -Act
     catch {
         Write-Warning "[profile/loadModule.ps1] OnIdle wrapper.ps1 加载失败: $($_.Exception.Message)"
     }
+    try {
+        # fzf 键绑定注册（Register-FzfHistorySmartKeyBinding 来自 functions.psm1，
+        # 全量加载完成后才可用，不能在同步路径中通过 Get-Command 查找）
+        if (Get-Command -Name Register-FzfHistorySmartKeyBinding -CommandType Function -ErrorAction SilentlyContinue) {
+            Register-FzfHistorySmartKeyBinding | Out-Null
+        }
+    }
+    catch {
+        Write-Warning "[profile/loadModule.ps1] OnIdle fzf 键绑定注册失败: $($_.Exception.Message)"
+    }
 }.GetNewClosure() | Out-Null

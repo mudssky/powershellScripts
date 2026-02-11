@@ -67,6 +67,12 @@ Record-ProfileTiming -Phase 'mode-decision'
 Record-ProfileTiming -Phase 'core-loaders'
 
 # === 主执行逻辑 ===
+# 延迟加载防护栏：记录 Initialize-Environment 前 psutils 模块状态
+# 仅在诊断模式下检测，避免正常使用时的额外开销
+if ($script:ProfileTimingEnabled) {
+    $__preInitPsutilsLoaded = [bool](Get-Module -Name 'psutils')
+}
+
 try {
     # 调用环境初始化函数
     Initialize-Environment
@@ -78,6 +84,11 @@ try {
 }
 catch {
     Write-Error "脚本执行过程中出现错误: $($_.Exception.Message)"
+}
+
+# 延迟加载防护栏：检测 psutils 是否被意外全量加载
+if ($script:ProfileTimingEnabled -and -not $__preInitPsutilsLoaded -and (Get-Module -Name 'psutils')) {
+    Write-Warning "[性能守卫] psutils 在 Initialize-Environment 中被意外全量加载！延迟加载优化失效。请检查同步路径中是否引用了非核心模块函数。"
 }
 
 Record-ProfileTiming -Phase 'initialize-environment'

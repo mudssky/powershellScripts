@@ -90,14 +90,6 @@ function Initialize-Environment {
     Write-Verbose "开始初始化 PowerShell 环境配置"
     Write-Verbose ("Profile 模式提示: {0}" -f $script:ProfileMode)
 
-    # === 细粒度计时诊断（临时） ===
-    $__envSw = [System.Diagnostics.Stopwatch]::StartNew()
-    $__envTimings = [ordered]@{}
-    function __RecordEnvTiming([string]$Phase) {
-        $__envTimings[$Phase] = $__envSw.ElapsedMilliseconds
-        $__envSw.Restart()
-    }
-
     if (-not [string]::IsNullOrWhiteSpace($ScriptRoot)) {
         $script:ProfileRoot = $ScriptRoot
     }
@@ -139,7 +131,6 @@ function Initialize-Environment {
 
     # 设置项目根目录环境变量
     $env:POWERSHELL_SCRIPTS_ROOT = Split-Path -Parent $profileRoot
-    __RecordEnvTiming 'setup-root'
 
     # === 平台特定：Linux PATH 同步 ===
     if ($IsLinux) {
@@ -155,7 +146,6 @@ function Initialize-Environment {
             Write-Error "同步 PATH 失败: $($_.Exception.Message)" -ErrorAction Continue
         }
     }
-    __RecordEnvTiming 'linux-path-sync'
 
     # 自动检测代理（缓存 5 分钟避免每次 profile 加载都做 TCP 探测）
     if (-not $SkipProxy) {
@@ -175,7 +165,6 @@ function Initialize-Environment {
             Set-Proxy -Command auto
         }
     }
-    __RecordEnvTiming 'proxy-detect'
 
     # 加载自定义环境变量脚本 (用于存放机密或个人配置)
     $envScriptPath = Join-Path -Path $profileRoot -ChildPath 'env.ps1'
@@ -188,11 +177,9 @@ function Initialize-Environment {
             Write-Warning "加载环境变量脚本时出错: $($_.Exception.Message)"
         }
     }
-    __RecordEnvTiming 'env-ps1'
 
     # 设置控制台编码为 UTF8
     Set-ProfileUtf8Encoding
-    __RecordEnvTiming 'utf8-encoding'
 
     # === 工具初始化 ===
     Write-Verbose "初始化开发工具"
@@ -209,7 +196,6 @@ function Initialize-Environment {
             $availableTools.Add($toolName) | Out-Null
         }
     }
-    __RecordEnvTiming 'get-command-tools'
 
     $tools = @{
         starship = {
@@ -257,7 +243,6 @@ function Initialize-Environment {
             catch {
                 Write-Warning "初始化工具 $($tool.Key) 时出错: $($_.Exception.Message)"
             }
-            __RecordEnvTiming "tool-$($tool.Key)"
         }
         else {
             # 工具未安装提示（仅对关键工具）
@@ -294,7 +279,6 @@ function Initialize-Environment {
     }
 
     if (-not $SkipAliases) { Set-AliasProfile }
-    __RecordEnvTiming 'set-alias'
 
     # z 函数懒加载：zoxide 已安装但未在初始化阶段加载时，首次调用自动初始化
     if (-not $Global:__ZoxideInitialized -and -not $SkipZoxide -and $availableTools.Contains('zoxide')) {
@@ -304,13 +288,4 @@ function Initialize-Environment {
     Write-ProfileModeDecisionSummary
     Write-ProfileModeFallbackGuide -VerboseOnly
     Write-Debug "PowerShell 环境初始化完成"
-
-    # === 细粒度计时输出（临时） ===
-    if ($script:ProfileTimingEnabled) {
-        Write-Host "`n  --- Initialize-Environment 细分 ---" -ForegroundColor Cyan
-        foreach ($entry in $__envTimings.GetEnumerator()) {
-            $color = if ($entry.Value -gt 500) { 'Red' } elseif ($entry.Value -gt 100) { 'Yellow' } else { 'Green' }
-            Write-Host ("    {0,-30} {1,6}ms" -f $entry.Key, $entry.Value) -ForegroundColor $color
-        }
-    }
 }
