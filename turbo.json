@@ -1,0 +1,18 @@
+{
+  "$schema": "https://turborepo.dev/schema.json",
+  "tasks": {
+    "typecheck:fast": {
+      "outputs": []
+    },
+    "check": {
+      "outputs": []
+    },
+    "test:fast": {
+      "outputs": []
+    },
+    "qa": {
+      "dependsOn": ["^qa"],
+      "outputs": []
+    }
+  }
+}

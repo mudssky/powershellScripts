@@ -25,6 +25,8 @@ backup
 macEnableProxy.ps1
 
 node_modules
+.turbo/
+**/.turbo/
 
 fstab
 

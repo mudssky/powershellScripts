@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   # ==========================================
-  # Job 1: PowerShell Pester 测试 
+  # Job 1: PowerShell Pester 测试
   # ==========================================
   pester-test:
     name: Run Pester on ${{ matrix.os }}
@@ -23,22 +23,26 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-    
+
     steps:
-    - uses: actions/checkout@v6
-    
-    - name: Run Pester
-      shell: pwsh
-      run: 
-        Invoke-Pester -Configuration (./PesterConfiguration.ps1)
-    # 测试图形化报告
-    - name: Publish Test Report
-      uses: dorny/test-reporter@v2
-      if: always() || failure() 
-      with:
-        name: Pester Tests (${{ matrix.os }})
-        path: testResults.xml
-        reporter: dotnet-nunit
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Run Pester
+        shell: pwsh
+        run: |
+          Invoke-Pester -Configuration (./PesterConfiguration.ps1)
+
+      # 测试图形化报告
+      - name: Publish Test Report
+        uses: dorny/test-reporter@v2
+        if: always() || failure()
+        with:
+          name: Pester Tests (${{ matrix.os }})
+          path: testResults.xml
+          reporter: dotnet-nunit
+
   # ==========================================
   # Job 2: Node.js Vitest 测试 (新增部分)
   # ==========================================
@@ -47,6 +51,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       # 1. 安装 pnpm
       - name: Install pnpm
@@ -67,10 +73,11 @@ jobs:
       # 注意：你需要配置 Vitest 输出 JUnit 格式的 XML
       - name: Run Vitest
         env:
-          # 开启颜色输出，防止颜色测试代码报错          
+          # 开启颜色输出，防止颜色测试代码报错
           FORCE_COLOR: 1
         run: |
           pnpm exec vitest run --reporter=default --reporter=junit --outputFile.junit=vitest-report.xml
+
       # 5. 上传 Vitest 报告
       - name: Report Vitest
         uses: dorny/test-reporter@v2

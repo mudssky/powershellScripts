@@ -36,7 +36,11 @@
     "qa": "node ./scripts/qa.mjs changed",
     "qa:all": "node ./scripts/qa.mjs all",
     "qa:verbose": "node ./scripts/qa.mjs changed --verbose",
-    "qa:all:verbose": "node ./scripts/qa.mjs all --verbose"
+    "qa:all:verbose": "node ./scripts/qa.mjs all --verbose",
+    "turbo:qa": "node ./scripts/qa-turbo.mjs changed",
+    "turbo:qa:all": "node ./scripts/qa-turbo.mjs all",
+    "turbo:qa:verbose": "node ./scripts/qa-turbo.mjs changed --verbose",
+    "turbo:qa:all:verbose": "node ./scripts/qa-turbo.mjs all --verbose"
   },
   "keywords": [],
   "author": "",
@@ -47,6 +51,7 @@
     "@typescript/native-preview": "7.0.0-dev.20251127.1",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
+    "turbo": "^2.8.5",
     "typescript": "^5.9.3",
     "vitest": "^4.0.16"
   },

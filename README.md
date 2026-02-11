@@ -387,6 +387,26 @@ pnpm qa:all:verbose
 
 如需修改“变动基线分支”，可在执行前设置 `QA_BASE_REF`（默认 `origin/master`）。
 
+**Turbo QA 命令（V2 并行入口）**:
+
+```powershell
+# 默认：Turbo affected 模式 + 按需执行 root qa:pwsh
+pnpm turbo:qa
+
+# 全量：Turbo 执行所有 workspace 包 qa + root qa:pwsh
+pnpm turbo:qa:all
+
+# 详细日志
+pnpm turbo:qa:verbose
+pnpm turbo:qa:all:verbose
+```
+
+`turbo:qa` 会将 `QA_BASE_REF`（默认 `origin/master`）映射为 `TURBO_SCM_BASE`，
+以保持与现有 `pnpm qa` 的基线语义一致。
+
+在 CI 中使用 `--affected` 时，建议 `actions/checkout` 配置 `fetch-depth: 0`，
+避免因浅克隆导致 affected 误判。
+
 ### 版本控制
 
 #### `gitconfig_personal`
