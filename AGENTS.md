@@ -6,3 +6,6 @@
 2) OpenSpec 结构关键词与固定术语保持原样（`ADDED Requirements`、`MODIFIED Requirements`、`REMOVED Requirements`、`RENAMED Requirements`、`Requirement`、`Scenario`、`WHEN`、`THEN`、`BREAKING`）。
 3) 除上述标题、关键词与固定术语外，其余叙述必须使用简体中文。
 4) 代码、命令、路径、参数名保持原样。
+
+
+创建skill时使用中文，除了术语等
