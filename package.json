@@ -40,7 +40,8 @@
     "turbo:qa": "node ./scripts/qa-turbo.mjs changed",
     "turbo:qa:all": "node ./scripts/qa-turbo.mjs all",
     "turbo:qa:verbose": "node ./scripts/qa-turbo.mjs changed --verbose",
-    "turbo:qa:all:verbose": "node ./scripts/qa-turbo.mjs all --verbose"
+    "turbo:qa:all:verbose": "node ./scripts/qa-turbo.mjs all --verbose",
+    "qa:benchmark": "node ./scripts/qa-benchmark.mjs"
   },
   "keywords": [],
   "author": "",

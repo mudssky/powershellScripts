@@ -1,17 +1,52 @@
 {
   "$schema": "https://turborepo.dev/schema.json",
+  "globalDependencies": ["pnpm-lock.yaml", "turbo.json"],
   "tasks": {
     "typecheck:fast": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "!README.md",
+        "!docs/**",
+        "!openspec/**",
+        "!notebooks/**",
+        "!notebook_src/**"
+      ],
       "outputs": []
     },
     "check": {
+      "dependsOn": ["typecheck:fast"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "!README.md",
+        "!docs/**",
+        "!openspec/**",
+        "!notebooks/**",
+        "!notebook_src/**"
+      ],
       "outputs": []
     },
     "test:fast": {
+      "dependsOn": ["check"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "!README.md",
+        "!docs/**",
+        "!openspec/**",
+        "!notebooks/**",
+        "!notebook_src/**"
+      ],
+      "env": [
+        "FORCE_COLOR",
+        "NO_COLOR",
+        "CI",
+        "PWSH_TEST_MODE",
+        "PWSH_TEST_VERBOSE",
+        "PWSH_TEST_PATH"
+      ],
       "outputs": []
     },
     "qa": {
-      "dependsOn": ["^qa"],
+      "dependsOn": ["typecheck:fast", "check", "test:fast", "^qa"],
       "outputs": []
     }
   }

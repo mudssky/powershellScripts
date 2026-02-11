@@ -404,6 +404,31 @@ pnpm turbo:qa:all:verbose
 `turbo:qa` 会将 `QA_BASE_REF`（默认 `origin/master`）映射为 `TURBO_SCM_BASE`，
 以保持与现有 `pnpm qa` 的基线语义一致。
 
+`turbo:qa*` 默认会执行细粒度任务链路 `typecheck:fast -> check -> test:fast`，
+并在 `turbo.json` 中配置依赖与缓存边界。
+
+可选远程缓存默认关闭；在 CI 中可通过 `TURBO_REMOTE_CACHE=1` 启用。
+启用时需要同时提供 `TURBO_TOKEN` 与 `TURBO_TEAM`。
+
+**Turbo QA 基准采样（CI 趋势）**:
+
+```powershell
+# 采集 cold/warm/changed 三类样本，并写入 artifacts/qa-benchmarks
+pnpm qa:benchmark
+
+# 指定输出目录
+pnpm qa:benchmark -- --output-dir /tmp/qa-benchmarks
+```
+
+输出包含：
+
+- `latest.json`（最新一次采样）
+- `qa-benchmark-<timestamp>.json`（带时间戳历史样本）
+- `summary.md`（可直接在 CI artifact 中查看）
+
+CI 中已提供独立工作流 `.github/workflows/qa-benchmark.yml`，
+用于单独执行并上传 QA 基准采样结果，避免影响常规测试流水线。
+
 在 CI 中使用 `--affected` 时，建议 `actions/checkout` 配置 `fetch-depth: 0`，
 避免因浅克隆导致 affected 误判。
 
