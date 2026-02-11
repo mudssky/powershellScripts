@@ -5,10 +5,8 @@ function Test-EnvSwitchEnabled {
         [string]$Name
     )
 
-    $item = Get-Item -Path "Env:$Name" -ErrorAction SilentlyContinue
-    if (-not $item) { return $false }
-
-    $rawValue = [string]$item.Value
+    $rawValue = [System.Environment]::GetEnvironmentVariable($Name)
+    if ($null -eq $rawValue) { return $false }
     if ([string]::IsNullOrWhiteSpace($rawValue)) { return $false }
 
     switch ($rawValue.Trim().ToLowerInvariant()) {
@@ -28,9 +26,9 @@ function Test-EnvValuePresent {
         [string]$Name
     )
 
-    $item = Get-Item -Path "Env:$Name" -ErrorAction SilentlyContinue
-    if (-not $item) { return $false }
-    return -not [string]::IsNullOrWhiteSpace([string]$item.Value)
+    $rawValue = [System.Environment]::GetEnvironmentVariable($Name)
+    if ($null -eq $rawValue) { return $false }
+    return -not [string]::IsNullOrWhiteSpace($rawValue)
 }
 
 function Get-ProfileModeDecision {

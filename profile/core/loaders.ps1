@@ -15,15 +15,7 @@ $script:InvokeProfileCoreLoaders = {
             throw
         }
 
-        # 加载自定义函数包装 (yaz, Add-CondaEnv 等)
-        $wrapperScript = Join-Path $profileRoot 'wrapper.ps1'
-        try {
-            . $wrapperScript
-        }
-        catch {
-            Write-Error "[profile/profile.ps1] dot-source 失败: $wrapperScript :: $($_.Exception.Message)"
-            throw
-        }
+        # wrapper.ps1 (yaz, Add-CondaEnv 等) 已移至 OnIdle 延迟加载（见 loadModule.ps1）
 
         # 自定义别名配置（配置目录）
         $userAliasScript = Join-Path $profileRoot 'config/aliases/user_aliases.ps1'

@@ -221,7 +221,16 @@ function Initialize-Environment {
             # 仅 Unix：Node.js 版本管理器
             if ($IsWindows -or $SkipTools) { return }
             Write-Verbose "初始化 fnm Node.js 版本管理器"
-            fnm env --use-on-cd | Out-String | Invoke-Expression
+            # fnm env 输出包含会话特定的 multishell 临时路径，不适合长期缓存
+            # 使用临时文件 dot-source 替代 Out-String | Invoke-Expression 以减少解析开销
+            $fnmInitFile = Join-Path ([System.IO.Path]::GetTempPath()) "fnm-init-$PID.ps1"
+            try {
+                fnm env --use-on-cd | Set-Content -Path $fnmInitFile -Encoding utf8NoBOM
+                . $fnmInitFile
+            }
+            finally {
+                Remove-Item -Path $fnmInitFile -Force -ErrorAction SilentlyContinue
+            }
         }
     }
 
