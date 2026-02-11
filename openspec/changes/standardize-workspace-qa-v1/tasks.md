@@ -30,3 +30,11 @@
   - [x] 4.3.1 采集 `cold(all)`、`warm(all)`、`changed(PR)` 三组耗时
   - [x] 4.3.2 记录缓存命中率、最长耗时包、失败定位可读性
   - [x] 4.3.3 CI 补充 affected 前置条件（完整 Git 历史，如 `fetch-depth: 0`）
+
+## 5. 新版 Spec 对齐（Turbo 并行入口语义）
+
+- [x] 5.1 在 `spec.md` 补充 Turbo 并行入口要求（保留既有 `qa*` 并新增 `turbo:qa*`）
+- [x] 5.2 在 `spec.md` 补充 `QA_BASE_REF -> TURBO_SCM_BASE` 基线映射要求
+- [x] 5.3 在 `spec.md` 补充 CI affected 历史前置要求（`fetch-depth: 0`）
+- [x] 5.4 在 `spec.md` 补充性能基线要求（记录对比指标，不将“V2 必须快于 V1”设为硬门槛）
+- [x] 5.5 产出并维护 `validation.md` 记录 V1/V2 对比结果（耗时、缓存命中、最长耗时包、失败可读性）

@@ -45,3 +45,35 @@
 #### Scenario: V2 可无缝接入调度层
 - **WHEN** 后续在 V2 新增 `turbo run qa` 或 affected 调度命令
 - **THEN** 子包无需重命名既有 `qa` 相关脚本即可被统一编排
+
+### Requirement: Parallel Turbo QA entry without breaking legacy commands
+系统 SHALL 在保留既有 `qa` 命令族行为不变的前提下，新增并行 Turbo 命令入口（`turbo:qa`、`turbo:qa:all`、`turbo:qa:verbose`、`turbo:qa:all:verbose`）。
+
+#### Scenario: Turbo 并行入口可用且旧入口不破坏
+- **WHEN** 用户查看根 `package.json` 的 `scripts`
+- **THEN** 同时可见既有 `qa` 命令族与新增 `turbo:qa` 命令族
+
+#### Scenario: Turbo changed 模式可按需跳过 workspace
+- **WHEN** 用户运行 `pnpm turbo:qa` 且 workspace 路径无变更
+- **THEN** 工具跳过 workspace `qa` 调度，并保持 root `qa:pwsh` 的既有探测行为
+
+### Requirement: Consistent affected baseline between pnpm QA and Turbo QA
+系统 SHALL 让 Turbo changed 模式复用 `QA_BASE_REF` 约定，并将其映射到 `TURBO_SCM_BASE`，默认基线为 `origin/master`。
+
+#### Scenario: 基线变量映射一致
+- **WHEN** 用户设置 `QA_BASE_REF` 后运行 `pnpm turbo:qa`
+- **THEN** Turbo 以同一基线比较变更范围，而不要求用户额外设置另一套基线变量
+
+### Requirement: CI history prerequisite for affected accuracy
+系统 SHALL 在 CI 中保证 affected 计算所需的 Git 历史完整性（例如 `actions/checkout` 使用 `fetch-depth: 0`）。
+
+#### Scenario: CI checkout 提供完整历史
+- **WHEN** CI 运行 Turbo affected 相关命令
+- **THEN** checkout 步骤提供足够历史以避免“全部包被误判为受影响”
+
+### Requirement: Performance baseline is recorded, not hard-gated
+系统 SHALL 记录 V1 与 V2 在 `cold(all)`、`warm(all)`、`changed(PR)` 三类场景的耗时与可观测性指标，但 SHALL NOT 将“V2 必须快于 V1”作为硬性正确性门槛。
+
+#### Scenario: 性能结果可追溯
+- **WHEN** 完成一轮 V1/V2 对比执行
+- **THEN** `validation.md` 包含至少耗时、缓存命中率、最长耗时包与失败定位可读性结论
