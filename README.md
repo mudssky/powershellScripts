@@ -348,7 +348,7 @@ pnpm format:pwsh
 # 全量格式化
 pnpm format:pwsh:all
 
-# 严格模式（完整规则，含大小写修正）
+# 严格回退模式（开启 --strict-fallback）
 pnpm format:pwsh:strict
 
 # Rust 快速链路（Git 改动 + write + strict fallback）
@@ -361,8 +361,8 @@ pnpm format:pwsh:rs:all
 pnpm check:pwsh:rs
 ```
 
-默认 `format:pwsh` 使用激进性能模式（排除高耗时 `PSUseCorrectCasing`）以提升本地反馈速度；
-当需要与历史完整规则一致（例如发布前或兼容性敏感场景）时，请使用 `format:pwsh:strict`。
+默认 `format:pwsh` 与 `format:pwsh:strict` 均通过脚本入口调用 `pwshfmt-rs`；
+其中 `format:pwsh:strict` 会额外开启 `--strict-fallback`，用于不安全语法场景回退严格链路。
 
 `pwshfmt-rs`（`projects/clis/pwshfmt-rs`）当前覆盖命令名与参数名的 casing correction，
 采用子命令 `check`/`write`，并支持 `--git-changed`、`--path`、`--recurse` 与 `--strict-fallback`；
