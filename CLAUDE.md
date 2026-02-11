@@ -1,162 +1,324 @@
-
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## 🚨 Critical Instructions (最高指令)
+@AGENTS.md
 
-1. **No Laziness (拒绝懒惰)**
-    - 严禁在代码块中使用 `// ... existing code`、`# ... rest of script` 或 `<!-- ... implementation -->`。
-    - **必须** 输出完整、可运行的代码文件内容，即使只修改了一行。
-    - 每一个脚本都必须是生产就绪的 (Production Ready)。
+## Project Vision
 
-2. **No Hallucination (拒绝幻觉)**
-    - 严禁引入 `package.json` 或当前环境中不存在的依赖/模块。
-    - 如需引入新工具 (e.g., `jq`, `ffmpeg`) 或 PowerShell 模块，必须先请求用户许可，并提供安装指令。
+A comprehensive cross-platform development environment toolkit centered around PowerShell, with Node.js/TypeScript and Rust CLI companions. It provides daily automation scripts (media processing, system management, file operations, network tools), a reusable PowerShell module (`psutils`), and a unified profile system for Windows/Linux/macOS shells.
 
-3. **Language (语言规范)**
-    - 除非用户明确要求使用英文，否则所有代码注释、文档、Commit Message 和对话解释 **必须使用中文**。
+## Architecture Overview
 
-## 🧠 Chain of Thought & Planning (思考与规划)
+This is a **pnpm monorepo** (`pnpm-workspace.yaml`) with Turborepo orchestration. The codebase spans multiple languages but has a clear layering:
 
-- 在编写任何代码前，必须在对话中输出以下计划块:
-
-```markdown
-## Plan
-- [ ] **Impact Analysis (影响面分析)**:
-    - 修改文件: `script.ps1`, `README.md`
-    - 潜在风险: 可能会影响依赖该模块的 CI 流程
-- [ ] **Step 1: Context Gathering**: 确认现有参数定义
-- [ ] **Step 2: Implementation**: 重构参数解析逻辑
-- [ ] **Step 3: Verification**: 运行 Pester 测试确保无回归
+```
+Source scripts (scripts/pwsh/, scripts/node/src/, scripts/python/)
+        |
+        v
+Shim generation (Manage-BinScripts.ps1, generate-bin.ts)
+        |
+        v
+   bin/ directory (auto-generated executables, NEVER edit manually)
 ```
 
-## 🛠 Tech Stack & Coding Standards (技术与规范)
+### Key Architecture Rules
 
-### 1. Core Stack
+- **`bin/` is auto-generated**: Running `Manage-BinScripts.ps1 -Action sync` or `install.ps1` creates shim wrappers in `bin/` that delegate to source scripts. **Never manually edit files in `bin/`**.
+- **PowerShell shims**: Parse the source script's AST to extract `param()` blocks, `CmdletBinding`, help comments, and `@ShimProfile` directives, then generate a forwarding shim.
+- **Node.js shims**: `scripts/node/generate-bin.ts` creates Unix shell + Windows CMD wrappers pointing to Rspack-bundled `.cjs` output files.
+- **Python shims**: Generated as PowerShell wrappers that invoke `uv run` on the source `.py` file.
 
-- **PowerShell**: PowerShell 7+ (Core), 遵循 Windows/Linux 跨平台兼容性。
-- **TypeScript (CLI Tools)**: Node.js (LTS), pnpm, Vitest.
-- **Shell**: Bash (for Linux specific tasks).
+## Project Structure
 
-### 2. Naming Convention (命名规范)
-
-- **PowerShell Functions**: 严格遵循 `Verb-Noun` 格式 (e.g., `Get-SystemInfo`, `Install-App`).
-  - Verbs 必须来自 `Get-Verb` 许可列表。
-- **Variables**:
-  - PowerShell: `PascalCase` (e.g., `$LogFilePath`).
-  - TypeScript: `camelCase` (e.g., `const configPath`).
-- **Files**:
-  - Scripts: `camelCase.ps1` or `PascalCase.ps1` (保持与目录内现有风格一致).
-  - Configs: `kebab-case` or standard tool naming (e.g., `docker-compose.yml`).
-
-### 3. Preferred Patterns (推荐模式)
-
-- **PowerShell**:
-  - 使用 `[CmdletBinding()]` 和 `param()` 块。
-  - 优先使用 `ErrorActionPreference = 'Stop'` 处理错误。
-  - 使用 `PSCustomObject` 而不是哈希表返回结构化数据。
-- **TypeScript**:
-  - Early Returns (卫语句) 减少嵌套。
-  - 使用 `zod` 或类似库进行运行时校验 (如果项目中已引入)。
-
-### 4. Anti-patterns (禁止模式)
-
-- **PowerShell**:
-  - 禁止使用 `Write-Host` 输出数据 (仅用于 UI 提示)，数据流应使用 `Write-Output`。
-  - 禁止硬编码绝对路径 (使用 `$PSScriptRoot` 或配置文件)。
-- **TypeScript**:
-  - 禁止使用 `any` 类型。
-  - 禁止在生产代码中保留 `console.log`。
-
-## 📖 Documentation & Commenting Standards (文档与注释规范)
-
-### 1. DocStrings (文档注释)
-
-- **PowerShell**: 所有导出函数必须包含 `.SYNOPSIS`, `.DESCRIPTION`, `.PARAMETER`, `.EXAMPLE`。
-- **TypeScript**: 所有导出函数/类/接口必须包含 JSDoc/TSDoc (`@param`, `@returns`, `@throws`)。
-
-### 2. "Why" over "What" (意图优先)
-
-- ❌ 禁止: `// 循环遍历列表` (描述语法)
-- ✅ 必须: `// 过滤掉未激活用户以防止计费错误` (描述业务意图)
-
-### 3. Complex Logic (复杂逻辑)
-
-- 对于复杂度超过 5 行的逻辑块，必须在代码上方添加解释性注释。
-
-### 4. TODOs (技术债务)
-
-- 所有的技术债务必须标记为 `// TODO(User): [描述]` (TypeScript) 或 `# TODO(User): [描述]` (PowerShell)。
-- 严禁留下未标记的临时代码。
-
-## 🛡️ Maintainability & Coding Principles (可维护性与架构)
-
-### 1. SOLID Principles
-
-- **单一职责 (SRP)**: 如果一个文件超过 200 行，或者一个函数超过 50 行，必须主动提议拆分。
-
-### 2. Error Handling (错误处理)
-
-- **严禁** 使用空的 `try/catch`。
-- 所有的 Promise 必须 handle rejection。
-- 错误信息必须包含上下文，能够追溯到具体的业务流程。
-
-### 3. Naming (命名进阶)
-
-- 变量名必须全拼，禁止无意义的缩写 (e.g., 使用 `userProfile` 而不是 `uP`)。
-- 布尔值变量必须使用 `is`, `has`, `should` 前缀。
-
-### 4. Boy Scout Rule (童子军法则)
-
-- 修改现有代码时，如果你发现了显而易见的 Code Smell (类型断言、魔法数字)，必须顺手修复它。
-
-## ⚡ Development Workflow (严格执行流)
-
-### Step 1: Context Gathering (上下文获取)
-
-- **严禁盲写**。必须先运行 `ls` 确认目录结构，使用 `Read` 读取相关文件 (如 `package.json`, 现有脚本)。
-
-### Step 2: Coding (原子化修改)
-
-- 每次只专注于解决一个问题。
-- 保持函数短小精悍 (单一职责原则)。
-
-### Step 3: Self-Correction & Verification (自查与验证)
-
-- **必须** 在代码修改后进行验证：
-  - **PowerShell**: 运行 `PSScriptAnalyzer` (如果可用) 或简单的冒烟测试 (Dry Run).
-    - `Invoke-ScriptAnalyzer -Path .\script.ps1`
-  - **TypeScript**:
-    - `pnpm run typecheck`
-    - `pnpm run biome:check` (自动修复: `pnpm run biome:fixAll`)
-    - `pnpm run test`
-- 如果验证失败，必须自动尝试修复 (最多 3 次)，并在最终回复中报告修复过程。
-
-### Step 4: Documentation (文档更新)
-
-- 修改脚本参数后，必须更新脚本头部的 `.SYNOPSIS` 和 `.PARAMETER` 注释。
-- 如果引入新功能，必须更新 `README.md`。
-
-## � Release & Maintenance (发布与维护)
-
-- **Commit Messages**: 遵循 Conventional Commits。
-  - `feat: 新增视频压缩脚本`
-  - `fix: 修复路径空格处理 bug`
-  - `docs: 更新安装文档`
-- **Dependencies**: 任何 `npm` 依赖变更必须同步更新 `package.json`。
-
-## 📂 Project Structure Guide
-
-```text
+```
 root/
-├── clis/               # TypeScript/Node.js CLI 工具
-│   └── json-diff-tool/ # JSON 差异对比工具
-├── config/             # 各种软件的配置文件 (Docker, Git, VSCode...)
-├── docs/               # 项目文档 & Cheatsheets
-├── linux/              # Linux 专用脚本 (Ubuntu, Arch, WSL)
-├── ai/                 # AI 相关配置 & Prompts
-├── .vscode/            # VS Code 工作区设置
-├── install.ps1         # 项目入口安装脚本
-└── README.md           # 项目总览
+├── bin/                          # Auto-generated shims (gitignored, DO NOT edit)
+├── scripts/
+│   ├── pwsh/                     # PowerShell script sources (categorized)
+│   │   ├── devops/               # DevOps tools (SSH setup, containers, formatting)
+│   │   ├── filesystem/           # File system utilities
+│   │   ├── media/                # FFmpeg, image compression
+│   │   ├── misc/                 # General utilities (env cleanup, proxy, etc.)
+│   │   └── network/              # Download & network tools
+│   ├── node/                     # Node.js/TypeScript tools (pnpm workspace package)
+│   │   ├── src/                  # TypeScript source (Rspack entry auto-detection)
+│   │   │   ├── rule-loader/      # AI rule file converter CLI
+│   │   │   └── hello.ts          # Example entry
+│   │   ├── tests/                # Vitest tests
+│   │   ├── rspack.config.ts      # Build config (SWC loader, banner injection)
+│   │   └── generate-bin.ts       # Post-build bin wrapper generator
+│   ├── python/                   # Python utility scripts (shims via uv)
+│   ├── ahk/                      # AutoHotkey v2 scripts (Windows only)
+│   │   ├── scripts/              # AHK modules
+│   │   ├── base.ahk              # Shared base config
+│   │   └── makeScripts.ps1       # Build script to merge modules
+│   ├── qa.mjs                    # Monorepo QA orchestrator (changed/all modes)
+│   ├── qa-turbo.mjs              # Turbo-based QA orchestrator
+│   └── qa-benchmark.mjs          # QA benchmark sampling
+├── psutils/                      # PowerShell utility module
+│   ├── psutils.psd1              # Module manifest (v1.0.0, author: mudssky)
+│   ├── index.psm1                # Root module (NestedModules in psd1 handle loading)
+│   ├── modules/                  # Sub-modules (18 .psm1 files)
+│   │   ├── cache.psm1            # Caching (Invoke-WithCache, Invoke-WithFileCache)
+│   │   ├── env.psm1              # .env file handling, PATH manipulation
+│   │   ├── filesystem.psm1       # Get-Tree, gitignore-aware tree
+│   │   ├── functions.psm1        # General utilities (history, shortcuts, semver)
+│   │   ├── git.psm1              # Git helpers
+│   │   ├── help.psm1             # Module help search
+│   │   ├── install.psm1          # Package manager app installation
+│   │   ├── network.psm1          # Port checks, URL waiting
+│   │   ├── os.psm1               # OS detection, admin check
+│   │   ├── test.psm1             # Testing utilities
+│   │   ├── web.psm1              # Web shortcuts
+│   │   └── ...                   # (font, hardware, proxy, string, etc.)
+│   └── tests/                    # Pester tests for each module
+├── profile/                      # PowerShell profile system
+│   ├── profile.ps1               # Main entry (dot-sources core -> mode -> loaders -> features)
+│   ├── profile_unix.ps1          # Linux/macOS entry
+│   ├── core/                     # Core loading (encoding, mode detection, loaders)
+│   ├── features/                 # Feature modules (environment, help, install)
+│   ├── config/aliases/           # User alias definitions
+│   └── installer/                # App/module/font installation scripts
+├── projects/clis/                # Standalone CLI tools (pnpm workspace packages)
+│   ├── pwshfmt-rs/               # Rust-based PowerShell formatter
+│   │   ├── src/                  # Rust source (formatter, discovery, processor)
+│   │   ├── tests/                # Rust integration tests
+│   │   └── package.json          # npm wrapper for Turbo (cargo commands)
+│   └── json-diff-tool/           # TypeScript JSON/JSONC/JSON5 diff CLI
+│       ├── src/                  # TypeScript source
+│       └── tests/                # Vitest tests
+├── config/                       # Software configurations
+│   ├── software/mpv/             # MPV player config + TypeScript scripts
+│   ├── clash/                    # Proxy configs
+│   ├── git/                      # Git utilities
+│   └── frontend/                 # Frontend project templates
+├── ai/                           # AI tooling (prompts, MCP configs, model downloads)
+├── docs/cheatsheet/              # Technical cheatsheets by topic
+├── linux/                        # Linux setup scripts (Ubuntu, Arch, WSL2)
+├── macos/                        # macOS setup scripts + Hammerspoon
+├── tests/                        # Root-level Pester tests
+├── install.ps1                   # Project entry: PATH setup + sync bin + build Node
+├── Manage-BinScripts.ps1         # Bin shim generator (sync/clean)
+├── PesterConfiguration.ps1       # Pester test framework configuration
+├── package.json                  # Root package (pnpm workspace root)
+├── pnpm-workspace.yaml           # Workspaces: projects/**, scripts/node
+├── turbo.json                    # Turborepo task pipeline
+├── biome.json                    # Biome linter/formatter config
+└── lint-staged.config.js         # Pre-commit hooks config
 ```
+
+## Build / Test / Lint Commands
+
+### Installation
+
+```bash
+# Full environment setup (PATH, bin sync, Node build)
+pwsh ./install.ps1
+
+# Sync bin shims only
+pwsh ./Manage-BinScripts.ps1 -Action sync -Force
+
+# Clean bin directory
+pwsh ./Manage-BinScripts.ps1 -Action clean
+```
+
+### Testing
+
+```bash
+# PowerShell Pester tests (full, with coverage & profile tests)
+pnpm test
+
+# Fast local tests (no profile loading, no coverage)
+pnpm test:fast
+
+# Serial mode (for debugging discovery phase hangs)
+pnpm test:serial
+
+# Debug output
+pnpm test:debug
+
+# Profile-specific tests only
+pnpm test:profile
+
+# Node.js Vitest (in scripts/node workspace)
+cd scripts/node && pnpm test
+```
+
+Pester configuration is in `PesterConfiguration.ps1` with environment-driven modes:
+- `PWSH_TEST_MODE`: `full` (default) | `fast` | `serial` | `debug`
+- `PWSH_TEST_VERBOSE`: set to `1` for detailed output
+- `PWSH_TEST_PATH`: override test paths (semicolon/comma separated)
+- Test paths: `./psutils` and `./tests`
+- Tags: `Slow` always excluded; `windowsOnly` excluded on Linux/macOS
+- Parallelism: 4 threads (disabled in serial mode)
+- CI: `$env:CI` controls exit-on-failure and detailed output
+
+### Formatting
+
+```bash
+# PowerShell formatting (git-changed files only, via pwshfmt-rs)
+pnpm format:pwsh
+
+# PowerShell formatting (all files)
+pnpm format:pwsh:all
+
+# PowerShell formatting with strict fallback
+pnpm format:pwsh:strict
+
+# Rust-based fast formatter
+pnpm format:pwsh:rs              # write mode, git-changed
+pnpm format:pwsh:rs:all          # write mode, all files
+pnpm check:pwsh:rs               # check mode (non-zero exit if changes needed)
+
+# Biome (JS/TS)
+pnpm format:biome
+
+# Python (via uvx ruff)
+pnpm format:python
+pnpm lint:python
+```
+
+### QA (Quality Assurance)
+
+```bash
+# Monorepo QA - changed packages only (format + lint + test per workspace)
+pnpm qa
+
+# Monorepo QA - all packages
+pnpm qa:all
+
+# Verbose mode (shows filtering & command execution details)
+pnpm qa:verbose
+
+# Turbo-based QA (parallel, with caching)
+pnpm turbo:qa              # affected packages
+pnpm turbo:qa:all           # all packages
+pnpm turbo:qa:verbose       # with verbose output
+
+# Root PowerShell QA only
+pnpm qa:pwsh                # format:pwsh && test
+
+# QA benchmark sampling (CI trend analysis)
+pnpm qa:benchmark
+```
+
+The Turbo pipeline runs: `typecheck:fast -> check -> test:fast` per workspace package.
+Set `QA_BASE_REF` to change the diff baseline (default: `origin/master`).
+
+### Per-workspace QA commands
+
+Each workspace package defines its own `qa` script:
+- **scripts/node**: `typecheck:fast && check && test:fast`
+- **projects/clis/json-diff-tool**: `typecheck:fast && check && test:fast`
+- **projects/clis/pwshfmt-rs**: `cargo check && cargo clippy && cargo test`
+
+### Node.js Build (scripts/node)
+
+```bash
+cd scripts/node
+pnpm build              # Production build (Rspack + generate bin wrappers)
+pnpm build:dev          # Dev build (no minification)
+pnpm build:standalone   # Build + copy .cjs to bin/
+```
+
+Rspack auto-discovers entries from `src/`: top-level `.ts` files and directories with `index.ts`. Output is `dist/[name].cjs` with `#!/usr/bin/env node` banner injected.
+
+## Coding Conventions
+
+### PowerShell
+
+- **Header template**:
+  ```powershell
+  #!/usr/bin/env pwsh
+  [CmdletBinding(SupportsShouldProcess = $true)]
+  param(...)
+  Set-StrictMode -Version Latest
+  $ErrorActionPreference = 'Stop'
+  ```
+- **Functions**: Must use `Verb-Noun` naming (e.g., `Get-SystemInfo`)
+- **Paths**: Always use `Join-Path`, never string concatenation like `"$root\bin"`
+- **Documentation**: Every script must have `.SYNOPSIS`, `.DESCRIPTION`, `.PARAMETER`, `.EXAMPLE`
+- **Error handling**: Use `try/catch`, never swallow errors with empty catch blocks
+- **Encoding**: UTF-8 (No BOM), LF line endings
+- **File naming**: `PascalCase.ps1` or `camelCase.ps1` (maintain consistency)
+
+### Node.js / TypeScript
+
+- **File naming**: `kebab-case.ts` (preferred) or `camelCase.ts`
+- **No `any`**: Define explicit interfaces/types
+- **JSDoc**: Required on all exported functions
+- **Async**: Must handle Promise rejection (`try/catch` or `.catch()`)
+- **Linter**: Biome (single-quote, trailing commas, LF, 2-space indent, no semicolons)
+
+### Rust (pwshfmt-rs)
+
+- Standard `cargo fmt` / `cargo clippy` conventions
+- Tests run with `--test-threads=1`
+
+### AutoHotkey
+
+- **AHK v2 only**: `#Requires AutoHotkey v2.0`
+- Edit modules in `scripts/ahk/scripts/`, then run `makeScripts.ps1` to rebuild
+
+### General
+
+- **SOLID/SRP**: Each function/script does one thing
+- **Comments**: Explain "why", not "what"
+- **TODOs**: Format as `// TODO(User): [description]` or `# TODO(User): [description]`
+- **Commit messages**: Use Chinese
+- **No hallucination**: Never reference packages not in `package.json`
+
+## Pre-commit Hooks
+
+Configured via Husky + lint-staged (`lint-staged.config.js`):
+- `*.{ps1,psm1,psd1}`: PowerShell formatting via `Format-PowerShellCode.ps1`
+- `*.{js,jsx,ts,tsx,css,html,json,jsonc}`: `biome check --write`
+- `*.py`: `uvx ruff check --fix` + `uvx ruff format`
+- `*.lua`: `stylua`
+- `*.ipynb`: `nbstripout`
+
+## CI (GitHub Actions)
+
+**Workflow: `.github/workflows/test.yml`** (triggers on push/PR to master):
+1. **Pester tests**: Matrix across `ubuntu-latest`, `windows-latest`, `macos-latest`
+2. **Node Vitest**: Ubuntu only, uses pnpm cache, outputs JUnit XML report
+3. Both jobs publish test reports via `dorny/test-reporter`
+
+**Workflow: `.github/workflows/qa-benchmark.yml`**: Standalone QA benchmark sampling.
+
+## Profile System
+
+The profile system (`profile/`) directly affects shell startup performance:
+
+- **Entry**: `profile/profile.ps1` (Windows), `profile/profile_unix.ps1` (Linux/macOS)
+- **Load order**: `core/encoding.ps1` -> `core/mode.ps1` -> `core/loaders.ps1` -> `features/*`
+- **Mode detection**: Auto-selects `Full`, `Minimal`, or `UltraMinimal` profile mode
+- **Performance constraint**: No synchronous network calls in profile scripts; use lazy loading for module imports
+- **Error resilience**: Profile errors must not prevent shell startup
+
+## PSUtils Module
+
+Module manifest at `psutils/psutils.psd1` with 18 nested sub-modules. Key patterns:
+- All functions are explicitly listed in `FunctionsToExport` (no wildcards)
+- Import: `Import-Module ./psutils/psutils.psd1`
+- Adding a function: create in `modules/*.psm1` -> add to `FunctionsToExport` in `.psd1` -> add test in `tests/`
+- Compatible with PowerShell 5.1+ and Core
+
+## Non-obvious Conventions
+
+1. **Shim `@ShimProfile` directive**: PowerShell source scripts can include a comment `# @ShimProfile: NoProfile|Silent|Default` to control the shim's shebang line (`-NoProfile`, `-NoLogo`, or plain `pwsh`).
+
+2. **Duplicate script name resolution**: `Manage-BinScripts.ps1` handles filename collisions via `DuplicateStrategy`: `PrefixParent` (default, uses parent directory as prefix), `Overwrite`, or `Skip`.
+
+3. **Python scripts become PowerShell shims**: `.py` files in `scripts/python/` are mapped to `.ps1` shims in `bin/` that invoke `uv run`.
+
+4. **Rspack entry auto-detection**: In `scripts/node/`, directories with `index.ts` become a single entry point (named after the directory). Top-level `.ts` files (except `index.ts`) each become their own entry.
+
+5. **Turbo task caching**: The pipeline excludes docs/notebooks from cache inputs. Remote caching is off by default; enable in CI with `TURBO_REMOTE_CACHE=1`.
+
+6. **Profile test isolation**: Profile tests run in a dedicated serial mode (`pnpm test:profile`) due to global state dependencies.
+
+7. **`pwshfmt-rs`**: A custom Rust-based PowerShell formatter at `projects/clis/pwshfmt-rs/` that handles command name and parameter name casing correction. It preserves string literals and comments, and avoids writing unchanged files. Its `package.json` wraps Cargo commands for Turbo integration.
+
+8. **MPV scripts TypeScript build**: `config/software/mpv/mpv_scripts/` is a separate TypeScript project using Rollup. Build with `cd config/software/mpv/mpv_scripts && pnpm build`. All dependencies must be bundled (no runtime `node_modules`).
