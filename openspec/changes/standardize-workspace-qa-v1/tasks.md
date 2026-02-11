@@ -38,3 +38,11 @@
 - [x] 5.3 在 `spec.md` 补充 CI affected 历史前置要求（`fetch-depth: 0`）
 - [x] 5.4 在 `spec.md` 补充性能基线要求（记录对比指标，不将“V2 必须快于 V1”设为硬门槛）
 - [x] 5.5 产出并维护 `validation.md` 记录 V1/V2 对比结果（耗时、缓存命中、最长耗时包、失败可读性）
+
+## 6. Turbo 优化版本调整提案（V2.1）
+
+- [ ] 6.1 将包内 `qa` 复合命令拆分为可被 Turbo 直接编排的细粒度任务链路（`typecheck:fast`、`check`、`test:fast`）
+- [ ] 6.2 优化 `turbo.json` 任务依赖与缓存边界，验证 warm 场景缓存命中率提升
+- [ ] 6.3 设计并落地可选远程缓存接入方案（默认关闭，可按 CI 环境变量开启）
+- [ ] 6.4 修复或规避 `node-script` 在容器环境下 `tsx` IPC `EPERM` 对 `qa:all`/`turbo:qa:all` 的阻断
+- [ ] 6.5 在 CI 增加 Turbo 优化版对比指标采样与趋势记录（至少包含 `cold(all)`、`warm(all)`、`changed(PR)`）
