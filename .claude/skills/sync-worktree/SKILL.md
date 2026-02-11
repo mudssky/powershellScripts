@@ -92,7 +92,37 @@ git worktree list --porcelain
 如果没有 feature worktree（只有主 worktree），显示：
 > 当前没有可同步的 feature worktree。使用 `git worktree add` 创建新的 worktree。
 
-**状态概览模式到此结束。**
+**到此结束。**
+
+### 3.1 交互选择
+
+展示状态表格后，根据 worktree 数量动态构建选项，使用 **AskUserQuestion** 让用户选择下一步操作。
+
+选项生成规则：
+- 对每个 feature worktree 生成两个选项：
+  - `rebase <branch>`：将 `<branch>` rebase 到基准分支（拉代码）
+  - `merge <branch>`：将 `<branch>` 合并回基准分支
+- 如果有多个 feature worktree，额外添加：
+  - `rebase --all`：批量 rebase 所有 feature 分支
+- 最后添加：
+  - `取消`：不执行任何操作
+
+示例（有 aifeat 和 hotfix 两个 feature worktree 时）：
+
+| 选项 | 说明 |
+|------|------|
+| rebase aifeat | 将 aifeat rebase 到 master（拉代码） |
+| merge aifeat | 将 aifeat 合并回 master |
+| rebase hotfix | 将 hotfix rebase 到 master（拉代码） |
+| merge hotfix | 将 hotfix 合并回 master |
+| rebase --all | 批量 rebase 所有 feature 分支到 master |
+| 取消 | 不执行任何操作 |
+
+用户选择后，跳转到对应的 Step 执行：
+- `rebase <branch>` → Step 4（单分支同步）
+- `merge <branch>` → Step 7（合并回主分支）
+- `rebase --all` → Step 6（批量同步）
+- `取消` → 结束
 
 ---
 
