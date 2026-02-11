@@ -60,3 +60,60 @@ Profile 启动后 SHALL 注册 `PowerShell.OnIdle` 引擎事件（`-MaxTriggerCo
 
 - **WHEN** 任一核心子模块 dot-source 失败
 - **THEN** SHALL 抛出错误并终止 profile 加载（与当前 `Import-Module -ErrorAction Stop` 行为一致）
+
+### Requirement: 同步路径禁止触发 PSModulePath 自动导入
+
+Profile 启动的同步路径（core-loaders 和 initialize-environment 阶段）中 SHALL NOT 存在任何会触发 PSModulePath 自动发现并导入 psutils 全量模块的操作。
+
+#### Scenario: 同步路径中的 Get-Command 不引用非核心模块函数
+
+- **WHEN** 同步路径中存在 `Get-Command -Name <函数名>` 调用
+- **THEN** 该函数名 SHALL 属于 6 个核心子模块导出的函数，或者该检测 SHALL 被移至 OnIdle 延迟执行
+
+#### Scenario: fzf 键绑定注册延迟到 OnIdle
+
+- **WHEN** profile 启动并执行 `Set-ProfileUtf8Encoding`
+- **THEN** SHALL NOT 调用 `Get-Command -Name Register-FzfHistorySmartKeyBinding`（该函数属于 `functions.psm1`，非核心模块）
+- **THEN** fzf 键绑定注册 SHALL 在 OnIdle 事件中执行（psutils 全量加载完成后）
+
+### Requirement: OnIdle Action 使用闭包传递变量
+
+OnIdle 事件的 Action 脚本块 SHALL 使用 `.GetNewClosure()` 捕获局部变量，SHALL NOT 使用 `-MessageData` + `$Event.MessageData`（PowerShell 7.5 引擎 bug 导致 `$Event.MessageData` 为 `$null`）。
+
+#### Scenario: 闭包正确捕获模块路径
+
+- **WHEN** OnIdle 事件触发并执行 Action 脚本块
+- **THEN** 闭包中的模块路径变量 SHALL 非空，`Import-Module` SHALL 成功执行
+
+### Requirement: 延迟加载防护栏 — 运行时检测
+
+Profile SHALL 在 `Initialize-Environment` 执行后检测 psutils 模块是否被意外全量加载（即延迟加载被短路）。如检测到异常，SHALL 通过 `Write-Warning` 输出提醒。
+
+#### Scenario: 正常情况无警告
+
+- **WHEN** 同步路径未触发 psutils 自动导入，`Initialize-Environment` 执行完毕
+- **THEN** SHALL NOT 输出性能守卫警告
+
+#### Scenario: 检测到意外全量加载
+
+- **WHEN** `Initialize-Environment` 执行期间 psutils 模块被意外全量加载（通过 PSModulePath 自动发现）
+- **THEN** SHALL 输出 `Write-Warning` 包含 `[性能守卫]` 前缀，提示延迟加载优化失效
+
+#### Scenario: 防护栏仅在诊断模式生效
+
+- **WHEN** `POWERSHELL_PROFILE_TIMING` 未设置或为 `0`
+- **THEN** SHALL 跳过运行时检测逻辑，不增加正常启动的开销
+
+### Requirement: 延迟加载防护栏 — 静态 Pester 测试
+
+SHALL 存在 Pester 测试扫描 profile 同步路径文件（`profile/core/*.ps1`、`profile/features/*.ps1`）中的 `Get-Command -Name` 调用，验证引用的函数名属于核心模块导出函数集合。
+
+#### Scenario: 同步路径中 Get-Command 引用的函数属于核心模块
+
+- **WHEN** Pester 测试扫描到 `Get-Command -Name <函数名>` 调用
+- **THEN** `<函数名>` SHALL 存在于 6 个核心子模块（`os`、`cache`、`test`、`env`、`proxy`、`wrapper`）的导出函数中，否则测试 SHALL 失败
+
+#### Scenario: 新增 Get-Command 引用非核心函数时 CI 拦截
+
+- **WHEN** 开发者在 profile 同步路径文件中新增了 `Get-Command -Name <非核心函数>` 调用
+- **THEN** CI 中的 Pester 测试 SHALL 失败并提示该函数会触发 psutils 全量自动导入

@@ -27,7 +27,36 @@
 - [x] 5.1 使用 `POWERSHELL_PROFILE_TIMING=1` 运行 profile，验证 `core-loaders` 阶段从 ~680ms 降至 ~77ms（超额完成，节省 ~600ms）
 - [x] 5.2 验证 `mode-decision` 阶段从 ~88ms 降至 ~47ms（节省 ~41ms）。总加载时间受 `initialize-environment` 外部操作（Sync-PathFromBash、fnm、starship、proxy）制约，冷启动约 1750ms，热缓存约 970ms
 - [x] 5.3 验证 prompt 显示后执行 `Get-Tree`（非核心函数）可正常工作（PSModulePath 自动加载兜底），source 显示为 `psutils`
-- [ ] 5.4 验证 OnIdle 触发后所有 70+ 个 psutils 函数可 Tab 补全（需在交互式 shell 中手动验证）
+- [x] 5.4 验证 OnIdle 触发后所有 70+ 个 psutils 函数可 Tab 补全（需在交互式 shell 中手动验证）
 - [x] 5.5 验证 UltraMinimal 模式行为不变（跳过所有模块加载）
 - [x] 5.6 验证 Minimal 模式行为不变（加载模块但跳过工具和别名）
 - [x] 5.7 运行 `pnpm test:fast` 确保现有 Pester 测试全部通过（324 passed, 0 failed）
+
+## 6. 修复 Get-Command 触发 psutils 全量自动导入
+
+- [x] 6.1 将 `profile/core/encoding.ps1` 中的 `Get-Command -Name Register-FzfHistorySmartKeyBinding` 及 `Register-FzfHistorySmartKeyBinding` 调用移到 OnIdle 事件中（与 psutils 全量加载合并），`Set-ProfileUtf8Encoding` 仅保留 UTF8 编码设置和 `Set-PSReadLineKeyHandler`
+- [x] 6.2 审查 profile 同步路径中所有 `Get-Command` 调用，确认不引用非核心模块导出的函数（避免类似的 PSModulePath 自动导入问题）
+- [x] 6.3 使用 `POWERSHELL_PROFILE_TIMING=1` 在 Windows 上验证 `initialize-environment` 中 `utf8-encoding` 阶段从 ~1268ms 降至 <50ms
+
+## 7. 修复 OnIdle 事件 -MessageData 引擎 bug
+
+- [x] 7.1 将 `profile/core/loadModule.ps1` 中 OnIdle Action 从 `-MessageData` + `$Event.MessageData` 方式改为局部变量 + `.GetNewClosure()` 闭包方式
+- [x] 7.2 验证新终端窗口不再出现 `WARNING: [profile/loadModule.ps1] OnIdle psutils 全量加载失败: Cannot bind argument to parameter 'Name' because it is null.`
+
+## 8. 清理临时诊断代码
+
+- [x] 8.1 移除 `profile/features/environment.ps1` 中的细粒度计时诊断代码（`__RecordEnvTiming`、`__envSw`、`__envTimings` 及输出块）
+- [x] 8.2 移除 `profile/core/loadModule.ps1` 中的调试日志代码（如有残留）
+
+## 9. 延迟加载防护栏 — 运行时检测
+
+- [x] 9.1 在 `profile/profile.ps1` 中 `Initialize-Environment` 调用前记录 psutils 模块加载状态快照（`$__preInitPsutilsLoaded = [bool](Get-Module -Name 'psutils')`）
+- [x] 9.2 在 `Initialize-Environment` 调用后检测 psutils 是否被意外全量加载，如是则通过 `Write-Warning "[性能守卫] ..."` 输出提醒
+- [x] 9.3 仅在 `POWERSHELL_PROFILE_TIMING=1` 或 Verbose 模式下启用检测，避免正常使用时的额外开销
+
+## 10. 延迟加载防护栏 — 静态 Pester 测试
+
+- [x] 10.1 收集 6 个核心子模块（`os`、`cache`、`test`、`env`、`proxy`、`wrapper`）的导出函数列表
+- [x] 10.2 扫描 `profile/core/*.ps1` 和 `profile/features/*.ps1` 中的 `Get-Command -Name <函数名>` 调用，提取所有引用的函数名
+- [x] 10.3 交叉验证：引用的函数名 SHALL 全部属于核心模块导出函数集合，否则测试失败并输出具体的函数名和所在文件
+- [x] 10.4 将测试加入 `pnpm test` / `pnpm test:fast` 执行路径，确保 CI 可拦截
