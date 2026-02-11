@@ -46,7 +46,8 @@ git worktree list --porcelain
 
 1. **无参数** → 状态概览模式（跳转 Step 3）
 2. **`--all`** → 批量同步模式（跳转 Step 6）
-3. **`<branch>`** → 单分支同步模式
+3. **`<branch> --merge`** → 合并回主分支模式（跳转 Step 7）
+4. **`<branch>`** → 单分支同步模式
    - 检查是否同时提供了 `--from <base>`；如果有，使用该分支替代默认基准
    - 跳转 Step 4
 
@@ -252,6 +253,99 @@ git -C <worktree-path> rev-parse --abbrev-ref --symbolic-full-name @{upstream} 2
 
 如果有因冲突被跳过的分支，补充提示：
 > ⚠ 冲突分支可单独处理：`/sync-worktree <branch>` 后手动解决冲突。
+
+---
+
+## Step 7: 合并回主分支（`--merge`）
+
+当用户使用 `/sync-worktree <branch> --merge` 时，将指定 feature 分支合并到主分支（master）。
+
+### 7.1 验证目标分支
+
+同 Step 4.1，检查指定的分支名是否存在于 worktree 列表中。
+
+### 7.2 检查双方工作区状态
+
+分别检查 **feature worktree** 和 **主 worktree** 的工作区状态：
+
+```bash
+git -C <feature-worktree-path> status --porcelain
+git -C <main-worktree-path> status --porcelain
+```
+
+任一方有未提交改动，**拒绝**合并：
+> ❌ `<branch>` 工作区有未提交改动，请先 commit 或 stash 后重试。
+
+或：
+> ❌ 主分支 `<base>` 工作区有未提交改动，请先 commit 或 stash 后重试。
+
+### 7.3 检查是否需要先同步
+
+检查 feature 分支是否落后于主分支：
+```bash
+git rev-list --count <branch>..<base>
+```
+
+如果计数 **> 0**，说明 feature 分支还没有包含主分支的最新 commit。**建议用户先同步**：
+> ⚠ `<branch>` 落后 `<base>` N 个 commit，建议先执行 `/sync-worktree <branch>` 同步后再合并，以获得干净的 fast-forward merge。
+
+使用 **AskUserQuestion** 让用户选择：
+
+| 选项 | 说明 |
+|------|------|
+| 先同步再合并（推荐） | 先执行 rebase 同步，再 merge（产生 fast-forward） |
+| 直接合并 | 跳过同步，直接 merge（可能产生 merge commit） |
+| 取消 | 不执行任何操作 |
+
+如果用户选择「先同步再合并」，先执行 Step 4 的完整流程，成功后继续 Step 7.4。
+
+### 7.4 合并预览
+
+展示将要合并到主分支的 commit：
+```bash
+git log --oneline <base>..<branch>
+```
+
+显示格式：
+```
+将 merge <branch> into <base>
+
+包含 <N> 个 commit:
+  <sha1> <message1>
+  <sha2> <message2>
+  ...
+```
+
+### 7.5 执行 Merge
+
+在**主 worktree** 目录中执行 merge：
+```bash
+git -C <main-worktree-path> merge <branch>
+```
+
+如果 feature 分支已经 rebase 过，这通常是一个 **fast-forward merge**（不产生额外的 merge commit）。
+
+**如果 merge 成功** → 跳转 Step 7.6（成功报告）
+
+**如果 merge 失败（冲突）** → 类似 Step 4.6 的冲突处理流程，但操作目录改为主 worktree：
+1. 列出冲突文件：`git -C <main-worktree-path> diff --name-only --diff-filter=U`
+2. 提供三个选项：Claude 协助解决 / 手动解决后 `git -C <path> merge --continue` / 中止 `git -C <path> merge --abort`
+
+### 7.6 成功报告（Merge）
+
+```bash
+git -C <main-worktree-path> rev-parse --short HEAD
+git -C <main-worktree-path> log --oneline -1
+```
+
+报告格式：
+```
+✔ <branch> 已合并到 <base>
+
+  新 HEAD:     <short-sha> <message>
+  合并方式:    fast-forward | merge commit
+  合并 commit: <N> 个
+```
 
 ---
 
