@@ -10,6 +10,7 @@ catch {
     throw
 }
 
+# PSModulePath 去重（不追加额外路径，仅清理重复条目）
 $sep = [System.IO.Path]::PathSeparator
 $paths = ($env:PSModulePath -split [string]$sep) | Where-Object { $_ }
 
@@ -23,7 +24,7 @@ else {
 $seenPaths = [System.Collections.Generic.HashSet[string]]::new($pathComparer)
 $uniquePaths = [System.Collections.Generic.List[string]]::new()
 
-foreach ($path in ($paths + $moduleParent)) {
+foreach ($path in $paths) {
     if ([string]::IsNullOrWhiteSpace($path)) { continue }
     if ($seenPaths.Add($path)) {
         $uniquePaths.Add($path) | Out-Null

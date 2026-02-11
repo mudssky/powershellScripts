@@ -7,10 +7,9 @@ function Set-ProfileUtf8Encoding {
     $Global:OutputEncoding = [console]::InputEncoding = [console]::OutputEncoding = $utf8
     $Global:PSDefaultParameterValues["Out-File:Encoding"] = "UTF8"
 
-    if (Get-Command -Name Set-PSReadLineKeyHandler -ErrorAction SilentlyContinue) {
-        Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
-        if (Get-Command -Name Register-FzfHistorySmartKeyBinding -ErrorAction SilentlyContinue) {
-            Register-FzfHistorySmartKeyBinding | Out-Null
-        }
+    # PSReadLine 是 PowerShell 7+ 内置模块，无需 Get-Command 检查
+    Set-PSReadLineKeyHandler -Key Tab -Function Complete
+    if (Get-Command -Name Register-FzfHistorySmartKeyBinding -CommandType Function -ErrorAction SilentlyContinue) {
+        Register-FzfHistorySmartKeyBinding | Out-Null
     }
 }

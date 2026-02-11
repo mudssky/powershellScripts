@@ -147,12 +147,16 @@ function Initialize-Environment {
         }
     }
 
-    # 自动检测代理
+    # 自动检测代理（缓存 5 分钟避免每次 profile 加载都做 TCP 探测）
     if (-not $SkipProxy) {
-        Set-Proxy -Command auto
-    }
-    else {
-        Write-Verbose "跳过代理自动检测"
+        $proxyState = Invoke-WithCache -Key "proxy-auto-detect" -MaxAge ([TimeSpan]::FromMinutes(5)) -CacheType Text -ScriptBlock {
+            Set-Proxy -Command auto
+            $result = if ($env:http_proxy) { 'on' } else { 'off' }
+            return $result
+        }
+        if ($proxyState -eq 'on' -and -not $env:http_proxy) {
+            Set-Proxy -Command on
+        }
     }
 
     # 加载自定义环境变量脚本 (用于存放机密或个人配置)
@@ -173,11 +177,22 @@ function Initialize-Environment {
     # === 工具初始化 ===
     Write-Verbose "初始化开发工具"
     $Global:__ZoxideInitialized = $false
+
+    # 批量检测所有工具可用性（单次 Get-Command 替代多次 Test-EXEProgram）
+    $toolNames = @('starship', 'zoxide', 'sccache', 'fnm')
+    $availableTools = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $foundCommands = Get-Command -Name $toolNames -CommandType Application -ErrorAction SilentlyContinue
+    if ($foundCommands) {
+        foreach ($cmd in $foundCommands) {
+            $availableTools.Add($cmd.Name) | Out-Null
+        }
+    }
+
     $tools = @{
         starship = {
             if ($SkipTools -or $SkipStarship) { return }
             Write-Verbose "初始化 Starship 提示符"
-            $starshipFile = Invoke-WithFileCache -Key "starship-init-powershell" -MaxAge ([TimeSpan]::FromDays(7)) -Generator { & starship init powershell } -BaseDir (Join-Path $profileRoot '.cache')
+            $starshipFile = Invoke-WithFileCache -Key "starship-init-powershell" -MaxAge ([TimeSpan]::FromDays(7)) -Generator { & starship init powershell --print-full-init } -BaseDir (Join-Path $profileRoot '.cache')
             . $starshipFile
         }
         zoxide   = {
@@ -202,7 +217,7 @@ function Initialize-Environment {
     }
 
     foreach ($tool in $tools.GetEnumerator()) {
-        if (Test-EXEProgram -Name $tool.Key) {
+        if ($availableTools.Contains($tool.Key)) {
             try {
                 & $tool.Value
                 Write-Verbose "成功初始化工具: $($tool.Key)"
@@ -248,7 +263,7 @@ function Initialize-Environment {
     if (-not $SkipAliases) { Set-AliasProfile }
 
     # z 函数懒加载：zoxide 已安装但未在初始化阶段加载时，首次调用自动初始化
-    if (-not $Global:__ZoxideInitialized -and -not $SkipZoxide -and (Test-EXEProgram -Name 'zoxide')) {
+    if (-not $Global:__ZoxideInitialized -and -not $SkipZoxide -and $availableTools.Contains('zoxide')) {
         function Global:z { & (Invoke-WithFileCache -Key "zoxide-init-powershell" -MaxAge ([TimeSpan]::FromDays(7)) -Generator { zoxide init powershell } -BaseDir (Join-Path $script:ProfileRoot '.cache')); Remove-Item function:Global:z -Force; & z @args }
     }
 

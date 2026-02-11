@@ -7,7 +7,22 @@ param(
 
 # 运行时基线：仅支持 PowerShell 7+（pwsh）
 
-$profileLoadStartTime = Get-Date
+# === 分阶段计时诊断 ===
+$script:ProfileStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+$script:ProfileTimings = [ordered]@{}
+$script:ProfileTimingEnabled = (
+    $env:POWERSHELL_PROFILE_TIMING -eq '1' -or
+    $env:POWERSHELL_PROFILE_TIMING -eq 'true'
+)
+
+function script:Record-ProfileTiming {
+    param([string]$Phase)
+    $elapsed = $script:ProfileStopwatch.ElapsedMilliseconds
+    $script:ProfileTimings[$Phase] = $elapsed
+    $script:ProfileStopwatch.Restart()
+    Write-Verbose "[Profile Timing] $Phase: ${elapsed}ms"
+}
+
 $script:ProfileRoot = $PSScriptRoot
 $script:ProfileEntryScriptPath = $PSCommandPath
 
@@ -36,12 +51,18 @@ foreach ($scriptPath in @(
     }
 }
 
+Record-ProfileTiming -Phase 'dot-source-definitions'
+
 $script:ProfileModeDecision = Get-ProfileModeDecision
 $script:ProfileMode = [string]$script:ProfileModeDecision.Mode
 $script:UseMinimalProfile = $script:ProfileMode -eq 'Minimal'
 $script:UseUltraMinimalProfile = $script:ProfileMode -eq 'UltraMinimal'
 
+Record-ProfileTiming -Phase 'mode-decision'
+
 . $script:InvokeProfileCoreLoaders
+
+Record-ProfileTiming -Phase 'core-loaders'
 
 # === 主执行逻辑 ===
 try {
@@ -57,11 +78,22 @@ catch {
     Write-Error "脚本执行过程中出现错误: $($_.Exception.Message)"
 }
 
-# 加载耗时统计
-$profileLoadEndTime = Get-Date
-$profileLoadTime = ($profileLoadEndTime - $profileLoadStartTime).TotalMilliseconds
-if ($profileLoadTime -gt 1000) {
+Record-ProfileTiming -Phase 'initialize-environment'
+
+# === 加载耗时统计 ===
+$totalMs = 0
+foreach ($val in $script:ProfileTimings.Values) { $totalMs += $val }
+$script:ProfileTimings['total'] = $totalMs
+
+if ($script:ProfileTimingEnabled) {
+    Write-Host "=== Profile 加载计时 ===" -ForegroundColor Cyan
+    foreach ($entry in $script:ProfileTimings.GetEnumerator()) {
+        $color = if ($entry.Value -gt 500) { 'Red' } elseif ($entry.Value -gt 200) { 'Yellow' } else { 'Green' }
+        Write-Host ("  {0,-30} {1,6}ms" -f $entry.Key, $entry.Value) -ForegroundColor $color
+    }
+}
+elseif ($totalMs -gt 1000) {
     if (-not $script:UseMinimalProfile) {
-        Write-Host "Profile 加载耗时: $($profileLoadTime) 毫秒" -ForegroundColor Green
+        Write-Host "Profile 加载耗时: $totalMs 毫秒" -ForegroundColor Green
     }
 }

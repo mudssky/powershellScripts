@@ -173,19 +173,6 @@ function Set-Proxy {
                 $env:NO_PROXY = $NoProxyList
 
                 Write-Verbose "✅ 代理已开启: $url"
-                
-                # 简单连通性检查
-                try {
-                    $tcp = New-Object System.Net.Sockets.TcpClient
-                    $async = $tcp.BeginConnect($endpoint.Host, [int]$endpoint.Port, $null, $null)
-                    if (-not $async.AsyncWaitHandle.WaitOne(200)) {
-                        Write-Warning "无法连接到代理端口 $($endpoint.Host):$($endpoint.Port)。"
-                    }
-                    $tcp.Close()
-                }
-                catch {
-                    Write-Warning "无法连接到代理端口 $($endpoint.Host):$($endpoint.Port)。"
-                }
             }
 
             { $_ -in "off", "disable", "unset" } {
@@ -203,7 +190,7 @@ function Set-Proxy {
                 try {
                     $client = New-Object System.Net.Sockets.TcpClient
                     $connect = $client.BeginConnect($endpoint.Host, [int]$endpoint.Port, $null, $null)
-                    if ($connect.AsyncWaitHandle.WaitOne(100)) {
+                    if ($connect.AsyncWaitHandle.WaitOne(50)) {
                         Set-Proxy -Command "on"
                     }
                     $client.Close()
