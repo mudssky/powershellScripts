@@ -1,6 +1,20 @@
 BeforeAll {
+    # 为 CI 环境中不存在的外部命令创建占位函数，使 Pester Mock 能正常工作
+    # Pester 的 Mock 要求目标命令在当前会话中可解析
+    if (-not (Get-Command nvidia-smi -ErrorAction SilentlyContinue)) {
+        function global:nvidia-smi { }
+    }
+    if (-not (Get-Command free -ErrorAction SilentlyContinue)) {
+        function global:free { }
+    }
     Import-Module "$PSScriptRoot\..\modules\hardware.psm1" -Force
     Import-Module "$PSScriptRoot\..\modules\os.psm1" -Force
+}
+
+AfterAll {
+    # 清理占位函数
+    Remove-Item Function:\nvidia-smi -ErrorAction SilentlyContinue
+    Remove-Item Function:\free -ErrorAction SilentlyContinue
 }
 
 Describe "Get-GpuInfo 函数测试" {
