@@ -56,3 +56,23 @@
 
 - `qa:all` 路径在当前沙箱下会触发 `node-script` 的 `tsx` IPC 管道权限错误（`listen EPERM`），导致 all 场景返回非零；该问题属于现有测试运行环境限制，不是本次 Turbo 接入引入的新问题。
 - CI 已补充完整历史前置（`actions/checkout` 设置 `fetch-depth: 0`），用于保证 Turbo affected 计算稳定。
+
+## V2.1 Optimization Notes
+
+- `turbo:qa*` 已切换为细粒度链路：`turbo run typecheck:fast check test:fast`（不再依赖单任务 `turbo run qa`）。
+- `turbo.json` 已增加任务依赖与输入边界，`check` 依赖 `typecheck:fast`，`test:fast` 依赖 `check`，并排除文档类目录输入。
+- 本地 warm 对比样本显示缓存命中提升：`Cached: 9 cached, 9 total`（采样时间：2026-02-11）。
+- 远程缓存提供可选开关：`TURBO_REMOTE_CACHE=1` 时启用；若缺少 `TURBO_TOKEN` 或 `TURBO_TEAM`，脚本会显式报错并给出提示。
+- `node-script` 在容器中的 `tsx` IPC `EPERM` 问题已通过调整 `tests/cli.test.ts` 的运行策略规避（改为输出落盘读取，避免 pipe 捕获不稳定）。
+- CI 新增 Turbo 基准采样作业，输出 `artifacts/qa-benchmarks`（包含 `latest.json`、时间戳样本与 `summary.md`），覆盖 `cold(all)`、`warm(all)`、`changed(PR)`。
+
+### Latest Benchmark Snapshot (2026-02-11)
+
+| 场景 | 命令 | 退出码 | 耗时(ms) | 缓存命中摘要 |
+|---|---|---:|---:|---|
+| cold(all) V1 | `pnpm qa:all` | 0 | 27901.63 | N/A |
+| cold(all) V2 | `pnpm turbo:qa:all` | 0 | 31797.53 | `9 cached, 9 total` |
+| warm(all) V1 | `pnpm qa:all` | 0 | 30461.06 | N/A |
+| warm(all) V2 | `pnpm turbo:qa:all` | 0 | 31518.36 | `9 cached, 9 total` |
+| changed(PR) V1 | `pnpm qa` | 0 | 16457.77 | N/A |
+| changed(PR) V2 | `pnpm turbo:qa` | 0 | 1977.00 | `9 cached, 9 total` |

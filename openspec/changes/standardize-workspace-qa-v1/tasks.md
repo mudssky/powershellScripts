@@ -41,8 +41,8 @@
 
 ## 6. Turbo 优化版本调整提案（V2.1）
 
-- [ ] 6.1 将包内 `qa` 复合命令拆分为可被 Turbo 直接编排的细粒度任务链路（`typecheck:fast`、`check`、`test:fast`）
-- [ ] 6.2 优化 `turbo.json` 任务依赖与缓存边界，验证 warm 场景缓存命中率提升
-- [ ] 6.3 设计并落地可选远程缓存接入方案（默认关闭，可按 CI 环境变量开启）
-- [ ] 6.4 修复或规避 `node-script` 在容器环境下 `tsx` IPC `EPERM` 对 `qa:all`/`turbo:qa:all` 的阻断
-- [ ] 6.5 在 CI 增加 Turbo 优化版对比指标采样与趋势记录（至少包含 `cold(all)`、`warm(all)`、`changed(PR)`）
+- [x] 6.1 将包内 `qa` 复合命令拆分为可被 Turbo 直接编排的细粒度任务链路（`typecheck:fast`、`check`、`test:fast`）
+- [x] 6.2 优化 `turbo.json` 任务依赖与缓存边界，验证 warm 场景缓存命中率提升
+- [x] 6.3 设计并落地可选远程缓存接入方案（默认关闭，可按 CI 环境变量开启）
+- [x] 6.4 修复或规避 `node-script` 在容器环境下 `tsx` IPC `EPERM` 对 `qa:all`/`turbo:qa:all` 的阻断
+- [x] 6.5 在 CI 增加 Turbo 优化版对比指标采样与趋势记录（至少包含 `cold(all)`、`warm(all)`、`changed(PR)`）
