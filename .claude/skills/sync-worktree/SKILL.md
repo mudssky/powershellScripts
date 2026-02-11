@@ -1,21 +1,22 @@
 ---
 name: sync-worktree
-description: 在多个 git worktree 分支之间同步代码（rebase）。支持状态概览、单分支同步、批量同步、自定义基准分支。
+description: 在多个 git worktree 分支之间同步代码（rebase / merge）。支持状态概览、单分支同步、批量同步、自定义基准分支、合并回主分支。
 license: MIT
 metadata:
   author: mudssky
   version: "1.0"
 ---
 
-在多个 git worktree 分支之间通过 rebase 同步代码。
+在多个 git worktree 分支之间通过 rebase 同步代码，或将 feature 分支 merge 回主分支。
 
 **输入**: `/sync-worktree` 后的参数决定运行模式：
 
 | 用法 | 说明 |
 |------|------|
 | `/sync-worktree` | 状态概览：显示所有 worktree 的同步状态 |
-| `/sync-worktree <branch>` | 单分支同步：将指定分支 rebase 到 master |
+| `/sync-worktree <branch>` | 拉代码：将指定分支 rebase 到 master |
 | `/sync-worktree <branch> --from <base>` | 自定义基准：将指定分支 rebase 到 `<base>` |
+| `/sync-worktree <branch> --merge` | 合并回主分支：将指定分支 merge 到 master |
 | `/sync-worktree --all` | 批量同步：将所有 feature worktree rebase 到 master |
 
 ---
