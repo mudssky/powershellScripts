@@ -55,7 +55,7 @@ pub fn load(cli: &Cli, cwd: &Path) -> Result<Config> {
 
     let mut config = figment
         .extract::<Config>()
-        .map_err(|source| AppError::ConfigLoad { source })?;
+        .map_err(|source| AppError::ConfigLoad { source: Box::new(source) })?;
 
     normalize_config(&mut config);
     validate_config(&config, cwd)?;

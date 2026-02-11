@@ -16,7 +16,7 @@ pub enum AppError {
     #[diagnostic(code(pwshfmt::config::load))]
     ConfigLoad {
         #[source]
-        source: figment::Error,
+        source: Box<figment::Error>,
     },
 
     #[error("显式指定的配置文件不存在: {path}")]

@@ -83,39 +83,38 @@ pub fn format_content(input: &str) -> FormatOutcome {
                     continue;
                 }
 
-                if character == '-' {
-                    if let Some((token, next_index)) = read_word(input, index + char_len) {
-                        if let Some(canonical) = canonical_parameter(token) {
-                            if token != canonical {
-                                parameter_fixes += 1;
-                            }
-                            output.push('-');
-                            output.push_str(canonical);
-                            index = next_index;
-                            continue;
-                        }
+                if character == '-'
+                    && let Some((token, next_index)) = read_word(input, index + char_len)
+                    && let Some(canonical) = canonical_parameter(token)
+                {
+                    if token != canonical {
+                        parameter_fixes += 1;
                     }
+                    output.push('-');
+                    output.push_str(canonical);
+                    index = next_index;
+                    continue;
                 }
 
-                if character.is_ascii_alphabetic() {
-                    if let Some((token, next_index)) = read_command_token(input, index) {
-                        let token_lower = token.to_ascii_lowercase();
-                        if token_lower == "invoke-expression" {
-                            unsafe_detected = true;
-                        }
-
-                        if let Some(canonical) = canonical_command(&token_lower) {
-                            if token != canonical {
-                                command_fixes += 1;
-                            }
-                            output.push_str(canonical);
-                        } else {
-                            output.push_str(token);
-                        }
-
-                        index = next_index;
-                        continue;
+                if character.is_ascii_alphabetic()
+                    && let Some((token, next_index)) = read_command_token(input, index)
+                {
+                    let token_lower = token.to_ascii_lowercase();
+                    if token_lower == "invoke-expression" {
+                        unsafe_detected = true;
                     }
+
+                    if let Some(canonical) = canonical_command(&token_lower) {
+                        if token != canonical {
+                            command_fixes += 1;
+                        }
+                        output.push_str(canonical);
+                    } else {
+                        output.push_str(token);
+                    }
+
+                    index = next_index;
+                    continue;
                 }
 
                 output.push(character);

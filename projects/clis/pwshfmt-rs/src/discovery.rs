@@ -223,7 +223,7 @@ fn pattern_base_dir(pattern: &str) -> PathBuf {
         .unwrap_or(pattern.len());
 
     let prefix = &pattern[..wildcard_index];
-    let last_separator = prefix.rfind(|character| character == '/' || character == '\\');
+    let last_separator = prefix.rfind(['/', '\\']);
 
     match last_separator {
         Some(index) if index > 0 => PathBuf::from(&pattern[..index]),
