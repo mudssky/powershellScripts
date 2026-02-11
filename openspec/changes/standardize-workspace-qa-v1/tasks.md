@@ -17,6 +17,16 @@
 
 ## 4. V2 Turbo 预留与后续计划
 
-- [ ] 4.1 设计 V2 `turbo run qa` 命令映射与 affected 基线策略（`origin/master`）
-- [ ] 4.2 规划 `turbo.json` 任务图（`qa`、`check`、`test:fast`）与缓存边界
+- [ ] 4.1 新增 Turbo 命令族（方案 A），保留原 `qa*` 命令不变
+  - [ ] 4.1.1 在根 `package.json` 增加 `turbo:qa`、`turbo:qa:all`、`turbo:qa:verbose`、`turbo:qa:all:verbose`
+  - [ ] 4.1.2 新增 Turbo 编排入口（如 `scripts/qa-turbo.mjs`），对齐 `changed/all/verbose` 语义
+  - [ ] 4.1.3 在 `changed` 模式中映射 `QA_BASE_REF -> TURBO_SCM_BASE`，默认 `origin/master`
+  - [ ] 4.1.4 维持 root `qa:pwsh` 既有路径探测与执行逻辑，不并入 Turbo Root Task
+- [ ] 4.2 规划并落地 `turbo.json` 任务图与缓存边界
+  - [ ] 4.2.1 定义 `qa`、`check`、`test:fast`、`typecheck:fast` 任务
+  - [ ] 4.2.2 首版采用保守缓存配置（`outputs: []`），优先保证语义一致
+  - [ ] 4.2.3 明确后续可演进项：`outputs` 细化与远程缓存接入时机
 - [ ] 4.3 评估并记录 V1（pnpm）与 V2（turbo）在 CI 耗时上的对比指标
+  - [ ] 4.3.1 采集 `cold(all)`、`warm(all)`、`changed(PR)` 三组耗时
+  - [ ] 4.3.2 记录缓存命中率、最长耗时包、失败定位可读性
+  - [ ] 4.3.3 CI 补充 affected 前置条件（完整 Git 历史，如 `fetch-depth: 0`）
