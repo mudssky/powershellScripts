@@ -1,4 +1,4 @@
-## 验证计划（待执行）
+## 验证计划（已完成）
 
 日期：2026-02-11
 
@@ -6,18 +6,18 @@
 
 ### 1) 单元与集成测试
 
-- [ ] 执行命令：`cargo test --manifest-path projects/clis/pwshfmt-rs/Cargo.toml`
-- [ ] 预期结果：单测与集成测试全部通过
+- [x] 执行命令：`cargo test --manifest-path projects/clis/pwshfmt-rs/Cargo.toml`
+- [x] 预期结果：单测与集成测试全部通过
 
 ### 2) 命令级行为验证
 
-- [ ] `--help`：展示新版命令与参数说明
-- [ ] check 模式：发现需修复项时返回非零退出码
-- [ ] write 模式：写回命令名/参数名 casing 修复
-- [ ] strict fallback：在不安全场景触发并记录回退
-- [ ] Git changed 与 path/glob：目标文件选择行为符合契约
+- [x] `--help`：展示新版命令与参数说明
+- [x] check 模式：发现需修复项时返回非零退出码
+- [x] write 模式：写回命令名/参数名 casing 修复
+- [x] strict fallback：在不安全场景触发并记录回退
+- [x] Git changed 与 path/glob：目标文件选择行为符合契约
 
 ### 3) 仓库级验证
 
-- [ ] 执行命令：`pnpm qa:pwsh`
-- [ ] 预期结果：格式化与测试流程通过
+- [x] 执行命令：`pnpm qa:pwsh`
+- [x] 预期结果：格式化与测试流程通过

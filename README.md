@@ -314,6 +314,9 @@ proxyHelper -UnsetProxyProgram git
 # 安装/更新 Pester（首次运行测试前建议先执行）
 pnpm pester:install
 
+# 仅更新已安装的 Pester
+pnpm pester:update
+
 # 完整测试（默认，含覆盖率与 Profile）
 pnpm test
 
@@ -361,9 +364,9 @@ pnpm check:pwsh:rs
 默认 `format:pwsh` 使用激进性能模式（排除高耗时 `PSUseCorrectCasing`）以提升本地反馈速度；
 当需要与历史完整规则一致（例如发布前或兼容性敏感场景）时，请使用 `format:pwsh:strict`。
 
-`pwshfmt-rs`（`projects/clis/pwshfmt-rs`）当前覆盖命令名与参数名的 casing correction，支持
-`--git-changed`、`--path`、`--recurse`、`--check`、`--write` 与 `--strict-fallback`；
-并保证字符串字面量、注释不被修改，以及 no-op 文件不写盘。
+`pwshfmt-rs`（`projects/clis/pwshfmt-rs`）当前覆盖命令名与参数名的 casing correction，
+采用子命令 `check`/`write`，并支持 `--git-changed`、`--path`、`--recurse` 与 `--strict-fallback`；
+同时保证字符串字面量、注释不被修改，以及 no-op 文件不写盘。
 
 ### 版本控制
 
