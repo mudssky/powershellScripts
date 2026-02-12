@@ -39,14 +39,14 @@ profile.ps1
     ├── Phase 2: mode-decision (~90ms)
     │   判定 Full / Minimal / UltraMinimal 模式
     │
-    ├── Phase 3: core-loaders (~290ms)
-    │   ├── 同步加载 6 个核心 psutils 子模块
+    ├── Phase 3: core-loaders (~200ms)
+    │   ├── 同步加载核心 psutils 子模块（Windows 4 个 / Linux 5 个）
     │   ├── PSModulePath 兜底（自动发现）
     │   ├── 加载用户别名配置
     │   └── 注册 OnIdle 事件（延迟全量加载）
     │
-    └── Phase 4: initialize-environment (~600ms)
-        ├── 代理自动检测（缓存 5 分钟）
+    └── Phase 4: initialize-environment (~350ms)
+        ├── 代理自动检测（缓存 30 分钟）
         ├── UTF-8 编码设置
         ├── 工具初始化（starship, zoxide, fnm, sccache）
         └── 别名注册
@@ -245,13 +245,19 @@ Register-EngineEvent -SourceIdentifier PowerShell.OnIdle -MaxTriggerCount 1 -Act
 
 如果你的代码在启动期间（Initialize-Environment 执行时）被调用，需要的 psutils 函数必须在核心模块中。
 
-当前核心模块（`core/loadModule.ps1` 第 1 层同步加载）：
+当前核心模块（`core/loadModule.ps1` 第 1 层同步加载，按平台条件化）：
+
+**全平台：**
 - `os.psm1` → `Get-OperatingSystem`, `Test-Administrator`
 - `cache.psm1` → `Invoke-WithCache`, `Invoke-WithFileCache`
-- `test.psm1` → `Test-EXEProgram`
-- `env.psm1` → `Sync-PathFromBash`, `Add-EnvPath`
 - `proxy.psm1` → `Set-Proxy`
 - `wrapper.psm1` → `Set-CustomAlias`, `Get-CustomAlias`
+
+**仅 Linux/macOS 额外加载：**
+- `env.psm1` → `Sync-PathFromBash`, `Add-EnvPath`
+
+**已移出同步路径（通过 OnIdle 全量加载覆盖）：**
+- `test.psm1` — `Test-EXEProgram` 已被 `Get-Command` 批量检测替代
 
 **⚠️ 禁止在同步路径中调用非核心模块函数**（如 `Get-Tree`、`Register-FzfHistorySmartKeyBinding`），否则会触发 PSModulePath 自动导入 psutils 全量模块（~600ms 回退）。延迟加载防护栏会在 `POWERSHELL_PROFILE_TIMING=1` 时检测并警告。
 
@@ -277,7 +283,7 @@ pnpm qa
 
 | 平台 | 总耗时 | initialize-environment |
 |------|--------|----------------------|
-| Windows | ~1150ms | ~600ms |
-| Linux | ~1100ms | ~850ms（含 PATH 同步 + fnm） |
+| Windows | ~750ms | ~350ms |
+| Linux | ~550ms | ~200ms |
 
 如果总耗时超过基线 200ms 以上，使用 `Debug-ProfilePerformance.ps1` 定位具体步骤。

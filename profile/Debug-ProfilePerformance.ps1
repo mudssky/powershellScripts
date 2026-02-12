@@ -160,7 +160,7 @@ if ($Phase -eq 2) {
 
 $sw.Restart()
 
-# 3.1 loadModule.ps1 — 加载 6 个核心 psutils 子模块 + PSModulePath + OnIdle 注册
+# 3.1 loadModule.ps1 — 加载核心 psutils 子模块（平台条件化） + PSModulePath + OnIdle 注册
 $loadModuleScript = Join-Path $profileRoot 'core/loadModule.ps1'
 . $loadModuleScript
 Lap '3.1-loadModule (core psutils + OnIdle)'
@@ -217,7 +217,7 @@ if (-not $SkipProxy) {
     try {
         $proxyState = Invoke-WithCache `
             -Key "proxy-auto-detect" `
-            -MaxAge ([TimeSpan]::FromMinutes(5)) `
+            -MaxAge ([TimeSpan]::FromMinutes(30)) `
             -CacheType Text `
             -ScriptBlock {
                 Set-Proxy -Command auto

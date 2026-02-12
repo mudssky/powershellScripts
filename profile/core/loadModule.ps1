@@ -3,10 +3,17 @@ $psutilsRoot = Join-Path $moduleParent 'psutils'
 $moduleManifest = Join-Path $psutilsRoot 'psutils.psd1'
 $modulesDir = Join-Path $psutilsRoot 'modules'
 
-# ── 第 1 层：同步加载核心子模块（仅 profile 启动路径必需的 6 个） ──
+# ── 第 1 层：同步加载核心子模块（仅 profile 启动路径必需的） ──
 # 使用 Import-Module 逐个加载（.psm1 不支持 dot-source，必须走模块系统）
-# 加载顺序按依赖关系：os → cache(依赖 os) → test → env → proxy → wrapper
-$coreModules = @('os', 'cache', 'test', 'env', 'proxy', 'wrapper')
+# 加载顺序按依赖关系：os → cache(依赖 os) → [env 仅 Linux/macOS] → proxy → wrapper
+# - test.psm1 已不在同步路径使用（Phase 4 用 Get-Command 替代 Test-EXEProgram）
+# - env.psm1 仅 Linux/macOS 需要（Sync-PathFromBash），Windows 上延迟到 OnIdle
+$coreModules = if ($IsWindows -or $env:OS -eq 'Windows_NT') {
+    @('os', 'cache', 'proxy', 'wrapper')
+}
+else {
+    @('os', 'cache', 'env', 'proxy', 'wrapper')
+}
 foreach ($mod in $coreModules) {
     $modPath = Join-Path $modulesDir "$mod.psm1"
     try {

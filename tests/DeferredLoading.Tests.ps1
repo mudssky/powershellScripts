@@ -5,7 +5,8 @@ Set-StrictMode -Version Latest
     延迟加载防护栏 — 静态 Pester 测试
 .DESCRIPTION
     扫描 profile 同步路径文件中的 Get-Command -Name 调用，验证引用的函数名
-    属于 6 个核心子模块的导出函数集合，防止 PSModulePath 自动导入 psutils 全量模块。
+    属于核心子模块的导出函数集合，防止 PSModulePath 自动导入 psutils 全量模块。
+    核心模块为平台最小集：os、cache、proxy、wrapper（test 和 env 已移出同步路径）。
 #>
 
 Describe '延迟加载防护栏' {
@@ -14,8 +15,10 @@ Describe '延迟加载防护栏' {
         $script:ProfileRoot = Join-Path $script:ProjectRoot 'profile'
         $script:PsutilsModulesDir = Join-Path $script:ProjectRoot 'psutils' 'modules'
 
-        # 10.1: 收集 6 个核心子模块的导出函数列表
-        $script:CoreModuleNames = @('os', 'cache', 'test', 'env', 'proxy', 'wrapper')
+        # 10.1: 收集核心子模块的导出函数列表
+        # 核心模块为平台最小集（test 已被 Get-Command 替代，env 仅 Linux 需要）
+        # 测试使用最严格的白名单（Windows 集合），确保同步路径不依赖 test/env
+        $script:CoreModuleNames = @('os', 'cache', 'proxy', 'wrapper')
         $script:CoreFunctions = [System.Collections.Generic.HashSet[string]]::new(
             [System.StringComparer]::OrdinalIgnoreCase
         )

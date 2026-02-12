@@ -150,7 +150,7 @@ function Initialize-Environment {
     # 自动检测代理（缓存 5 分钟避免每次 profile 加载都做 TCP 探测）
     if (-not $SkipProxy) {
         try {
-            $proxyState = Invoke-WithCache -Key "proxy-auto-detect" -MaxAge ([TimeSpan]::FromMinutes(5)) -CacheType Text -ScriptBlock {
+            $proxyState = Invoke-WithCache -Key "proxy-auto-detect" -MaxAge ([TimeSpan]::FromMinutes(30)) -CacheType Text -ScriptBlock {
                 Set-Proxy -Command auto
                 $result = if ($env:http_proxy) { 'on' } else { 'off' }
                 return $result
