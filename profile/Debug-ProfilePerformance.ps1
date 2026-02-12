@@ -297,8 +297,8 @@ if (-not $SkipZoxide -and $availableTools.Contains('zoxide')) {
 }
 Lap '4.08-zoxide'
 
-# 4.9 sccache
-if ($availableTools.Contains('sccache') -and $IsWindows) {
+# 4.9 sccache（跨平台）
+if ($availableTools.Contains('sccache')) {
     $env:RUSTC_WRAPPER = 'sccache'
 }
 Lap '4.09-sccache'

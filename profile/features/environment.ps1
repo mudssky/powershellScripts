@@ -251,10 +251,10 @@ function Initialize-Environment {
             $Global:__ZoxideInitialized = $true
         }
         sccache  = {
-            # 仅 Windows：Rust 编译缓存
-            if (-not $IsWindows -or $SkipTools) { return }
+            # Rust 编译缓存（跨平台）
+            if ($SkipTools) { return }
             Write-Verbose "设置 sccache 用于 Rust 编译缓存"
-            $Global:Env:RUSTC_WRAPPER = 'sccache'
+            $env:RUSTC_WRAPPER = 'sccache'
         }
         fnm      = {
             # 仅 Unix：Node.js 版本管理器
