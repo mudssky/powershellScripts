@@ -4,7 +4,7 @@ description: 在多个 git worktree 分支之间同步代码（rebase / merge）
 license: MIT
 metadata:
   author: mudssky
-  version: "1.2"
+  version: "1.3"
 ---
 
 在多个 git worktree 分支之间通过 rebase 同步代码，或将 feature 分支 merge 回主分支。
@@ -71,22 +71,34 @@ git worktree list --porcelain
    ```
    输出为空 = clean；非空 = dirty。
 
+3. **重复 commit 诊断（Health）**：对每个有领先 commit 的 feature worktree 执行：
+   ```bash
+   git cherry <base> <branch>
+   ```
+   统计输出中 `+`（unique）和 `-`（duplicate）的数量：
+   - 无重复（dup=0）→ 显示 `✔`
+   - 有重复但占少数（dup/total ≤ 50%）→ 显示 `ℹ dup/total 重复`
+   - 重复占多数（dup/total > 50%）→ 显示 `⚠ dup/total 重复`
+   - 无领先 commit（ahead=0）→ 不显示 Health
+
 以表格形式展示：
 
 ```
-┌─ Worktree Status ───────────────────────────────────────────────┐
-│                                                                 │
-│  Branch       Path                                vs <base>     │
-│  ──────       ────                                ─────────     │
-│  master    ✦  /path/to/main                        (base)       │
-│  aifeat       /path/to/aifeat-worktree             ↑1 ↓2 ✔     │
-│  hotfix       /path/to/hotfix-worktree             ↑0 ↓3 ⚠ dirty│
-│                                                                 │
-│  ✦ = 当前所在 worktree                                           │
-│  ↑ = 领先（自己独有的 commit）                                    │
-│  ↓ = 落后（需要同步的 commit）                                    │
-│  ✔ = clean  ⚠ = dirty                                           │
-└─────────────────────────────────────────────────────────────────┘
+┌─ Worktree Status ──────────────────────────────────────────────────────┐
+│                                                                        │
+│  Branch     Path                          vs <base>     Health         │
+│  ──────     ────                          ─────────     ──────         │
+│  master  ✦  /path/to/main                  (base)        —            │
+│  aifeat     /path/to/aifeat-worktree       ↑1 ↓2 ✔      ✔            │
+│  hotfix     /path/to/hotfix-worktree       ↑30 ↓46 ✔    ⚠ 29/30 重复 │
+│  docs       /path/to/docs-worktree         ↑0 ↓3 ⚠ dirty             │
+│                                                                        │
+│  ✦ = 当前所在 worktree                                                  │
+│  ↑ = 领先（自己独有的 commit）                                           │
+│  ↓ = 落后（需要同步的 commit）                                           │
+│  ✔ = clean  ⚠ = dirty                                                  │
+│  Health: ✔ = 无重复  ℹ = 少量重复  ⚠ = 大量重复（建议同步）              │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
 如果没有 feature worktree（只有主 worktree），显示：
@@ -187,7 +199,82 @@ git rev-list --count <branch>..<base>
 
 **到此结束。**
 
-### 4.5 同步预览
+### 4.5 Cherry 诊断与策略选择
+
+在确认需要同步后（behind > 0），执行 cherry 诊断分析 commit 重复情况。
+
+**4.5.1 保存当前 HEAD**
+
+保存诊断前的 HEAD SHA，用于策略失败时回滚：
+```bash
+ORIGINAL_HEAD=$(git -C <worktree-path> rev-parse HEAD)
+```
+
+**4.5.2 执行 cherry 分析**
+
+```bash
+git cherry <base> <branch>
+```
+
+统计输出中 `+`（unique）和 `-`（duplicate）的数量：
+- `total` = 总 commit 数（`+` 和 `-` 的总和）
+- `unique` = `+` 的数量（feature 分支真正独有的 commit）
+- `dup` = `-` 的数量（patch-id 已在 base 中的 commit）
+
+**4.5.3 策略决策矩阵**
+
+| 条件 | 策略 | 说明 |
+|------|------|------|
+| `unique=0, dup>0` | **reset** | 无独有改动，直接对齐到 base |
+| `unique>0, dup/total > 50%` | **reset+cherry-pick** | 大量重复，reset 后 cherry-pick 独有 commit |
+| `dup/total ≤ 50%`（含 `dup=0`） | **rebase** | 无重复或少量重复，标准 rebase |
+
+**4.5.4 显示诊断信息**
+
+根据策略显示不同的诊断信息（不弹选择框，直接执行）：
+
+- **reset 策略**：
+  > ℹ 检测到 `<dup>`/`<total>` 个 commit 已在 `<base>` 中（无独有改动），将直接对齐到 `<base>`
+
+- **reset+cherry-pick 策略**：
+  > ℹ 检测到 `<dup>`/`<total>` 个重复 commit，将使用 reset + cherry-pick 策略
+  >
+  > 独有 commit（`<unique>` 个）：
+  >   `<sha1>` `<message1>`
+  >   `<sha2>` `<message2>`
+
+- **rebase 策略**：
+  > 跳过诊断信息，直接进入 Step 4.6（同步预览 + Rebase）
+
+### 4.6 执行同步（按策略分支）
+
+根据 Step 4.5.3 的策略决策，执行对应的同步流程：
+
+**策略 A：reset（无独有 commit）**
+
+```bash
+git -C <worktree-path> reset --hard <base>
+```
+
+执行后直接跳转 Step 5（成功报告），策略字段为 `reset`。
+
+**策略 B：reset + cherry-pick（大量重复 + 少量独有）**
+
+1. Reset 到 base：
+   ```bash
+   git -C <worktree-path> reset --hard <base>
+   ```
+
+2. 按 `git cherry` 输出顺序，逐个 cherry-pick unique commit（`+` 标记的）：
+   ```bash
+   git -C <worktree-path> cherry-pick <sha>
+   ```
+
+3. **如果所有 cherry-pick 成功** → 跳转 Step 5（成功报告），策略字段为 `reset+cherry-pick`
+
+4. **如果某个 cherry-pick 产生冲突** → 跳转 Step 4.7a（cherry-pick 冲突处理）
+
+**策略 C：rebase（标准路径）**
 
 展示将要应用的 commit：
 ```bash
@@ -204,17 +291,15 @@ git log --oneline <branch>..<base>
   ...
 ```
 
-### 4.6 执行 Rebase
-
+执行 rebase：
 ```bash
 git -C <worktree-path> rebase <base>
 ```
 
-**如果 rebase 成功** → 跳转 Step 5（成功报告）
+- **如果 rebase 成功** → 跳转 Step 5（成功报告），策略字段为 `rebase`
+- **如果 rebase 失败（冲突）** → 跳转 Step 4.7（rebase 冲突处理）
 
-**如果 rebase 失败（冲突）** → 跳转 Step 4.7（冲突处理）
-
-### 4.7 冲突处理（单分支模式）
+### 4.7 冲突处理（rebase 冲突）
 
 当 rebase 产生冲突时：
 
@@ -239,6 +324,31 @@ git -C <worktree-path> rebase <base>
    - 继续 rebase：`git -C <path> rebase --continue`
    - 如果出现更多冲突，重复以上流程
 
+### 4.7a 冲突处理（cherry-pick 冲突）
+
+当 reset + cherry-pick 策略中 cherry-pick 产生冲突时：
+
+1. 列出冲突文件：
+   ```bash
+   git -C <worktree-path> diff --name-only --diff-filter=U
+   ```
+
+2. 使用 **AskUserQuestion** 向用户提供三个选项：
+
+   | 选项 | 说明 |
+   |------|------|
+   | Claude 协助解决 | 读取冲突文件，分析冲突内容，提出解决方案 |
+   | 手动解决后继续 | 用户自行解决冲突，之后告知 Claude 执行 `git -C <path> cherry-pick --continue` |
+   | 中止并回滚 | 执行 `git -C <path> cherry-pick --abort`，然后 `git -C <path> reset --hard <ORIGINAL_HEAD>` 恢复到诊断前状态 |
+
+   **如果用户选择「Claude 协助解决」**：
+   - 读取每个冲突文件
+   - 分析冲突标记（`<<<<<<<`、`=======`、`>>>>>>>`）
+   - 提出解决方案并应用编辑
+   - 暂存已解决的文件：`git -C <path> add <file>`
+   - 继续 cherry-pick：`git -C <path> cherry-pick --continue`
+   - 继续处理剩余的 unique commit
+
 ---
 
 ## Step 5: 成功报告（单分支模式）
@@ -259,6 +369,7 @@ git -C <worktree-path> rev-parse --abbrev-ref --symbolic-full-name @{upstream} 2
 ```
 ✔ <branch> 已同步到 <base>
 
+  同步策略:    reset | reset+cherry-pick | rebase
   新 HEAD:     <short-sha> <message>
   同步 commit: <N> 个
   远程分支:    <upstream>（需要 force push）| 无远程跟踪分支
@@ -321,29 +432,31 @@ git -C <worktree-path> rev-parse --abbrev-ref --symbolic-full-name @{upstream} 2
 
 - **脏工作区** → 记录为 `⚠ 跳过（脏工作区）`，继续处理下一个分支
 - **已是最新** → 记录为 `ℹ 已是最新`，继续处理下一个分支
+- **同步成功**（任何策略） → 记录为 `✔ 成功（<策略>）`，继续处理下一个分支
 - **rebase 冲突** → 执行 `git -C <path> rebase --abort`，记录为 `❌ 跳过（冲突）`，继续处理下一个分支
-- **成功** → 记录为 `✔ 成功`，继续处理下一个分支
+- **cherry-pick 冲突**（reset+cherry-pick 策略） → 执行 `git -C <path> cherry-pick --abort`，然后 `git -C <path> reset --hard <ORIGINAL_HEAD>` 恢复到诊断前状态，记录为 `❌ 跳过（冲突）`，继续处理下一个分支
 
 **不要因任何单个分支的失败而停止。** 始终处理所有分支。
 
-**注意**：批量模式下跳过 Step 4.3（更新基准分支），因为已在 Step 6.2 统一更新过。
+**注意**：批量模式下跳过 Step 4.3（更新基准分支），因为已在 Step 6.2 统一更新过。每个分支独立执行 Step 4.5（cherry 诊断）选择最优策略。
 
 ### 6.4 汇总报告
 
 所有分支处理完毕后，显示汇总表格：
 
 ```
-┌─ Sync Summary ──────────────────────────────────────────────┐
-│                                                             │
-│  Branch       Status              Detail                    │
-│  ──────       ──────              ──────                    │
-│  aifeat       ✔ 成功              同步了 3 个 commit         │
-│  hotfix       ⚠ 跳过              脏工作区                   │
-│  experiment   ❌ 跳过              rebase 冲突               │
-│  docs         ℹ 已是最新           —                         │
-│                                                             │
-│  结果: 1 成功 / 1 跳过(脏) / 1 跳过(冲突) / 1 已是最新       │
-└─────────────────────────────────────────────────────────────┘
+┌─ Sync Summary ──────────────────────────────────────────────────────┐
+│                                                                     │
+│  Branch       Status              Strategy          Detail          │
+│  ──────       ──────              ────────          ──────          │
+│  aifeat       ✔ 成功              rebase            同步了 3 个 commit│
+│  hotfix       ⚠ 跳过              —                 脏工作区          │
+│  experiment   ❌ 跳过              reset+cherry-pick  冲突             │
+│  docs         ℹ 已是最新           —                 —               │
+│  staging      ✔ 成功              reset             直接对齐          │
+│                                                                     │
+│  结果: 2 成功 / 1 跳过(脏) / 1 跳过(冲突) / 1 已是最新               │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 如果有因冲突被跳过的分支，补充提示：
@@ -469,5 +582,5 @@ git -C <main-worktree-path> log --oneline -1
 - **自动更新基准分支**：在 rebase/merge 之前，自动对基准分支执行 `git pull --rebase`，确保同步到远程最新代码。仅当基准分支有远程跟踪分支且工作区 clean 时执行。pull 失败时中止操作。
 - **禁止执行 `git push`**：本 skill 仅做本地 rebase/merge。如需 force push，只提醒用户，不代为执行。
 - **禁止使用 `git rebase -i`**：交互式 rebase 需要终端输入，不受支持。
-- **批量模式冲突必须 abort**：`--all` 模式下遇到冲突时，始终执行 `git rebase --abort` 并跳过。
+- **批量模式冲突必须 abort**：`--all` 模式下遇到冲突时，始终执行 abort（`git rebase --abort` 或 `git cherry-pick --abort` + `git reset --hard <ORIGINAL_HEAD>`）并跳过。
 - **始终验证分支存在性**：在执行任何操作前，确认目标分支存在于 worktree 列表中。
