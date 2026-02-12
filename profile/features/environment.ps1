@@ -185,6 +185,9 @@ function Initialize-Environment {
     Write-Verbose "初始化开发工具"
     $Global:__ZoxideInitialized = $false
 
+    # 平台标识符（用于工具缓存 key，防止跨平台缓存交叉污染）
+    $platformId = if ($IsWindows) { 'win' } elseif ($IsMacOS) { 'macos' } else { 'linux' }
+
     # 批量检测所有工具可用性（单次 Get-Command 替代多次 Test-EXEProgram）
     $toolNames = @('starship', 'zoxide', 'sccache', 'fnm')
     $availableTools = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
@@ -201,13 +204,49 @@ function Initialize-Environment {
         starship = {
             if ($SkipTools -or $SkipStarship) { return }
             Write-Verbose "初始化 Starship 提示符"
-            $starshipFile = Invoke-WithFileCache -Key "starship-init-powershell" -MaxAge ([TimeSpan]::FromDays(7)) -Generator { & starship init powershell --print-full-init } -BaseDir (Join-Path $profileRoot '.cache')
+            $cacheDir = Join-Path $profileRoot '.cache'
+            $starshipFile = Invoke-WithFileCache `
+                -Key "starship-init-powershell-$platformId" `
+                -MaxAge ([TimeSpan]::FromDays(7)) `
+                -Generator {
+                    $initScript = & starship init powershell --print-full-init
+
+                    # Post-processing: 缓存 continuation prompt 输出，避免每次启动 spawn 子进程（~100-150ms）
+                    # starship init 输出中包含:
+                    #   Set-PSReadLineOption -ContinuationPrompt (
+                    #       Invoke-Native -Executable '...' -Arguments @("prompt", "--continuation")
+                    #   )
+                    # 替换为预先获取的字面量值
+                    try {
+                        $continuationPrompt = & starship prompt --continuation
+                        if ($continuationPrompt) {
+                            # 转义单引号用于嵌入字符串字面量
+                            $escaped = $continuationPrompt -replace "'", "''"
+                            $pattern = 'Set-PSReadLineOption -ContinuationPrompt \(\s*Invoke-Native -Executable .+? -Arguments @\(\s*"prompt",\s*"--continuation"\s*\)\s*\)'
+                            $replacement = "Set-PSReadLineOption -ContinuationPrompt '$escaped'"
+                            $result = [regex]::Replace($initScript, $pattern, $replacement, [System.Text.RegularExpressions.RegexOptions]::Singleline)
+                            if ($result -ne $initScript) {
+                                Write-Verbose "starship continuation prompt 已内联缓存"
+                                $initScript = $result
+                            }
+                            else {
+                                Write-Verbose "starship continuation prompt 正则替换未匹配，保留原始 Invoke-Native 调用"
+                            }
+                        }
+                    }
+                    catch {
+                        Write-Verbose "starship continuation prompt 缓存失败，保留原始行为: $($_.Exception.Message)"
+                    }
+
+                    $initScript
+                } `
+                -BaseDir $cacheDir
             . $starshipFile
         }
         zoxide   = {
             if ($SkipTools -or $SkipZoxide) { return }
             Write-Verbose "初始化 zoxide 目录跳转工具"
-            $zoxideFile = Invoke-WithFileCache -Key "zoxide-init-powershell" -MaxAge ([TimeSpan]::FromDays(7)) -Generator { zoxide init powershell } -BaseDir (Join-Path $profileRoot '.cache')
+            $zoxideFile = Invoke-WithFileCache -Key "zoxide-init-powershell-$platformId" -MaxAge ([TimeSpan]::FromDays(7)) -Generator { zoxide init powershell } -BaseDir (Join-Path $profileRoot '.cache')
             . $zoxideFile
             $Global:__ZoxideInitialized = $true
         }
@@ -282,7 +321,14 @@ function Initialize-Environment {
 
     # z 函数懒加载：zoxide 已安装但未在初始化阶段加载时，首次调用自动初始化
     if (-not $Global:__ZoxideInitialized -and -not $SkipZoxide -and $availableTools.Contains('zoxide')) {
-        function Global:z { & (Invoke-WithFileCache -Key "zoxide-init-powershell" -MaxAge ([TimeSpan]::FromDays(7)) -Generator { zoxide init powershell } -BaseDir (Join-Path $script:ProfileRoot '.cache')); Remove-Item function:Global:z -Force; & z @args }
+        $__zoxideCacheKey = "zoxide-init-powershell-$platformId"
+        $__zoxideCacheDir = Join-Path $script:ProfileRoot '.cache'
+        $zLazyBlock = {
+            . (Invoke-WithFileCache -Key $__zoxideCacheKey -MaxAge ([TimeSpan]::FromDays(7)) -Generator { zoxide init powershell } -BaseDir $__zoxideCacheDir)
+            Remove-Item function:Global:z -Force
+            & z @args
+        }.GetNewClosure()
+        New-Item -Path "Function:Global:z" -Value $zLazyBlock -Force | Out-Null
     }
 
     Write-ProfileModeDecisionSummary

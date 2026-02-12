@@ -89,4 +89,12 @@ Register-EngineEvent -SourceIdentifier PowerShell.OnIdle -MaxTriggerCount 1 -Act
     catch {
         Write-Warning "[profile/loadModule.ps1] OnIdle fzf 键绑定注册失败: $($_.Exception.Message)"
     }
+    try {
+        # PSReadLine Tab 补全键绑定（从 encoding.ps1 同步路径移至此处，
+        # 避免冷启动时触发 PSReadLine 模块完整初始化 ~260ms）
+        Set-PSReadLineKeyHandler -Key Tab -Function Complete
+    }
+    catch {
+        Write-Warning "[profile/loadModule.ps1] OnIdle PSReadLine Tab 键绑定注册失败: $($_.Exception.Message)"
+    }
 }.GetNewClosure() | Out-Null
