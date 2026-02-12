@@ -1,10 +1,16 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-    Profile 性能诊断脚本 — 分步测量 Initialize-Environment 各阶段耗时。
+    Profile 完整性能诊断脚本 — 分步测量全部 4 个阶段及其子步骤的耗时。
 .DESCRIPTION
-    此脚本使用 -NoProfile 冷启动并手动 dot-source profile 各层，对 Initialize-Environment
-    内部的每个子步骤进行独立计时。用于定位性能回归或排查启动变慢的具体原因。
+    此脚本使用 -NoProfile 冷启动并手动重放 profile 完整加载流程，对每个阶段
+    及其内部子步骤进行独立计时。用于定位性能回归或排查启动变慢的具体原因。
+
+    4 个阶段：
+    Phase 1: dot-source-definitions — 函数定义加载（6 个脚本文件）
+    Phase 2: mode-decision — 模式判定（Full/Minimal/UltraMinimal）
+    Phase 3: core-loaders — 核心模块加载 + 别名配置
+    Phase 4: initialize-environment — 工具初始化（代理、编码、starship 等）
 
     常见使用场景:
     - 新增工具/别名后检查对启动速度的影响
@@ -17,6 +23,8 @@
     pwsh -NoProfile -NoLogo -File ./profile/Debug-ProfilePerformance.ps1
 .EXAMPLE
     pwsh -NoProfile -NoLogo -File ./profile/Debug-ProfilePerformance.ps1 -SkipStarship
+.EXAMPLE
+    pwsh -NoProfile -NoLogo -File ./profile/Debug-ProfilePerformance.ps1 -Phase 4
 .NOTES
     不依赖 profile 已加载的任何状态，完全自包含。
 #>
@@ -25,7 +33,9 @@ param(
     [switch]$SkipStarship,
     [switch]$SkipZoxide,
     [switch]$SkipProxy,
-    [switch]$SkipAliases
+    [switch]$SkipAliases,
+    [ValidateRange(1, 4)]
+    [int]$Phase = 0
 )
 
 Set-StrictMode -Version Latest
@@ -34,10 +44,17 @@ $ErrorActionPreference = 'Stop'
 # === 计时工具 ===
 $sw = [System.Diagnostics.Stopwatch]::StartNew()
 $timings = [ordered]@{}
+$phaseTimings = [ordered]@{}
 
 function Lap {
     param([string]$Name)
     $timings[$Name] = $sw.ElapsedMilliseconds
+    $sw.Restart()
+}
+
+function LapPhase {
+    param([string]$Name)
+    $phaseTimings[$Name] = $sw.ElapsedMilliseconds
     $sw.Restart()
 }
 
@@ -49,46 +66,163 @@ else {
     Split-Path -Parent $MyInvocation.MyCommand.Path
 }
 
-Write-Host "=== Profile 性能诊断 ===" -ForegroundColor Cyan
+Write-Host "=== Profile 完整性能诊断 ===" -ForegroundColor Cyan
 Write-Host "Profile root: $profileRoot" -ForegroundColor DarkGray
 Write-Host "Platform: $([System.Runtime.InteropServices.RuntimeInformation]::OSDescription)" -ForegroundColor DarkGray
+Write-Host "PowerShell: $($PSVersionTable.PSVersion)" -ForegroundColor DarkGray
 Write-Host ""
 
-# === Phase 1-3: 加载前置依赖 ===
+# ╔══════════════════════════════════════════════╗
+# ║  Phase 1: dot-source-definitions             ║
+# ╚══════════════════════════════════════════════╝
+
 $script:ProfileRoot = $profileRoot
 $script:ProfileMode = 'Full'
 $script:UseMinimalProfile = $false
 $script:UseUltraMinimalProfile = $false
 $AliasDescPrefix = '[mudssky]'
+$profileLoadStartTime = [DateTime]::UtcNow
+
+$sw.Restart()
 
 . (Join-Path $profileRoot 'core/encoding.ps1')
+Lap '1.1-encoding.ps1'
+
 . (Join-Path $profileRoot 'core/mode.ps1')
+Lap '1.2-mode.ps1'
+
 . (Join-Path $profileRoot 'core/loaders.ps1')
+Lap '1.3-loaders.ps1'
+
 . (Join-Path $profileRoot 'features/environment.ps1')
+Lap '1.4-environment.ps1'
+
 . (Join-Path $profileRoot 'features/help.ps1')
+Lap '1.5-help.ps1'
+
 . (Join-Path $profileRoot 'features/install.ps1')
-. $script:InvokeProfileCoreLoaders
-Lap 'prerequisites (phases 1-3)'
+Lap '1.6-install.ps1'
 
-# === Initialize-Environment 分步计时 ===
+# Phase 1 小计
+$phase1Total = 0
+foreach ($k in @('1.1-encoding.ps1', '1.2-mode.ps1', '1.3-loaders.ps1', '1.4-environment.ps1', '1.5-help.ps1', '1.6-install.ps1')) {
+    $phase1Total += $timings[$k]
+}
+$phaseTimings['Phase 1: dot-source-definitions'] = $phase1Total
 
-# 1. 设置项目根目录
+if ($Phase -eq 1) {
+    Write-Host "=== Phase 1: dot-source-definitions 分步计时 ===" -ForegroundColor Cyan
+    foreach ($e in $timings.GetEnumerator()) {
+        $color = if ($e.Value -gt 100) { 'Red' } elseif ($e.Value -gt 30) { 'Yellow' } else { 'Green' }
+        Write-Host ("  {0,-40} {1,6}ms" -f $e.Key, $e.Value) -ForegroundColor $color
+    }
+    Write-Host ("  {0,-40} {1,6}ms" -f 'SUBTOTAL', $phase1Total) -ForegroundColor Cyan
+    return
+}
+
+# ╔══════════════════════════════════════════════╗
+# ║  Phase 2: mode-decision                      ║
+# ╚══════════════════════════════════════════════╝
+
+$sw.Restart()
+
+$script:ProfileModeDecision = Get-ProfileModeDecision
+Lap '2.1-get-profile-mode-decision'
+
+$script:ProfileMode = [string]$script:ProfileModeDecision.Mode
+$script:UseMinimalProfile = $script:ProfileMode -eq 'Minimal'
+$script:UseUltraMinimalProfile = $script:ProfileMode -eq 'UltraMinimal'
+Lap '2.2-apply-mode-flags'
+
+$phase2Total = 0
+foreach ($k in @('2.1-get-profile-mode-decision', '2.2-apply-mode-flags')) {
+    $phase2Total += $timings[$k]
+}
+$phaseTimings['Phase 2: mode-decision'] = $phase2Total
+
+if ($Phase -eq 2) {
+    Write-Host "=== Phase 2: mode-decision 分步计时 ===" -ForegroundColor Cyan
+    $phase2Keys = @('2.1-get-profile-mode-decision', '2.2-apply-mode-flags')
+    foreach ($k in $phase2Keys) {
+        $v = $timings[$k]
+        $color = if ($v -gt 100) { 'Red' } elseif ($v -gt 30) { 'Yellow' } else { 'Green' }
+        Write-Host ("  {0,-40} {1,6}ms" -f $k, $v) -ForegroundColor $color
+    }
+    Write-Host ("  {0,-40} {1,6}ms" -f 'SUBTOTAL', $phase2Total) -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "Mode: $($script:ProfileMode) | Source: $($script:ProfileModeDecision.Source) | Reason: $($script:ProfileModeDecision.Reason)" -ForegroundColor DarkGray
+    return
+}
+
+# ╔══════════════════════════════════════════════╗
+# ║  Phase 3: core-loaders                       ║
+# ╚══════════════════════════════════════════════╝
+
+$sw.Restart()
+
+# 3.1 loadModule.ps1 — 加载 6 个核心 psutils 子模块 + PSModulePath + OnIdle 注册
+$loadModuleScript = Join-Path $profileRoot 'core/loadModule.ps1'
+. $loadModuleScript
+Lap '3.1-loadModule (core psutils + OnIdle)'
+
+# 3.2 user_aliases.ps1 — 加载别名配置对象
+$userAliasScript = Join-Path $profileRoot 'config/aliases/user_aliases.ps1'
+$script:userAlias = . $userAliasScript
+Lap '3.2-user_aliases config'
+
+$phase3Total = 0
+foreach ($k in @('3.1-loadModule (core psutils + OnIdle)', '3.2-user_aliases config')) {
+    $phase3Total += $timings[$k]
+}
+$phaseTimings['Phase 3: core-loaders'] = $phase3Total
+
+if ($Phase -eq 3) {
+    Write-Host "=== Phase 3: core-loaders 分步计时 ===" -ForegroundColor Cyan
+    $phase3Keys = @('3.1-loadModule (core psutils + OnIdle)', '3.2-user_aliases config')
+    foreach ($k in $phase3Keys) {
+        $v = $timings[$k]
+        $color = if ($v -gt 100) { 'Red' } elseif ($v -gt 30) { 'Yellow' } else { 'Green' }
+        Write-Host ("  {0,-40} {1,6}ms" -f $k, $v) -ForegroundColor $color
+    }
+    Write-Host ("  {0,-40} {1,6}ms" -f 'SUBTOTAL', $phase3Total) -ForegroundColor Cyan
+    return
+}
+
+# ╔══════════════════════════════════════════════╗
+# ║  Phase 4: initialize-environment             ║
+# ╚══════════════════════════════════════════════╝
+
+$sw.Restart()
+
+# 4.1 设置项目根目录
 $env:POWERSHELL_SCRIPTS_ROOT = Split-Path -Parent $profileRoot
-Lap '1-env-root'
+Lap '4.01-env-root'
 
-# 2. 代理自动检测
+# 4.2 Linux PATH 同步
+if ($IsLinux) {
+    if (Test-Path -Path "/home/linuxbrew/.linuxbrew/bin") {
+        $env:PATH += ":/home/linuxbrew/.linuxbrew/bin/"
+    }
+    try {
+        Sync-PathFromBash -CacheSeconds (4 * 3600) -ErrorAction Stop | Out-Null
+    }
+    catch {
+        Write-Warning "同步 PATH 失败: $($_.Exception.Message)"
+    }
+}
+Lap '4.02-linux-path-sync'
+
+# 4.3 代理自动检测
 if (-not $SkipProxy) {
     try {
-        $maxAge = [TimeSpan]::FromMinutes(5)
-        $proxyBlock = {
-            Set-Proxy -Command auto
-            if ($env:http_proxy) { 'on' } else { 'off' }
-        }
         $proxyState = Invoke-WithCache `
             -Key "proxy-auto-detect" `
-            -MaxAge $maxAge `
+            -MaxAge ([TimeSpan]::FromMinutes(5)) `
             -CacheType Text `
-            -ScriptBlock $proxyBlock
+            -ScriptBlock {
+                Set-Proxy -Command auto
+                if ($env:http_proxy) { 'on' } else { 'off' }
+            }
         if ($proxyState -eq 'on' -and -not $env:http_proxy) {
             Set-Proxy -Command on
         }
@@ -97,18 +231,18 @@ if (-not $SkipProxy) {
         Set-Proxy -Command auto
     }
 }
-Lap '2-proxy-detect'
+Lap '4.03-proxy-detect'
 
-# 3. env.ps1
+# 4.4 env.ps1
 $envScript = Join-Path $profileRoot 'env.ps1'
 if (Test-Path $envScript) { . $envScript }
-Lap '3-env-ps1'
+Lap '4.04-env-ps1'
 
-# 4. UTF-8 编码
+# 4.5 UTF-8 编码
 Set-ProfileUtf8Encoding
-Lap '4-utf8-encoding'
+Lap '4.05-utf8-encoding'
 
-# 5. Get-Command 批量检测
+# 4.6 Get-Command 批量检测
 $toolNames = @('starship', 'zoxide', 'sccache', 'fnm')
 $availableTools = [System.Collections.Generic.HashSet[string]]::new(
     [System.StringComparer]::OrdinalIgnoreCase
@@ -123,9 +257,9 @@ if ($foundCommands) {
         $availableTools.Add($toolName) | Out-Null
     }
 }
-Lap '5-get-command'
+Lap '4.06-get-command'
 
-# 6. starship
+# 4.7 starship
 $platformId = if ($IsWindows) { 'win' } elseif ($IsMacOS) { 'macos' } else { 'linux' }
 $cacheDir = Join-Path $profileRoot '.cache'
 if (-not $SkipStarship -and $availableTools.Contains('starship')) {
@@ -150,9 +284,9 @@ if (-not $SkipStarship -and $availableTools.Contains('starship')) {
         -BaseDir $cacheDir
     . $f
 }
-Lap '6-starship'
+Lap '4.07-starship'
 
-# 7. zoxide
+# 4.8 zoxide
 if (-not $SkipZoxide -and $availableTools.Contains('zoxide')) {
     $f = Invoke-WithFileCache `
         -Key "zoxide-init-powershell-$platformId" `
@@ -161,15 +295,15 @@ if (-not $SkipZoxide -and $availableTools.Contains('zoxide')) {
         -BaseDir $cacheDir
     . $f
 }
-Lap '7-zoxide'
+Lap '4.08-zoxide'
 
-# 8. sccache
+# 4.9 sccache
 if ($availableTools.Contains('sccache') -and $IsWindows) {
     $env:RUSTC_WRAPPER = 'sccache'
 }
-Lap '8-sccache'
+Lap '4.09-sccache'
 
-# 9. fnm (仅 Unix)
+# 4.10 fnm (仅 Unix)
 if (-not $IsWindows -and $availableTools.Contains('fnm')) {
     $fnmInitFile = Join-Path ([System.IO.Path]::GetTempPath()) "fnm-init-$PID.ps1"
     try {
@@ -180,31 +314,58 @@ if (-not $IsWindows -and $availableTools.Contains('fnm')) {
         Remove-Item -Path $fnmInitFile -Force -ErrorAction SilentlyContinue
     }
 }
-Lap '9-fnm'
+Lap '4.10-fnm'
 
-# 10. 别名注册
+# 4.11 别名注册
 if (-not $SkipAliases) {
     Set-AliasProfile
 }
-Lap '10-alias-profile'
+Lap '4.11-alias-profile'
 
-# === 输出报告 ===
+# Phase 4 小计
+$phase4Total = 0
+$phase4Keys = @(
+    '4.01-env-root', '4.02-linux-path-sync', '4.03-proxy-detect', '4.04-env-ps1',
+    '4.05-utf8-encoding', '4.06-get-command', '4.07-starship', '4.08-zoxide',
+    '4.09-sccache', '4.10-fnm', '4.11-alias-profile'
+)
+foreach ($k in $phase4Keys) {
+    $phase4Total += $timings[$k]
+}
+$phaseTimings['Phase 4: initialize-environment'] = $phase4Total
+
+# ╔══════════════════════════════════════════════╗
+# ║  输出报告                                     ║
+# ╚══════════════════════════════════════════════╝
+
+# === 阶段总览 ===
+Write-Host "=== 阶段总览 ===" -ForegroundColor Cyan
+$grandTotal = 0
+foreach ($e in $phaseTimings.GetEnumerator()) {
+    $grandTotal += $e.Value
+    $color = if ($e.Value -gt 300) { 'Red' } elseif ($e.Value -gt 100) { 'Yellow' } else { 'Green' }
+    Write-Host ("  {0,-40} {1,6}ms" -f $e.Key, $e.Value) -ForegroundColor $color
+}
+Write-Host ("  {0,-40} {1,6}ms" -f 'TOTAL', $grandTotal) -ForegroundColor Cyan
+
+# === 分步明细 ===
 Write-Host ""
-Write-Host "=== Initialize-Environment 分步计时 ===" -ForegroundColor Cyan
-$total = 0
+Write-Host "=== 分步明细 ===" -ForegroundColor Cyan
 foreach ($e in $timings.GetEnumerator()) {
-    $total += $e.Value
     $color = if ($e.Value -gt 100) { 'Red' }
     elseif ($e.Value -gt 30) { 'Yellow' }
     else { 'Green' }
-    $line = "  {0,-35} {1,6}ms" -f $e.Key, $e.Value
+    $line = "  {0,-40} {1,6}ms" -f $e.Key, $e.Value
     Write-Host $line -ForegroundColor $color
 }
-Write-Host ("  {0,-35} {1,6}ms" -f 'TOTAL', $total) -ForegroundColor Cyan
+Write-Host ("  {0,-40} {1,6}ms" -f 'TOTAL', $grandTotal) -ForegroundColor Cyan
 
+# === 环境信息 ===
 Write-Host ""
-Write-Host "Detected tools: $($availableTools -join ', ')" -ForegroundColor DarkGray
-Write-Host "Platform cache ID: $platformId" -ForegroundColor DarkGray
+Write-Host "=== 环境信息 ===" -ForegroundColor Cyan
+Write-Host "  Profile mode: $($script:ProfileMode) (source: $($script:ProfileModeDecision.Source), reason: $($script:ProfileModeDecision.Reason))" -ForegroundColor DarkGray
+Write-Host "  Detected tools: $($availableTools -join ', ')" -ForegroundColor DarkGray
+Write-Host "  Platform cache ID: $platformId" -ForegroundColor DarkGray
 
 # === 缓存文件信息 ===
 Write-Host ""
@@ -228,7 +389,6 @@ else {
 Write-Host ""
 $issues = @()
 foreach ($e in $timings.GetEnumerator()) {
-    if ($e.Key -eq 'prerequisites (phases 1-3)') { continue }
     if ($e.Value -gt 200) {
         $issues += $e
     }
@@ -244,6 +404,9 @@ if ($issues.Count -gt 0) {
     Write-Host "  - 如果 proxy-detect 偏高：检查代理端口是否可达或延长缓存时间" -ForegroundColor DarkGray
     Write-Host "  - 如果 utf8-encoding 偏高：检查是否有 PSReadLine 操作泄漏到同步路径" -ForegroundColor DarkGray
     Write-Host "  - 如果 get-command 偏高：检查 PATH 中是否有过多条目" -ForegroundColor DarkGray
+    Write-Host "  - 如果 dot-source 某文件偏高：该文件可能在定义阶段执行了逻辑，应延迟到调用时" -ForegroundColor DarkGray
+    Write-Host "  - 如果 loadModule 偏高：检查核心模块数量或 PSModulePath 条目数" -ForegroundColor DarkGray
+    Write-Host "  - 如果 linux-path-sync 偏高：检查 Bash PATH 同步缓存是否过期" -ForegroundColor DarkGray
 }
 else {
     Write-Host "✅ 所有步骤均在 200ms 阈值内" -ForegroundColor Green

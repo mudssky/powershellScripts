@@ -91,7 +91,7 @@ pwsh -NoLogo
 
 ### 详细分步诊断
 
-使用 `Debug-ProfilePerformance.ps1` 获取 `initialize-environment` 内部各子步骤的精确耗时：
+使用 `Debug-ProfilePerformance.ps1` 获取全部 4 个阶段及其子步骤的精确耗时：
 
 ```powershell
 pwsh -NoProfile -NoLogo -File ./profile/Debug-ProfilePerformance.ps1
@@ -99,22 +99,32 @@ pwsh -NoProfile -NoLogo -File ./profile/Debug-ProfilePerformance.ps1
 
 输出示例：
 ```
-=== Initialize-Environment 分步计时 ===
-  prerequisites (phases 1-3)             190ms
-  1-env-root                               0ms
-  2-proxy-detect                          34ms
-  3-env-ps1                                1ms
-  4-utf8-encoding                          4ms
-  5-get-command                           68ms
-  6-starship                             120ms
-  7-zoxide                                47ms
-  8-sccache                                0ms
-  9-fnm                                    0ms
-  10-alias-profile                        45ms
-  TOTAL                                  509ms
+=== 阶段总览 ===
+  Phase 1: dot-source-definitions          134ms
+  Phase 2: mode-decision                    67ms
+  Phase 3: core-loaders                    199ms
+  Phase 4: initialize-environment          286ms
+  TOTAL                                    686ms
+
+=== 分步明细 ===
+  1.1-encoding.ps1                           5ms
+  1.2-mode.ps1                              38ms
+  1.3-loaders.ps1                            3ms
+  1.4-environment.ps1                       72ms
+  1.5-help.ps1                              12ms
+  1.6-install.ps1                            4ms
+  2.1-get-profile-mode-decision             67ms
+  2.2-apply-mode-flags                       0ms
+  3.1-loadModule (core psutils + OnIdle)   195ms
+  3.2-user_aliases config                    4ms
+  4.01-env-root                              0ms
+  ...（省略）
+  TOTAL                                    686ms
 ```
 
-可选参数：`-SkipStarship`, `-SkipZoxide`, `-SkipProxy`, `-SkipAliases`（用于隔离排查）。
+可选参数：
+- `-SkipStarship`, `-SkipZoxide`, `-SkipProxy`, `-SkipAliases` — 跳过特定步骤（隔离排查）
+- `-Phase <1-4>` — 只运行到指定阶段并输出该阶段的详细计时
 
 ### 缓存管理
 
