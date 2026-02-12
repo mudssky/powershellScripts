@@ -307,7 +307,7 @@ Lap '4.09-sccache'
 if (-not $IsWindows -and $availableTools.Contains('fnm')) {
     $fnmInitFile = Join-Path ([System.IO.Path]::GetTempPath()) "fnm-init-$PID.ps1"
     try {
-        fnm env --use-on-cd | Set-Content -Path $fnmInitFile -Encoding utf8NoBOM
+        fnm env --shell=power-shell --use-on-cd | Set-Content -Path $fnmInitFile -Encoding utf8NoBOM
         . $fnmInitFile
     }
     finally {
