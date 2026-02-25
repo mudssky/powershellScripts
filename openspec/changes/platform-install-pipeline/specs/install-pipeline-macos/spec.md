@@ -44,3 +44,7 @@
 #### Scenario: 前置条件声明
 - **WHEN** 某个步骤依赖前一步骤的产出
 - **THEN** INSTALL.md 中该步骤的"前置条件"字段 SHALL 明确声明此依赖
+
+#### Scenario: 末尾引导至跨平台安装
+- **WHEN** 完成 `macos/INSTALL.md` 的所有步骤
+- **THEN** 文档末尾 SHALL 包含指向 `docs/INSTALL.md` 的相对链接，引导继续跨平台 PowerShell 层安装

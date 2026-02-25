@@ -15,10 +15,13 @@
 - [ ] 2.5 创建 `macos/05deployHammerspoon.sh`，调用 `hammerspoon/load_scripts.zsh`
 - [ ] 2.6 删除原 `macos/01install.sh`（已拆分完成）
 
-## 3. INSTALL.md 文档创建
+## 3. 跨平台安装文档与引用更新
 
-- [ ] 3.1 创建 `linux/INSTALL.md`，包含步骤 0-4 的完整 manifest（含仓库拉取指引、每步的脚本名/执行方式/前置条件/可跳过/说明）
-- [ ] 3.2 创建 `macos/INSTALL.md`，包含步骤 0-5 的完整 manifest（步骤 0 为手动 clone 指引）
+- [ ] 3.1 创建 `docs/INSTALL.md`，包含两阶段结构：第一阶段引导到平台 INSTALL.md，第二阶段描述 PowerShell 层安装步骤（install.ps1、install.ps1 -installApp、installModules.ps1）
+- [ ] 3.2 创建 `linux/INSTALL.md`，包含步骤 0-4 的完整 manifest（含仓库拉取指引），末尾引导回 `docs/INSTALL.md`
+- [ ] 3.3 创建 `macos/INSTALL.md`，包含步骤 0-5 的完整 manifest（步骤 0 为手动 clone 指引），末尾引导回 `docs/INSTALL.md`
+- [ ] 3.4 更新根目录 `README.md`，添加指向 `docs/INSTALL.md` 的安装指南引用
+- [ ] 3.5 更新 `install.ps1` 中 `linux/01manage-shell-snippet.sh` 路径为 `shell/deploy.sh`
 
 ## 4. 清理与验证
 
