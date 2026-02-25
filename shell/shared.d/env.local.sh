@@ -1,0 +1,3 @@
+# 代理相关配置
+export PROXY_DEFAULT_HOST='192.168.21.90'
+export PROXY_DEFAULT_PORT='7890'

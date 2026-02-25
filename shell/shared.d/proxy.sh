@@ -2,6 +2,7 @@
 
 # =============================================================================
 # Proxy Manager (All-in-One)
+# 兼容 Bash 和 Zsh
 # =============================================================================
 
 # --- 内部配置 (只读，不暴露) ---
@@ -12,6 +13,23 @@ _PM_DEFAULT_PORT="${PROXY_DEFAULT_PORT:-${_PM_DEFAULT_PORT:-7890}}"
 if [ -z "${_PM_NO_PROXY:-}" ]; then
     readonly _PM_NO_PROXY="localhost,127.0.0.1,::1,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12"
 fi
+
+# --- 跨 shell 端口连通性检测 ---
+# /dev/tcp 是 Bash 专属特性，Zsh 不支持
+# 优先使用 nc -z，fallback 到 curl，最后 fallback 到 bash /dev/tcp
+_pm_check_port() {
+    local host="$1"
+    local port="$2"
+    if command -v nc >/dev/null 2>&1; then
+        timeout 0.1 nc -z "$host" "$port" >/dev/null 2>&1
+    elif command -v curl >/dev/null 2>&1; then
+        curl --connect-timeout 0.1 -s "http://${host}:${port}" >/dev/null 2>&1
+    elif command -v bash >/dev/null 2>&1; then
+        timeout 0.1 bash -c "</dev/tcp/${host}/${port}" >/dev/null 2>&1
+    else
+        return 1
+    fi
+}
 
 # --- 主函数: proxy ---
 proxy() {
@@ -41,7 +59,7 @@ proxy() {
 
             echo "✅ 代理已开启: $url"
             # 尝试静默检测一下连通性，不通则警告
-            if ! (timeout 0.1 bash -c "</dev/tcp/${host}/${port}") >/dev/null 2>&1; then
+            if ! _pm_check_port "$host" "$port"; then
                 echo "⚠️  警告: 无法连接到代理端口 ${host}:${port}，请检查隧道是否建立。"
             fi
             ;;
@@ -59,7 +77,9 @@ proxy() {
                 echo "   排除: localhost, 局域网等..."
                 # 连通性测试
                 local target="${http_proxy#*://}" # 去除协议头
-                if (timeout 0.1 bash -c "</dev/tcp/${target%:*}"/${target##*:}) >/dev/null 2>&1; then
+                local check_host="${target%:*}"
+                local check_port="${target##*:}"
+                if _pm_check_port "$check_host" "$check_port"; then
                     echo "   连接: ✅ 正常"
                 else
                     echo "   连接: ❌ 无法连接 (服务未启动?)"
@@ -249,21 +269,27 @@ proxy() {
     esac
 }
 
-# --- 自动补全 (神器) ---
-# 输入 proxy 后按 Tab，会自动提示 on, off, status, test
-_proxy_completion() {
-    local cur=${COMP_WORDS[COMP_CWORD]}
-    local commands="on off status test help docker container"
-    COMPREPLY=( $(compgen -W "$commands" -- "$cur") )
-}
-# 注册补全函数 (仅在 Bash 下有效)
+# --- 自动补全 ---
+# Bash: 使用 complete 内建命令
+# Zsh: 使用 compctl 或 compadd
 if [ -n "$BASH_VERSION" ]; then
+    _proxy_completion() {
+        local cur=${COMP_WORDS[COMP_CWORD]}
+        local commands="on off status test help docker container"
+        COMPREPLY=( $(compgen -W "$commands" -- "$cur") )
+    }
     complete -F _proxy_completion proxy
+elif [ -n "$ZSH_VERSION" ]; then
+    _proxy_completion() {
+        local commands=(on off status test help docker container)
+        compadd -a commands
+    }
+    compdef _proxy_completion proxy
 fi
 
 # --- 自动检测 (静默启动) ---
 # 如果默认端口通了，且当前没有设置代理，则自动开启
-if [[ -z "$http_proxy" ]] && (timeout 0.1 bash -c "</dev/tcp/${_PM_DEFAULT_HOST}/${_PM_DEFAULT_PORT}") >/dev/null 2>&1; then
+if [ -z "$http_proxy" ] && _pm_check_port "$_PM_DEFAULT_HOST" "$_PM_DEFAULT_PORT"; then
     # 直接设置变量，不调用 proxy on 以避免输出文字干扰 scp
     export http_proxy="http://${_PM_DEFAULT_HOST}:${_PM_DEFAULT_PORT}"
     export https_proxy="http://${_PM_DEFAULT_HOST}:${_PM_DEFAULT_PORT}"

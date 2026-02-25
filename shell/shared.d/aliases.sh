@@ -38,12 +38,22 @@ if command -v eza &> /dev/null; then
     alias ll='eza --long --header --icons --git --all --time-style=iso'
     alias tree='eza --tree --git --icons --git-ignore'
 else
-    alias ll='ls -alF --color=auto'  # 列出所有文件(含隐藏)、详细信息、颜色
-    alias tree='tree -C'             # 如果没 eza，尝试使用系统自带 tree
+    if [ "$(uname -s)" = "Darwin" ]; then
+        alias ll='ls -alFG'       # macOS BSD ls: -G 启用颜色
+        alias tree='tree -C'
+    else
+        alias ll='ls -alF --color=auto'  # GNU ls: --color=auto 启用颜色
+        alias tree='tree -C'
+    fi
 fi
 
-alias la='ls -A --color=auto'    # 列出所有(不含 . 和 ..)
-alias l='ls -CF --color=auto'    # 简单列表
+if [ "$(uname -s)" = "Darwin" ]; then
+    alias la='ls -AG'           # macOS BSD ls
+    alias l='ls -CFG'
+else
+    alias la='ls -A --color=auto'    # 列出所有(不含 . 和 ..)
+    alias l='ls -CF --color=auto'    # 简单列表
+fi
 
 
 ### 3. 🌐 网络与代理 (Network & Proxy)
@@ -95,7 +105,11 @@ export HISTFILESIZE=20000
 
 # zoxide (更好的 cd)
 if command -v zoxide &> /dev/null; then
-    eval "$(zoxide init bash)"
+    if [ -n "$ZSH_VERSION" ]; then
+        eval "$(zoxide init zsh)"
+    else
+        eval "$(zoxide init bash)"
+    fi
     alias zq='zoxide query'
     alias za='zoxide add'
     alias zr='zoxide remove'

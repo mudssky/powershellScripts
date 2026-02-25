@@ -44,11 +44,26 @@ install_uv(){
     fi
 }
 
+deploy_shell_snippets(){
+    # 获取脚本所在目录
+    local script_dir
+    script_dir=$(cd "$(dirname "$0")" || exit; pwd)
+    local deploy_script="$script_dir/../shell/deploy.sh"
+
+    if [ -f "$deploy_script" ]; then
+        echo 'Deploying shell configuration snippets...'
+        bash "$deploy_script" --shell zsh
+    else
+        echo "Warning: deploy.sh not found at $deploy_script"
+    fi
+}
+
 install(){
     install_brew
     config_zshrc
     install_pwsh
     # install_uv
+    deploy_shell_snippets
 }
 
 
