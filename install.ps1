@@ -34,10 +34,10 @@ if ($installApp) {
         . "$ProjectRoot/profile/installer/installApp.ps1"
     }
     elseif ( $IsLinux) {
-        . "$ProjectRoot/linux/03installApps.ps1"
+        . "$ProjectRoot/linux/04installApps.ps1"
     }
     elseif ($IsMacOS) {
-        . "$ProjectRoot/macos/02installApp.ps1"
+        . "$ProjectRoot/macos/04installApps.ps1"
     }
     else {
         Write-Host "不支持的平台: $($PSVersionTable.OS)" -ForegroundColor Red
@@ -352,7 +352,7 @@ if ($IsLinux -or $IsMacOS) {
     }
     Write-Host "检测到默认 Shell: $defaultShell" -ForegroundColor Cyan
 
-    $ShellScript = Join-Path $ProjectRoot 'linux/01manage-shell-snippet.sh'
+    $ShellScript = Join-Path $ProjectRoot 'shell/deploy.sh'
     
     if (Test-Path $ShellScript) {
         try {

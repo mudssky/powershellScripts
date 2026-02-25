@@ -32,6 +32,8 @@
 
 ## 🛠️ 安装和设置
 
+> 完整的跨平台安装指南请参考 [docs/INSTALL.md](docs/INSTALL.md)。
+
 ### 快速开始
 
 ```powershell
