@@ -30,6 +30,14 @@ if (Test-EXEProgram -Name 'bun') {
     Install-PackageManagerApps -PackageManager 'bun' -ConfigPath $configPath
 }
 
+if (Test-EXEProgram -Name 'cargo') {
+    Install-PackageManagerApps -PackageManager 'cargo' -ConfigPath $configPath
+} else {
+    Write-Warning "未检测到 Rust 环境 (Cargo)，跳过 Rust 工具安装"
+    Write-Host "建议安装 Rust 以支持相关工具 (如 pwshfmt-rs):" -ForegroundColor Cyan
+    Write-Host "  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh" -ForegroundColor Cyan
+}
+
 if ( -not (Test-EXEProgram -Name 'docker')) {
     # bash ./ubuntu/installer/install_docker.sh
     bash ./ubuntu/installer/installDocker.sh

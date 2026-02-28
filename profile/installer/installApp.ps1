@@ -98,7 +98,10 @@ function Install-DevelopmentTools() {
         Install-PackageManagerApps -PackageManager "cargo" -ConfigPath $ConfigPath
     }
     else {
-        Write-Host "Cargo 未安装，跳过 Rust 工具安装" -ForegroundColor Yellow
+        Write-Warning "未检测到 Rust 环境 (Cargo)，跳过 Rust 工具安装"
+        Write-Host "建议安装 Rust 以支持相关工具 (如 pwshfmt-rs):" -ForegroundColor Cyan
+        Write-Host "  方式 1: 访问 https://rustup.rs/ 下载安装程序" -ForegroundColor Cyan
+        Write-Host "  方式 2: winget install Rustlang.Rustup" -ForegroundColor Cyan
     }
 	
     Write-Host "所有工具安装完成！" -ForegroundColor Green
