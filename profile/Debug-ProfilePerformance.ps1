@@ -264,12 +264,16 @@ $platformId = if ($IsWindows) { 'win' } elseif ($IsMacOS) { 'macos' } else { 'li
 $cacheDir = Join-Path $profileRoot '.cache'
 if (-not $SkipStarship -and $availableTools.Contains('starship')) {
     $f = Invoke-WithFileCache `
-        -Key "starship-init-powershell-$platformId" `
+        -Key "starship-init-powershell-$platformId-v2" `
         -MaxAge ([TimeSpan]::FromDays(7)) `
         -Generator {
-            $initScript = & starship init powershell --print-full-init
+            $initScriptLines = & starship init powershell --print-full-init 2>$null
+            if ($LASTEXITCODE -ne 0 -or -not $initScriptLines) {
+                $initScriptLines = & starship init powershell
+            }
+            $initScript = ($initScriptLines -join [System.Environment]::NewLine)
             try {
-                $continuationPrompt = & starship prompt --continuation
+                $continuationPrompt = (& starship prompt --continuation) -join [System.Environment]::NewLine
                 if ($continuationPrompt) {
                     $escaped = $continuationPrompt -replace "'", "''"
                     $pattern = 'Set-PSReadLineOption -ContinuationPrompt \(\s*Invoke-Native -Executable .+? -Arguments @\(\s*"prompt",\s*"--continuation"\s*\)\s*\)'

@@ -205,11 +205,18 @@ function Initialize-Environment {
             if ($SkipTools -or $SkipStarship) { return }
             Write-Verbose "初始化 Starship 提示符"
             $cacheDir = Join-Path $profileRoot '.cache'
+            $starshipCacheKey = "starship-init-powershell-$platformId-v2"
             $starshipFile = Invoke-WithFileCache `
-                -Key "starship-init-powershell-$platformId" `
+                -Key $starshipCacheKey `
                 -MaxAge ([TimeSpan]::FromDays(7)) `
                 -Generator {
-                    $initScript = & starship init powershell --print-full-init
+                    # starship init 可能返回 string[]；必须显式按换行拼接，避免后续正则时被 PowerShell 隐式拼接成单行
+                    $initScriptLines = & starship init powershell --print-full-init 2>$null
+                    if ($LASTEXITCODE -ne 0 -or -not $initScriptLines) {
+                        Write-Verbose "starship 不支持 --print-full-init，回退到默认 init 输出"
+                        $initScriptLines = & starship init powershell
+                    }
+                    $initScript = ($initScriptLines -join [System.Environment]::NewLine)
 
                     # Post-processing: 缓存 continuation prompt 输出，避免每次启动 spawn 子进程（~100-150ms）
                     # starship init 输出中包含:
@@ -218,7 +225,7 @@ function Initialize-Environment {
                     #   )
                     # 替换为预先获取的字面量值
                     try {
-                        $continuationPrompt = & starship prompt --continuation
+                        $continuationPrompt = (& starship prompt --continuation) -join [System.Environment]::NewLine
                         if ($continuationPrompt) {
                             # 转义单引号用于嵌入字符串字面量
                             $escaped = $continuationPrompt -replace "'", "''"
