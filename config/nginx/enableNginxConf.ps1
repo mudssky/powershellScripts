@@ -50,6 +50,27 @@ $ErrorActionPreference = 'Stop'
 $modulePath = Join-Path $PSScriptRoot 'Manage-NginxConf.psm1'
 Import-Module $modulePath -Force
 
+# Check prerequisites
+if (-not (Get-Command nginx -ErrorAction SilentlyContinue)) {
+    Write-Error "错误: 未检测到 Nginx。此脚本需要 Nginx 才能运行。"
+    Write-Host "请根据您的发行版安装 Nginx:" -ForegroundColor Cyan
+    Write-Host "  Debian/Ubuntu: sudo apt update && sudo apt install -y nginx"
+    Write-Host "  RHEL/CentOS:   sudo yum install -y nginx"
+    Write-Host "  Fedora:        sudo dnf install -y nginx"
+    Write-Host "  Arch Linux:    sudo pacman -Syu nginx"
+    exit 1
+}
+
+if ($BasicUser -and -not (Get-Command htpasswd -ErrorAction SilentlyContinue)) {
+    Write-Error "错误: 未检测到 htpasswd 工具。Basic Auth 配置需要此工具。"
+    Write-Host "请根据您的发行版安装工具包:" -ForegroundColor Cyan
+    Write-Host "  Debian/Ubuntu: sudo apt install -y apache2-utils"
+    Write-Host "  RHEL/CentOS:   sudo yum install -y httpd-tools"
+    Write-Host "  Fedora:        sudo dnf install -y httpd-tools"
+    Write-Host "  Arch Linux:    sudo pacman -S apache"
+    exit 1
+}
+
 Write-Output "即将启用配置: $Name"
 if (-not $RepoConfPath) {
     $RepoConfPath = Join-Path (Join-Path $PSScriptRoot 'sites-available') ("$Name.conf")
