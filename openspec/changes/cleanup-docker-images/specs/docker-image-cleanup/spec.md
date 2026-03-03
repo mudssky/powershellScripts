@@ -7,6 +7,20 @@
 - **WHEN** 用户不传入激进模式参数运行清理脚本
 - **THEN** 脚本仅选择低风险候选镜像并跳过受保护镜像
 
+### Requirement: Fzf multi-select interaction
+系统 SHALL 提供基于 `fzf` 的多选交互流程，让用户从候选镜像中选择实际删除项。
+
+#### Scenario: 用户通过 fzf 选择删除目标
+- **WHEN** 用户启用交互式多选模式运行清理脚本
+- **THEN** 脚本通过 `fzf` 展示候选镜像并仅对用户选中的条目执行删除
+
+### Requirement: Fzf dependency enforcement
+系统 SHALL 在进入交互式多选流程前检测 `fzf` 可用性；若未安装，MUST 立即失败并输出明确安装提示。
+
+#### Scenario: 缺失 fzf 时快速失败并提示安装
+- **WHEN** 用户启用交互式多选模式且运行环境不存在 `fzf`
+- **THEN** 脚本以非零退出并输出可执行的 `fzf` 安装提示
+
 ### Requirement: Dry-run preview before deletion
 系统 SHALL 支持 `DryRun` 预览模式，并在该模式下仅展示候选镜像、预计释放空间与将执行命令，MUST NOT 实际删除任何镜像。
 
