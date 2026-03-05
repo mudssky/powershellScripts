@@ -114,7 +114,7 @@ renameLegal.ps1 -reverse
 | cleanEnvPath.ps1 | 环境变量PATH清理脚本 | env, path, clean, environment |
 | restoreEnvPath.ps1 | 环境变量PATH恢复脚本 | env, path, restore, environment |
 | tesseract.ps1 | Tesseract OCR脚本 | tesseract, ocr, image, text |
-| losslessToQaac.ps1 | 无损音频转AAC脚本 | audio, aac, lossless, qaac |
+| losslessToAdaptiveAudio.ps1 | 无损音频转码脚本（qaac 不存在时回退 libopus） | audio, aac, opus, lossless, qaac, ffmpeg |
 | lrc-maker.ps1 | 歌词文件制作脚本 | lrc, lyrics, maker |
 | jupyconvert.ps1 | Jupyter转换脚本 | jupyter, convert, notebook |
 | gitconfig_personal.ps1 | 个人Git配置脚本 | git, config, personal |

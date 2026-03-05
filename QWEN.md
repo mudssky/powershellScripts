@@ -75,8 +75,8 @@ FLV 文件合并工具。
 #### dvdcompress.ps1
 DVD 视频压缩工具。
 
-#### losslessToQaac.ps1
-无损音频转 AAC 格式。
+#### losslessToAdaptiveAudio.ps1
+无损音频转码（优先 AAC，缺失 qaac 时回退 Opus）。
 
 #### pngCompress.ps1
 PNG 图片压缩工具。

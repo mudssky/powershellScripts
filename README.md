@@ -193,9 +193,9 @@ ls *.flv | % { ffmpegPreset -path $_.Name }
 
 ### 音频处理
 
-#### `losslessToQaac`
+#### `losslessToAdaptiveAudio`
 
-**功能**: 无损音频转 AAC 格式
+**功能**: 无损音频转码（优先 AAC，缺失 qaac 时回退 Opus）
 
 ### 图像处理
 
