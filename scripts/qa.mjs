@@ -14,6 +14,10 @@ class CommandFailedError extends Error {
   }
 }
 
+const pnpmExecPath = process.env.npm_execpath
+const runPnpmWithNode =
+  typeof pnpmExecPath === 'string' && pnpmExecPath.toLowerCase().includes('pnpm')
+
 const args = process.argv.slice(2)
 let mode = 'changed'
 let verbose = false
@@ -66,6 +70,16 @@ function runCommand(step, command, args, options = {}) {
       result.error,
     )
   }
+}
+
+function runPnpm(step, pnpmArgs) {
+  if (runPnpmWithNode) {
+    runCommand(step, process.execPath, [pnpmExecPath, ...pnpmArgs])
+    return
+  }
+
+  const command = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
+  runCommand(step, command, pnpmArgs)
 }
 
 function runCapture(command, args) {
@@ -164,18 +178,18 @@ function runWorkspaceQa(modeValue, sinceRef) {
 
   if (modeValue === 'all') {
     console.log('[qa] run workspace qa (all)')
-    runCommand('workspace-qa-all', 'pnpm', recursiveArgs)
+    runPnpm('workspace-qa-all', recursiveArgs)
     return
   }
 
   if (!sinceRef) {
     console.log('[qa] no base ref found, fallback to workspace qa (all)')
-    runCommand('workspace-qa-fallback-all', 'pnpm', recursiveArgs)
+    runPnpm('workspace-qa-fallback-all', recursiveArgs)
     return
   }
 
   console.log(`[qa] run workspace qa (changed since ${sinceRef})`)
-  runCommand('workspace-qa-changed', 'pnpm', [
+  runPnpm('workspace-qa-changed', [
     '--filter',
     `[${sinceRef}]`,
     ...recursiveArgs,
@@ -185,7 +199,7 @@ function runWorkspaceQa(modeValue, sinceRef) {
 function runRootPwshQa(modeValue, sinceRef) {
   if (modeValue === 'all') {
     console.log('[qa] run root qa:pwsh (all)')
-    runCommand('root-qa-pwsh-all', 'pnpm', ['run', 'qa:pwsh'])
+    runPnpm('root-qa-pwsh-all', ['run', 'qa:pwsh'])
     return
   }
 
@@ -204,7 +218,7 @@ function runRootPwshQa(modeValue, sinceRef) {
   }
 
   console.log('[qa] run root qa:pwsh (changed)')
-  runCommand('root-qa-pwsh-changed', 'pnpm', ['run', 'qa:pwsh'])
+  runPnpm('root-qa-pwsh-changed', ['run', 'qa:pwsh'])
 }
 
 const sinceRef = mode === 'changed' ? resolveSinceRef() : null
