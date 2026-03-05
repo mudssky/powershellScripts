@@ -34,15 +34,34 @@ if ($IsLinux -or $IsMacOS) {
 
 
 $isCI = [bool]$env:CI
-$testMode = if ([string]::IsNullOrWhiteSpace($env:PWSH_TEST_MODE)) { 'full' } else { $env:PWSH_TEST_MODE }
-$isFast = $testMode -in @('fast', 'serial', 'debug')
+$testMode = if ([string]::IsNullOrWhiteSpace($env:PWSH_TEST_MODE)) { 'full' } else { $env:PWSH_TEST_MODE.Trim().ToLowerInvariant() }
+$isQa = $testMode -eq 'qa'
+$isFast = $testMode -in @('fast', 'serial', 'debug', 'qa')
 $isSerial = $testMode -eq 'serial'
 $isDebug = $testMode -eq 'debug'
 $isVerbose = -not [string]::IsNullOrWhiteSpace($env:PWSH_TEST_VERBOSE)
 
-$runPaths = @("./psutils", "./tests")
+$qaDefaultPaths = @(
+    "./tests/DeferredLoading.Tests.ps1"
+    "./tests/losslessToAdaptiveAudio.Tests.ps1"
+    "./tests/ProfileMode.Tests.ps1"
+    "./tests/Switch-Mirrors.Tests.ps1"
+    "./psutils/tests/error.Tests.ps1"
+    "./psutils/tests/filesystem.Tests.ps1"
+    "./psutils/tests/font.Tests.ps1"
+    "./psutils/tests/git.Tests.ps1"
+    "./psutils/tests/string.Tests.ps1"
+    "./psutils/tests/win.Tests.ps1"
+    "./psutils/tests/wrapper.Tests.ps1"
+)
+
+$runPaths = if ($isQa) { $qaDefaultPaths } else { @("./psutils", "./tests") }
 if (-not [string]::IsNullOrWhiteSpace($env:PWSH_TEST_PATH)) {
     $runPaths = $env:PWSH_TEST_PATH -split '[;,]' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+}
+
+if ($isQa) {
+    $excludeTags += 'QaSkip'
 }
 
 $config = @{

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { spawnSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
 
 class CommandFailedError extends Error {
   constructor(step, command, args, exitCode, spawnError) {
@@ -44,6 +45,30 @@ if (!verbose) {
 }
 
 const supportedModes = new Set(['changed', 'all'])
+const qaSmokeTestPaths = [
+  './tests/DeferredLoading.Tests.ps1',
+  './tests/losslessToAdaptiveAudio.Tests.ps1',
+  './tests/ProfileMode.Tests.ps1',
+  './tests/Switch-Mirrors.Tests.ps1',
+  './psutils/tests/error.Tests.ps1',
+  './psutils/tests/filesystem.Tests.ps1',
+  './psutils/tests/font.Tests.ps1',
+  './psutils/tests/git.Tests.ps1',
+  './psutils/tests/string.Tests.ps1',
+  './psutils/tests/win.Tests.ps1',
+  './psutils/tests/wrapper.Tests.ps1',
+]
+const qaExcludedTestPaths = new Set([
+  './psutils/tests/cache.Tests.ps1',
+  './psutils/tests/hardware.Tests.ps1',
+  './psutils/tests/help.Tests.ps1',
+  './psutils/tests/install.Tests.ps1',
+  './psutils/tests/network.Tests.ps1',
+  './psutils/tests/profile_unix.Tests.ps1',
+  './psutils/tests/profile_windows.Tests.ps1',
+  './psutils/tests/proxy.Tests.ps1',
+  './psutils/tests/test.Tests.ps1',
+])
 
 if (!supportedModes.has(mode)) {
   console.error(`[qa] unsupported mode: ${mode}`)
@@ -72,14 +97,14 @@ function runCommand(step, command, args, options = {}) {
   }
 }
 
-function runPnpm(step, pnpmArgs) {
+function runPnpm(step, pnpmArgs, options = {}) {
   if (runPnpmWithNode) {
-    runCommand(step, process.execPath, [pnpmExecPath, ...pnpmArgs])
+    runCommand(step, process.execPath, [pnpmExecPath, ...pnpmArgs], options)
     return
   }
 
   const command = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
-  runCommand(step, command, pnpmArgs)
+  runCommand(step, command, pnpmArgs, options)
 }
 
 function runCapture(command, args) {
@@ -165,6 +190,119 @@ function hasPathChanges(pathspecs, sinceRef) {
   })
 }
 
+function toRepoPath(pathValue) {
+  return pathValue.replace(/\\/g, '/').replace(/^\.\//, '')
+}
+
+function toQaTestPath(pathValue) {
+  const prefixed = pathValue.startsWith('./') ? pathValue : `./${pathValue}`
+  return prefixed.replace(/\\/g, '/')
+}
+
+function shouldIncludeQaTest(pathValue) {
+  const qaPath = toQaTestPath(pathValue)
+  if (qaExcludedTestPaths.has(qaPath)) {
+    return false
+  }
+  const repoPath = toRepoPath(qaPath)
+  return existsSync(repoPath)
+}
+
+function collectChangedFiles(pathspecs, sinceRef) {
+  const checks = []
+
+  if (sinceRef) {
+    checks.push([
+      'diff',
+      '--name-only',
+      '--diff-filter=ACMRT',
+      `${sinceRef}...HEAD`,
+      '--',
+      ...pathspecs,
+    ])
+  }
+
+  checks.push(['diff', '--name-only', '--diff-filter=ACMRT', '--', ...pathspecs])
+  checks.push([
+    'diff',
+    '--name-only',
+    '--diff-filter=ACMRT',
+    '--cached',
+    '--',
+    ...pathspecs,
+  ])
+  checks.push(['ls-files', '--others', '--exclude-standard', '--', ...pathspecs])
+
+  const changed = new Set()
+
+  for (const args of checks) {
+    const result = runCapture('git', args)
+    if (result.status !== 0 || result.stdout.length === 0) {
+      continue
+    }
+    for (const line of result.stdout.split('\n').filter(Boolean)) {
+      changed.add(toRepoPath(line))
+    }
+  }
+
+  return [...changed]
+}
+
+function addQaTestPath(selected, testPath) {
+  const normalized = toQaTestPath(testPath)
+  if (!shouldIncludeQaTest(normalized)) {
+    if (verbose) {
+      console.log(`[qa:verbose] skip qa test path: ${normalized}`)
+    }
+    return
+  }
+  selected.add(normalized)
+}
+
+function resolveQaTestPaths(modeValue, sinceRef, pathspecs) {
+  const selected = new Set()
+  for (const testPath of qaSmokeTestPaths) {
+    addQaTestPath(selected, testPath)
+  }
+
+  if (modeValue !== 'changed') {
+    return [...selected]
+  }
+
+  const changedFiles = collectChangedFiles(pathspecs, sinceRef)
+  if (verbose) {
+    console.log(`[qa:verbose] root changed files: ${changedFiles.length}`)
+  }
+
+  for (const changedFile of changedFiles) {
+    if (changedFile.startsWith('tests/') && changedFile.endsWith('.Tests.ps1')) {
+      addQaTestPath(selected, changedFile)
+      continue
+    }
+
+    if (
+      changedFile.startsWith('psutils/tests/') &&
+      changedFile.endsWith('.Tests.ps1')
+    ) {
+      addQaTestPath(selected, changedFile)
+      continue
+    }
+
+    if (
+      changedFile.startsWith('psutils/modules/') &&
+      changedFile.endsWith('.psm1')
+    ) {
+      const fileName = changedFile.split('/').pop()
+      const moduleName = fileName?.replace(/\.psm1$/i, '')
+      if (moduleName) {
+        addQaTestPath(selected, `./psutils/tests/${moduleName}.Tests.ps1`)
+      }
+    }
+  }
+
+  return [...selected]
+}
+
 function runWorkspaceQa(modeValue, sinceRef) {
   const recursiveArgs = [
     '-r',
@@ -197,20 +335,35 @@ function runWorkspaceQa(modeValue, sinceRef) {
 }
 
 function runRootPwshQa(modeValue, sinceRef) {
-  if (modeValue === 'all') {
-    console.log('[qa] run root qa:pwsh (all)')
-    runPnpm('root-qa-pwsh-all', ['run', 'qa:pwsh'])
-    return
-  }
-
   const pwshPathspecs = [
     'scripts/pwsh',
     'profile',
     'tests',
+    'psutils/modules',
+    'psutils/tests',
     'PesterConfiguration.ps1',
     'install.ps1',
     'Manage-BinScripts.ps1',
   ]
+
+  const qaTestPaths = resolveQaTestPaths(modeValue, sinceRef, pwshPathspecs)
+  const qaEnv = { ...process.env }
+  if (qaTestPaths.length > 0) {
+    qaEnv.PWSH_TEST_PATH = qaTestPaths.join(';')
+  }
+
+  if (verbose) {
+    console.log(`[qa:verbose] qa test paths (${qaTestPaths.length})`)
+    for (const testPath of qaTestPaths) {
+      console.log(`[qa:verbose]   ${testPath}`)
+    }
+  }
+
+  if (modeValue === 'all') {
+    console.log('[qa] run root qa:pwsh (all)')
+    runPnpm('root-qa-pwsh-all', ['run', 'qa:pwsh'], { env: qaEnv })
+    return
+  }
 
   if (!hasPathChanges(pwshPathspecs, sinceRef)) {
     console.log('[qa] skip root qa:pwsh (no changes)')
@@ -218,7 +371,7 @@ function runRootPwshQa(modeValue, sinceRef) {
   }
 
   console.log('[qa] run root qa:pwsh (changed)')
-  runPnpm('root-qa-pwsh-changed', ['run', 'qa:pwsh'])
+  runPnpm('root-qa-pwsh-changed', ['run', 'qa:pwsh'], { env: qaEnv })
 }
 
 const sinceRef = mode === 'changed' ? resolveSinceRef() : null
