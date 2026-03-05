@@ -195,6 +195,9 @@ function Invoke-DockerAction {
         if ($AllowFailure) {
             Write-Warning ("命令执行失败（已忽略）: " + $commandText)
             Write-Warning $_.Exception.Message
+            if ($Action -eq '删除 Docker 镜像' -and -not $Force -and $_.Exception.Message -match 'must be forced|being used by stopped container') {
+                Write-Warning '检测到镜像被已停止容器引用。可使用 -Force 重试，或先执行 docker container prune -f 清理停止容器。'
+            }
             return $false
         }
 
@@ -370,11 +373,11 @@ function Get-DockerImages {
 
         if (-not $imageMap.ContainsKey($normalizedId)) {
             $imageMap[$normalizedId] = [PSCustomObject]@{
-                Id          = $normalizedId
-                References  = New-Object 'System.Collections.Generic.List[object]'
-                IsDangling  = $false
-                CreatedUtc  = $null
-                SizeBytes   = 0L
+                Id         = $normalizedId
+                References = New-Object 'System.Collections.Generic.List[object]'
+                IsDangling = $false
+                CreatedUtc = $null
+                SizeBytes  = 0L
             }
         }
 
@@ -416,7 +419,7 @@ function Get-RunningImageSet {
     $running = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
     $containerIds = @(
         @(Invoke-DockerRead -Arguments @('ps', '-q', '--no-trunc') -AllowFailure) |
-            Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
     )
 
     foreach ($containerId in $containerIds) {
@@ -555,13 +558,13 @@ if ($candidates.Count -gt 0) {
     Write-Output ''
     Write-Output '候选镜像预览（前 20 条）:'
     $preview = $candidates |
-        Select-Object -First 20 |
-        Select-Object `
-        @{ Name = 'ImageId'; Expression = { $_.Id.Substring(0, [Math]::Min(12, $_.Id.Length)) } }, `
+    Select-Object -First 20 |
+    Select-Object `
+    @{ Name = 'ImageId'; Expression = { $_.Id.Substring(0, [Math]::Min(12, $_.Id.Length)) } }, `
         Reason, `
-        @{ Name = 'AgeHours'; Expression = { if ($null -eq $_.AgeHours) { '-' } else { $_.AgeHours } } }, `
-        @{ Name = 'Size'; Expression = { Format-Bytes -Bytes $_.SizeBytes } }, `
-        @{ Name = 'Refs'; Expression = { ($_.RepoTags | Select-Object -First 2) -join ', ' } }
+    @{ Name = 'AgeHours'; Expression = { if ($null -eq $_.AgeHours) { '-' } else { $_.AgeHours } } }, `
+    @{ Name = 'Size'; Expression = { Format-Bytes -Bytes $_.SizeBytes } }, `
+    @{ Name = 'Refs'; Expression = { ($_.RepoTags | Select-Object -First 2) -join ', ' } }
 
     $tableText = ($preview | Format-Table -AutoSize | Out-String -Width 220).TrimEnd()
     Write-Output $tableText
