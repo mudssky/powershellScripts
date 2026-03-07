@@ -17,7 +17,7 @@
 .PARAMETER Action
     要执行的操作：
     - `sync`：扫描项目脚本并同步生成 `bin` 下的 shim。
-    - `clean`：清理 `bin` 目录下的 `.ps1` 文件。
+    - `clean`：清理 `bin` 目录下的 `.ps1` 文件。当前实现不会区分是否为自动生成的 shim，会删除匹配到的所有 `.ps1` 文件，请谨慎使用。
 
 .PARAMETER Force
     强制覆盖 `bin` 目录中已存在的目标文件；未指定时，已存在文件会被跳过。
@@ -530,4 +530,5 @@ switch ($Action) {
         Clean-BinScripts
     }
 }
+
 
