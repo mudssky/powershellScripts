@@ -2,42 +2,49 @@
 
 <#
 .SYNOPSIS
-    管理bin目录脚本映射的自动化工具
+    管理 `bin` 目录脚本 shim 的自动化工具。
 
 .DESCRIPTION
-    该脚本用于自动生成bin目录下的脚本映射，将项目中的PowerShell脚本
-    复制到bin目录（作为Shim），保持原始文件名。
-    
-    功能特点：
-    1. 性能优化：自动忽略 node_modules, .git 等目录
-    2. 灵活配置：支持 glob 模式过滤
-    3. 相对路径：保持脚本内部 $PSScriptRoot 正确性
-    4. 冲突检测：支持自动重命名解决冲突
+    该脚本用于扫描项目中的 PowerShell 与 Python 脚本，并在 `bin` 目录生成可直接执行的 shim。
+
+    主要能力：
+    1. 自动扫描脚本，并跳过 `.git`、`node_modules`、`bin` 等无关目录。
+    2. 支持使用 `Patterns` 按相对路径筛选要生成 shim 的脚本。
+    3. 支持多种重名处理策略，避免生成到 `bin` 时发生文件名冲突。
+    4. 生成的 shim 保留相对路径语义，确保源脚本中的 `$PSScriptRoot` 或调用路径正常工作。
+    5. 在 `sync` 时自动清理失效的旧 shim：如果源脚本已不存在，或同一源脚本因改名生成了新的目标文件名，会移除旧的自动生成 shim。
 
 .PARAMETER Action
-    要执行的操作：'sync'（同步脚本到bin目录）或'clean'（清理bin目录）
+    要执行的操作：
+    - `sync`：扫描项目脚本并同步生成 `bin` 下的 shim。
+    - `clean`：清理 `bin` 目录下的 `.ps1` 文件。
 
 .PARAMETER Force
-    强制覆盖bin目录中已存在的文件
+    强制覆盖 `bin` 目录中已存在的目标文件；未指定时，已存在文件会被跳过。
 
 .PARAMETER Patterns
-    可选的 Glob 模式列表，用于筛选要安装的脚本。
-    例如: 'scripts/pwsh/*.ps1', 'ai/**/*.ps1'
-    如果未指定，默认扫描除忽略目录外的所有 .ps1 文件。
+    可选的 Glob 模式列表，用于筛选需要生成 shim 的脚本。
+    例如：`scripts/pwsh/*.ps1`、`ai/**/*.ps1`
+
+    如果未指定，则使用脚本内置的默认模式。
 
 .PARAMETER DuplicateStrategy
     重名处理策略：
-    - PrefixParent (默认): 使用父目录名作为前缀 (e.g. parent_script.ps1)
-    - Overwrite: 覆盖同名文件 (旧行为)
-    - Skip: 跳过重名文件
+    - `PrefixParent`（默认）：使用父目录或更深层路径作为前缀生成唯一文件名，例如 `devops_Clean-DockerImages.ps1`
+    - `Overwrite`：后扫描到的脚本覆盖同名目标文件
+    - `Skip`：遇到重名时仅保留第一个脚本
 
 .EXAMPLE
     .\Manage-BinScripts.ps1 -Action sync
-    同步所有查找的到的 PowerShell 脚本到 bin 目录，自动处理重名
+    使用默认模式同步生成 `bin` shim，并自动清理失效的旧 shim。
+
+.EXAMPLE
+    .\Manage-BinScripts.ps1 -Action sync -Patterns 'scripts/pwsh/devops/*.ps1' -Force
+    仅同步 `scripts/pwsh/devops` 下的脚本，并强制覆盖已存在的目标文件。
 
 .EXAMPLE
     .\Manage-BinScripts.ps1 -Action sync -DuplicateStrategy Overwrite
-    同步脚本，遇到重名直接覆盖（最后扫描到的生效）
+    同步脚本，并在目标文件重名时使用覆盖策略。
 #>
 
 [CmdletBinding(SupportsShouldProcess = $true)]
@@ -192,6 +199,91 @@ function Resolve-ScriptTargetNames {
     }
     
     return $mapping
+}
+
+function Get-ManagedBinShimMetadata {
+    param([string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        return $null
+    }
+
+    $headerLines = Get-Content -LiteralPath $Path -TotalCount 8 -ErrorAction SilentlyContinue
+    if (-not $headerLines) {
+        return $null
+    }
+
+    $isManagedShim = $headerLines | Where-Object { $_ -eq '# Auto-generated shim by Manage-BinScripts.ps1' } | Select-Object -First 1
+    if (-not $isManagedShim) {
+        return $null
+    }
+
+    $sourceMatch = $headerLines | ForEach-Object {
+        if ($_ -match '^# Source:\s*(.+)$') {
+            $Matches[1].Trim()
+        }
+    } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -First 1
+
+    if (-not $sourceMatch) {
+        return $null
+    }
+
+    $item = Get-Item -LiteralPath $Path -ErrorAction SilentlyContinue
+    if (-not $item) {
+        return $null
+    }
+
+    return [PSCustomObject]@{
+        Name       = $item.Name
+        FullName   = $item.FullName
+        SourcePath = $sourceMatch
+    }
+}
+
+function Remove-StaleManagedBinScripts {
+    [CmdletBinding(SupportsShouldProcess = $true)]
+    param([hashtable]$CurrentMapping)
+
+    if (-not (Test-Path $BinDir)) {
+        return 0
+    }
+
+    $removedCount = 0
+    $binScripts = Get-ChildItem -Path $BinDir -Filter '*.ps1' -File -ErrorAction SilentlyContinue
+
+    foreach ($binScript in $binScripts) {
+        $metadata = Get-ManagedBinShimMetadata -Path $binScript.FullName
+        if ($null -eq $metadata) {
+            continue
+        }
+
+        $shouldRemove = $false
+        $removeReason = $null
+
+        if ($CurrentMapping.ContainsKey($metadata.SourcePath)) {
+            $expectedName = $CurrentMapping[$metadata.SourcePath]
+            if ($metadata.Name -cne $expectedName) {
+                $shouldRemove = $true
+                $removeReason = "renamed to $expectedName"
+            }
+        }
+        elseif (-not (Test-Path -LiteralPath $metadata.SourcePath -PathType Leaf)) {
+            $shouldRemove = $true
+            $removeReason = 'source script no longer exists'
+        }
+
+        if (-not $shouldRemove) {
+            continue
+        }
+
+        if ($PSCmdlet.ShouldProcess($metadata.Name, "Remove stale shim ($removeReason)")) {
+            Remove-Item -LiteralPath $metadata.FullName -Force
+            Write-Host "清理旧 Shim: $($metadata.Name)" -ForegroundColor DarkYellow
+            $removedCount++
+        }
+    }
+
+    return $removedCount
 }
 
 function Sync-BinScripts {
@@ -397,10 +489,13 @@ function Sync-BinScripts {
             }
         }
     }
+
+    $removedCount = Remove-StaleManagedBinScripts -CurrentMapping $scriptMapping
     
     Write-Host "`n处理完成!" -ForegroundColor Green
     Write-Host "  新增/更新: $syncedCount" -ForegroundColor White
     Write-Host "  跳过(已存在): $skippedCount" -ForegroundColor White
+    Write-Host "  清理旧文件: $removedCount" -ForegroundColor White
 }
 
 function Clean-BinScripts {
@@ -435,3 +530,4 @@ switch ($Action) {
         Clean-BinScripts
     }
 }
+
