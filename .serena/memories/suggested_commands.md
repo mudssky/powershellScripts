@@ -1,0 +1,5 @@
+- `pnpm qa`：任务完成后必须执行的根校验命令。
+- `pnpm test:qa`：运行 QA 测试集。
+- `pwsh -NoProfile -Command "$env:PWSH_TEST_PATH='./tests/Some.Tests.ps1'; Invoke-Pester -Configuration ( ./PesterConfiguration.ps1 )"`：运行单个 Pester 测试文件。
+- `pnpm format:pwsh`：格式化 PowerShell 改动。
+- `pwsh -File ./Manage-BinScripts.ps1 -Action sync -Force`：重新生成 `bin/` shim。

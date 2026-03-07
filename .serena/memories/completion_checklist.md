@@ -1,0 +1,3 @@
+- 每个任务完成时执行根目录 `pnpm qa`，并修复出现的问题。
+- 若新增或修改 PowerShell 逻辑，优先补针对性 Pester 测试，再跑整体 QA。
+- 如果涉及 `openspec/changes/**` 或 `openspec/specs/**`，遵守仓库中对 OpenSpec 标题与术语的语言要求。

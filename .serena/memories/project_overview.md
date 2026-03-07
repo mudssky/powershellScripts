@@ -1,0 +1,3 @@
+- 仓库是一个以 PowerShell 脚本为主的个人脚本集合与工具仓库，根目录脚本与 `scripts/`、`ai/`、`psutils/` 等目录中的脚本会被安装到 `bin/`。
+- 主要技术栈：PowerShell、Pester、Node.js/pnpm、少量 Python（ruff/uv）以及 Rust（`projects/clis/pwshfmt-rs`）。
+- 目录大致结构：`scripts/` 放脚本，`psutils/` 放模块与测试，`tests/` 放仓库级 Pester 测试，`openspec/` 放变更与规范工件。
