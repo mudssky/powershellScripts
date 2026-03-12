@@ -101,18 +101,4 @@ export HISTSIZE=10000
 export HISTFILESIZE=20000
 
 
-### 7. 🚀 现代 CLI 工具 (Modern CLI Tools)
-
-# zoxide (更好的 cd)
-if command -v zoxide &> /dev/null; then
-    if [ -n "$ZSH_VERSION" ]; then
-        eval "$(zoxide init zsh)"
-    else
-        eval "$(zoxide init bash)"
-    fi
-    alias zq='zoxide query'
-    alias za='zoxide add'
-    alias zr='zoxide remove'
-fi
-
 
