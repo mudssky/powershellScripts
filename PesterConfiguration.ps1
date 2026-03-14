@@ -123,7 +123,9 @@ $config = @{
         # 使用详细输出，方便查看哪些测试被跳过了
         # Verbosity = 'Detailed'
         # CI 环境用详细输出方便排错，本地用 Normal 保持清爽
-        Verbosity = if ($isCI -or $isDebug -or $isVerbose) { 'Detailed' } else { 'Normal' }
+        Verbosity  = if ($isCI -or $isDebug -or $isVerbose) { 'Detailed' } else { 'Normal' }
+        # 支持 NO_COLOR 标准 (https://no-color.org/)
+        RenderMode = if (-not [string]::IsNullOrEmpty($env:NO_COLOR)) { 'Plaintext' } else { 'Auto' }
     }
     TestResult   = @{
         Enabled       = $true
