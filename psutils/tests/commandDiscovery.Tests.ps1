@@ -2,6 +2,8 @@ BeforeAll {
     Import-Module "$PSScriptRoot\..\modules\commandDiscovery.psm1" -Force
     $script:OriginalPath = [Environment]::GetEnvironmentVariable('PATH', 'Process')
     $script:OriginalPathExt = [Environment]::GetEnvironmentVariable('PATHEXT', 'Process')
+    # 测试会临时覆写 PATH，因此在进入各个用例前先解析 chmod 的绝对路径，避免 Unix 下创建测试命令失败。
+    $script:ChmodPath = if ($IsWindows) { $null } else { (Get-Command chmod -ErrorAction Stop).Source }
 }
 
 AfterAll {
@@ -26,7 +28,7 @@ function global:New-TestExecutableCommand {
 
     $commandPath = Join-Path $Directory $Name
     Set-Content -Path $commandPath -Value "#!/usr/bin/env sh`necho ok" -Encoding ascii
-    & chmod +x $commandPath
+    & $script:ChmodPath +x $commandPath
     return $commandPath
 }
 

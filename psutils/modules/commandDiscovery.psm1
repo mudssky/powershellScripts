@@ -68,6 +68,7 @@ function Get-ExecutableCommandExtensions {
         [Parameter(Mandatory)]
         [string]$Name,
         [Parameter(Mandatory)]
+        [AllowEmptyString()]
         [string]$PathExtValue
     )
 
@@ -107,6 +108,7 @@ function Get-ExecutableCommandSearchPaths {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
+        [AllowEmptyString()]
         [string]$PathValue
     )
 
@@ -197,6 +199,7 @@ function Resolve-ExecutableCommand {
         [Parameter(Mandatory)]
         [string[]]$SearchPaths,
         [Parameter(Mandatory)]
+        [AllowEmptyString()]
         [string]$PathExtValue,
         [switch]$AllMatches
     )
@@ -257,6 +260,7 @@ function Resolve-ExecutableCommandsBatch {
         [Parameter(Mandatory)]
         [string[]]$SearchPaths,
         [Parameter(Mandatory)]
+        [AllowEmptyString()]
         [string]$PathExtValue,
         [switch]$AllMatches
     )
