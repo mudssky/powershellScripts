@@ -44,7 +44,9 @@ $isVerbose = -not [string]::IsNullOrWhiteSpace($env:PWSH_TEST_VERBOSE)
 $qaDefaultPaths = @(
     "./tests/DeferredLoading.Tests.ps1"
     "./tests/losslessToAdaptiveAudio.Tests.ps1"
+    "./tests/ProfileInstallHints.Tests.ps1"
     "./tests/ProfileMode.Tests.ps1"
+    "./psutils/tests/commandDiscovery.Tests.ps1"
     "./tests/Switch-Mirrors.Tests.ps1"
     "./psutils/tests/error.Tests.ps1"
     "./psutils/tests/filesystem.Tests.ps1"

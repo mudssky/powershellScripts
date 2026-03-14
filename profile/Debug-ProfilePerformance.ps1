@@ -242,22 +242,36 @@ Lap '4.04-env-ps1'
 Set-ProfileUtf8Encoding
 Lap '4.05-utf8-encoding'
 
-# 4.6 Get-Command 批量检测
+# 4.6 命令探测（仅探测当前平台真正需要的工具和包管理器）
 $toolNames = @('starship', 'zoxide', 'sccache', 'fnm')
+$trackedToolNames = if ($IsWindows) {
+    @('starship', 'zoxide', 'sccache')
+}
+else {
+    $toolNames
+}
+$packageManagerNames = if ($IsWindows) {
+    @('scoop', 'winget', 'choco')
+}
+elseif ($IsMacOS) {
+    @('brew')
+}
+else {
+    @('brew', 'apt')
+}
+$trackedCommandNames = @($trackedToolNames + $packageManagerNames)
 $availableTools = [System.Collections.Generic.HashSet[string]]::new(
     [System.StringComparer]::OrdinalIgnoreCase
 )
-$foundCommands = Get-Command `
-    -Name $toolNames `
-    -CommandType Application `
-    -ErrorAction SilentlyContinue
-if ($foundCommands) {
-    foreach ($cmd in $foundCommands) {
-        $toolName = [System.IO.Path]::GetFileNameWithoutExtension($cmd.Name)
-        $availableTools.Add($toolName) | Out-Null
+$commandResults = Find-ExecutableCommand -Name $trackedCommandNames -CacheMisses
+if ($commandResults) {
+    foreach ($commandResult in $commandResults) {
+        if ($commandResult.Found -and $trackedToolNames -contains $commandResult.Name) {
+            $availableTools.Add([string]$commandResult.Name) | Out-Null
+        }
     }
 }
-Lap '4.06-get-command'
+Lap '4.06-command-discovery'
 
 # 4.7 starship
 $platformId = if ($IsWindows) { 'win' } elseif ($IsMacOS) { 'macos' } else { 'linux' }
@@ -330,7 +344,7 @@ Lap '4.11-alias-profile'
 $phase4Total = 0
 $phase4Keys = @(
     '4.01-env-root', '4.02-linux-path-sync', '4.03-proxy-detect', '4.04-env-ps1',
-    '4.05-utf8-encoding', '4.06-get-command', '4.07-starship', '4.08-zoxide',
+    '4.05-utf8-encoding', '4.06-command-discovery', '4.07-starship', '4.08-zoxide',
     '4.09-sccache', '4.10-fnm', '4.11-alias-profile'
 )
 foreach ($k in $phase4Keys) {
@@ -407,7 +421,7 @@ if ($issues.Count -gt 0) {
     Write-Host "  - 如果 starship/zoxide 偏高：删除 .cache/ 下对应文件重新生成" -ForegroundColor DarkGray
     Write-Host "  - 如果 proxy-detect 偏高：检查代理端口是否可达或延长缓存时间" -ForegroundColor DarkGray
     Write-Host "  - 如果 utf8-encoding 偏高：检查是否有 PSReadLine 操作泄漏到同步路径" -ForegroundColor DarkGray
-    Write-Host "  - 如果 get-command 偏高：检查 PATH 中是否有过多条目" -ForegroundColor DarkGray
+    Write-Host "  - 如果 command-discovery 偏高：检查 PATH/PATHEXT 中是否有过多或畸形条目" -ForegroundColor DarkGray
     Write-Host "  - 如果 dot-source 某文件偏高：该文件可能在定义阶段执行了逻辑，应延迟到调用时" -ForegroundColor DarkGray
     Write-Host "  - 如果 loadModule 偏高：检查核心模块数量或 PSModulePath 条目数" -ForegroundColor DarkGray
     Write-Host "  - 如果 linux-path-sync 偏高：检查 Bash PATH 同步缓存是否过期" -ForegroundColor DarkGray

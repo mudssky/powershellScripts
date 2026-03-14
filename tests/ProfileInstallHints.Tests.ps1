@@ -2,6 +2,7 @@ Set-StrictMode -Version Latest
 
 BeforeAll {
     $script:ProfileRootDir = Join-Path $PSScriptRoot '..' 'profile'
+    Import-Module (Join-Path $PSScriptRoot '..' 'psutils/modules/commandDiscovery.psm1') -Force
     . (Join-Path $script:ProfileRootDir 'features/environment.ps1')
 }
 
@@ -68,5 +69,76 @@ Describe 'Profile install hint helpers' {
         $hint = Get-ProfileMissingToolInstallHint -ToolNames @('fnm') -AvailableCommands @('scoop') -Platform 'windows'
 
         $hint | Should -Be $null
+    }
+}
+
+Describe 'Initialize-Environment command discovery integration' {
+    BeforeEach {
+        $script:ProfileMode = 'Full'
+        $script:UseUltraMinimalProfile = $false
+        $script:UseMinimalProfile = $false
+        $script:profileLoadStartTime = Get-Date
+        $script:ProfileModeDecision = [PSCustomObject]@{
+            Mode      = 'Full'
+            Source    = 'explicit'
+            Reason    = 'test'
+            Markers   = @('test')
+            ElapsedMs = 0
+            V2        = $null
+        }
+        $script:WrittenHostLines = [System.Collections.Generic.List[string]]::new()
+
+        function global:Set-ProfileUtf8Encoding {}
+        function global:Test-EnvSwitchEnabled {
+            param([string]$Name)
+            return $false
+        }
+        function global:Write-ProfileModeDecisionSummary {}
+        function global:Write-ProfileModeFallbackGuide {
+            param([switch]$VerboseOnly)
+        }
+
+        Mock Write-Host {
+            param(
+                [Parameter(Position = 0)]
+                [object]$Object,
+                [System.ConsoleColor]$ForegroundColor,
+                [switch]$NoNewline,
+                [object]$BackgroundColor,
+                [object]$Separator
+            )
+
+            if ($null -ne $Object) {
+                $script:WrittenHostLines.Add([string]$Object) | Out-Null
+            }
+        }
+
+        Mock Find-ExecutableCommand {
+            return @(
+                [PSCustomObject]@{ Name = 'starship'; Found = $false; Path = $null }
+                [PSCustomObject]@{ Name = 'zoxide'; Found = $false; Path = $null }
+                [PSCustomObject]@{ Name = 'sccache'; Found = $false; Path = $null }
+                [PSCustomObject]@{ Name = 'scoop'; Found = $true; Path = 'C:\Users\mudssky\scoop\shims\scoop.cmd' }
+                [PSCustomObject]@{ Name = 'winget'; Found = $false; Path = $null }
+                [PSCustomObject]@{ Name = 'choco'; Found = $false; Path = $null }
+            )
+        } -ParameterFilter {
+            $CacheMisses -and @($Name).Count -eq 6
+        }
+    }
+
+    AfterEach {
+        Remove-Item Function:\Set-ProfileUtf8Encoding -ErrorAction SilentlyContinue
+        Remove-Item Function:\Test-EnvSwitchEnabled -ErrorAction SilentlyContinue
+        Remove-Item Function:\Write-ProfileModeDecisionSummary -ErrorAction SilentlyContinue
+        Remove-Item Function:\Write-ProfileModeFallbackGuide -ErrorAction SilentlyContinue
+    }
+
+    It 'should use Find-ExecutableCommand results to render one aggregated install hint' {
+        Initialize-Environment -ScriptRoot (Resolve-Path $script:ProfileRootDir).Path -SkipProxy -SkipAliases
+
+        Should -Invoke Find-ExecutableCommand -Times 1 -Exactly
+        $script:WrittenHostLines | Should -Contain '未安装以下工具：starship、zoxide。可手动执行下面这行命令一次性安装。'
+        $script:WrittenHostLines | Should -Contain 'scoop install starship zoxide'
     }
 }

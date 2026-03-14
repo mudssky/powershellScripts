@@ -250,6 +250,7 @@ Register-EngineEvent -SourceIdentifier PowerShell.OnIdle -MaxTriggerCount 1 -Act
 **全平台：**
 - `os.psm1` → `Get-OperatingSystem`, `Test-Administrator`
 - `cache.psm1` → `Invoke-WithCache`, `Invoke-WithFileCache`
+- `commandDiscovery.psm1` → `Find-ExecutableCommand`
 - `proxy.psm1` → `Set-Proxy`
 - `wrapper.psm1` → `Set-CustomAlias`, `Get-CustomAlias`
 
@@ -257,7 +258,7 @@ Register-EngineEvent -SourceIdentifier PowerShell.OnIdle -MaxTriggerCount 1 -Act
 - `env.psm1` → `Sync-PathFromBash`, `Add-EnvPath`
 
 **已移出同步路径（通过 OnIdle 全量加载覆盖）：**
-- `test.psm1` — `Test-EXEProgram` 已被 `Get-Command` 批量检测替代
+- `test.psm1` — `Test-EXEProgram` 已被 `Find-ExecutableCommand` 替代
 
 **⚠️ 禁止在同步路径中调用非核心模块函数**（如 `Get-Tree`、`Register-FzfHistorySmartKeyBinding`），否则会触发 PSModulePath 自动导入 psutils 全量模块（~600ms 回退）。延迟加载防护栏会在 `POWERSHELL_PROFILE_TIMING=1` 时检测并警告。
 

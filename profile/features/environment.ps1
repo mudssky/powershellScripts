@@ -390,26 +390,48 @@ function Initialize-Environment {
     $runtimePlatform = Get-ProfileInstallHintPlatform
     $platformId = if ($IsWindows) { 'win' } elseif ($IsMacOS) { 'macos' } else { 'linux' }
 
-    # 批量检测所有工具可用性（单次 Get-Command 替代多次 Test-EXEProgram）
+    # 批量检测所有工具与包管理器（避免 Get-Command 未命中回退导致的冷启动卡顿）
     $toolNames = @('starship', 'zoxide', 'sccache', 'fnm')
-    $packageManagerNames = @('scoop', 'winget', 'choco', 'brew', 'apt')
-    $trackedCommandNames = @($toolNames + $packageManagerNames)
+    $trackedToolNames = if ($runtimePlatform -eq 'windows') {
+        @('starship', 'zoxide', 'sccache')
+    }
+    else {
+        $toolNames
+    }
+    $packageManagerNames = switch ($runtimePlatform) {
+        'windows' { @('scoop', 'winget', 'choco') }
+        'macos' { @('brew') }
+        default { @('brew', 'apt') }
+    }
+    $trackedCommandNames = @($trackedToolNames + $packageManagerNames)
     $availableCommands = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
     $availableTools = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
     $missingHintToolNames = [System.Collections.Generic.List[string]]::new()
-    $foundCommands = Get-Command -Name $trackedCommandNames -CommandType Application -ErrorAction SilentlyContinue
-    if ($foundCommands) {
-        foreach ($cmd in $foundCommands) {
-            # Windows 上 .Name 带扩展名 (如 starship.exe)，统一去掉扩展名
-            $commandName = [System.IO.Path]::GetFileNameWithoutExtension($cmd.Name)
-            $availableCommands.Add($commandName) | Out-Null
-            if ($toolNames -contains $commandName) {
-                $availableTools.Add($commandName) | Out-Null
+    try {
+        $commandDiscoveryResults = Find-ExecutableCommand -Name $trackedCommandNames -CacheMisses
+        if ($commandDiscoveryResults) {
+            foreach ($commandResult in $commandDiscoveryResults) {
+                if (-not $commandResult.Found) {
+                    continue
+                }
+
+                $commandName = [string]$commandResult.Name
+                if ([string]::IsNullOrWhiteSpace($commandName)) {
+                    continue
+                }
+
+                $availableCommands.Add($commandName) | Out-Null
+                if ($trackedToolNames -contains $commandName) {
+                    $availableTools.Add($commandName) | Out-Null
+                }
             }
         }
     }
+    catch {
+        Write-Verbose "命令探测失败，回退为空结果: $($_.Exception.Message)"
+    }
 
-    $tools = @{
+    $tools = [ordered]@{
         starship = {
             if ($SkipTools -or $SkipStarship) { return }
             Write-Verbose "初始化 Starship 提示符"

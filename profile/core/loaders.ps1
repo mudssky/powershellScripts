@@ -5,7 +5,7 @@ $script:InvokeProfileCoreLoaders = {
     $profileRoot = $script:ProfileRoot
 
     if (-not $script:UseUltraMinimalProfile) {
-        # 加载自定义模块 (包含 Test-EXEProgram、Set-CustomAlias 等)
+        # 加载自定义模块 (包含 Find-ExecutableCommand、Set-CustomAlias 等)
         $loadModuleScript = Join-Path $profileRoot 'loadModule.ps1'
         try {
             . $loadModuleScript
