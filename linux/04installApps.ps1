@@ -15,7 +15,7 @@ if (-not (Test-EXEProgram -Name 'bun')) {
     npm install -g nrm --registry='https://registry.npmmirror.com'
     nrm use taobao
     npm install -g bun 
-    $bashrcPath = ~/.bashrc
+    $bashrcPath = Join-Path $HOME '.bashrc'
     # 确保.bashrc文件存在
     # if (-not (Test-Path $bashrcPath)) {
     #     New-Item -Path $bashrcPath -ItemType File -Force | Out-Null
