@@ -43,7 +43,6 @@ updates:
       - "/apps/*"          # apps 下的所有子目录
     schedule:
       interval: "weekly"
-      day: "monday"
       time: "09:00"
       timezone: "Asia/Shanghai"
     # 分组策略：大幅减少 PR 数量
@@ -85,23 +84,23 @@ updates:
 
 GitHub Dependabot 在近期（2025年左右）增加了对 `uv` 的原生支持。
 
-* **ecosystem**: 必须填 `"uv"`，而不是 `"pip"`。
-* **文件识别**: 它会自动识别 `pyproject.toml` 和 `uv.lock`。
-* **优势**: 相比传统的 pip，Dependabot 使用 uv 解析依赖速度更快，且能正确处理 uv 的 lockfile 格式。
+- **ecosystem**: 必须填 `"uv"`，而不是 `"pip"`。
+- **文件识别**: 它会自动识别 `pyproject.toml` 和 `uv.lock`。
+- **优势**: 相比传统的 pip，Dependabot 使用 uv 解析依赖速度更快，且能正确处理 uv 的 lockfile 格式。
 
 #### 2. `groups` (分组更新) - 必用功能
 
 这是防止 Dependabot 刷屏的神器。
 
-* **`patterns: ["*"]`**: 最暴力的分组，把该生态系统下的**所有**更新合并到一个 PR 里。
-* **`update-types`**: 可以配合使用，例如“只合并 patch 和 minor 版本”，保留 major 版本（破坏性更新）单独提 PR 以便人工审核。
+- **`patterns: ["*"]`**: 最暴力的分组，把该生态系统下的**所有**更新合并到一个 PR 里。
+- **`update-types`**: 可以配合使用，例如“只合并 patch 和 minor 版本”，保留 major 版本（破坏性更新）单独提 PR 以便人工审核。
 
 #### 3. `directories` (多目录/通配符)
 
 以前需要为每个子目录写一段配置，现在支持 glob 模式。
 
-* **写法**: `directories: ["/packages/*"]`
-* **作用**: 自动扫描 `packages` 目录下的一级子文件夹，寻找 `package.json`。
+- **写法**: `directories: ["/packages/*"]`
+- **作用**: 自动扫描 `packages` 目录下的一级子文件夹，寻找 `package.json`。
 
 > **Repo note:** 当前仓库的 workspace 实际路径是 `/projects/**` 与 `/scripts/node`；`config/software/mpv/mpv_scripts` 不属于 root workspace，而是单独配置了一个更新器。
 
