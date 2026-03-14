@@ -34,6 +34,207 @@ function Set-AliasProfile {
     }
 }
 
+function Get-ProfileInstallHintPlatform {
+    [CmdletBinding()]
+    param()
+
+    process {
+        if ($IsWindows) { return 'windows' }
+        if ($IsMacOS) { return 'macos' }
+        return 'linux'
+    }
+}
+
+function Get-ProfileInstallHintDefinitions {
+    [CmdletBinding()]
+    param()
+
+    process {
+        # APT 包名当前按工具名映射；若目标发行版存在差异，在此表中调整即可。
+        return [ordered]@{
+            starship = [PSCustomObject]@{
+                DisplayName = 'starship'
+                Description = '跨平台提示符美化工具'
+                Platforms   = @('windows', 'macos', 'linux')
+                Packages    = [ordered]@{
+                    scoop  = 'starship'
+                    winget = 'starship'
+                    choco  = 'starship'
+                    brew   = 'starship'
+                    apt    = 'starship'
+                }
+            }
+            zoxide = [PSCustomObject]@{
+                DisplayName = 'zoxide'
+                Description = '智能目录跳转工具'
+                Platforms   = @('windows', 'macos', 'linux')
+                Packages    = [ordered]@{
+                    scoop = 'zoxide'
+                    brew  = 'zoxide'
+                    apt   = 'zoxide'
+                }
+            }
+            fnm      = [PSCustomObject]@{
+                DisplayName = 'fnm'
+                Description = 'Node.js 版本管理器'
+                Platforms   = @('macos', 'linux')
+                Packages    = [ordered]@{
+                    scoop = 'fnm'
+                    brew  = 'fnm'
+                    apt   = 'fnm'
+                }
+            }
+        }
+    }
+}
+
+function Test-ProfileInstallHintEligibility {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$ToolName,
+        [ValidateSet('windows', 'macos', 'linux')]
+        [string]$Platform = (Get-ProfileInstallHintPlatform),
+        [switch]$SkipTools,
+        [switch]$SkipStarship,
+        [switch]$SkipZoxide
+    )
+
+    process {
+        if ($SkipTools) { return $false }
+
+        $definitions = Get-ProfileInstallHintDefinitions
+        if (-not $definitions.Contains($ToolName)) { return $false }
+
+        $definition = $definitions[$ToolName]
+        if ($definition.Platforms -notcontains $Platform) { return $false }
+
+        switch ($ToolName) {
+            'starship' { return -not $SkipStarship }
+            'zoxide' { return -not $SkipZoxide }
+            default { return $true }
+        }
+    }
+}
+
+function Get-ProfilePreferredPackageManager {
+    [CmdletBinding()]
+    param(
+        [string[]]$AvailableCommands,
+        [ValidateSet('windows', 'macos', 'linux')]
+        [string]$Platform = (Get-ProfileInstallHintPlatform)
+    )
+
+    process {
+        $available = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+        foreach ($commandName in @($AvailableCommands)) {
+            if (-not [string]::IsNullOrWhiteSpace($commandName)) {
+                $available.Add($commandName) | Out-Null
+            }
+        }
+
+        $priority = switch ($Platform) {
+            'windows' { @('scoop', 'winget', 'choco') }
+            'macos' { @('brew') }
+            'linux' { @('brew', 'apt') }
+        }
+
+        foreach ($packageManager in $priority) {
+            if ($available.Contains($packageManager)) {
+                return $packageManager
+            }
+        }
+
+        return $null
+    }
+}
+
+function Get-ProfilePackageManagerInstallCommand {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateSet('scoop', 'winget', 'choco', 'brew', 'apt')]
+        [string]$PackageManager,
+        [string[]]$Packages
+    )
+
+    process {
+        $resolvedPackages = @($Packages | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+        if ($resolvedPackages.Count -eq 0) { return $null }
+
+        switch ($PackageManager) {
+            'scoop' { return "scoop install $($resolvedPackages -join ' ')" }
+            'winget' { return ($resolvedPackages | ForEach-Object { "winget install $_" }) -join '; ' }
+            'choco' { return "choco install $($resolvedPackages -join ' ')" }
+            'brew' { return "brew install $($resolvedPackages -join ' ')" }
+            'apt' { return "sudo apt install $($resolvedPackages -join ' ')" }
+            default { return $null }
+        }
+    }
+}
+
+function Get-ProfileMissingToolInstallHint {
+    [CmdletBinding()]
+    param(
+        [string[]]$ToolNames,
+        [string[]]$AvailableCommands,
+        [ValidateSet('windows', 'macos', 'linux')]
+        [string]$Platform = (Get-ProfileInstallHintPlatform)
+    )
+
+    process {
+        $definitions = Get-ProfileInstallHintDefinitions
+        $missingTools = [System.Collections.Generic.List[object]]::new()
+
+        foreach ($toolName in @($ToolNames)) {
+            if ([string]::IsNullOrWhiteSpace($toolName)) { continue }
+            if (-not $definitions.Contains($toolName)) { continue }
+
+            $definition = $definitions[$toolName]
+            if ($definition.Platforms -notcontains $Platform) { continue }
+
+            $missingTools.Add([PSCustomObject]@{
+                    ToolName     = $toolName
+                    DisplayName  = $definition.DisplayName
+                    Description  = $definition.Description
+                    PackageNames = $definition.Packages
+                }) | Out-Null
+        }
+
+        if ($missingTools.Count -eq 0) { return $null }
+
+        $packageManager = Get-ProfilePreferredPackageManager -AvailableCommands $AvailableCommands -Platform $Platform
+        $installCommand = $null
+
+        if ($packageManager) {
+            $packageNames = foreach ($tool in $missingTools) {
+                if ($tool.PackageNames.Contains($packageManager)) {
+                    $tool.PackageNames[$packageManager]
+                }
+            }
+
+            if (@($packageNames).Count -eq $missingTools.Count) {
+                $installCommand = Get-ProfilePackageManagerInstallCommand -PackageManager $packageManager -Packages $packageNames
+            }
+        }
+
+        $toolSummary = ($missingTools | Select-Object -ExpandProperty DisplayName) -join '、'
+        $message = if ($installCommand) {
+            "未安装以下工具：$toolSummary。可手动执行下面这行命令一次性安装。"
+        }
+        else {
+            "未安装以下工具：$toolSummary。当前未找到可自动拼接的安装命令，请按当前系统包管理器手动安装。"
+        }
+
+        return [PSCustomObject]@{
+            ToolNames      = @($missingTools | Select-Object -ExpandProperty ToolName)
+            PackageManager = $packageManager
+            Message        = $message
+            Command        = $installCommand
+        }
+    }
+}
+
 function Initialize-Environment {
     <#
     .SYNOPSIS
@@ -186,17 +387,25 @@ function Initialize-Environment {
     $Global:__ZoxideInitialized = $false
 
     # 平台标识符（用于工具缓存 key，防止跨平台缓存交叉污染）
+    $runtimePlatform = Get-ProfileInstallHintPlatform
     $platformId = if ($IsWindows) { 'win' } elseif ($IsMacOS) { 'macos' } else { 'linux' }
 
     # 批量检测所有工具可用性（单次 Get-Command 替代多次 Test-EXEProgram）
     $toolNames = @('starship', 'zoxide', 'sccache', 'fnm')
+    $packageManagerNames = @('scoop', 'winget', 'choco', 'brew', 'apt')
+    $trackedCommandNames = @($toolNames + $packageManagerNames)
+    $availableCommands = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
     $availableTools = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-    $foundCommands = Get-Command -Name $toolNames -CommandType Application -ErrorAction SilentlyContinue
+    $missingHintToolNames = [System.Collections.Generic.List[string]]::new()
+    $foundCommands = Get-Command -Name $trackedCommandNames -CommandType Application -ErrorAction SilentlyContinue
     if ($foundCommands) {
         foreach ($cmd in $foundCommands) {
             # Windows 上 .Name 带扩展名 (如 starship.exe)，统一去掉扩展名
-            $toolName = [System.IO.Path]::GetFileNameWithoutExtension($cmd.Name)
-            $availableTools.Add($toolName) | Out-Null
+            $commandName = [System.IO.Path]::GetFileNameWithoutExtension($cmd.Name)
+            $availableCommands.Add($commandName) | Out-Null
+            if ($toolNames -contains $commandName) {
+                $availableTools.Add($commandName) | Out-Null
+            }
         }
     }
 
@@ -291,36 +500,20 @@ function Initialize-Environment {
             }
         }
         else {
-            # 工具未安装提示（仅对关键工具）
-            switch ($tool.Key) {
-                'starship' {
-                    if ($IsWindows) {
-                        Write-Host -ForegroundColor Yellow '未安装starship（一款开源提示符美化工具），可以运行以下命令进行安装：
-1. choco install starship
-2. scoop install starship
-3. winget install starship'
-                    }
-                    else {
-                        Write-Host -ForegroundColor Yellow "未安装 starship（跨平台提示符美化工具），可运行以下命令安装：`nbrew install starship"
-                    }
-                }
-                'fnm' {
-                    if (-not $IsWindows) {
-                        Write-Host -ForegroundColor Yellow "未安装 fnm（Node.js 版本管理器），可运行以下命令安装：`nbrew install fnm"
-                    }
-                }
-                'zoxide' {
-                    if ($IsWindows) {
-                        Write-Verbose "工具 zoxide 未安装，跳过初始化"
-                    }
-                    else {
-                        Write-Host -ForegroundColor Yellow "未安装 zoxide（智能目录跳转工具），可运行以下命令安装：`nbrew install zoxide"
-                    }
-                }
-                default {
-                    Write-Verbose "工具 $($tool.Key) 未安装，跳过初始化"
-                }
+            if (Test-ProfileInstallHintEligibility -ToolName $tool.Key -Platform $runtimePlatform -SkipTools:$SkipTools -SkipStarship:$SkipStarship -SkipZoxide:$SkipZoxide) {
+                $missingHintToolNames.Add($tool.Key) | Out-Null
             }
+            else {
+                Write-Verbose "工具 $($tool.Key) 未安装，跳过初始化"
+            }
+        }
+    }
+
+    $missingToolHint = Get-ProfileMissingToolInstallHint -ToolNames $missingHintToolNames -AvailableCommands @($availableCommands) -Platform $runtimePlatform
+    if ($missingToolHint) {
+        Write-Host -ForegroundColor Yellow $missingToolHint.Message
+        if (-not [string]::IsNullOrWhiteSpace($missingToolHint.Command)) {
+            Write-Host -ForegroundColor Cyan $missingToolHint.Command
         }
     }
 
