@@ -3,6 +3,8 @@ Set-StrictMode -Version Latest
 BeforeAll {
     $script:InvokeBenchmarkScriptPath = Join-Path $PSScriptRoot '..' 'scripts' 'pwsh' 'devops' 'Invoke-Benchmark.ps1'
     $script:PwshPath = (Get-Process -Id $PID).Path
+    # Unix 测试会把 PATH 临时切到工具目录，因此先解析 chmod 的绝对路径，避免后续补执行权限时再依赖 PATH。
+    $script:ChmodPath = if ($IsWindows) { $null } else { (Get-Command chmod -ErrorAction Stop).Source }
     $script:NewTestBenchmarkScript = {
         param(
             [Parameter(Mandatory)]
@@ -17,6 +19,45 @@ BeforeAll {
         Set-Content -Path $path -Value $Body
         return $path
     }
+    $script:NewTestFzfExecutable = {
+        param(
+            [Parameter(Mandatory)]
+            [string]$ToolsPath
+        )
+
+        if ($IsWindows) {
+            $fzfPath = Join-Path $ToolsPath 'fzf.cmd'
+            Set-Content -Path $fzfPath -Encoding ascii -Value @'
+@echo off
+if defined FAKE_FZF_MARKER (
+  > "%FAKE_FZF_MARKER%" echo used
+)
+set "FIRST_LINE="
+set /p FIRST_LINE=
+if defined FIRST_LINE echo %FIRST_LINE%
+exit /b 0
+'@
+            return $fzfPath
+        }
+
+        $fzfPath = Join-Path $ToolsPath 'fzf'
+        # Unix 测试会把 PATH 缩到临时工具目录，因此这里直接使用 /bin/sh，避免再依赖 env 从 PATH 查找解释器。
+        # 同时显式使用 LF shebang，防止 `\r` 被内核当成解释器路径的一部分。
+        $unixFzfScript = @(
+            '#!/bin/sh'
+            'if [ -n "$FAKE_FZF_MARKER" ]; then'
+            '  printf ''used\n'' > "$FAKE_FZF_MARKER"'
+            'fi'
+            'IFS= read -r first_line || exit 0'
+            'if [ -n "$first_line" ]; then'
+            '  printf ''%s\n'' "$first_line"'
+            'fi'
+            'exit 0'
+        ) -join "`n"
+        Set-Content -Path $fzfPath -Encoding ascii -Value $unixFzfScript
+        & $script:ChmodPath +x $fzfPath
+        return $fzfPath
+    }
 }
 
 Describe 'Invoke-Benchmark.ps1' {
@@ -24,7 +65,14 @@ Describe 'Invoke-Benchmark.ps1' {
         $script:TestRoot = Join-Path $TestDrive ([Guid]::NewGuid().ToString())
         $script:BenchmarksRoot = Join-Path $script:TestRoot 'benchmarks'
         $script:MarkerPath = Join-Path $script:TestRoot 'marker.txt'
-        $script:ToolsPath = Join-Path $script:TestRoot 'tools'
+        # Linux/macOS 的 TestDrive 通常位于 /tmp；某些容器挂载会让这里的文件不适合作为外部可执行程序。
+        # 因此 Unix 下把 fake fzf 放到仓库内的临时目录，保证 PowerShell 能正常拉起它。
+        $script:ToolsPath = if ($IsWindows) {
+            Join-Path $script:TestRoot 'tools'
+        }
+        else {
+            Join-Path $PSScriptRoot '.tmp-executables' ([Guid]::NewGuid().ToString())
+        }
         $script:OriginalPath = $env:PATH
         $script:OriginalFakeFzfMarker = [Environment]::GetEnvironmentVariable('FAKE_FZF_MARKER', 'Process')
 
@@ -42,6 +90,8 @@ Describe 'Invoke-Benchmark.ps1' {
         else {
             $env:FAKE_FZF_MARKER = $script:OriginalFakeFzfMarker
         }
+
+        Remove-Item -Path $script:ToolsPath -Recurse -Force -ErrorAction SilentlyContinue
     }
 
     It '显式传入 benchmark 名称时保持原有非交互执行路径' {
@@ -107,17 +157,7 @@ param([string]$MarkerPath)
 
 Set-Content -Path $MarkerPath -Value 'fzf-selected'
 '@
-
-        Set-Content -Path (Join-Path $script:ToolsPath 'fzf.cmd') -Value @'
-@echo off
-if defined FAKE_FZF_MARKER (
-  > "%FAKE_FZF_MARKER%" echo used
-)
-set "FIRST_LINE="
-set /p FIRST_LINE=
-if defined FIRST_LINE echo %FIRST_LINE%
-exit /b 0
-'@
+        $null = & $script:NewTestFzfExecutable -ToolsPath $script:ToolsPath
 
         $env:PATH = $script:ToolsPath
         $env:FAKE_FZF_MARKER = $fzfMarkerPath

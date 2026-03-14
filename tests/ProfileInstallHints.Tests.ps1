@@ -93,9 +93,59 @@ Describe 'Initialize-Environment command discovery integration' {
             param([string]$Name)
             return $false
         }
+        function global:Sync-PathFromBash {
+            param([int]$CacheSeconds)
+            # 这个集成测试只验证命令探测后的聚合提示，不需要真实同步 Bash PATH。
+            return $env:PATH
+        }
         function global:Write-ProfileModeDecisionSummary {}
         function global:Write-ProfileModeFallbackGuide {
             param([switch]$VerboseOnly)
+        }
+
+        $script:RuntimePlatform = Get-ProfileInstallHintPlatform
+        switch ($script:RuntimePlatform) {
+            'windows' {
+                # Windows 只跟踪 starship / zoxide / sccache 以及三种包管理器，fnm 不参与提示。
+                $script:ExpectedTrackedCommandNames = @('starship', 'zoxide', 'sccache', 'scoop', 'winget', 'choco')
+                $script:MockCommandDiscoveryResults = @(
+                    [PSCustomObject]@{ Name = 'starship'; Found = $false; Path = $null }
+                    [PSCustomObject]@{ Name = 'zoxide'; Found = $false; Path = $null }
+                    [PSCustomObject]@{ Name = 'sccache'; Found = $false; Path = $null }
+                    [PSCustomObject]@{ Name = 'scoop'; Found = $true; Path = 'C:\Users\mudssky\scoop\shims\scoop.cmd' }
+                    [PSCustomObject]@{ Name = 'winget'; Found = $false; Path = $null }
+                    [PSCustomObject]@{ Name = 'choco'; Found = $false; Path = $null }
+                )
+                $script:ExpectedHintMessage = '未安装以下工具：starship、zoxide。可手动执行下面这行命令一次性安装。'
+                $script:ExpectedHintCommand = 'scoop install starship zoxide'
+            }
+            'macos' {
+                # macOS 会把 fnm 也纳入缺失提示，并优先使用 brew 生成单行安装命令。
+                $script:ExpectedTrackedCommandNames = @('starship', 'zoxide', 'sccache', 'fnm', 'brew')
+                $script:MockCommandDiscoveryResults = @(
+                    [PSCustomObject]@{ Name = 'starship'; Found = $false; Path = $null }
+                    [PSCustomObject]@{ Name = 'zoxide'; Found = $false; Path = $null }
+                    [PSCustomObject]@{ Name = 'sccache'; Found = $false; Path = $null }
+                    [PSCustomObject]@{ Name = 'fnm'; Found = $false; Path = $null }
+                    [PSCustomObject]@{ Name = 'brew'; Found = $true; Path = '/opt/homebrew/bin/brew' }
+                )
+                $script:ExpectedHintMessage = '未安装以下工具：starship、zoxide、fnm。可手动执行下面这行命令一次性安装。'
+                $script:ExpectedHintCommand = 'brew install starship zoxide fnm'
+            }
+            default {
+                # Linux 允许在 brew 不可用时回退到 apt，因此这里显式模拟 apt 可用的常见路径。
+                $script:ExpectedTrackedCommandNames = @('starship', 'zoxide', 'sccache', 'fnm', 'brew', 'apt')
+                $script:MockCommandDiscoveryResults = @(
+                    [PSCustomObject]@{ Name = 'starship'; Found = $false; Path = $null }
+                    [PSCustomObject]@{ Name = 'zoxide'; Found = $false; Path = $null }
+                    [PSCustomObject]@{ Name = 'sccache'; Found = $false; Path = $null }
+                    [PSCustomObject]@{ Name = 'fnm'; Found = $false; Path = $null }
+                    [PSCustomObject]@{ Name = 'brew'; Found = $false; Path = $null }
+                    [PSCustomObject]@{ Name = 'apt'; Found = $true; Path = '/usr/bin/apt' }
+                )
+                $script:ExpectedHintMessage = '未安装以下工具：starship、zoxide、fnm。可手动执行下面这行命令一次性安装。'
+                $script:ExpectedHintCommand = 'sudo apt install starship zoxide fnm'
+            }
         }
 
         Mock Write-Host {
@@ -114,22 +164,16 @@ Describe 'Initialize-Environment command discovery integration' {
         }
 
         Mock Find-ExecutableCommand {
-            return @(
-                [PSCustomObject]@{ Name = 'starship'; Found = $false; Path = $null }
-                [PSCustomObject]@{ Name = 'zoxide'; Found = $false; Path = $null }
-                [PSCustomObject]@{ Name = 'sccache'; Found = $false; Path = $null }
-                [PSCustomObject]@{ Name = 'scoop'; Found = $true; Path = 'C:\Users\mudssky\scoop\shims\scoop.cmd' }
-                [PSCustomObject]@{ Name = 'winget'; Found = $false; Path = $null }
-                [PSCustomObject]@{ Name = 'choco'; Found = $false; Path = $null }
-            )
+            return $script:MockCommandDiscoveryResults
         } -ParameterFilter {
-            $CacheMisses -and @($Name).Count -eq 6
+            $CacheMisses -and ((@($Name) -join '|') -eq ($script:ExpectedTrackedCommandNames -join '|'))
         }
     }
 
     AfterEach {
         Remove-Item Function:\Set-ProfileUtf8Encoding -ErrorAction SilentlyContinue
         Remove-Item Function:\Test-EnvSwitchEnabled -ErrorAction SilentlyContinue
+        Remove-Item Function:\Sync-PathFromBash -ErrorAction SilentlyContinue
         Remove-Item Function:\Write-ProfileModeDecisionSummary -ErrorAction SilentlyContinue
         Remove-Item Function:\Write-ProfileModeFallbackGuide -ErrorAction SilentlyContinue
     }
@@ -137,8 +181,10 @@ Describe 'Initialize-Environment command discovery integration' {
     It 'should use Find-ExecutableCommand results to render one aggregated install hint' {
         Initialize-Environment -ScriptRoot (Resolve-Path $script:ProfileRootDir).Path -SkipProxy -SkipAliases
 
-        Should -Invoke Find-ExecutableCommand -Times 1 -Exactly
-        $script:WrittenHostLines | Should -Contain '未安装以下工具：starship、zoxide。可手动执行下面这行命令一次性安装。'
-        $script:WrittenHostLines | Should -Contain 'scoop install starship zoxide'
+        Should -Invoke Find-ExecutableCommand -Times 1 -Exactly -ParameterFilter {
+            $CacheMisses -and ((@($Name) -join '|') -eq ($script:ExpectedTrackedCommandNames -join '|'))
+        }
+        $script:WrittenHostLines | Should -Contain $script:ExpectedHintMessage
+        $script:WrittenHostLines | Should -Contain $script:ExpectedHintCommand
     }
 }
