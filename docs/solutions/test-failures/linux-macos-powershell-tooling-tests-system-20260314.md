@@ -216,3 +216,4 @@ pnpm qa
 
 - See also: [benchmark-interactive-selection-psutils-20260314.md](../developer-experience/benchmark-interactive-selection-psutils-20260314.md)
 - See also: [command-discovery-regression-profile-20260314.md](../performance-issues/command-discovery-regression-profile-20260314.md)
+- See also: [pwsh-test-command-alignment-system-20260314.md](../workflow-issues/pwsh-test-command-alignment-system-20260314.md)
