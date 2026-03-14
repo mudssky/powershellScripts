@@ -33,7 +33,7 @@ if ($IsLinux -or $IsMacOS) {
 }
 
 
-$isCI = [bool]$env:CI
+$isCI = $env:CI -in @('true', '1', 'yes', 'on')
 $testMode = if ([string]::IsNullOrWhiteSpace($env:PWSH_TEST_MODE)) { 'full' } else { $env:PWSH_TEST_MODE.Trim().ToLowerInvariant() }
 $isQa = $testMode -eq 'qa'
 $isFast = $testMode -in @('fast', 'serial', 'debug', 'qa')
