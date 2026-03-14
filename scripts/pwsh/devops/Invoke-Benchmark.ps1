@@ -19,6 +19,9 @@
 .PARAMETER List
     列出所有可用 benchmark。
 
+.PARAMETER BenchmarksRoot
+    可选的 benchmark 目录覆盖值。默认使用仓库中的 `tests/benchmarks`。
+
 .PARAMETER BenchmarkArgs
     透传给目标 benchmark 脚本的剩余参数。
 #>
@@ -28,6 +31,7 @@ param(
     [Parameter(Position = 0)]
     [string]$Name,
     [switch]$List,
+    [string]$BenchmarksRoot,
     [Parameter(Position = 1, ValueFromRemainingArguments = $true)]
     [object[]]$BenchmarkArgs
 )
@@ -66,15 +70,68 @@ function Get-BenchmarkCatalog {
     return @($entries)
 }
 
-$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..' '..')).Path
-$benchmarksRoot = Join-Path $repoRoot 'tests' 'benchmarks'
-if (-not (Test-Path $benchmarksRoot)) {
-    throw "benchmark 目录不存在: $benchmarksRoot"
+<#
+.SYNOPSIS
+    导入 benchmark 依赖的交互选择模块。
+
+.DESCRIPTION
+    benchmark 仅在缺少 `Name` 参数时才需要交互选择能力，因此这里按需导入
+    `psutils/modules/selection.psm1`，避免显式名称路径也增加额外模块开销。
+#>
+function Import-BenchmarkSelectionModule {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot
+    )
+
+    $selectionModulePath = Join-Path $RepoRoot 'psutils' 'modules' 'selection.psm1'
+    if (-not (Test-Path $selectionModulePath)) {
+        throw "交互选择模块不存在: $selectionModulePath"
+    }
+
+    Import-Module $selectionModulePath -Force -ErrorAction Stop
 }
 
-$catalog = Get-BenchmarkCatalog -BenchmarksRoot $benchmarksRoot
+<#
+.SYNOPSIS
+    在缺少显式名称时，为 benchmark 列表执行交互选择。
+
+.DESCRIPTION
+    公共模块负责 `fzf` 与文本编号降级，脚本层只定义 benchmark 的展示文案
+    与取消后的控制流，避免把交互细节重新散落回业务脚本。
+#>
+function Select-BenchmarkCatalogItem {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object[]]$Catalog,
+        [Parameter(Mandatory)]
+        [string]$RepoRoot
+    )
+
+    Import-BenchmarkSelectionModule -RepoRoot $RepoRoot
+
+    return Select-InteractiveItem `
+        -Items $Catalog `
+        -DisplayScriptBlock { "{0} ({1})" -f $_.Name, $_.File } `
+        -Prompt 'Benchmark > ' `
+        -Header '请选择要运行的 benchmark'
+}
+
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..' '..')).Path
+$effectiveBenchmarksRoot = $BenchmarksRoot
+if ([string]::IsNullOrWhiteSpace($effectiveBenchmarksRoot)) {
+    $effectiveBenchmarksRoot = Join-Path $repoRoot 'tests' 'benchmarks'
+}
+
+if (-not (Test-Path $effectiveBenchmarksRoot)) {
+    throw "benchmark 目录不存在: $effectiveBenchmarksRoot"
+}
+
+$catalog = Get-BenchmarkCatalog -BenchmarksRoot $effectiveBenchmarksRoot
 if ($catalog.Count -eq 0) {
-    throw "未找到可用 benchmark: $benchmarksRoot"
+    throw "未找到可用 benchmark: $effectiveBenchmarksRoot"
 }
 
 if ($List) {
@@ -86,15 +143,19 @@ if ($List) {
 }
 
 if ([string]::IsNullOrWhiteSpace($Name)) {
-    Write-Error "缺少 benchmark 名称。先运行: pnpm benchmark -- --list"
-    exit 1
+    $selected = Select-BenchmarkCatalogItem -Catalog $catalog -RepoRoot $repoRoot
+    if ($null -eq $selected) {
+        Write-Warning '已取消 benchmark 选择，本次不执行任何 benchmark。'
+        return
+    }
 }
-
-$selected = $catalog | Where-Object { $_.Name -eq $Name } | Select-Object -First 1
-if (-not $selected) {
-    $availableNames = ($catalog | Select-Object -ExpandProperty Name) -join ', '
-    Write-Error "未知 benchmark: $Name。可用值: $availableNames"
-    exit 1
+else {
+    $selected = $catalog | Where-Object { $_.Name -eq $Name } | Select-Object -First 1
+    if (-not $selected) {
+        $availableNames = ($catalog | Select-Object -ExpandProperty Name) -join ', '
+        Write-Error "未知 benchmark: $Name。可用值: $availableNames"
+        exit 1
+    }
 }
 
 Write-Host ("Running benchmark: {0}" -f $selected.Name) -ForegroundColor Cyan

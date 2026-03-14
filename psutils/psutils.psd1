@@ -87,6 +87,7 @@
         'modules\proxy.psm1',
         'modules\pwsh.psm1',
         'modules\git.psm1',
+        'modules\selection.psm1',
         'modules\string.psm1',
         'modules\test.psm1',
         'modules\win.psm1',
@@ -128,6 +129,8 @@
         'Close-Proxy', 'Start-Proxy', 'Set-Proxy',
         # PowerShell 工具模块 (pwsh.psm1)
         'Out-ModuleToFile',
+        # 交互选择模块 (selection.psm1)
+        'Select-InteractiveItem',
         # 字符串处理模块 (string.psm1)
         'Get-LineBreak', 'Convert-JsoncToJson',
         # 测试工具模块 (test.psm1)
