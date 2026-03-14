@@ -3,6 +3,11 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 
+// 传统版 QA 编排器。
+// 这个入口复用各 workspace 包自身定义的 `qa` 脚本，不依赖 Turbo 任务图；
+// 它与 `qa-turbo.mjs` 并存，是为了保留一个行为更稳定、排障更直接的基线入口，
+// 方便在 Turbo 链路需要对比、回退或逐步迁移时继续使用。
+
 class CommandFailedError extends Error {
   constructor(step, command, args, exitCode, spawnError) {
     super(step)
@@ -45,6 +50,8 @@ if (!verbose) {
 }
 
 const supportedModes = new Set(['changed', 'all'])
+// 根目录 PowerShell 测试默认只跑一组稳定且耗时可控的 smoke 集合，
+// changed 模式下再根据改动补充对应测试，兼顾反馈速度和问题覆盖面。
 const qaSmokeTestPaths = [
   './tests/DeferredLoading.Tests.ps1',
   './tests/losslessToAdaptiveAudio.Tests.ps1',
@@ -304,6 +311,8 @@ function resolveQaTestPaths(modeValue, sinceRef, pathspecs) {
 }
 
 function runWorkspaceQa(modeValue, sinceRef) {
+  // 这里直接递归执行每个包自己的 `qa`，保持“包内自己定义质量门”的语义，
+  // 避免把所有包强制收敛到同一条任务链，适合作为兼容基线入口。
   const recursiveArgs = [
     '-r',
     '--if-present',
@@ -335,6 +344,8 @@ function runWorkspaceQa(modeValue, sinceRef) {
 }
 
 function runRootPwshQa(modeValue, sinceRef) {
+  // 根目录 PowerShell 资产不属于 workspace 包，需要单独编排；
+  // 同时通过 PWSH_TEST_PATH 精确收缩测试范围，避免 changed 模式退化成全量 Pester。
   const pwshPathspecs = [
     'scripts/pwsh',
     'profile',

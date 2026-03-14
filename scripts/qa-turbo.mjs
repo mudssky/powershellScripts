@@ -2,6 +2,11 @@
 
 import { spawnSync } from 'node:child_process'
 
+// Turbo 版 QA 编排器。
+// 这个入口把 workspace QA 拆成可缓存、可并行的任务链，优先服务速度和 affected 场景；
+// 它与 `qa.mjs` 并存，是为了在引入 Turbo 后保留一个传统基线入口，便于性能对比、
+// 行为校验，以及在 Turbo 环境不可用时仍然有可回退方案。
+
 class CommandFailedError extends Error {
   constructor(step, command, args, exitCode, spawnError) {
     super(step)
@@ -207,6 +212,8 @@ function hasPathChanges(pathspecs, sinceRef, ignorePatterns = []) {
 }
 
 function resolveTurboRunner() {
+  // 优先走 `pnpm exec turbo`，确保使用工作区锁定的版本；
+  // 若外部环境已安装 turbo，则允许回退到全局命令，降低本地接入门槛。
   const candidates = [
     {
       command: 'pnpm',
@@ -230,6 +237,8 @@ function resolveTurboRunner() {
 }
 
 function runWorkspaceQa(modeValue, sinceRef) {
+  // 这里不再执行包级 `qa` 脚本，而是直接运行 Turbo 任务图，
+  // 让 typecheck/check/test 这些细粒度任务获得并行与缓存收益。
   const turboRunner = resolveTurboRunner()
 
   if (!turboRunner) {
@@ -289,6 +298,8 @@ function runWorkspaceQa(modeValue, sinceRef) {
 }
 
 function runRootPwshQa(modeValue, sinceRef) {
+  // Root PowerShell 逻辑暂时不在 Turbo 图里，因此继续沿用单独触发的方式；
+  // 这样可以在享受 workspace 并行收益的同时，避免一次性重构根目录测试编排。
   if (modeValue === 'all') {
     console.log('[turbo:qa] run root qa:pwsh (all)')
     runCommand('root-qa-pwsh-all', 'pnpm', ['run', 'qa:pwsh'])
