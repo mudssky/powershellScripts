@@ -1,47 +1,63 @@
 version: 2
 updates:
-  # 维护 GitHub Actions 版本
+  # 单独维护 GitHub Actions，避免 CI 依赖和应用依赖混在同一轮 review。
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "monthly" # 每月检查一次，避免频繁打扰
-    # 可选：配置提交信息前缀
-    commit-message:
-      prefix: "ci"
-  - package-ecosystem: "npm"
-    # 使用 directories 配合通配符，同时扫描根目录和 packages/apps 下的所有子包
-    directories:
-      - "/"                # 扫描根目录 (管理开发依赖等)
-      - "/projects/**"      # 扫描 projects 目录下的所有子目录
-      - "scripts/node"          # 扫描 scripts/node 目录
-      
-    schedule:
-      interval: "monthly"
+      interval: "weekly"
       day: "monday"
       time: "09:00"
       timezone: "Asia/Shanghai"
-
-    # 针对 pnpm monorepo 的分组策略，减少 PR 数量
+    commit-message:
+      prefix: "ci"
     groups:
-      # 策略1：将所有次要版本和补丁版本的更新合并为一个 PR
-      # 这样你每周只会收到一个包含所有非破坏性更新的大 PR
-      all-minor-patch:
+      actions:
+        patterns:
+          - "*"
+
+  # 维护主 pnpm monorepo：根目录、workspace 包和 Node 工具脚本。
+  - package-ecosystem: "npm"
+    directories:
+      - "/"
+      - "/projects/**"
+      - "/scripts/node"
+    schedule:
+      interval: "monthly"
+      time: "09:00"
+      timezone: "Asia/Shanghai"
+    groups:
+      # 将非破坏性更新按依赖名归并，减少 monorepo 多目录重复 PR。
+      non-breaking:
+        group-by: "dependency-name"
         patterns:
           - "*"
         update-types:
           - "minor"
           - "patch"
-      
-      # 策略2：(可选) 也可以按功能分组，比如将所有 eslint 相关包合为一个 PR
-      linting:
-        patterns:
-          - "eslint"
-          - "eslint-*"
-          - "@typescript-eslint/*"
-
-    # 忽略某些不想自动升级的包
+    # major 更新继续可见，但等版本稳定一段时间后再提 PR。
+    cooldown:
+      semver-major-days: 60
     ignore:
-      - dependency-name: "react"
-        versions: ["^19.0.0"] # 比如暂时不想升到 React 19
+      # 该预览包更新节奏过快，继续手工控制升级窗口。
       - dependency-name: "@typescript/native-preview"
-        versions: ["*"] # 忽略所有版本
+        versions:
+          - "*"
+
+  # 低频维护独立的 mpv Scripts TypeScript 项目。
+  # 注意：该目录当前同时存在 pnpm-lock.yaml 和 package-lock.json，
+  # 首次 Dependabot PR 需要确认实际 lockfile 变更形态。
+  - package-ecosystem: "npm"
+    directory: "/config/software/mpv/mpv_scripts"
+    schedule:
+      interval: "quarterly"
+      time: "09:00"
+      timezone: "Asia/Shanghai"
+    groups:
+      non-breaking:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    cooldown:
+      semver-major-days: 90
