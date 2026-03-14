@@ -7,6 +7,13 @@
 #>
 
 BeforeAll {
+    $script:CreatedCurlPlaceholder = $false
+    # Linux 容器里未必安装 curl。先提供占位函数，确保后续 mock 能稳定挂载。
+    if (-not (Get-Command curl -ErrorAction SilentlyContinue)) {
+        function global:curl { }
+        $script:CreatedCurlPlaceholder = $true
+    }
+
     Import-Module "$PSScriptRoot\..\modules\proxy.psm1" -Force
 
     # 保存原始代理环境变量，测试结束后恢复
@@ -31,6 +38,10 @@ AfterAll {
             Set-Item "env:\$($entry.Key)" -Value $entry.Value
         }
     }
+
+    if ($script:CreatedCurlPlaceholder) {
+        Remove-Item Function:\curl -ErrorAction SilentlyContinue
+    }
 }
 
 Describe "Close-Proxy 函数测试" -Tag 'Proxy', 'windowsOnly' {
@@ -52,6 +63,10 @@ Describe "Start-Proxy 函数测试" -Tag 'Proxy', 'windowsOnly' {
 
 Describe "Set-Proxy 函数测试" -Tag 'Proxy' {
     BeforeEach {
+        # 这些测试只验证行为，不需要把用户提示输出刷到 full 日志中。
+        Mock -ModuleName proxy Write-Host { }
+        Mock -ModuleName proxy Write-Warning { }
+
         # 每个测试前清除代理环境变量，确保干净状态
         $vars = @("http_proxy", "https_proxy", "ftp_proxy", "rsync_proxy", "all_proxy", "no_proxy")
         foreach ($var in $vars) {
@@ -76,7 +91,7 @@ Describe "Set-Proxy 函数测试" -Tag 'Proxy' {
                 return $mockTcp
             } -ParameterFilter { $TypeName -eq 'System.Net.Sockets.TcpClient' }
 
-            Set-Proxy -Command "on" -Target "7890" -Verbose
+            Set-Proxy -Command "on" -Target "7890"
 
             $env:http_proxy | Should -Be "http://127.0.0.1:7890"
             $env:https_proxy | Should -Be "http://127.0.0.1:7890"
@@ -251,7 +266,7 @@ Describe "Set-Proxy 函数测试" -Tag 'Proxy' {
 
     Context "test 命令 - 测试代理连接" {
         It "未设置代理时执行 test 不应该抛出异常" {
-            Mock -ModuleName proxy Get-Command { return $true }
+            Mock -ModuleName proxy Get-Command { return [pscustomobject]@{ Name = 'curl'; CommandType = 'Function' } } -ParameterFilter { $Name -eq 'curl' }
             # Mock curl 命令以避免实际网络请求
             Mock -ModuleName proxy curl { return "HTTP/1.1 200 OK" }
 
@@ -261,7 +276,7 @@ Describe "Set-Proxy 函数测试" -Tag 'Proxy' {
         It "设置代理后执行 test 不应该抛出异常" {
             $env:http_proxy = "http://127.0.0.1:7890"
 
-            Mock -ModuleName proxy Get-Command { return $true }
+            Mock -ModuleName proxy Get-Command { return [pscustomobject]@{ Name = 'curl'; CommandType = 'Function' } } -ParameterFilter { $Name -eq 'curl' }
             Mock -ModuleName proxy curl { return "HTTP/1.1 200 OK" }
 
             { Set-Proxy -Command "test" } | Should -Not -Throw

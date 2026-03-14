@@ -21,9 +21,22 @@
     返回包含GPU信息的哈希表
 #>
 if (-not (Get-Command Get-OperatingSystem -ErrorAction SilentlyContinue)) { Import-Module (Join-Path $PSScriptRoot 'os.psm1') -ErrorAction SilentlyContinue }
+
+function Get-HardwareOperatingSystem {
+    <#
+    .SYNOPSIS
+        返回硬件模块当前感知到的操作系统。
+    .DESCRIPTION
+        为 Pester 提供稳定的 mock 入口，避免测试直接依赖跨模块命令解析。
+    .OUTPUTS
+        [string] 当前操作系统名称。
+    #>
+    return Get-OperatingSystem
+}
+
 function Get-GpuInfo {
     try {
-        $osType = Get-OperatingSystem
+        $osType = Get-HardwareOperatingSystem
 
         switch ($osType) {
             "Windows" {
@@ -315,7 +328,7 @@ function Get-GpuInfo {
 function Get-SystemMemoryInfo {
     try {
         # 检测操作系统类型
-        $osType = Get-OperatingSystem
+        $osType = Get-HardwareOperatingSystem
         
         switch ($osType) {
             "Windows" {

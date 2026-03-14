@@ -37,7 +37,7 @@
     "test:pwsh:linux:fast": "docker compose -f docker-compose.pester.yml run --rm pester-fast",
     "test:pwsh:linux:full": "docker compose -f docker-compose.pester.yml run --rm pester-full",
     "test:pwsh:linux:build": "docker compose -f docker-compose.pester.yml build",
-    "test:pwsh:all": "pnpm exec concurrently --names host,linux --prefix-colors blue,magenta --kill-others-on-fail \"pnpm test:pwsh:full\" \"pnpm test:pwsh:linux:full\"",
+    "test:pwsh:all": "pnpm exec concurrently --group --names host,linux --prefix-colors blue,magenta --success all \"pnpm test:pwsh:full\" \"pnpm test:pwsh:linux:full\"",
     "qa:pwsh": "pnpm format:pwsh && pnpm test:pwsh:qa",
     "qa": "node ./scripts/qa.mjs changed",
     "qa:all": "node ./scripts/qa.mjs all",

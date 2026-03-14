@@ -40,6 +40,21 @@ $isFast = $testMode -in @('fast', 'serial', 'debug', 'qa')
 $isSerial = $testMode -eq 'serial'
 $isDebug = $testMode -eq 'debug'
 $isVerbose = -not [string]::IsNullOrWhiteSpace($env:PWSH_TEST_VERBOSE)
+$coverageOverride = if ([string]::IsNullOrWhiteSpace($env:PWSH_TEST_ENABLE_COVERAGE)) {
+    $null
+}
+else {
+    $env:PWSH_TEST_ENABLE_COVERAGE.Trim().ToLowerInvariant()
+}
+$isCoverageEnabled = if ($coverageOverride -in @('1', 'true', 'yes', 'on')) {
+    $true
+}
+elseif ($coverageOverride -in @('0', 'false', 'no', 'off')) {
+    $false
+}
+else {
+    -not $isFast
+}
 
 $qaDefaultPaths = @(
     "./tests/DeferredLoading.Tests.ps1"
@@ -89,7 +104,9 @@ $config = @{
         ExcludeTag = $excludeTags
     }
     CodeCoverage = @{
-        Enabled                 = -not $isFast
+        # 允许通过环境变量覆盖 coverage，便于 Linux 容器在 Pester 收尾异常时退回到
+        # “full 断言回归但不承担 coverage”的执行模式。
+        Enabled                 = $isCoverageEnabled
         Path                    = "./psutils/modules/*.psm1"
         # OutputPath   = "./coverge.xml"
         OutputFormat            = 'CoverageGutters'

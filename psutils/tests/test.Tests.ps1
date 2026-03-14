@@ -8,12 +8,20 @@ BeforeAll {
 Describe "Test-EXEProgram 函数测试" {
     BeforeAll {
         if ($script:IsFastTestMode) {
-            Mock -CommandName Get-Command -ModuleName test -MockWith {
+            Mock -CommandName Find-ExecutableCommand -ModuleName test -MockWith {
                 param([string]$Name)
                 if ($Name -eq "pwsh") {
-                    return [pscustomobject]@{ Name = $Name }
+                    return [pscustomobject]@{
+                        Name  = $Name
+                        Found = $true
+                        Path  = "C:\Program Files\PowerShell\7\pwsh.exe"
+                    }
                 }
-                return $null
+                return [pscustomobject]@{
+                    Name  = $Name
+                    Found = $false
+                    Path  = $null
+                }
             }
         }
     }

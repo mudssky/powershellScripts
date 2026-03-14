@@ -4,6 +4,82 @@ if (Test-Path $osModulePath) {
     Import-Module $osModulePath -Force
 }
 
+if (-not $script:ModuleInstalledCache) {
+    $script:ModuleInstalledCache = @{}
+}
+
+function Find-InstalledModulePath {
+    <#
+    .SYNOPSIS
+        在 PSModulePath 中查找模块入口文件。
+    .DESCRIPTION
+        优先使用目录与清单文件直查，避免 `Get-Module -ListAvailable` 的全量发现开销。
+        该函数只负责返回首个命中的模块入口路径；未命中时返回 `$null`。
+    .PARAMETER ModuleName
+        要查找的模块名称。
+    .OUTPUTS
+        [string] 模块入口文件路径；未找到时返回 `$null`。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ModuleName
+    )
+
+    if ([System.Management.Automation.WildcardPattern]::ContainsWildcardCharacters($ModuleName)) {
+        return $null
+    }
+
+    $loadedModule = Get-Module -Name $ModuleName -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($loadedModule) {
+        return $loadedModule.Path
+    }
+
+    $moduleRoots = $env:PSModulePath -split [System.IO.Path]::PathSeparator | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+    foreach ($moduleRoot in $moduleRoots) {
+        $trimmedRoot = $moduleRoot.Trim()
+        if (-not (Test-Path -LiteralPath $trimmedRoot -PathType Container)) {
+            continue
+        }
+
+        foreach ($directCandidate in @(
+                (Join-Path $trimmedRoot "$ModuleName.psd1"),
+                (Join-Path $trimmedRoot "$ModuleName.psm1")
+            )) {
+            if (Test-Path -LiteralPath $directCandidate -PathType Leaf) {
+                return $directCandidate
+            }
+        }
+
+        $moduleDirectory = Join-Path $trimmedRoot $ModuleName
+        if (-not (Test-Path -LiteralPath $moduleDirectory -PathType Container)) {
+            continue
+        }
+
+        foreach ($moduleCandidate in @(
+                (Join-Path $moduleDirectory "$ModuleName.psd1"),
+                (Join-Path $moduleDirectory "$ModuleName.psm1")
+            )) {
+            if (Test-Path -LiteralPath $moduleCandidate -PathType Leaf) {
+                return $moduleCandidate
+            }
+        }
+
+        foreach ($versionDirectory in @(Get-ChildItem -LiteralPath $moduleDirectory -Directory -ErrorAction SilentlyContinue)) {
+            foreach ($versionCandidate in @(
+                    (Join-Path $versionDirectory.FullName "$ModuleName.psd1"),
+                    (Join-Path $versionDirectory.FullName "$ModuleName.psm1")
+                )) {
+                if (Test-Path -LiteralPath $versionCandidate -PathType Leaf) {
+                    return $versionCandidate
+                }
+            }
+        }
+    }
+
+    return $null
+}
+
 function Test-ModuleInstalled {
     <#
     .SYNOPSIS
@@ -29,8 +105,13 @@ function Test-ModuleInstalled {
     )
     
     try {
-        $module = Get-Module -ListAvailable -Name $ModuleName -ErrorAction SilentlyContinue
-        $isInstalled = $null -ne $module
+        if ($script:ModuleInstalledCache.ContainsKey($ModuleName)) {
+            return $script:ModuleInstalledCache[$ModuleName]
+        }
+
+        $modulePath = Find-InstalledModulePath -ModuleName $ModuleName
+        $isInstalled = -not [string]::IsNullOrWhiteSpace($modulePath)
+        $script:ModuleInstalledCache[$ModuleName] = $isInstalled
         
         Write-Verbose "模块 '$ModuleName' 安装状态: $isInstalled"
         return $isInstalled

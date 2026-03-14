@@ -15,7 +15,7 @@ Describe 'Windows Profile 性能基准' -Tag 'profile', 'performance', 'windowsO
         . $script:ProfilePath
         $sw.Stop()
         $ms = $sw.ElapsedMilliseconds
-        Write-Host ("[Windows Default] Profile 加载耗时: {0} ms" -f $ms) -ForegroundColor Cyan
+        Write-Verbose ("[Windows Default] Profile 加载耗时: {0} ms" -f $ms)
         $ms | Should -BeGreaterThan 0
         $ms | Should -BeLessThan 10000
     }
@@ -28,7 +28,7 @@ Describe 'Windows Profile 性能基准' -Tag 'profile', 'performance', 'windowsO
         $sw.Stop()
         Remove-Item Env:\POWERSHELL_PROFILE_MINIMAL -ErrorAction SilentlyContinue
         $ms = $sw.ElapsedMilliseconds
-        Write-Host ("[Windows Minimal] Profile 加载耗时: {0} ms" -f $ms) -ForegroundColor Cyan
+        Write-Verbose ("[Windows Minimal] Profile 加载耗时: {0} ms" -f $ms)
         $ms | Should -BeGreaterThan 0
         $ms | Should -BeLessThan 10000
     }

@@ -68,6 +68,9 @@ AfterAll {
 
 Describe "Invoke-WithCache" {
     BeforeEach {
+        # 这些测试关注缓存行为本身，统计与提示输出留给详细模式即可。
+        Mock -ModuleName cache Write-Host { }
+        Mock -ModuleName cache Write-Warning { }
         # 每个测试前清理缓存
         Clear-TestCache
     }
@@ -397,6 +400,8 @@ Describe "Invoke-WithCache" {
 
 Describe "Clear-ExpiredCache 函数测试" {
     BeforeEach {
+        Mock -ModuleName cache Write-Host { }
+        Mock -ModuleName cache Write-Warning { }
         # 每个测试前清理缓存
         if (Test-Path $script:TestCacheDir) {
             Get-ChildItem $script:TestCacheDir -Filter "*.cache.*" | Remove-Item -Force -ErrorAction SilentlyContinue
@@ -490,6 +495,8 @@ Describe "Clear-ExpiredCache 函数测试" {
 
 Describe "Get-CacheStats 函数测试" {
     BeforeEach {
+        Mock -ModuleName cache Write-Host { }
+        Mock -ModuleName cache Write-Warning { }
         # 清理缓存
         if (Test-Path $script:TestCacheDir) {
             Get-ChildItem $script:TestCacheDir -Filter "*.cache.*" | Remove-Item -Force -ErrorAction SilentlyContinue
@@ -595,6 +602,11 @@ Describe "Invoke-WithFileCache 函数测试" {
         if (-not (Test-Path $script:FileCacheBaseDir)) {
             New-Item -ItemType Directory -Path $script:FileCacheBaseDir -Force | Out-Null
         }
+    }
+
+    BeforeEach {
+        Mock -ModuleName cache Write-Host { }
+        Mock -ModuleName cache Write-Warning { }
     }
 
     AfterAll {

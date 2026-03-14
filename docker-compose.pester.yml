@@ -40,6 +40,9 @@ services:
     working_dir: /workspace
     environment:
       - PWSH_TEST_MODE=full
+      # Linux 容器当前命中 Pester coverage 收尾异常，先保留 full 断言回归，
+      # 将 coverage 责任收敛到 host full，避免聚合命令因为已知兼容性问题假红。
+      - PWSH_TEST_ENABLE_COVERAGE=false
       - CI=false
     command: >
       pwsh -NoProfile -Command "

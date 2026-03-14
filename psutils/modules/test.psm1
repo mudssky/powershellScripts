@@ -1,8 +1,16 @@
-
-
 # 模块级别的缓存哈希表，用于存储已检查过的可执行程序结果
 if (-not $script:ExeProgramCache) {
     $script:ExeProgramCache = @{}
+}
+
+# Test-EXEProgram 属于高频能力，优先复用仓库里已经优化过的轻量命令探测，
+# 避免再次落回 Get-Command 的慢路径。
+$commandDiscoveryModulePath = Join-Path $PSScriptRoot 'commandDiscovery.psm1'
+if (
+    -not (Get-Command Find-ExecutableCommand -ErrorAction SilentlyContinue) -and
+    (Test-Path $commandDiscoveryModulePath)
+) {
+    Import-Module $commandDiscoveryModulePath -Force
 }
 
 <#
@@ -39,8 +47,8 @@ if (-not $script:ExeProgramCache) {
     强制重新检查 "git" 程序，不使用缓存结果。
 
 .NOTES
-    此函数使用 Get-Command -CommandType Application 来查找可执行程序。
-    它会静默处理错误，因此不会在找不到程序时抛出错误。
+    此函数优先使用仓库内的轻量命令探测能力 `Find-ExecutableCommand`，
+    避免 `Get-Command -CommandType Application` 在缺失命令场景下触发高成本回退。
     适用于Windows、Linux和macOS等支持PowerShell的平台。
     缓存功能可以显著提升多次调用相同程序检查时的性能。
 
@@ -65,8 +73,8 @@ function Test-EXEProgram() {
         # 如果不使用缓存或缓存中没有该程序的记录，则进行检查
         if ($NoCache -or -not $script:ExeProgramCache.ContainsKey($Name)) {
             Write-Verbose "检查可执行程序: $Name"
-            # get-command  return $null  when cant find command and  SilentlyContinue flag on 
-            $result = ($null -ne (Get-Command -Name $Name -CommandType Application -ErrorAction SilentlyContinue))
+            $commandLookup = Find-ExecutableCommand -Name $Name
+            $result = [bool]($commandLookup -and $commandLookup.Found)
             
             # 仅当结果为 true (即找到程序) 时才缓存
             # 这样可以避免在脚本运行过程中安装了程序但缓存仍然认为未安装的问题

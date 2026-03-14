@@ -4,16 +4,16 @@ BeforeAll {
 }
 
 Describe "Test-ModuleInstalled 函数测试" {
-    BeforeAll {
-        if ($script:IsFastTestMode) {
-            Mock -CommandName Get-Module -ModuleName install -MockWith {
-                param([string]$Name)
-                if ($Name -eq "Microsoft.PowerShell.Management") {
-                    return [pscustomobject]@{ Name = $Name }
-                }
-                return $null
-            }
+    BeforeEach {
+        InModuleScope install {
+            $script:ModuleInstalledCache.Clear()
         }
+    }
+
+    BeforeEach {
+        # 这些测试主要验证返回值与异常路径，不需要把提示类输出展开到 full 日志。
+        Mock -ModuleName install Write-Host { }
+        Mock -ModuleName install Write-Warning { }
     }
 
     It "应该能够检测已安装的模块" {
@@ -44,7 +44,7 @@ Describe "Test-ModuleInstalled 函数测试" {
         $result | Should -BeOfType [bool]
     }
 
-    It "当 Get-Module 异常时应该返回 false" {
+    It "当模块查找异常时应该返回 false" {
         Mock -ModuleName install Get-Module { throw "模块检测异常" }
         $result = Test-ModuleInstalled -ModuleName "AnyModule"
         $result | Should -Be $false
@@ -52,6 +52,11 @@ Describe "Test-ModuleInstalled 函数测试" {
 }
 
 Describe "Test-AppFilter 函数测试" {
+    BeforeEach {
+        Mock -ModuleName install Write-Host { }
+        Mock -ModuleName install Write-Warning { }
+    }
+
     Context "And 模式" {
         It "所有谓词都为 true 时返回 true" {
             InModuleScope install {
@@ -134,6 +139,11 @@ Describe "Test-AppFilter 函数测试" {
 }
 
 Describe "Get-PackageInstallCommand 函数测试" {
+    BeforeEach {
+        Mock -ModuleName install Write-Host { }
+        Mock -ModuleName install Write-Warning { }
+    }
+
     Context "标准包管理器" {
         It "应该生成 choco 安装命令" {
             $result = Get-PackageInstallCommand -PackageManager "choco" -AppName "git"
@@ -190,6 +200,11 @@ Describe "Get-PackageInstallCommand 函数测试" {
 }
 
 Describe "Install-PackageManagerApps 函数测试" {
+    BeforeEach {
+        Mock -ModuleName install Write-Host { }
+        Mock -ModuleName install Write-Warning { }
+    }
+
     Context "配置对象" {
         It "当 InstallList 为空时应该发出警告" {
             $config = [PSCustomObject]@{
@@ -211,6 +226,11 @@ Describe "Install-PackageManagerApps 函数测试" {
 }
 
 Describe "Install-RequiredModule 函数测试" {
+    BeforeEach {
+        Mock -ModuleName install Write-Host { }
+        Mock -ModuleName install Write-Warning { }
+    }
+
     It "应该跳过已安装的模块而不抛出错误" {
         Mock -ModuleName install Test-ModuleInstalled { return $true }
         Mock -ModuleName install Import-Module { }
