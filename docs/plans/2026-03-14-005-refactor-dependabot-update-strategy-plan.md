@@ -1,7 +1,7 @@
 ---
 title: refactor: optimize dependabot update strategy
 type: refactor
-status: active
+status: completed
 date: 2026-03-14
 origin: docs/brainstorms/2026-03-14-dependabot-config-optimization-brainstorm.md
 ---
@@ -145,16 +145,16 @@ origin: docs/brainstorms/2026-03-14-dependabot-config-optimization-brainstorm.md
 
 ## Acceptance Criteria
 
-- [ ] `.github/dependabot.yml` 被重构为三层更新器：`github-actions`、主 `npm` monorepo、`config/software/mpv/mpv_scripts`
-- [ ] `github-actions` 使用独立 cadence，并将 Actions 更新收敛为单一组，继续保留 `ci` 风格的提交信息前缀
-- [ ] 主 `npm` 更新器明确覆盖 `/`、`/projects/**`、`/scripts/node`，不再保留与仓库实际布局不一致的目录说明
-- [ ] 主 `npm` minor/patch 更新采用单一 non-breaking 分组，并使用 `group-by: dependency-name` 降低多目录重复 PR
-- [ ] 主 `npm` major 更新不被直接忽略，而是通过 `cooldown` 延后处理
-- [ ] `config/software/mpv/mpv_scripts` 被纳入独立更新器，频率为季度
-- [ ] 计划或实现明确记录 `mpv_scripts` mixed lockfile 风险，不在 review 中把双锁文件改动当成“莫名其妙的异常”
-- [ ] `@typescript/native-preview` 的 ignore 策略被保留；`react` ignore 被复核并在无真实依赖时移除
-- [ ] `.github/dependabot.yml` 注释与 `docs/cheatsheet/github/dependabot.md` 至少有一处被同步修正，避免继续误导仓库真实策略
-- [ ] 根目录 `pnpm qa` 通过
+- [x] `.github/dependabot.yml` 被重构为三层更新器：`github-actions`、主 `npm` monorepo、`config/software/mpv/mpv_scripts`
+- [x] `github-actions` 使用独立 cadence，并将 Actions 更新收敛为单一组，继续保留 `ci` 风格的提交信息前缀
+- [x] 主 `npm` 更新器明确覆盖 `/`、`/projects/**`、`/scripts/node`，不再保留与仓库实际布局不一致的目录说明
+- [x] 主 `npm` minor/patch 更新采用单一 non-breaking 分组，并使用 `group-by: dependency-name` 降低多目录重复 PR
+- [x] 主 `npm` major 更新不被直接忽略，而是通过 `cooldown` 延后处理
+- [x] `config/software/mpv/mpv_scripts` 被纳入独立更新器，频率为季度
+- [x] 计划或实现明确记录 `mpv_scripts` mixed lockfile 风险，不在 review 中把双锁文件改动当成“莫名其妙的异常”
+- [x] `@typescript/native-preview` 的 ignore 策略被保留；`react` ignore 被复核并在无真实依赖时移除
+- [x] `.github/dependabot.yml` 注释与 `docs/cheatsheet/github/dependabot.md` 至少有一处被同步修正，避免继续误导仓库真实策略
+- [x] 根目录 `pnpm qa` 通过
 
 ## Success Metrics
 
