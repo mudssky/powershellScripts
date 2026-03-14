@@ -126,33 +126,44 @@ pwsh ./Manage-BinScripts.ps1 -Action clean
 ### Testing
 
 ```bash
-# PowerShell Pester tests (full, with coverage & profile tests)
-pnpm test
-
 # Fast local tests (no profile loading, no coverage)
-pnpm test:fast
+pnpm test:pwsh:fast
+
+# QA subset used by root PowerShell QA
+pnpm test:pwsh:qa
 
 # Serial mode (for debugging discovery phase hangs)
-pnpm test:serial
+pnpm test:pwsh:serial
 
 # Debug output
-pnpm test:debug
+pnpm test:pwsh:debug
+
+# Full local validation on host
+pnpm test:pwsh:full
+
+# Linux container validation
+pnpm test:pwsh:linux:fast
+pnpm test:pwsh:linux:full
+
+# Cross-environment pre-commit validation for pwsh-related changes
+pnpm test:pwsh:all
 
 # Profile-specific tests only
-pnpm test:profile
+pnpm test:pwsh:profile
 
 # Node.js Vitest (in scripts/node workspace)
 cd scripts/node && pnpm test
 ```
 
 Pester configuration is in `PesterConfiguration.ps1` with environment-driven modes:
-- `PWSH_TEST_MODE`: `full` (default) | `fast` | `serial` | `debug`
+- `PWSH_TEST_MODE`: `full` (default) | `fast` | `serial` | `debug` | `qa`
 - `PWSH_TEST_VERBOSE`: set to `1` for detailed output
 - `PWSH_TEST_PATH`: override test paths (semicolon/comma separated)
 - Test paths: `./psutils` and `./tests`
 - Tags: `Slow` always excluded; `windowsOnly` excluded on Linux/macOS
 - Parallelism: 4 threads (disabled in serial mode)
 - CI: `$env:CI` controls exit-on-failure and detailed output
+- Root `pnpm test:pwsh:*` scripts force `Run.Exit = $true`, so CLI commands return non-zero on failures
 
 ### Formatting
 
@@ -197,7 +208,7 @@ pnpm turbo:qa:all           # all packages
 pnpm turbo:qa:verbose       # with verbose output
 
 # Root PowerShell QA only
-pnpm qa:pwsh                # format:pwsh && test
+pnpm qa:pwsh                # format:pwsh && test:pwsh:qa
 
 # QA benchmark sampling (CI trend analysis)
 pnpm qa:benchmark
@@ -205,6 +216,7 @@ pnpm qa:benchmark
 
 The Turbo pipeline runs: `typecheck:fast -> check -> test:fast` per workspace package.
 Set `QA_BASE_REF` to change the diff baseline (default: `origin/master`).
+For pwsh-related changes under `scripts/pwsh/**`, `profile/**`, `psutils/**`, `tests/**/*.ps1`, `PesterConfiguration.ps1`, or `docker-compose.pester.yml`, run `pnpm test:pwsh:all` before commit. If Docker is unavailable, run `pnpm test:pwsh:full` and rely on CI or WSL for Linux coverage.
 
 ### Per-workspace QA commands
 
@@ -317,7 +329,7 @@ Module manifest at `psutils/psutils.psd1` with 18 nested sub-modules. Key patter
 
 5. **Turbo task caching**: The pipeline excludes docs/notebooks from cache inputs. Remote caching is off by default; enable in CI with `TURBO_REMOTE_CACHE=1`.
 
-6. **Profile test isolation**: Profile tests run in a dedicated serial mode (`pnpm test:profile`) due to global state dependencies.
+6. **Profile test isolation**: Profile tests run in a dedicated serial mode (`pnpm test:pwsh:profile`) due to global state dependencies.
 
 7. **`pwshfmt-rs`**: A custom Rust-based PowerShell formatter at `projects/clis/pwshfmt-rs/` that handles command name and parameter name casing correction. It preserves string literals and comments, and avoids writing unchanged files. Its `package.json` wraps Cargo commands for Turbo integration.
 

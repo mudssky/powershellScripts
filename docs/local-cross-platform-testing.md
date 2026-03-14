@@ -15,58 +15,53 @@
 
 ```bash
 # 快速模式（无代码覆盖率，适合日常迭代）
-pnpm test:fast
+pnpm test:pwsh:fast
 
 # 完整模式（含代码覆盖率，适合提交前验证）
-pnpm test:full
-
-# 默认模式（等同 full）
-pnpm test
+pnpm test:pwsh:full
 ```
 
 ### Linux 容器测试
 
 ```bash
 # 首次使用：构建 Docker 镜像
-pnpm test:linux:build
+pnpm test:pwsh:linux:build
 
 # 快速模式
-pnpm test:linux
+pnpm test:pwsh:linux:fast
 
 # 完整模式
-pnpm test:linux:full
+pnpm test:pwsh:linux:full
 ```
 
 ### 完整本地验证（Host + Linux）
 
-在 Windows 或 macOS 上并行运行 host 和 Linux 测试：
+推荐直接运行跨环境聚合入口：
 
 ```bash
-# 并行执行（两个终端窗口）
-# 终端 1: Host 测试
-pnpm test:fast
-
-# 终端 2: Linux 容器测试
-pnpm test:linux
+# 并发执行 host full + Linux full
+pnpm test:pwsh:all
 ```
 
-或串行执行：
+如需手动串行验证：
 
 ```bash
-pnpm test:fast && pnpm test:linux
+pnpm test:pwsh:full && pnpm test:pwsh:linux:full
 ```
 
 ## Test Modes
 
 | 命令 | 环境 | 覆盖率 | 用途 |
 |------|------|--------|------|
-| `pnpm test:fast` | Host | ❌ | 日常快速迭代 |
-| `pnpm test:full` | Host | ✅ | 提交前完整验证 |
-| `pnpm test:linux` | Linux 容器 | ❌ | Linux 平台快速验证 |
-| `pnpm test:linux:full` | Linux 容器 | ✅ | Linux 平台完整验证 |
-| `pnpm test:serial` | Host | ❌ | 调试发现阶段挂起 |
-| `pnpm test:debug` | Host | ❌ | 详细调试输出 |
-| `pnpm test:profile` | Host | ❌ | Profile 专项测试 |
+| `pnpm test:pwsh:fast` | Host | ❌ | 日常快速迭代 |
+| `pnpm test:pwsh:qa` | Host | ❌ | `qa:pwsh` 使用的快速质量门子集 |
+| `pnpm test:pwsh:full` | Host | ✅ | Host 平台完整验证 |
+| `pnpm test:pwsh:linux:fast` | Linux 容器 | ❌ | Linux 平台快速验证 |
+| `pnpm test:pwsh:linux:full` | Linux 容器 | ✅ | Linux 平台完整验证 |
+| `pnpm test:pwsh:all` | Host + Linux 容器 | ✅ | 提交前跨环境完整验证 |
+| `pnpm test:pwsh:serial` | Host | ❌ | 调试发现阶段挂起 |
+| `pnpm test:pwsh:debug` | Host | ❌ | 详细调试输出 |
+| `pnpm test:pwsh:profile` | Host | ❌ | Profile 专项测试 |
 
 ## Artifact Isolation
 
@@ -95,16 +90,16 @@ Host 和容器测试的输出隔离策略：
 重建镜像：
 
 ```bash
-pnpm test:linux:build
+pnpm test:pwsh:linux:build
 ```
 
 ## Fallback: Docker Unavailable
 
 当 Docker 不可用时（未安装、未启动、或公司网络限制）：
 
-1. **Host 测试仍然完全可用**：所有 `pnpm test:*` 命令不依赖 Docker
-2. **Linux 验证依赖 CI**：跳过 `pnpm test:linux` 系列命令，依赖 GitHub Actions CI 矩阵中的 `ubuntu-latest` 作为 Linux 验证
-3. **WSL 备选**（仅 Windows）：如果有 WSL2 环境，可以直接在 WSL 中运行 `pnpm test:fast` 作为 Linux 验证的替代方案
+1. **Host 测试仍然完全可用**：所有 `pnpm test:pwsh:*` 的 host 命令不依赖 Docker
+2. **Linux 验证依赖 CI**：跳过 `pnpm test:pwsh:linux:*` 与 `pnpm test:pwsh:all`，依赖 GitHub Actions CI 矩阵中的 `ubuntu-latest` 作为 Linux 验证
+3. **WSL 备选**（仅 Windows）：如果有 WSL2 环境，可以直接在 WSL 中运行 `pnpm test:pwsh:full` 作为 Linux 验证的替代方案
 
 **判断 Docker 是否可用**：
 
@@ -112,4 +107,4 @@ pnpm test:linux:build
 docker info > /dev/null 2>&1 && echo "Docker OK" || echo "Docker unavailable"
 ```
 
-> **建议**：即使没有 Docker，也应在提交前至少运行 `pnpm test:fast` 进行 host 平台验证。CI 会自动补充 Linux 和其他平台的测试覆盖。
+> **建议**：如果改动涉及 `scripts/pwsh/**`、`profile/**`、`psutils/**`、`tests/**/*.ps1`、`PesterConfiguration.ps1` 或 `docker-compose.pester.yml`，提交前优先运行 `pnpm test:pwsh:all`。若 Docker 不可用，至少执行 `pnpm test:pwsh:full`，并依赖 CI 或 WSL 补 Linux 覆盖。

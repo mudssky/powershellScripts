@@ -319,27 +319,49 @@ pnpm pester:install
 # 仅更新已安装的 Pester
 pnpm pester:update
 
-# 完整测试（默认，含覆盖率与 Profile）
-pnpm test
-
 # 快速本地测试（无 Profile、无覆盖率）
-pnpm test:fast
+pnpm test:pwsh:fast
+
+# QA 子集（供 qa:pwsh 使用）
+pnpm test:pwsh:qa
 
 # 串行模式（用于排查卡住的发现阶段）
-pnpm test:serial
+pnpm test:pwsh:serial
 
 # 调试输出（更详细的发现/执行日志）
-pnpm test:debug
+pnpm test:pwsh:debug
 
 # 串行 + 详细输出（排查发现阶段卡顿）
-pnpm test:serial:debug
+pnpm test:pwsh:serial:debug
 
 # 仅跑 profile 相关测试（排查卡住的 profile 测试）
-pnpm test:profile
+pnpm test:pwsh:profile
 
-# 明确全量测试
-pnpm test:full
+# 慢测专项
+pnpm test:pwsh:slow
+
+# 全量 + 详细输出
+pnpm test:pwsh:detailed
+
+# Host 完整测试（含覆盖率与 Profile）
+pnpm test:pwsh:full
+
+# 首次运行前构建 Linux 测试镜像
+pnpm test:pwsh:linux:build
+
+# Linux 容器快速测试
+pnpm test:pwsh:linux:fast
+
+# Linux 容器完整测试
+pnpm test:pwsh:linux:full
+
+# 提交前并发执行 host + Linux 两套完整测试
+pnpm test:pwsh:all
 ```
+
+`test:pwsh:*` 只负责 root PowerShell / Pester 测试；`qa` / `qa:all` 仍是快速质量门。
+若改动涉及 `scripts/pwsh/**`、`profile/**`、`psutils/**`、`tests/**/*.ps1`、`PesterConfiguration.ps1` 或 `docker-compose.pester.yml`，提交前执行 `pnpm test:pwsh:all`。
+如果本机 Docker 不可用，至少执行 `pnpm test:pwsh:full`，并依赖 CI 或 WSL 补 Linux 覆盖。
 
 **格式化命令**:
 
@@ -386,6 +408,8 @@ pnpm qa:all:verbose
 
 默认 `pnpm qa`/`pnpm qa:all` 使用聚合输出（更便于定位失败包）；
 如需查看每一步执行细节与变更探测过程，请使用 `qa:verbose`。
+
+`pnpm qa` 不等价于 `pnpm test:pwsh:all`。前者用于快速质量门，后者用于 pwsh 相关改动的提交前跨环境完整验证。
 
 如需修改“变动基线分支”，可在执行前设置 `QA_BASE_REF`（默认 `origin/master`）。
 

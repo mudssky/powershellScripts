@@ -1,4 +1,6 @@
-- 每个代码改动任务完成时，执行根目录pnpm qa修复出现的问题，如果只修改了文案，不用执行qa。
+- 每个代码改动任务完成时，执行根目录 `pnpm qa` 修复出现的问题；如果只修改了文案，不用执行 `qa`。
+- 若改动涉及 pwsh 相关内容（如 `scripts/pwsh/**`、`profile/**`、`psutils/**`、`tests/**/*.ps1`、`PesterConfiguration.ps1`、`docker-compose.pester.yml`），提交代码前执行 `pnpm test:pwsh:all`。
+- 若本机 Docker 不可用，至少执行 `pnpm test:pwsh:full`，并在说明中明确 Linux 覆盖依赖 CI 或 WSL。
 - 你必须为所有输出的代码补充清晰规范的注释。公共接口标注核心功能、入参、返回值，非直观逻辑补充设计意图，- 不重复代码本身的语义。
 - 创建skill时使用中文，除了术语等
 
