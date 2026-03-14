@@ -158,12 +158,14 @@ cd scripts/node && pnpm test
 Pester configuration is in `PesterConfiguration.ps1` with environment-driven modes:
 - `PWSH_TEST_MODE`: `full` (default) | `fast` | `serial` | `debug` | `qa`
 - `PWSH_TEST_VERBOSE`: set to `1` for detailed output
+- `PWSH_TEST_ENABLE_COVERAGE`: optional explicit coverage override (`true`/`false`)
 - `PWSH_TEST_PATH`: override test paths (semicolon/comma separated)
 - Test paths: `./psutils` and `./tests`
 - Tags: `Slow` always excluded; `windowsOnly` excluded on Linux/macOS
 - Parallelism: 4 threads (disabled in serial mode)
 - CI: `$env:CI` controls exit-on-failure and detailed output
 - Root `pnpm test:pwsh:*` scripts force `Run.Exit = $true`, so CLI commands return non-zero on failures
+- Local coverage responsibility is kept on `pnpm test:pwsh:full`; `pnpm test:pwsh:linux:full` focuses on Linux full assertions to avoid container-specific Pester coverage cleanup failures
 
 ### Formatting
 
@@ -216,7 +218,7 @@ pnpm qa:benchmark
 
 The Turbo pipeline runs: `typecheck:fast -> check -> test:fast` per workspace package.
 Set `QA_BASE_REF` to change the diff baseline (default: `origin/master`).
-For pwsh-related changes under `scripts/pwsh/**`, `profile/**`, `psutils/**`, `tests/**/*.ps1`, `PesterConfiguration.ps1`, or `docker-compose.pester.yml`, run `pnpm test:pwsh:all` before commit. If Docker is unavailable, run `pnpm test:pwsh:full` and rely on CI or WSL for Linux coverage.
+For pwsh-related changes under `scripts/pwsh/**`, `profile/**`, `psutils/**`, `tests/**/*.ps1`, `PesterConfiguration.ps1`, or `docker-compose.pester.yml`, run `pnpm test:pwsh:all` before commit. If Docker is unavailable, run `pnpm test:pwsh:full` and rely on CI or WSL for Linux assertions.
 
 ### Per-workspace QA commands
 

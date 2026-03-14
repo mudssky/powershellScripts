@@ -22,6 +22,10 @@ The local workflow SHALL preserve host `pwsh` test execution to validate platfor
 - **WHEN** a developer needs broad local confidence
 - **THEN** they can run both host and Linux-container checks as part of one documented workflow
 
+#### Scenario: Host workflow remains the local coverage path
+- **WHEN** a developer runs the documented combined host/container workflow
+- **THEN** host-local full execution remains the canonical local coverage path and the Linux container path remains available for cross-platform full assertions
+
 ### Requirement: Parallel host and container runs SHALL avoid artifact collisions
 The local workflow SHALL define an isolation strategy for concurrent host/container test runs to prevent shared artifact overwrites.
 

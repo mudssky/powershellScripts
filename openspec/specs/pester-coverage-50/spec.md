@@ -4,7 +4,7 @@
 The system SHALL reach at least 50% command coverage for the Pester suite.
 
 #### Scenario: Coverage measurement
-- **WHEN** tests are run with coverage enabled
+- **WHEN** the documented coverage-enabled host test command is run
 - **THEN** the reported coverage is 50% or higher
 
 ### Requirement: Coverage increases come from tests

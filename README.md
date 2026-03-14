@@ -359,9 +359,12 @@ pnpm test:pwsh:linux:full
 pnpm test:pwsh:all
 ```
 
+当前 `pnpm test:pwsh:linux:full` 聚焦 Linux 容器内的 full 断言回归；
+本地 coverage 由 `pnpm test:pwsh:full` 提供，以规避容器内 Pester coverage 收尾异常。
+
 `test:pwsh:*` 只负责 root PowerShell / Pester 测试；`qa` / `qa:all` 仍是快速质量门。
 若改动涉及 `scripts/pwsh/**`、`profile/**`、`psutils/**`、`tests/**/*.ps1`、`PesterConfiguration.ps1` 或 `docker-compose.pester.yml`，提交前执行 `pnpm test:pwsh:all`。
-如果本机 Docker 不可用，至少执行 `pnpm test:pwsh:full`，并依赖 CI 或 WSL 补 Linux 覆盖。
+如果本机 Docker 不可用，至少执行 `pnpm test:pwsh:full`，并依赖 CI 或 WSL 补 Linux 断言验证。
 
 **格式化命令**:
 
