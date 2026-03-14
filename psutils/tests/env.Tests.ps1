@@ -148,6 +148,11 @@ INSTALL_MULTI_B=valueB
 }
 
 Describe "Import-EnvPath 函数测试" {
+    BeforeEach {
+        # 这里验证的是行为与返回值，不需要把 PATH 刷新提示打到默认门禁日志里。
+        Mock -ModuleName env Write-Host { }
+    }
+
     Context "Process模式测试" {
         It "Process模式应该不报错" {
             { Import-EnvPath -EnvTarget Process } | Should -Not -Throw

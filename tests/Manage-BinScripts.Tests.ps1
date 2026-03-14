@@ -23,7 +23,8 @@ Describe 'Manage-BinScripts' {
     }
 
     It 'removes stale renamed shims and preserves unrelated shims during partial sync' {
-        & $script:ManageScript -Action sync -Force
+        # 这里断言的是产物状态，不需要把脚本执行日志带进默认门禁输出。
+        & $script:ManageScript -Action sync -Force *> $null
 
         $binDir = Join-Path $script:TempRoot 'bin'
         Test-Path -LiteralPath (Join-Path $binDir 'A.ps1') | Should -BeTrue
@@ -31,7 +32,7 @@ Describe 'Manage-BinScripts' {
 
         Rename-Item -LiteralPath (Join-Path $script:TempRoot 'scripts/pwsh/a/A.ps1') -NewName 'A2.ps1'
 
-        & $script:ManageScript -Action sync -Force -Patterns @('scripts/pwsh/a/*.ps1')
+        & $script:ManageScript -Action sync -Force -Patterns @('scripts/pwsh/a/*.ps1') *> $null
 
         Test-Path -LiteralPath (Join-Path $binDir 'A.ps1') | Should -BeFalse
         Test-Path -LiteralPath (Join-Path $binDir 'A2.ps1') | Should -BeTrue

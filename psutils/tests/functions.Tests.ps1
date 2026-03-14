@@ -206,6 +206,11 @@ Describe "New-Shortcut 函数测试" -Tag 'windowsOnly' {
 }
 
 Describe "Invoke-FzfHistorySmart 函数测试" {
+    BeforeEach {
+        # 缺依赖场景只验证降级行为，不需要把用户提示输出带进默认测试日志。
+        Mock -ModuleName functions Write-Warning { }
+    }
+
     Context "缺少 fzf" {
         It "应该在没有 fzf 时不抛出异常" {
             Mock -ModuleName functions Get-Command { return $null } -ParameterFilter { $Name -eq "fzf" }
@@ -215,6 +220,10 @@ Describe "Invoke-FzfHistorySmart 函数测试" {
 }
 
 Describe "Register-FzfHistorySmartKeyBinding 函数测试" {
+    BeforeEach {
+        Mock -ModuleName functions Write-Warning { }
+    }
+
     Context "缺少依赖" {
         It "应该在没有 PSReadLine 时返回 false" {
             Mock -ModuleName functions Get-Command {

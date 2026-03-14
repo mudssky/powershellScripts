@@ -285,7 +285,9 @@ Describe "Test-MacOSCaskApp 函数测试" {
 Describe "Test-HomebrewFormula 函数测试" {
     Context "基本功能测试" {
         It "在没有brew的系统上应该返回false" {
-            if (-not (Get-Command "brew" -ErrorAction SilentlyContinue)) {
+            # 测试本身也走仓库内的轻量命令探测，避免再次把缺失 brew 的慢路径引回基线。
+            $brewLookup = Find-ExecutableCommand -Name "brew" -CacheMisses
+            if (-not $brewLookup.Found) {
                 $result = Test-HomebrewFormula -AppName "nonexistent-formula"
                 $result | Should -Be $false
             }

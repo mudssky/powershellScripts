@@ -8,6 +8,48 @@ if (-not $script:ModuleInstalledCache) {
     $script:ModuleInstalledCache = @{}
 }
 
+function Invoke-InstallModuleCommand {
+    <#
+    .SYNOPSIS
+        执行模块安装命令。
+    .DESCRIPTION
+        将外部 `Install-Module` 调用收口到模块内包装函数，便于测试稳定 mock，
+        同时避免测试意外触发真实 PowerShell Gallery 路径。
+    .PARAMETER ModuleName
+        要安装的模块名称。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ModuleName
+    )
+
+    Install-Module -Name $ModuleName -Scope CurrentUser -Force -ErrorAction Stop
+}
+
+function Import-InstalledModule {
+    <#
+    .SYNOPSIS
+        导入已安装模块。
+    .DESCRIPTION
+        将外部 `Import-Module` 调用收口到模块内包装函数，便于测试稳定 mock，
+        避免测试阶段回退到真实模块解析链路。
+    .PARAMETER ModuleName
+        要导入的模块名称。
+    .PARAMETER ErrorAction
+        导入失败时的错误策略。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ModuleName,
+        [Parameter()]
+        [System.Management.Automation.ActionPreference]$ErrorAction = [System.Management.Automation.ActionPreference]::Continue
+    )
+
+    Import-Module $ModuleName -ErrorAction $ErrorAction
+}
+
 function Find-InstalledModulePath {
     <#
     .SYNOPSIS
@@ -144,8 +186,8 @@ function Install-RequiredModule {
         if (-not (Test-ModuleInstalled -ModuleName $module)) {
             try {
                 Write-Host "正在安装 $module 模块..." -ForegroundColor Yellow
-                Install-Module -Name $module -Scope CurrentUser -Force -ErrorAction Stop
-                Import-Module $module -ErrorAction Stop
+                Invoke-InstallModuleCommand -ModuleName $module
+                Import-InstalledModule -ModuleName $module -ErrorAction Stop
                 Write-Host "$module 模块安装成功!" -ForegroundColor Green
             }
             catch {
@@ -154,7 +196,7 @@ function Install-RequiredModule {
         }
         else {
             Write-Verbose "模块 $module 已安装，正在导入..."
-            Import-Module $module -ErrorAction SilentlyContinue
+            Import-InstalledModule -ModuleName $module -ErrorAction SilentlyContinue
         }
     }
 }

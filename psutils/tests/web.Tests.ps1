@@ -23,6 +23,10 @@ AfterAll {
 }
 
 Describe "New-WebShortcut Tests" {
+    BeforeEach {
+        # 这些场景主要验证回退行为和文件结果，默认门禁日志里不需要浏览器/图标下载提示。
+        Mock -ModuleName web Write-Warning { }
+    }
 
     Context "HTML Shortcut Creation" {
         It "Should create an HTML file with correct content" {

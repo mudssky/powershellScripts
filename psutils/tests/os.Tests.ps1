@@ -43,6 +43,11 @@ Describe "Get-OperatingSystem 函数测试" {
 }
 
 Describe "Test-Administrator 函数测试" {
+    BeforeEach {
+        # 异常分支只验证返回值，不需要把 warning 打到默认测试日志。
+        Mock -ModuleName os Write-Warning { }
+    }
+
     It "应该返回布尔值" {
         $result = Test-Administrator
         $result | Should -BeOfType [bool]

@@ -271,7 +271,8 @@ Describe "Invoke-WithCache" {
 
     Context "ShouldProcess支持测试" {
         It "应该支持WhatIf参数" {
-            $result = Invoke-WithCache -Key "test-whatif" -ScriptBlock { "test" } -WhatIf
+            # WhatIf 文案属于 PowerShell 主机提示，不属于断言结果，默认测试日志里直接静音。
+            $result = Invoke-WithCache -Key "test-whatif" -ScriptBlock { "test" } -WhatIf 6>$null
             # WhatIf模式下不应该执行脚本块或创建缓存
             $cacheFiles = Get-ChildItem $script:TestCacheDir -Filter "*.cache.*" -ErrorAction SilentlyContinue
             (@($cacheFiles)).Count | Should -Be 0

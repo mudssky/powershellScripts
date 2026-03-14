@@ -12,13 +12,14 @@ origin: docs/brainstorms/2026-03-14-pwsh-test-optimization-brainstorm.md
 
 本计划聚焦修复并优化当前的 PowerShell 跨平台测试工作流，使 `pnpm test:pwsh:all` 重新成为可靠、可读、可持续使用的本地质量门禁（see brainstorm: `docs/brainstorms/2026-03-14-pwsh-test-optimization-brainstorm.md`）。
 
-本次规划明确延续 brainstorm 的五个关键决策：
+本次规划明确延续 brainstorm 的六个关键决策：
 
 1. 保持 `test:pwsh:all` 的质量门禁定位，不退回到默认 `fast` / smoke 组合。
-2. 问题拆成三条工作流：Linux 稳定性、输出降噪、热点测试提速。
-3. 优先处理稳定失败和无价值输出，再处理纯性能优化。
-4. 性能优化重点落在热点测试实现本身，而不是先从 coverage 开关入手。
-5. 如果 Linux `full` 的 coverage 收尾异常最终确认属于 Pester / 容器兼容问题，则由 Host `full` 承担 coverage，Linux `full` 保留 full 断言回归（see brainstorm: `docs/brainstorms/2026-03-14-pwsh-test-optimization-brainstorm.md`）。
+2. 保持 `pnpm qa` 继续承担快速反馈，不把它和提交门禁混用。
+3. 默认控制台输出保留测试文件 / 套件级进度摘要，但隐藏测试外杂项输出。
+4. 被隐藏的杂项输出默认既不展示也不落盘；只有显式调试模式才产生详细输出。
+5. 第一优先级是降低 `pnpm test:pwsh:all` 总时长，因此主线采用“热点测试瘦身优先”而不是“先补耗时可见性”。
+6. 如果 Linux `full` 的 coverage 收尾异常最终确认属于 Pester / 容器兼容问题，则由 Host `full` 承担 coverage，Linux `full` 保留 full 断言回归（see brainstorm: `docs/brainstorms/2026-03-14-pwsh-test-optimization-brainstorm.md`）。
 
 这不是一次“把测试改轻”的重定义，而是让现有 full 级别验证在保留价值的前提下变得稳定、安静、可重复。
 
@@ -79,28 +80,30 @@ origin: docs/brainstorms/2026-03-14-pwsh-test-optimization-brainstorm.md
 
 ## Proposed Solution
 
-采用与 brainstorm 一致的 **Approach A**：先稳再快，并预留 Linux coverage 的务实降级口。
+采用与 brainstorm 一致的 **Approach A**：热点测试瘦身优先，门禁语义不变，并预留 Linux coverage 的务实降级口。
 
-方案拆为三条并行但有先后顺序的实现线：
+方案拆为三条并行但有主次之分的实现线：
 
-### 1. 先修 Linux `full` 稳定性，恢复 `test:pwsh:all` 可用性
+### 1. 以热点测试瘦身为主线，直接压缩 Host 总时长
+
+- 以 `psutils/tests/test.Tests.ps1`、`psutils/tests/install.Tests.ps1`、`psutils/tests/hardware.Tests.ps1` 为首批优化对象，先打最主要的 Host 时间热点。
+- 优先减少重复命令探测、模块探测和真实环境分支判断，改用现有轻量 helper、测试 fixture、受控 mock 或更小范围的真实验证。
+- 对 `hardware` 这类上下文敏感测试，同时加强测试隔离，避免“单跑失败、整套跑通过”这类稳定性问题继续稀释性能收益。
+- 保持 full 测试集合不缩水，不通过删测试、降级为 fast 或回避 Linux 路由来换时间。
+
+### 2. 以输出治理作为配套项，改善门禁阅读体验
+
+- 识别当前 full 日志中的高频低价值输出来源，例如缓存统计、路径同步 WhatIf、代理状态打印、性能测试打印、benchmark 选择过程打印。
+- 将“诊断性但不影响通过/失败判断”的输出迁移到更合适的通道，例如 `Verbose`、调试模式、或测试内 mock / 抑制。
+- 默认控制台保留测试文件 / 套件级进度摘要、失败详情、关键 warning 与最终汇总。
+- 默认模式下不生成 `test.log` 一类详细落盘日志；详细输出只在显式 `debug` / `detailed` 路径下生成。
+
+### 3. 修复 Linux `full` 稳定性，确保重门禁仍然可靠
 
 - 修复 `psutils/tests/proxy.Tests.ps1` 在 Linux 容器中对 `curl` 的假设，使其在无 `curl` / PowerShell 别名差异环境下仍可稳定测试。
 - 追踪 Linux `full` 中 Pester coverage 收尾的 `Normalize-Path` 异常。
 - 如果该异常确认是 Pester / 容器兼容问题而非仓库逻辑，保留 Host `full` 覆盖率，调整 Linux `full` 为“不跑 coverage 的 full 断言回归”，并同步更新文档与期望。
 - 重新审视 `test:pwsh:all` 的聚合编排，避免 Linux 先失败就直接杀掉 Host 路由，导致拿不到另一侧的完整结论与产物。
-
-### 2. 收口 full 模式中的低信号输出
-
-- 识别当前 full 日志中的高频低价值输出来源，例如缓存统计、路径同步 WhatIf、代理状态打印、性能测试打印、benchmark 选择过程打印。
-- 将“诊断性但不影响通过/失败判断”的输出迁移到更合适的通道，例如 `Verbose`、调试模式、或测试内 mock / 抑制。
-- 保留文件级耗时、失败摘要、关键 warning 与最终汇总，不做“静音到看不见问题”的过度降噪。
-
-### 3. 针对热点测试做定向提速
-
-- 以 `psutils/tests/test.Tests.ps1`、`psutils/tests/install.Tests.ps1`、`psutils/tests/hardware.Tests.ps1` 为首批优化对象。
-- 优先减少重复命令探测、模块探测和真实环境分支判断，改用现有轻量 helper、测试 fixture、受控 mock 或更小范围的真实验证。
-- 对 `hardware` 这类上下文敏感测试，同时加强测试隔离，避免“单跑失败、整套跑通过”这种不稳定状态继续存在。
 
 ## Technical Approach
 
@@ -130,7 +133,59 @@ pnpm test:pwsh:all
 
 ### Implementation Phases
 
-#### Phase 1: Linux Stability Baseline
+#### Phase 1: Host Hotspot Reduction
+
+**目标**
+
+- 显著降低 Host `full` 的总耗时，并消除最重热点文件对整体时长的支配。
+
+**主要任务**
+
+- `psutils/tests/test.Tests.ps1` + `psutils/modules/test.psm1`
+  - 减少 `Test-EXEProgram`、`Test-ApplicationInstalled`、`Test-MacOSCaskApp`、`Test-HomebrewFormula` 的重复真实命令探测。
+  - 在测试场景中引入更可控的 fixture / mock，避免几十次命令未命中探测叠加到 full 链路。
+  - 优先评估是否可复用 `Find-ExecutableCommand` 类轻量 helper。
+- `psutils/tests/install.Tests.ps1` + `psutils/modules/install.psm1`
+  - 避免 `Get-Module -ListAvailable`、安装检测与 CLI 安装状态探测在同一套测试里反复走真实环境路径。
+  - 调整测试结构，使逻辑验证与真实探测验证解耦。
+- `psutils/tests/hardware.Tests.ps1` + `psutils/modules/hardware.psm1`
+  - 加强平台 mock 与状态清理，避免上下文敏感失败。
+  - 减少非必要的真实系统探测次数，保留少量具代表性的真实分支验证。
+- `PesterConfiguration.ps1`
+  - 保持 full / fast / qa 的职责边界，不把性能问题简单转嫁给模式切换。
+
+**Success Criteria**
+
+- Host `full` 耗时较当前基线有显著下降。
+- `psutils/tests/test.Tests.ps1` 不再长期占据 Host `full` 的绝对主导时长。
+- 热点优化不依赖缩减 full 测试覆盖面，不以移除 `proxy.Tests`、降级 `all` 为代价。
+
+#### Phase 2: Output Noise Reduction
+
+**目标**
+
+- 保持 full 测试可诊断，但明显减少与失败定位无关的噪音。
+
+**主要任务**
+
+- `psutils/tests/cache.Tests.ps1`
+  - 处理重复缓存统计和清理打印，避免 full 日志被同类状态块刷屏。
+- `tests/Sync-PathFromBash.Tests.ps1`
+  - 抑制 `WhatIf` 和路径缓存写入在正常通过场景中的重复打印。
+- `psutils/tests/proxy.Tests.ps1`
+  - 抑制状态打印和代理测试场景中的用户展示型输出。
+- `psutils/tests/profile_windows.Tests.ps1`
+  - 将性能打印收口到更明确的调试/性能模式，避免常规 full 被吞没。
+- 相关模块 / 脚本
+  - 优先把“仅用于人工观察”的输出改到 `Verbose`、专门 debug 模式或测试内 mock。
+
+**Success Criteria**
+
+- `Normal` 输出下保留每个测试文件 / 套件级进度摘要、失败详情和汇总。
+- 常规通过日志中不再出现大量重复缓存统计、路径同步 `WhatIf` 和非必要状态打印。
+- 默认模式下不产生详细落盘日志；`debug` / `detailed` 路径仍能提供排错信息，不牺牲可诊断性。
+
+#### Phase 3: Linux Stability Baseline
 
 **目标**
 
@@ -162,58 +217,6 @@ pnpm test:pwsh:all
 - `pnpm test:pwsh:all` 在 Linux 路由上不再出现 `proxy.Tests` 的 `curl` 失败。
 - coverage 边界如果改变，文档同步更新且未造成“Linux 其实没覆盖率但文档仍写有覆盖率”的失真。
 - `pnpm test:pwsh:all` 能保留 host / linux 两路的最终结论，而不是在首个失败后直接丢失另一侧结果。
-
-#### Phase 2: Output Noise Reduction
-
-**目标**
-
-- 保持 full 测试可诊断，但明显减少与失败定位无关的噪音。
-
-**主要任务**
-
-- `psutils/tests/cache.Tests.ps1`
-  - 处理重复缓存统计和清理打印，避免 full 日志被同类状态块刷屏。
-- `tests/Sync-PathFromBash.Tests.ps1`
-  - 抑制 `WhatIf` 和路径缓存写入在正常通过场景中的重复打印。
-- `psutils/tests/proxy.Tests.ps1`
-  - 抑制状态打印和代理测试场景中的用户展示型输出。
-- `psutils/tests/profile_windows.Tests.ps1`
-  - 将性能打印收口到更明确的调试/性能模式，避免常规 full 被吞没。
-- 相关模块 / 脚本
-  - 优先把“仅用于人工观察”的输出改到 `Verbose`、专门 debug 模式或测试内 mock。
-
-**Success Criteria**
-
-- `Normal` 输出下保留每个测试文件耗时、失败详情和汇总。
-- 常规通过日志中不再出现大量重复缓存统计、路径同步 `WhatIf` 和非必要状态打印。
-- `debug` / `detailed` 路径仍能提供排错信息，不牺牲可诊断性。
-
-#### Phase 3: Hotspot Performance Optimization
-
-**目标**
-
-- 显著降低 Host `full` 的总耗时，并消除最重热点文件对整体时长的支配。
-
-**主要任务**
-
-- `psutils/tests/test.Tests.ps1` + `psutils/modules/test.psm1`
-  - 减少 `Test-EXEProgram`、`Test-ApplicationInstalled`、`Test-MacOSCaskApp`、`Test-HomebrewFormula` 的重复真实命令探测。
-  - 在测试场景中引入更可控的 fixture / mock，避免几十次命令未命中探测叠加到 full 链路。
-  - 优先评估是否可复用 `Find-ExecutableCommand` 类轻量 helper。
-- `psutils/tests/install.Tests.ps1` + `psutils/modules/install.psm1`
-  - 避免 `Get-Module -ListAvailable`、安装检测与 CLI 安装状态探测在同一套测试里反复走真实环境路径。
-  - 调整测试结构，使逻辑验证与真实探测验证解耦。
-- `psutils/tests/hardware.Tests.ps1` + `psutils/modules/hardware.psm1`
-  - 加强平台 mock 与状态清理，避免上下文敏感失败。
-  - 减少非必要的真实系统探测次数，保留少量具代表性的真实分支验证。
-- `PesterConfiguration.ps1`
-  - 继续保留 full / fast / qa 的职责边界，不把性能问题简单转嫁给模式切换。
-
-**Success Criteria**
-
-- Host `full` 耗时较当前基线有显著下降。
-- `psutils/tests/test.Tests.ps1` 不再长期占据 Host `full` 的绝对主导时长。
-- 热点优化不依赖缩减 full 测试覆盖面，不以移除 `proxy.Tests`、降级 `all` 为代价。
 
 ## Alternative Approaches Considered
 
@@ -251,6 +254,7 @@ pnpm test:pwsh:all
 
 3. **本地开发者执行 `pnpm test:pwsh:all`**
    - 期望 host / linux 两路输出可区分、任一路失败返回非零退出码、提交前一次完成跨环境验证。
+   - 期望默认输出能看到测试文件 / 套件级进度摘要，但不会被测试外杂项输出淹没。
 
 4. **Docker 不可用**
    - 期望文档明确 fallback，而不是对 `all` 的失败原因感到困惑。
@@ -266,6 +270,7 @@ pnpm test:pwsh:all
   - 需要在计划中明确：质量门禁定位不只是标签可区分，还应尽量保留 host / linux 两路的最终结论与关键产物。
 - **Noise definition**
   - 需要明确哪些输出属于应保留信号，哪些属于可迁移到 verbose/debug 的噪音。
+  - 需要明确默认模式不生成详细落盘日志，避免再引入新的 `test.log` 依赖。
 - **Performance target**
   - 需要在同一台机器 / 同一容器基线下记录 before/after，而不是用模糊的“感觉变快了”。
 - **Context-sensitive tests**
@@ -293,6 +298,7 @@ pnpm test:pwsh:all
   - 当前依赖 `concurrently` 标签区分 host / linux
   - 当前 `--kill-others-on-fail` 会在首个失败时中断另一侧
   - full 日志中同时混入模块级 `Write-Host`、`Write-Warning`、`WhatIf` 输出
+  - 后续需要保留文件 / 套件级进度摘要，同时把测试外杂项输出迁移到显式调试路径
 - 文档层
   - `docs/local-cross-platform-testing.md`、`CLAUDE.md`、`AGENTS.md` 与相关 OpenSpec 都对 `all` / `full` / coverage 语义有引用，行为变化必须同步回写
 
@@ -336,23 +342,39 @@ pnpm test:pwsh:all
 
 ## Acceptance Criteria
 
+- [x] `pnpm test:pwsh:all` 继续保持 `host full + linux full` 并发语义，不回退为 `fast` 组合。
+- [x] `psutils/tests/test.Tests.ps1`、`psutils/tests/install.Tests.ps1`、`psutils/tests/hardware.Tests.ps1` 都有 before/after 基线记录，并完成至少一轮定向优化。
 - [x] `psutils/tests/proxy.Tests.ps1` 在 Linux 容器中不再因 `curl` 命令假设失败。
 - [x] `pnpm test:pwsh:linux:full` 不再因为 code coverage 收尾的 `Normalize-Path` 异常失败；若采用 Host-only coverage 边界，则相关文档已同步说明。
-- [x] `pnpm test:pwsh:all` 继续保持 `host full + linux full` 并发语义，不回退为 `fast` 组合。
 - [x] `pnpm test:pwsh:all` 在任一路失败时仍能保留 host / linux 两路的最终结论，不再因聚合层过早中断而丢失另一侧诊断信息。
-- [ ] `Normal` 输出下保留文件级耗时、失败详情与最终汇总，同时显著减少重复缓存统计、路径同步 `WhatIf`、代理状态打印和非必要性能打印。
-- [ ] `psutils/tests/test.Tests.ps1`、`psutils/tests/install.Tests.ps1`、`psutils/tests/hardware.Tests.ps1` 都有 before/after 基线记录，并完成至少一轮定向优化。
+- [ ] `Normal` 输出下保留文件 / 套件级进度摘要、失败详情与最终汇总，同时显著减少重复缓存统计、路径同步 `WhatIf`、代理状态打印和非必要性能打印。
+- [x] 默认模式不生成 `test.log` 一类详细落盘日志；详细输出仅在显式调试模式开启时产生。
 - [x] 热点优化不通过删除 `proxy.Tests`、移除 Linux 路由或缩减 `full` 测试语义来达成。
 - [x] `pnpm qa` 继续通过，`qa:pwsh` 的快速质量门职责不被破坏。
-- [x] 若 `full` 与 coverage 的绑定语义发生变化，相关 OpenSpec、README、CLAUDE、AGENTS 与本地测试文档全部同步更新。
+- [ ] 若 `full` 与 coverage 的绑定语义发生变化，相关 OpenSpec、README、CLAUDE、AGENTS 与本地测试文档全部同步更新。
 
 ## Success Metrics
 
 - 在同一台 Windows 主机上，`pnpm test:pwsh:full` 目标从当前约 `271s` 降到 `180s` 以内；若最终无法达到，必须附带热点阻塞说明与 before/after 数据。
+- 在同一台 Windows 主机上，`pnpm test:pwsh:all` 目标较当前基线显著下降，且主导耗时仍然来自 `host full` 而不是新的日志 / 聚合开销。
 - 在同一台 Windows 主机上，`psutils/tests/test.Tests.ps1` 的 `fast` 单文件运行目标从当前约 `117s` 降到 `60s` 以内。
 - 在同一台 Windows 主机上，`psutils/tests/install.Tests.ps1` 的 `fast` 单文件运行目标从当前约 `11.4s` 降到 `6s` 以内。
 - `pnpm test:pwsh:linux:full` 在同一 Docker 环境中稳定通过，且不再出现 coverage 收尾崩溃。
-- `test:pwsh:all` 的通过日志中，重复低价值输出块数量显著下降，失败源可在一屏内定位。
+- `test:pwsh:all` 的通过日志中，重复低价值输出块数量显著下降，失败源可在一屏内定位，且默认无额外详细日志落盘副作用。
+
+## Validation Notes
+
+- 2026-03-15 本地基线与结果：
+  - `psutils/tests/test.Tests.ps1`（fast, 单文件）从约 `29.18s` 降到约 `12.32s`；其中最重的 `brew` 缺失探测场景从约 `22.06s` 降到子秒级。
+  - `psutils/tests/install.Tests.ps1`（fast, 单文件）从约 `20.09s` 降到约 `3.58s`；最慢的“安装未安装模块”场景从约 `16.63s` 降到约 `0.135s`。
+  - `psutils/tests/hardware.Tests.ps1`（fast, 单文件）从“失败且约 `39-49s`”收敛到稳定通过，单文件约 `4.66s`。
+- 2026-03-15 验证命令：
+  - `pnpm qa`
+  - `pnpm test:pwsh:all`
+- 2026-03-15 观测：
+  - `pnpm test:pwsh:all` 通过，host 与 linux 两路均完整结束。
+  - Host `full` 的主要时间热点已不再集中在 `test.Tests.ps1`、`install.Tests.ps1`、`hardware.Tests.ps1`。
+  - 默认输出中的无关提示已减少，但 `WhatIf` 主机提示和少量 warning 仍有残留，后续可继续收口。
 
 ## Dependencies & Prerequisites
 
@@ -402,7 +424,8 @@ pnpm test:pwsh:all
 - **Brainstorm document:** `docs/brainstorms/2026-03-14-pwsh-test-optimization-brainstorm.md`
   - Carried-forward decisions:
     - 保持 `test:pwsh:all` 的质量门禁定位
-    - 先稳再快，拆成 Linux 稳定性 / 输出降噪 / 热点提速三条线
+    - 以热点提速为第一优先级，Linux 稳定性与输出治理作为配套线
+    - 默认控制台保留测试文件 / 套件级进度摘要，隐藏输出不展示也不落盘
     - Linux coverage 若属 Pester / 容器兼容问题，则由 Host `full` 承担 coverage
 
 ### Internal References

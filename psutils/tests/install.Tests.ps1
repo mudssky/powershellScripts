@@ -233,15 +233,16 @@ Describe "Install-RequiredModule 函数测试" {
 
     It "应该跳过已安装的模块而不抛出错误" {
         Mock -ModuleName install Test-ModuleInstalled { return $true }
-        Mock -ModuleName install Import-Module { }
+        Mock -ModuleName install Import-InstalledModule { }
 
         { Install-RequiredModule -ModuleNames @("AlreadyInstalled") } | Should -Not -Throw
     }
 
     It "应该尝试安装未安装的模块" {
         Mock -ModuleName install Test-ModuleInstalled { return $false }
-        Mock -ModuleName install Install-Module { }
-        Mock -ModuleName install Import-Module { }
+        # 包装函数把外部 cmdlet 收口到模块内部，测试只验证控制流而不触发真实安装。
+        Mock -ModuleName install Invoke-InstallModuleCommand { }
+        Mock -ModuleName install Import-InstalledModule { }
         Mock -ModuleName install Write-Host { }
 
         { Install-RequiredModule -ModuleNames @("NewModule") } | Should -Not -Throw
@@ -249,7 +250,7 @@ Describe "Install-RequiredModule 函数测试" {
 
     It "应该在安装失败时发出警告而非抛出异常" {
         Mock -ModuleName install Test-ModuleInstalled { return $false }
-        Mock -ModuleName install Install-Module { throw "安装失败" }
+        Mock -ModuleName install Invoke-InstallModuleCommand { throw "安装失败" }
         Mock -ModuleName install Write-Host { }
 
         { Install-RequiredModule -ModuleNames @("FailModule") } | Should -Not -Throw
