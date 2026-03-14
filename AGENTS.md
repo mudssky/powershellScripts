@@ -1,4 +1,6 @@
-每个任务完成时，执行根目录pnpm qa修复出现的问题
+- 每个任务完成时，执行根目录pnpm qa修复出现的问题
+- 你必须为所有输出的代码补充清晰规范的注释。公共接口标注核心功能、入参、返回值，非直观逻辑补充设计意图，- 不重复代码本身的语义。
+- 创建skill时使用中文，除了术语等
 
 当创建或更新 `openspec/changes/**` 与 `openspec/specs/**` 下的 OpenSpec 工件（`proposal.md`、`design.md`、`tasks.md`、`specs/**/*.md`、`validation.md`）时：
 
@@ -6,6 +8,3 @@
 2) OpenSpec 结构关键词与固定术语保持原样（`ADDED Requirements`、`MODIFIED Requirements`、`REMOVED Requirements`、`RENAMED Requirements`、`Requirement`、`Scenario`、`WHEN`、`THEN`、`BREAKING`）。
 3) 除上述标题、关键词与固定术语外，其余叙述必须使用简体中文。
 4) 代码、命令、路径、参数名保持原样。
-
-
-创建skill时使用中文，除了术语等
