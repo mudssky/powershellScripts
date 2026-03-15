@@ -1,4 +1,6 @@
-Import-Module (Join-Path $PSScriptRoot '..' 'psutils.psd1')
+BeforeAll {
+    Import-Module (Join-Path $PSScriptRoot '..' 'modules' 'git.psm1') -Force
+}
 
 Describe 'Git 模块函数' {
     Context 'Get-GitIgnorePatterns 解析有效行' {
@@ -70,4 +72,8 @@ Describe 'Git 模块函数' {
             Remove-Item -LiteralPath $testRoot -Recurse -Force
         }
     }
+}
+
+AfterAll {
+    Remove-Module git -Force -ErrorAction SilentlyContinue
 }

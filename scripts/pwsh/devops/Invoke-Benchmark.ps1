@@ -123,6 +123,50 @@ function Select-BenchmarkCatalogItem {
         -Header '请选择要运行的 benchmark'
 }
 
+<#
+.SYNOPSIS
+    解析要执行的 benchmark 条目。
+
+.DESCRIPTION
+    将“显式名称”与“交互选择”两条控制流统一收口成一个 helper，便于测试只验证
+    路由决策，而不必每次都真的拉起 benchmark 子进程。
+
+.PARAMETER Catalog
+    可用 benchmark 目录项。
+
+.PARAMETER Name
+    显式传入的 benchmark 名称；为空时走交互选择。
+
+.PARAMETER RepoRoot
+    仓库根目录，用于按需导入交互选择模块。
+
+.OUTPUTS
+    PSCustomObject
+    返回命中的 benchmark 条目；若交互取消则返回 `$null`。
+#>
+function Resolve-BenchmarkCatalogItem {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object[]]$Catalog,
+        [string]$Name,
+        [Parameter(Mandatory)]
+        [string]$RepoRoot
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Name)) {
+        return Select-BenchmarkCatalogItem -Catalog $Catalog -RepoRoot $RepoRoot
+    }
+
+    $selected = $Catalog | Where-Object { $_.Name -eq $Name } | Select-Object -First 1
+    if ($selected) {
+        return $selected
+    }
+
+    $availableNames = ($Catalog | Select-Object -ExpandProperty Name) -join ', '
+    throw "未知 benchmark: $Name。可用值: $availableNames"
+}
+
 function Complete-BenchmarkScript {
     [CmdletBinding()]
     param(
@@ -218,55 +262,133 @@ function Write-BenchmarkHostWarning {
     Write-Warning $Message
 }
 
-$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..' '..')).Path
-$effectiveBenchmarksRoot = $BenchmarksRoot
-if ([string]::IsNullOrWhiteSpace($effectiveBenchmarksRoot)) {
-    $effectiveBenchmarksRoot = Join-Path $repoRoot 'tests' 'benchmarks'
-}
+<#
+.SYNOPSIS
+    执行选中的 benchmark 脚本。
 
-if (-not (Test-Path $effectiveBenchmarksRoot)) {
-    throw "benchmark 目录不存在: $effectiveBenchmarksRoot"
-}
+.DESCRIPTION
+    将真实子进程调用包成单独 helper，测试可以通过 mock 这个边界保留 CLI 契约，
+    同时避免每个断言都重复拉起新的 `pwsh` 进程。
 
-$catalog = Get-BenchmarkCatalog -BenchmarksRoot $effectiveBenchmarksRoot
-if ($catalog.Count -eq 0) {
-    throw "未找到可用 benchmark: $effectiveBenchmarksRoot"
-}
+.PARAMETER BenchmarkPath
+    要执行的 benchmark 脚本绝对路径。
 
-if ($List) {
-    Write-BenchmarkHostMessage -Message 'Available benchmarks:' -ForegroundColor Cyan
-    foreach ($entry in $catalog) {
-        Write-BenchmarkHostMessage -Message ("  - {0} ({1})" -f $entry.Name, $entry.File)
+.PARAMETER BenchmarkArgs
+    透传给 benchmark 脚本的原始参数。
+
+.OUTPUTS
+    PSCustomObject
+    返回退出码与原始输出，便于调用方保留现有 CLI 行为。
+#>
+function Invoke-BenchmarkCatalogItem {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$BenchmarkPath,
+        [object[]]$BenchmarkArgs = @()
+    )
+
+    $pwshPath = (Get-Process -Id $PID).Path
+    if ([string]::IsNullOrWhiteSpace($pwshPath)) {
+        $pwshPath = 'pwsh'
     }
-    Complete-BenchmarkScript -ExitCode 0
+
+    $output = & $pwshPath -NoProfile -NoLogo -File $BenchmarkPath @BenchmarkArgs
+
+    return [PSCustomObject]@{
+        ExitCode = $LASTEXITCODE
+        Output   = @($output)
+    }
+}
+
+<#
+.SYNOPSIS
+    执行 benchmark 调度主流程。
+
+.DESCRIPTION
+    把“列出 catalog”“解析目标条目”“写提示文案”“执行脚本”收口到可复用 helper，
+    让测试既能验证真实 CLI 契约，也能在同进程里验证大部分路由逻辑。
+
+.OUTPUTS
+    PSCustomObject
+    返回退出码、选中的条目与原始输出，供脚本入口和测试共同消费。
+#>
+function Invoke-BenchmarkCommand {
+    [CmdletBinding()]
+    param(
+        [string]$Name,
+        [switch]$List,
+        [string]$BenchmarksRoot,
+        [object[]]$BenchmarkArgs = @()
+    )
+
+    $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..' '..')).Path
+    $effectiveBenchmarksRoot = $BenchmarksRoot
+    if ([string]::IsNullOrWhiteSpace($effectiveBenchmarksRoot)) {
+        $effectiveBenchmarksRoot = Join-Path $repoRoot 'tests' 'benchmarks'
+    }
+
+    if (-not (Test-Path $effectiveBenchmarksRoot)) {
+        throw "benchmark 目录不存在: $effectiveBenchmarksRoot"
+    }
+
+    $catalog = Get-BenchmarkCatalog -BenchmarksRoot $effectiveBenchmarksRoot
+    if ($catalog.Count -eq 0) {
+        throw "未找到可用 benchmark: $effectiveBenchmarksRoot"
+    }
+
+    if ($List) {
+        Write-BenchmarkHostMessage -Message 'Available benchmarks:' -ForegroundColor Cyan
+        foreach ($entry in $catalog) {
+            Write-BenchmarkHostMessage -Message ("  - {0} ({1})" -f $entry.Name, $entry.File)
+        }
+
+        return [PSCustomObject]@{
+            ExitCode = 0
+            Output   = @()
+            Selected = $null
+        }
+    }
+
+    $selected = Resolve-BenchmarkCatalogItem -Catalog $catalog -Name $Name -RepoRoot $repoRoot
+    if ($null -eq $selected) {
+        Write-BenchmarkHostWarning -Message '已取消 benchmark 选择，本次不执行任何 benchmark。'
+        return [PSCustomObject]@{
+            ExitCode = 0
+            Output   = @()
+            Selected = $null
+        }
+    }
+
+    Write-BenchmarkHostMessage -Message ("Running benchmark: {0}" -f $selected.Name) -ForegroundColor Cyan
+    Write-BenchmarkHostMessage -Message ("Script: {0}" -f $selected.File) -ForegroundColor DarkGray
+
+    $executionResult = Invoke-BenchmarkCatalogItem -BenchmarkPath $selected.Path -BenchmarkArgs $BenchmarkArgs
+
+    return [PSCustomObject]@{
+        ExitCode = $executionResult.ExitCode
+        Output   = @($executionResult.Output)
+        Selected = $selected
+    }
+}
+
+if ($env:PWSH_TEST_SKIP_BENCHMARK_MAIN -eq '1') {
     return
 }
 
-if ([string]::IsNullOrWhiteSpace($Name)) {
-    $selected = Select-BenchmarkCatalogItem -Catalog $catalog -RepoRoot $repoRoot
-    if ($null -eq $selected) {
-        Write-BenchmarkHostWarning -Message '已取消 benchmark 选择，本次不执行任何 benchmark。'
-        Complete-BenchmarkScript -ExitCode 0
-        return
-    }
+try {
+    $commandResult = Invoke-BenchmarkCommand -Name $Name -List:$List -BenchmarksRoot $BenchmarksRoot -BenchmarkArgs $BenchmarkArgs
 }
-else {
-    $selected = $catalog | Where-Object { $_.Name -eq $Name } | Select-Object -First 1
-    if (-not $selected) {
-        $availableNames = ($catalog | Select-Object -ExpandProperty Name) -join ', '
-        Write-Error "未知 benchmark: $Name。可用值: $availableNames"
-        Complete-BenchmarkScript -ExitCode 1
-        return
-    }
+catch {
+    # 测试内会把脚本直接当函数调用；这里显式降为 non-terminating error，
+    # 让脚本继续通过退出码表达失败，而不是把当前 Pester 进程一并打断。
+    Write-Error -Message $_.Exception.Message -ErrorAction Continue
+    Complete-BenchmarkScript -ExitCode 1
+    return
 }
 
-Write-BenchmarkHostMessage -Message ("Running benchmark: {0}" -f $selected.Name) -ForegroundColor Cyan
-Write-BenchmarkHostMessage -Message ("Script: {0}" -f $selected.File) -ForegroundColor DarkGray
-
-$pwshPath = (Get-Process -Id $PID).Path
-if ([string]::IsNullOrWhiteSpace($pwshPath)) {
-    $pwshPath = 'pwsh'
+foreach ($line in @($commandResult.Output)) {
+    Write-Output $line
 }
 
-& $pwshPath -NoProfile -File $selected.Path @BenchmarkArgs
-Complete-BenchmarkScript -ExitCode $LASTEXITCODE
+Complete-BenchmarkScript -ExitCode $commandResult.ExitCode

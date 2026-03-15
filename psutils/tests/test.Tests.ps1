@@ -3,6 +3,23 @@ BeforeAll {
     # Also import os.psm1 since Test-ApplicationInstalled depends on Get-OperatingSystem
     Import-Module "$PSScriptRoot\..\modules\os.psm1" -Force
     $script:IsFastTestMode = $env:PWSH_TEST_MODE -eq 'fast'
+    $script:ExecutableLookupMock = {
+        param([string]$Name)
+
+        if ($Name -eq 'pwsh') {
+            return [pscustomobject]@{
+                Name  = $Name
+                Found = $true
+                Path  = 'C:\Program Files\PowerShell\7\pwsh.exe'
+            }
+        }
+
+        return [pscustomobject]@{
+            Name  = $Name
+            Found = $false
+            Path  = $null
+        }
+    }
 }
 
 Describe "Test-EXEProgram 函数测试" {
@@ -36,45 +53,120 @@ Describe "Test-EXEProgram 函数测试" {
 
     Context "NoCache参数测试" {
         It "使用NoCache参数应该跳过缓存" {
-            # 第一次调用缓存结果
-            $result1 = Test-EXEProgram -Name "pwsh"
-            $result1 | Should -Be $true
+            InModuleScope test {
+                Mock Invoke-ExecutableLookup {
+                    param([string]$Name)
+                    if ($Name -eq 'pwsh') {
+                        return [pscustomobject]@{
+                            Name  = $Name
+                            Found = $true
+                            Path  = 'C:\Program Files\PowerShell\7\pwsh.exe'
+                        }
+                    }
 
-            # 使用NoCache应该重新检查
-            $result2 = Test-EXEProgram -Name "pwsh" -NoCache
-            $result2 | Should -Be $true
+                    return [pscustomobject]@{
+                        Name  = $Name
+                        Found = $false
+                        Path  = $null
+                    }
+                }
+
+                Clear-EXEProgramCache
+                $result1 = Test-EXEProgram -Name "pwsh"
+                $result1 | Should -Be $true
+
+                $result2 = Test-EXEProgram -Name "pwsh" -NoCache
+                $result2 | Should -Be $true
+
+                Should -Invoke Invoke-ExecutableLookup -Times 2 -Exactly
+            }
         }
 
         It "NoCache对不存在的程序也应该跳过缓存" {
-            $result = Test-EXEProgram -Name "nonexistentprogram_nocache_xyz" -NoCache
-            $result | Should -Be $false
+            InModuleScope test {
+                Mock Invoke-ExecutableLookup {
+                    param([string]$Name)
+                    if ($Name -eq 'pwsh') {
+                        return [pscustomobject]@{
+                            Name  = $Name
+                            Found = $true
+                            Path  = 'C:\Program Files\PowerShell\7\pwsh.exe'
+                        }
+                    }
+
+                    return [pscustomobject]@{
+                        Name  = $Name
+                        Found = $false
+                        Path  = $null
+                    }
+                }
+
+                $result = Test-EXEProgram -Name "nonexistentprogram_nocache_xyz" -NoCache
+                $result | Should -Be $false
+                Should -Invoke Invoke-ExecutableLookup -Times 1 -Exactly
+            }
         }
     }
 
     Context "缓存机制测试" {
         It "相同程序的重复调用应该使用缓存" {
-            # 先清除缓存
-            Clear-EXEProgramCache
+            InModuleScope test {
+                Mock Invoke-ExecutableLookup {
+                    param([string]$Name)
+                    if ($Name -eq 'pwsh') {
+                        return [pscustomobject]@{
+                            Name  = $Name
+                            Found = $true
+                            Path  = 'C:\Program Files\PowerShell\7\pwsh.exe'
+                        }
+                    }
 
-            # 第一次调用
-            $result1 = Test-EXEProgram -Name "pwsh"
-            $result1 | Should -Be $true
+                    return [pscustomobject]@{
+                        Name  = $Name
+                        Found = $false
+                        Path  = $null
+                    }
+                }
 
-            # 第二次调用应该从缓存获取
-            $result2 = Test-EXEProgram -Name "pwsh"
-            $result2 | Should -Be $true
+                Clear-EXEProgramCache
+                $result1 = Test-EXEProgram -Name "pwsh"
+                $result1 | Should -Be $true
+
+                $result2 = Test-EXEProgram -Name "pwsh"
+                $result2 | Should -Be $true
+
+                Should -Invoke Invoke-ExecutableLookup -Times 1 -Exactly
+            }
         }
 
         It "不存在的程序不应该被缓存" {
-            Clear-EXEProgramCache
+            InModuleScope test {
+                Mock Invoke-ExecutableLookup {
+                    param([string]$Name)
+                    if ($Name -eq 'pwsh') {
+                        return [pscustomobject]@{
+                            Name  = $Name
+                            Found = $true
+                            Path  = 'C:\Program Files\PowerShell\7\pwsh.exe'
+                        }
+                    }
 
-            # 不存在的程序返回false，不缓存
-            $result = Test-EXEProgram -Name "definitely_not_a_program_xyz"
-            $result | Should -Be $false
+                    return [pscustomobject]@{
+                        Name  = $Name
+                        Found = $false
+                        Path  = $null
+                    }
+                }
 
-            # 再次调用应该重新检查（因为未缓存）
-            $result2 = Test-EXEProgram -Name "definitely_not_a_program_xyz"
-            $result2 | Should -Be $false
+                Clear-EXEProgramCache
+                $result = Test-EXEProgram -Name "definitely_not_a_program_xyz"
+                $result | Should -Be $false
+
+                $result2 = Test-EXEProgram -Name "definitely_not_a_program_xyz"
+                $result2 | Should -Be $false
+
+                Should -Invoke Invoke-ExecutableLookup -Times 2 -Exactly
+            }
         }
     }
 
@@ -249,17 +341,32 @@ Describe "Test-PathMust 内部函数测试" {
 Describe "Test-ApplicationInstalled 函数测试" {
     Context "基本功能测试" {
         It "检测存在的程序应该返回true" {
-            $result = Test-ApplicationInstalled -AppName "pwsh"
-            $result | Should -Be $true
+            InModuleScope test {
+                Mock Get-OperatingSystem { return 'Linux' }
+                Mock Test-EXEProgram { return $true }
+
+                $result = Test-ApplicationInstalled -AppName "pwsh"
+                $result | Should -Be $true
+            }
         }
 
         It "检测不存在的程序应该返回false" {
-            $result = Test-ApplicationInstalled -AppName "definitely_not_installed_xyz_123"
-            $result | Should -Be $false
+            InModuleScope test {
+                Mock Get-OperatingSystem { return 'Linux' }
+                Mock Test-EXEProgram { return $false }
+
+                $result = Test-ApplicationInstalled -AppName "definitely_not_installed_xyz_123"
+                $result | Should -Be $false
+            }
         }
 
         It "函数不应该抛出异常" {
-            { Test-ApplicationInstalled -AppName "pwsh" } | Should -Not -Throw
+            InModuleScope test {
+                Mock Get-OperatingSystem { return 'Linux' }
+                Mock Test-EXEProgram { return $true }
+
+                { Test-ApplicationInstalled -AppName "pwsh" } | Should -Not -Throw
+            }
         }
     }
 }
@@ -268,9 +375,12 @@ Describe "Test-MacOSCaskApp 函数测试" {
     Context "基本功能测试" {
         It "在非macOS系统上检测应该返回false（无brew）" {
             if (-not $IsMacOS) {
-                # 在非 macOS 上 brew 通常不存在，且 /Applications 路径不存在
-                $result = Test-MacOSCaskApp -AppName "google-chrome"
-                $result | Should -Be $false
+                InModuleScope test {
+                    Mock Test-EXEProgram { return $false }
+
+                    $result = Test-MacOSCaskApp -AppName "google-chrome"
+                    $result | Should -Be $false
+                }
             }
         }
 
@@ -285,16 +395,20 @@ Describe "Test-MacOSCaskApp 函数测试" {
 Describe "Test-HomebrewFormula 函数测试" {
     Context "基本功能测试" {
         It "在没有brew的系统上应该返回false" {
-            # 测试本身也走仓库内的轻量命令探测，避免再次把缺失 brew 的慢路径引回基线。
-            $brewLookup = Find-ExecutableCommand -Name "brew" -CacheMisses
-            if (-not $brewLookup.Found) {
+            InModuleScope test {
+                Mock Test-EXEProgram { return $false }
+
                 $result = Test-HomebrewFormula -AppName "nonexistent-formula"
                 $result | Should -Be $false
             }
         }
 
         It "函数不应该抛出异常" {
-            { Test-HomebrewFormula -AppName "some-formula" } | Should -Not -Throw
+            InModuleScope test {
+                Mock Test-EXEProgram { return $false }
+
+                { Test-HomebrewFormula -AppName "some-formula" } | Should -Not -Throw
+            }
         }
     }
 }
@@ -302,13 +416,23 @@ Describe "Test-HomebrewFormula 函数测试" {
 Describe "Test-MacOSApplicationInstalled 函数测试" {
     Context "基本功能测试" {
         It "FilterCli为true时应该只检测命令行程序" {
-            $result = Test-MacOSApplicationInstalled -AppName "pwsh" -FilterCli $true
-            $result | Should -Be $true
+            InModuleScope test {
+                Mock Test-EXEProgram { return $true }
+
+                $result = Test-MacOSApplicationInstalled -AppName "pwsh" -FilterCli $true
+                $result | Should -Be $true
+            }
         }
 
         It "检测不存在的程序应该返回false" {
-            $result = Test-MacOSApplicationInstalled -AppName "definitely_not_installed_xyz_456"
-            $result | Should -Be $false
+            InModuleScope test {
+                Mock Test-EXEProgram { return $false }
+                Mock Test-MacOSCaskApp { return $false }
+                Mock Test-HomebrewFormula { return $false }
+
+                $result = Test-MacOSApplicationInstalled -AppName "definitely_not_installed_xyz_456"
+                $result | Should -Be $false
+            }
         }
     }
 }

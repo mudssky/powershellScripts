@@ -55,6 +55,100 @@ $script:MD5Provider = [System.Security.Cryptography.MD5]::Create()
 
 <#
 .SYNOPSIS
+    返回缓存模块当前使用的时间戳。
+
+.DESCRIPTION
+    将时间读取集中到一个 helper，便于模块内部复用，也为测试收口提供单一 seam。
+
+.OUTPUTS
+    datetime
+    返回当前时间。
+#>
+function Get-CacheCurrentTime {
+    [CmdletBinding()]
+    param()
+
+    return Get-Date
+}
+
+<#
+.SYNOPSIS
+    枚举缓存目录下的缓存文件。
+
+.DESCRIPTION
+    统一封装缓存文件扫描逻辑，避免不同公共函数重复拼接同一套
+    `Get-ChildItem` 参数，并为后续优化保留单一边界。
+
+.PARAMETER BaseDir
+    要扫描的缓存目录；默认使用模块主缓存目录。
+
+.OUTPUTS
+    System.IO.FileInfo[]
+    返回缓存文件数组；目录不存在或无文件时返回空数组。
+#>
+function Get-CacheFiles {
+    [CmdletBinding()]
+    param(
+        [string]$BaseDir = $script:CacheBaseDir
+    )
+
+    return @(Get-ChildItem -Path $BaseDir -Filter "*.cache.*" -File -ErrorAction SilentlyContinue)
+}
+
+<#
+.SYNOPSIS
+    基于单次文件枚举结果聚合缓存统计。
+
+.DESCRIPTION
+    `Get-CacheStats` 过去会对同一批文件重复执行 `Where-Object`、`Sort-Object`
+    与 `Measure-Object`。这里改为单次遍历聚合，减少热点测试里的重复成本。
+
+.PARAMETER CacheFiles
+    已枚举的缓存文件数组。
+
+.OUTPUTS
+    hashtable
+    返回文件数、大小、类型分布以及最旧/最新时间。
+#>
+function Get-CacheFileStatistics {
+    [CmdletBinding()]
+    param(
+        [AllowNull()]
+        [object[]]$CacheFiles = @()
+    )
+
+    $cacheFileItems = @($CacheFiles)
+    $stats = @{
+        TotalFiles = $cacheFileItems.Count
+        TotalSize  = 0L
+        XMLFiles   = 0
+        TextFiles  = 0
+        OldestFile = $null
+        NewestFile = $null
+    }
+
+    foreach ($file in $cacheFileItems) {
+        $stats.TotalSize += $file.Length
+
+        switch ($file.Extension) {
+            '.xml' { $stats.XMLFiles++ }
+            '.txt' { $stats.TextFiles++ }
+        }
+
+        if (($null -eq $stats.OldestFile) -or ($file.LastWriteTime -lt $stats.OldestFile)) {
+            $stats.OldestFile = $file.LastWriteTime
+        }
+
+        if (($null -eq $stats.NewestFile) -or ($file.LastWriteTime -gt $stats.NewestFile)) {
+            $stats.NewestFile = $file.LastWriteTime
+        }
+    }
+
+    return $stats
+}
+
+<#
+.SYNOPSIS
     清理过期的缓存文件
     扫描缓存目录并删除超过指定时间的缓存文件
 
@@ -111,7 +205,7 @@ function Clear-ExpiredCache {
 
     try {
         # 获取所有缓存文件
-        $cacheFiles = Get-ChildItem -Path $script:CacheBaseDir -Filter "*.cache.*" -File -ErrorAction SilentlyContinue
+        $cacheFiles = Get-CacheFiles
         $cleanupStats.TotalFiles = $cacheFiles.Count
 
         if ($cleanupStats.TotalFiles -eq 0) {
@@ -119,7 +213,7 @@ function Clear-ExpiredCache {
             return $cleanupStats
         }
 
-        $cutoffTime = (Get-Date) - $MaxAge
+        $cutoffTime = (Get-CacheCurrentTime) - $MaxAge
         Write-Verbose "清理截止时间: $cutoffTime"
 
         foreach ($file in $cacheFiles) {
@@ -163,7 +257,7 @@ function Clear-ExpiredCache {
 
         # 更新统计信息
         $script:CacheStats.CleanupRuns++
-        $script:CacheStats.LastCleanup = Get-Date
+        $script:CacheStats.LastCleanup = Get-CacheCurrentTime
 
         # 输出清理结果
         $freedSpaceKB = [math]::Round($cleanupStats.FreedSpace / 1KB, 2)
@@ -243,16 +337,9 @@ function Get-CacheStats {
 
     try {
         # 获取缓存文件信息
-        $cacheFiles = Get-ChildItem -Path $script:CacheBaseDir -Filter "*.cache.*" -File -ErrorAction SilentlyContinue
-        $stats.FileStats.TotalFiles = $cacheFiles.Count
-
-        if ($cacheFiles.Count -gt 0) {
-            $stats.FileStats.TotalSize = ($cacheFiles | Measure-Object -Property Length -Sum).Sum
-            $stats.FileStats.XMLFiles = ($cacheFiles | Where-Object { $_.Extension -eq '.xml' }).Count
-            $stats.FileStats.TextFiles = ($cacheFiles | Where-Object { $_.Extension -eq '.txt' }).Count
-            $stats.FileStats.OldestFile = ($cacheFiles | Sort-Object LastWriteTime | Select-Object -First 1).LastWriteTime
-            $stats.FileStats.NewestFile = ($cacheFiles | Sort-Object LastWriteTime -Descending | Select-Object -First 1).LastWriteTime
-        }
+        $cacheFiles = Get-CacheFiles
+        $fileStats = Get-CacheFileStatistics -CacheFiles $cacheFiles
+        $stats.FileStats = $fileStats
 
         # 计算性能指标
         $totalRequests = $script:CacheStats.Hits + $script:CacheStats.Misses
@@ -283,8 +370,9 @@ function Get-CacheStats {
 
         if ($Detailed -and $cacheFiles.Count -gt 0) {
             Write-Host "\n=== 详细文件信息 ===" -ForegroundColor Cyan
+            $currentTime = Get-CacheCurrentTime
             $cacheFiles | Sort-Object LastWriteTime -Descending | ForEach-Object {
-                $age = (Get-Date) - $_.LastWriteTime
+                $age = $currentTime - $_.LastWriteTime
                 $sizeKB = [math]::Round($_.Length / 1KB, 2)
                 Write-Host "$($_.Name) - $sizeKB KB - $([math]::Round($age.TotalHours, 1)) 小时前" -ForegroundColor Gray
             }
@@ -442,7 +530,7 @@ function Invoke-WithCache {
             $fileInfo = Get-Item $cacheFile -ErrorAction SilentlyContinue
             if ($fileInfo) {
                 $expiryTime = $fileInfo.LastWriteTime + $MaxAge
-                if ((Get-Date) -lt $expiryTime) {
+                if ((Get-CacheCurrentTime) -lt $expiryTime) {
                     Write-Verbose "缓存命中 (Cache hit) for key: '$Key'"
                     $cacheHit = $true
                     $script:CacheStats.Hits++
@@ -592,7 +680,7 @@ function Invoke-WithFileCache {
     $safeKey = ($Key -replace "[^a-zA-Z0-9._-]", "-")
     $cacheFile = Join-Path $BaseDir ("$safeKey.ps1")
     if (Test-Path $cacheFile) {
-        $age = (Get-Date) - (Get-Item $cacheFile).LastWriteTime
+        $age = (Get-CacheCurrentTime) - (Get-Item $cacheFile).LastWriteTime
         if ($age -lt $MaxAge) { return $cacheFile }
     }
     $content = & $Generator | Out-String

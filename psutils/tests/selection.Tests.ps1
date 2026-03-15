@@ -149,10 +149,9 @@ Describe 'Select-InteractiveItem' {
         }
     }
 
-    It '通过 psutils manifest 导出 Select-InteractiveItem' {
-        Import-Module (Join-Path $PSScriptRoot '..' 'psutils.psd1') -Force
+    It 'psutils manifest 显式导出 Select-InteractiveItem' {
+        $manifest = Import-PowerShellDataFile (Join-Path $PSScriptRoot '..' 'psutils.psd1')
 
-        $command = Get-Command -Module psutils -Name Select-InteractiveItem
-        $command | Should -Not -BeNullOrEmpty
+        @($manifest.FunctionsToExport) | Should -Contain 'Select-InteractiveItem'
     }
 }

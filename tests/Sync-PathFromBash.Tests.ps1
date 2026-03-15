@@ -47,7 +47,7 @@ Describe 'Sync-PathFromBash basic behavior' {
             )
 
             $childScript = $childSegments -join '; '
-            $output = & $pwshPath -NoProfile -Command $childScript 2>&1
+            $output = & $pwshPath -NoProfile -NoLogo -Command $childScript 2>&1
 
             return [PSCustomObject]@{
                 ExitCode = $LASTEXITCODE

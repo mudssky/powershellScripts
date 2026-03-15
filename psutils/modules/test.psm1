@@ -15,6 +15,31 @@ if (
 
 <#
 .SYNOPSIS
+    统一包装可执行命令探测。
+
+.DESCRIPTION
+    将 `Find-ExecutableCommand` 收口到模块内部 helper，公共行为保持不变，
+    但为测试提供稳定的 mock 边界，避免缓存与控制流断言反复触发真实 PATH 扫描。
+
+.PARAMETER Name
+    要查找的可执行命令名。
+
+.OUTPUTS
+    PSCustomObject
+    返回底层命令探测结果对象。
+#>
+function Invoke-ExecutableLookup {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Name
+    )
+
+    return Find-ExecutableCommand -Name $Name
+}
+
+<#
+.SYNOPSIS
     判断环境变量中是否存在可执行程序。
 
 .DESCRIPTION
@@ -73,7 +98,7 @@ function Test-EXEProgram() {
         # 如果不使用缓存或缓存中没有该程序的记录，则进行检查
         if ($NoCache -or -not $script:ExeProgramCache.ContainsKey($Name)) {
             Write-Verbose "检查可执行程序: $Name"
-            $commandLookup = Find-ExecutableCommand -Name $Name
+            $commandLookup = Invoke-ExecutableLookup -Name $Name
             $result = [bool]($commandLookup -and $commandLookup.Found)
             
             # 仅当结果为 true (即找到程序) 时才缓存
