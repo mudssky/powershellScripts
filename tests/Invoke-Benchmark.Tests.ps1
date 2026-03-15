@@ -190,4 +190,43 @@ Set-Content -Path $MarkerPath -Value 'should-not-run'
         $LASTEXITCODE | Should -Be 0
         (Test-Path $script:MarkerPath) | Should -BeFalse
     }
+
+    It '仓库内的 help-search benchmark 可通过显式名称执行' {
+        $helpSearchInputRoot = Join-Path $script:TestRoot 'help-search-input'
+        $helpSearchOutputPath = Join-Path $script:TestRoot 'help-search-report.json'
+        New-Item -Path $helpSearchInputRoot -ItemType Directory -Force | Out-Null
+
+        # 使用最小输入目录做 smoke，验证 benchmark 路由与报告输出，
+        # 避免把真实仓库全量扫描成本重新带进这个 CLI 测试文件。
+        Set-Content -Path (Join-Path $helpSearchInputRoot 'SampleModule.psm1') -Encoding utf8NoBOM -Value @'
+<#
+.SYNOPSIS
+    测试搜索模块
+#>
+function Get-BenchmarkThing {
+    <#
+    .SYNOPSIS
+        帮助搜索 smoke
+    #>
+    param()
+    return 'ok'
+}
+'@
+
+        & $script:PwshPath -NoProfile -File $script:InvokeBenchmarkScriptPath `
+            'help-search' `
+            -SearchTerm 'Benchmark' `
+            -ModulePath $helpSearchInputRoot `
+            -OutputPath $helpSearchOutputPath `
+            -AsJson
+
+        $LASTEXITCODE | Should -Be 0
+        (Test-Path $helpSearchOutputPath) | Should -BeTrue
+
+        $report = Get-Content -Path $helpSearchOutputPath -Raw | ConvertFrom-Json
+        $report.SearchTerm | Should -Be 'Benchmark'
+        $report.ModulePath | Should -Be $helpSearchInputRoot
+        [double]$report.CustomTimeMs | Should -BeGreaterOrEqual 0
+        [double]$report.GetHelpTimeMs | Should -BeGreaterOrEqual 0
+    }
 }

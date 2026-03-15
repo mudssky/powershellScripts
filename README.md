@@ -447,6 +447,9 @@ pnpm qa:benchmark
 
 # 指定输出目录
 pnpm qa:benchmark -- --output-dir /tmp/qa-benchmarks
+
+# 单独对比帮助搜索的自定义解析与 Get-Help 路径
+pnpm benchmark -- help-search
 ```
 
 输出包含：
@@ -454,6 +457,10 @@ pnpm qa:benchmark -- --output-dir /tmp/qa-benchmarks
 - `latest.json`（最新一次采样）
 - `qa-benchmark-<timestamp>.json`（带时间戳历史样本）
 - `summary.md`（可直接在 CI artifact 中查看）
+
+`pnpm benchmark -- help-search` 属于诊断 / 性能比较入口，
+用于观察 `Search-ModuleHelp` 的两条实现路径在当前环境下的差异；
+它不属于默认 `pnpm test:pwsh:all` 提交门禁的一部分。
 
 CI 中已提供独立工作流 `.github/workflows/qa-benchmark.yml`，
 用于单独执行并上传 QA 基准采样结果，避免影响常规测试流水线。

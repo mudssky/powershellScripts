@@ -989,9 +989,15 @@ function Get-FunctionHelp {
 .PARAMETER ModulePath
     模块路径
 
+.PARAMETER Quiet
+    仅返回性能报告对象，不输出默认控制台摘要，便于 benchmark 或脚本消费
+
 .EXAMPLE
     Test-HelpSearchPerformance "Get"
     比较搜索"Get"关键词的性能
+
+.OUTPUTS
+    [PSCustomObject] 返回包含两种搜索策略计时结果与倍率的性能报告对象
 #>
 function Test-HelpSearchPerformance {
 
@@ -1001,39 +1007,70 @@ function Test-HelpSearchPerformance {
         [string]$SearchTerm = "Get",
         
         [Parameter()]
-        [string]$ModulePath = (Split-Path -Parent $PSScriptRoot)
+        [string]$ModulePath = (Split-Path -Parent $PSScriptRoot),
+
+        [Parameter()]
+        [switch]$Quiet
     )
-    
-    Write-Host "性能对比测试 - 搜索关键词: '$SearchTerm'" -ForegroundColor Yellow
-    Write-Host "模块路径: $ModulePath" -ForegroundColor Gray
-    Write-Host ""
-    
-    # 测试自定义解析方法
-    Write-Host "测试自定义解析方法..." -ForegroundColor Cyan
+
+    # 性能比较属于诊断型工作流；这里统一静音 Search-ModuleHelp 的弃用警告，
+    # 避免 benchmark 输出被重复 warning 稀释，也避免额外干扰计时阅读。
     $customTime = Measure-Command {
-        $customResults = Search-ModuleHelp -SearchTerm $SearchTerm -ModulePath $ModulePath
+        $customResults = Search-ModuleHelp -SearchTerm $SearchTerm -ModulePath $ModulePath -WarningAction SilentlyContinue
     }
-    
-    Write-Host "自定义解析结果: 找到 $($customResults.Count) 个项目，耗时 $($customTime.TotalMilliseconds.ToString('F2')) 毫秒" -ForegroundColor Green
-    
-    # 测试Get-Help方法
-    Write-Host "测试Get-Help方法..." -ForegroundColor Cyan
+
     $getHelpTime = Measure-Command {
-        $getHelpResults = Search-ModuleHelp -SearchTerm $SearchTerm -ModulePath $ModulePath -UseGetHelp
+        $getHelpResults = Search-ModuleHelp -SearchTerm $SearchTerm -ModulePath $ModulePath -UseGetHelp -WarningAction SilentlyContinue
     }
-    
-    Write-Host "Get-Help结果: 找到 $($getHelpResults.Count) 个项目，耗时 $($getHelpTime.TotalMilliseconds.ToString('F2')) 毫秒" -ForegroundColor Green
-    
-    # 性能对比
-    Write-Host ""
-    Write-Host "性能对比:" -ForegroundColor Yellow
-    $speedup = $getHelpTime.TotalMilliseconds / $customTime.TotalMilliseconds
-    if ($speedup -gt 1) {
-        Write-Host "自定义解析比Get-Help快 $($speedup.ToString('F2')) 倍" -ForegroundColor Green
+
+    $customCount = @($customResults).Count
+    $getHelpCount = @($getHelpResults).Count
+    $speedup = if ($customTime.TotalMilliseconds -gt 0) {
+        $getHelpTime.TotalMilliseconds / $customTime.TotalMilliseconds
     }
     else {
-        Write-Host "Get-Help比自定义解析快 $((1/$speedup).ToString('F2')) 倍" -ForegroundColor Red
+        $null
     }
+
+    $report = [PSCustomObject]@{
+        SearchTerm          = $SearchTerm
+        ModulePath          = $ModulePath
+        CustomResultCount   = $customCount
+        CustomTimeMs        = [math]::Round($customTime.TotalMilliseconds, 2)
+        GetHelpResultCount  = $getHelpCount
+        GetHelpTimeMs       = [math]::Round($getHelpTime.TotalMilliseconds, 2)
+        SpeedupVsCustom     = if ($null -ne $speedup) { [math]::Round($speedup, 2) } else { $null }
+        FasterStrategy      = if ($null -eq $speedup) {
+            'unknown'
+        }
+        elseif ($speedup -gt 1) {
+            'custom'
+        }
+        else {
+            'get-help'
+        }
+    }
+
+    if (-not $Quiet) {
+        Write-Host "性能对比测试 - 搜索关键词: '$SearchTerm'" -ForegroundColor Yellow
+        Write-Host "模块路径: $ModulePath" -ForegroundColor Gray
+        Write-Host ""
+        Write-Host "自定义解析结果: 找到 $customCount 个项目，耗时 $($report.CustomTimeMs.ToString('F2')) 毫秒" -ForegroundColor Green
+        Write-Host "Get-Help结果: 找到 $getHelpCount 个项目，耗时 $($report.GetHelpTimeMs.ToString('F2')) 毫秒" -ForegroundColor Green
+        Write-Host ""
+        Write-Host "性能对比:" -ForegroundColor Yellow
+        if ($null -eq $speedup) {
+            Write-Host "无法计算性能倍率：自定义解析耗时为 0。"
+        }
+        elseif ($speedup -gt 1) {
+            Write-Host "自定义解析比Get-Help快 $($speedup.ToString('F2')) 倍" -ForegroundColor Green
+        }
+        else {
+            Write-Host "Get-Help比自定义解析快 $((1 / $speedup).ToString('F2')) 倍" -ForegroundColor Red
+        }
+    }
+
+    return $report
 }
 
 # 导出函数

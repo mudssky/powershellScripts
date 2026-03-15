@@ -214,7 +214,9 @@ Describe "Get-EnvParam 函数测试" {
         }
 
         It "应该接受Process目标" {
-            { Get-EnvParam -ParamName "Path" -EnvTarget Process } | Should -Not -Throw
+            # Linux/macOS 上进程级环境变量名通常是大写 `PATH`，这里接受实现发出“Path 未设置”的预期警告，
+            # 但默认 full 日志里不需要重复展示该提示。
+            { Get-EnvParam -ParamName "Path" -EnvTarget Process -WarningAction SilentlyContinue } | Should -Not -Throw
         }
     }
 }

@@ -267,6 +267,12 @@ Describe "Get-BrowserPath 内部函数测试" {
 }
 
 Describe "Save-Icon 内部函数测试" {
+    BeforeEach {
+        # 这些场景主要验证返回值与回退策略，失败 warning 属于预期路径，
+        # 默认门禁日志里直接静音，避免与真正异常混淆。
+        Mock -ModuleName web Write-Warning { }
+    }
+
     Context "基本功能" {
         It "下载失败时应该返回false" {
             InModuleScope web {

@@ -66,6 +66,19 @@ pnpm test:pwsh:full && pnpm test:pwsh:linux:full
 | `pnpm test:pwsh:debug` | Host | ❌ | 详细调试输出 |
 | `pnpm test:pwsh:profile` | Host | ❌ | Profile 专项测试 |
 
+## Diagnostic Benchmarks
+
+默认 `pnpm test:pwsh:all` 只承担提交前的功能与跨平台断言门禁；
+性能比较、实现路径对照这类诊断型工作流，统一走 benchmark 入口。
+
+```bash
+# 对比帮助搜索的自定义解析与 Get-Help 路径
+pnpm benchmark -- help-search
+```
+
+该 benchmark 适合在优化 `psutils/modules/help.psm1`、`Search-ModuleHelp` 或相关测试热点时手动运行，
+但它不属于默认 full 门禁的一部分。
+
 ## Artifact Isolation
 
 Host 和容器测试的输出隔离策略：

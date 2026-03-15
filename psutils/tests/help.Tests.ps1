@@ -313,19 +313,8 @@ Describe "Get-FunctionHelp 函数测试" {
     }
 }
 
-Describe "Test-HelpSearchPerformance 函数测试" {
-    BeforeEach {
-        # 性能对比测试只关心是否能跑通，不需要把演示型输出带到默认门禁日志。
-        Mock -ModuleName help Write-Host { }
-        Mock -ModuleName help Write-Warning { }
-    }
-
-    Context "性能测试功能" {
-        It "应该不报错地执行性能对比" {
-            { Test-HelpSearchPerformance -SearchTerm "Get" } | Should -Not -Throw
-        }
-    }
-}
+# 性能比较已迁移到 tests/benchmarks/HelpSearch.Benchmark.ps1，
+# 这里保留功能性搜索断言，不再让 full 门禁承担诊断型 benchmark 开销。
 
 AfterAll {
     # 清理测试环境

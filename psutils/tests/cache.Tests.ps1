@@ -21,8 +21,8 @@ BeforeAll {
     $env:LOCALAPPDATA = $TestDrive
 
     # 导入被测试的模块
-    $ModulePath = Join-Path $PSScriptRoot ".." "modules" "cache.psm1"
-    Import-Module $ModulePath -Force
+    $script:CacheModulePath = (Resolve-Path (Join-Path $PSScriptRoot ".." "modules" "cache.psm1")).Path
+    Import-Module $script:CacheModulePath -Force
 
     # 定义测试用的缓存目录
     if ($IsWindows) {
@@ -52,6 +52,36 @@ BeforeAll {
     function Clear-TestCache {
         if (Test-Path $script:TestCacheDir) {
             Get-ChildItem $script:TestCacheDir -Filter "*.cache.*" | Remove-Item -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    function Invoke-CacheWhatIfChild {
+        param(
+            [Parameter(Mandatory)]
+            [string]$ModulePath,
+            [Parameter(Mandatory)]
+            [string]$LocalAppDataPath,
+            [Parameter(Mandatory)]
+            [string]$Key
+        )
+
+        # WhatIf 主机提示不会被常规重定向静音，因此这里改用子进程承接提示文本，
+        # 父测试进程只断言语义与副作用结果，避免默认门禁日志继续出现残留提示。
+        $pwshPath = (Get-Process -Id $PID).Path
+        $escapedModulePath = $ModulePath.Replace("'", "''")
+        $escapedLocalAppDataPath = $LocalAppDataPath.Replace("'", "''")
+        $escapedKey = $Key.Replace("'", "''")
+        $childScript = @(
+            '$ErrorActionPreference = ''Stop'''
+            "`$env:LOCALAPPDATA = '$escapedLocalAppDataPath'"
+            "Import-Module '$escapedModulePath' -Force"
+            "Invoke-WithCache -Key '$escapedKey' -ScriptBlock { 'test' } -WhatIf"
+        ) -join '; '
+        $output = & $pwshPath -NoProfile -Command $childScript 2>&1
+
+        return [PSCustomObject]@{
+            ExitCode = $LASTEXITCODE
+            Output   = @($output | ForEach-Object { $_.ToString() })
         }
     }
 }
@@ -124,9 +154,8 @@ Describe "Invoke-WithCache" {
             # 第一次调用，设置很短的过期时间
             $result1 = Invoke-WithCache -Key "test-expiry" -ScriptBlock $scriptBlock -MaxAge ([TimeSpan]::FromMilliseconds(100))
             $result1 | Should -Be "Result: 1"
-
-            # 等待缓存过期
-            Start-Sleep -Milliseconds 200
+            # 直接回拨缓存文件时间戳，避免真实等待拖慢门禁，同时保持过期语义真实成立。
+            (Get-ChildItem $script:TestCacheDir -Filter "*.cache.*" | Select-Object -First 1).LastWriteTime = (Get-Date).AddSeconds(-1)
 
             # 第二次调用应该重新执行
             $result2 = Invoke-WithCache -Key "test-expiry" -ScriptBlock $scriptBlock -MaxAge ([TimeSpan]::FromMilliseconds(100))
@@ -271,8 +300,9 @@ Describe "Invoke-WithCache" {
 
     Context "ShouldProcess支持测试" {
         It "应该支持WhatIf参数" {
-            # WhatIf 文案属于 PowerShell 主机提示，不属于断言结果，默认测试日志里直接静音。
-            $result = Invoke-WithCache -Key "test-whatif" -ScriptBlock { "test" } -WhatIf 6>$null
+            $childResult = Invoke-CacheWhatIfChild -ModulePath $script:CacheModulePath -LocalAppDataPath $TestDrive -Key "test-whatif"
+            $childResult.ExitCode | Should -Be 0
+            ($childResult.Output -join "`n") | Should -Match 'What if: Performing the operation "Invoke-WithCache" on target "Executing script block with key ''test-whatif''"\.'
             # WhatIf模式下不应该执行脚本块或创建缓存
             $cacheFiles = Get-ChildItem $script:TestCacheDir -Filter "*.cache.*" -ErrorAction SilentlyContinue
             (@($cacheFiles)).Count | Should -Be 0
@@ -655,9 +685,8 @@ Describe "Invoke-WithFileCache 函数测试" {
     Context "过期测试" {
         It "过期的缓存应该重新生成" {
             $result1 = Invoke-WithFileCache -Key "test-expire-fc" -MaxAge ([TimeSpan]::FromMilliseconds(100)) -Generator { "first" } -BaseDir $script:FileCacheBaseDir
-
-            # 等待过期
-            Start-Sleep -Milliseconds 200
+            # 直接回拨文件时间戳，避免真实等待，同时仍通过真实文件元数据验证过期逻辑。
+            (Get-Item $result1).LastWriteTime = (Get-Date).AddSeconds(-1)
 
             $result2 = Invoke-WithFileCache -Key "test-expire-fc" -MaxAge ([TimeSpan]::FromMilliseconds(100)) -Generator { "second" } -BaseDir $script:FileCacheBaseDir
 
