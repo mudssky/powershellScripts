@@ -29,6 +29,7 @@
     "test:pwsh:profile": "pwsh -NoProfile -Command \"$env:PWSH_TEST_MODE='serial'; $env:PWSH_TEST_PATH='./tests/ProfileMode.Tests.ps1'; $env:PWSH_TEST_VERBOSE='1'; $c = ./PesterConfiguration.ps1; $c.Run.Exit = $true; Invoke-Pester -Configuration $c\"",
     "test:pwsh:slow": "pwsh -NoProfile -Command \"$c = ./PesterConfiguration.ps1; $c.Run.Exit = $true; $c.Filter.Tag = 'Slow'; $c.Filter.ExcludeTag = @($c.Filter.ExcludeTag.Value | Where-Object { $_ -ne 'Slow' }); Invoke-Pester -Configuration $c\"",
     "test:pwsh:detailed": "pwsh -NoProfile -Command \"$env:PWSH_TEST_MODE='full'; $env:PWSH_TEST_VERBOSE='1'; $c = ./PesterConfiguration.ps1; $c.Run.Exit = $true; Invoke-Pester -Configuration $c\"",
+    "test:pwsh:slowest": "node ./scripts/pester-duration-report.mjs --command \"pnpm test:pwsh:full\"",
     "test:pwsh:all:slowest": "node ./scripts/pester-duration-report.mjs --command \"pnpm test:pwsh:all\"",
     "benchmark": "pwsh -NoProfile -File ./scripts/pwsh/devops/Invoke-Benchmark.ps1",
     "scripts:install": "pwsh  -File ./install.ps1",
