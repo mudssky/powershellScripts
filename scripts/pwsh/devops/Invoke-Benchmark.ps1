@@ -90,6 +90,10 @@ function Import-BenchmarkSelectionModule {
         throw "交互选择模块不存在: $selectionModulePath"
     }
 
+    if (Get-Module -Name selection) {
+        return
+    }
+
     Import-Module $selectionModulePath -Force -ErrorAction Stop
 }
 
@@ -119,6 +123,22 @@ function Select-BenchmarkCatalogItem {
         -Header '请选择要运行的 benchmark'
 }
 
+function Complete-BenchmarkScript {
+    [CmdletBinding()]
+    param(
+        [int]$ExitCode = 0
+    )
+
+    # 测试会在当前 Pester 进程内直接调用本脚本；
+    # 这里通过专用环境变量切换为 `return`，避免脚本内的 `exit` 直接终止宿主测试进程。
+    if ($env:PWSH_TEST_IN_PROCESS_BENCHMARK -eq '1') {
+        $global:LASTEXITCODE = $ExitCode
+        return
+    }
+
+    exit $ExitCode
+}
+
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..' '..')).Path
 $effectiveBenchmarksRoot = $BenchmarksRoot
 if ([string]::IsNullOrWhiteSpace($effectiveBenchmarksRoot)) {
@@ -139,6 +159,7 @@ if ($List) {
     foreach ($entry in $catalog) {
         Write-Host ("  - {0} ({1})" -f $entry.Name, $entry.File)
     }
+    Complete-BenchmarkScript -ExitCode 0
     return
 }
 
@@ -146,6 +167,7 @@ if ([string]::IsNullOrWhiteSpace($Name)) {
     $selected = Select-BenchmarkCatalogItem -Catalog $catalog -RepoRoot $repoRoot
     if ($null -eq $selected) {
         Write-Warning '已取消 benchmark 选择，本次不执行任何 benchmark。'
+        Complete-BenchmarkScript -ExitCode 0
         return
     }
 }
@@ -154,7 +176,8 @@ else {
     if (-not $selected) {
         $availableNames = ($catalog | Select-Object -ExpandProperty Name) -join ', '
         Write-Error "未知 benchmark: $Name。可用值: $availableNames"
-        exit 1
+        Complete-BenchmarkScript -ExitCode 1
+        return
     }
 }
 
@@ -167,4 +190,4 @@ if ([string]::IsNullOrWhiteSpace($pwshPath)) {
 }
 
 & $pwshPath -NoProfile -File $selected.Path @BenchmarkArgs
-exit $LASTEXITCODE
+Complete-BenchmarkScript -ExitCode $LASTEXITCODE

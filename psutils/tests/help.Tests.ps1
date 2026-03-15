@@ -10,32 +10,90 @@ BeforeAll {
     # 导入被测试的模块
     Import-Module "$PSScriptRoot\..\modules\help.psm1" -Force
 
-    # 设置测试环境
-    $script:TestModulePath = "$PSScriptRoot\.."
+    # 为搜索类测试构造最小帮助夹具，避免每次断言都递归扫描整个 psutils 目录。
+    $script:HelpFixtureRoot = Join-Path $TestDrive 'help-fixtures'
+    New-Item -ItemType Directory -Path $script:HelpFixtureRoot -Force | Out-Null
+
+    @'
+<#
+.SYNOPSIS
+    返回测试环境里的操作系统
+
+.DESCRIPTION
+    用于帮助搜索测试的最小函数集合。
+#>
+function Get-OperatingSystem {
+    param()
+    return 'TestOS'
+}
+
+<#
+.SYNOPSIS
+    install 测试工具
+
+.DESCRIPTION
+    用于验证关键词搜索会命中 synopsis 和 description。
+#>
+function Install-TestTool {
+    param()
+    return 'ok'
+}
+
+function Get-Alpha {
+    <#
+    .SYNOPSIS
+        Alpha 函数
+    #>
+    param()
+}
+
+function Get-Beta {
+    param()
+}
+
+function Set-Gamma {
+    param()
+}
+
+function Invoke-Delta {
+    param()
+}
+'@ | Set-Content -Path (Join-Path $script:HelpFixtureRoot 'fixture-help.psm1') -Encoding utf8NoBOM
+
+    @'
+<#
+.SYNOPSIS
+    install script helper
+#>
+param()
+
+Write-Output 'fixture script'
+'@ | Set-Content -Path (Join-Path $script:HelpFixtureRoot 'install-helper.ps1') -Encoding utf8NoBOM
 }
 
 Describe "Search-ModuleHelp 函数测试" {
     Context "基本搜索功能" {
         It "应该能够搜索到包含指定关键词的函数" {
-            $results = Search-ModuleHelp -SearchTerm "install" -ModulePath $script:TestModulePath -WarningAction SilentlyContinue
+            $results = Search-ModuleHelp -SearchTerm "install" -ModulePath $script:HelpFixtureRoot -WarningAction SilentlyContinue
             $results | Should -Not -BeNullOrEmpty
             $results.Count | Should -BeGreaterThan 0
+            $results.Name | Should -Contain "Install-TestTool"
         }
 
         It "应该能够精确搜索指定的函数名" {
-            $results = Search-ModuleHelp -FunctionName "Get-OperatingSystem" -ModulePath $script:TestModulePath -WarningAction SilentlyContinue
+            $results = Search-ModuleHelp -FunctionName "Get-OperatingSystem" -ModulePath $script:HelpFixtureRoot -WarningAction SilentlyContinue
             if ($results) {
                 $results.Name | Should -Be "Get-OperatingSystem"
             }
         }
 
         It "搜索不存在的函数应该返回空结果" {
-            $results = Search-ModuleHelp -FunctionName "NonExistentFunction" -ModulePath $script:TestModulePath -WarningAction SilentlyContinue
+            $results = Search-ModuleHelp -FunctionName "NonExistentFunction" -ModulePath $script:HelpFixtureRoot -WarningAction SilentlyContinue
             $results | Should -BeNullOrEmpty
         }
 
         It "不指定搜索词应该返回所有函数" {
-            $results = Search-ModuleHelp -ModulePath $script:TestModulePath -WarningAction SilentlyContinue
+            $results = Search-ModuleHelp -ModulePath $script:HelpFixtureRoot -WarningAction SilentlyContinue
             $results | Should -Not -BeNullOrEmpty
             $results.Count | Should -BeGreaterThan 5
         }
@@ -43,13 +101,14 @@ Describe "Search-ModuleHelp 函数测试" {
 
     Context "参数验证" {
         It "无效的模块路径应该产生错误" {
-            { Search-ModuleHelp -SearchTerm "test" -ModulePath "/tmp/NonExistentPath_xyz" -ErrorAction Stop -WarningAction SilentlyContinue } | Should -Throw
+            $missingPath = Join-Path $TestDrive 'missing-help-fixture'
+            { Search-ModuleHelp -SearchTerm "test" -ModulePath $missingPath -ErrorAction Stop -WarningAction SilentlyContinue } | Should -Throw
         }
     }
 
     Context "结果格式验证" {
         It "返回的结果应该包含必要的属性" {
-            $results = Search-ModuleHelp -SearchTerm "Get" -ModulePath $script:TestModulePath -WarningAction SilentlyContinue
+            $results = Search-ModuleHelp -SearchTerm "Get" -ModulePath $script:HelpFixtureRoot -WarningAction SilentlyContinue
             if ($results) {
                 $result = $results[0]
                 $result.PSObject.Properties.Name | Should -Contain "Name"
@@ -65,13 +124,15 @@ Describe "Search-ModuleHelp 函数测试" {
 
     Context "UseGetHelp模式测试" {
         It "使用UseGetHelp应该不报错" {
-            { Search-ModuleHelp -SearchTerm "Get" -ModulePath $script:TestModulePath -UseGetHelp -WarningAction SilentlyContinue } | Should -Not -Throw
+            { Search-ModuleHelp -SearchTerm "Get" -ModulePath $script:HelpFixtureRoot -UseGetHelp -WarningAction SilentlyContinue } | Should -Not -Throw
         }
     }
 
     Context "IncludeScripts模式测试" {
         It "IncludeScripts应该包含.ps1文件" {
-            { Search-ModuleHelp -SearchTerm "Get" -ModulePath $script:TestModulePath -IncludeScripts -WarningAction SilentlyContinue } | Should -Not -Throw
+            $results = Search-ModuleHelp -SearchTerm "install" -ModulePath $script:HelpFixtureRoot -IncludeScripts -WarningAction SilentlyContinue
+            $results | Should -Not -BeNullOrEmpty
+            ($results | Where-Object { $_.Type -eq 'Script' }).Count | Should -BeGreaterThan 0
         }
     }
 }
@@ -264,24 +325,60 @@ function Test-GetHelpFunc {
 Describe "Find-PSUtilsFunction 函数测试" {
     Context "快速搜索功能" {
         It "应该能够搜索psutils模块中的函数" {
-            $results = Find-PSUtilsFunction "Get"
-            $results | Should -Not -BeNullOrEmpty
+            # 这里只验证 wrapper 是否把参数透传给 Search-ModuleHelp；
+            # 真实搜索行为已在 Search-ModuleHelp 自己的夹具测试中覆盖。
+            InModuleScope help {
+                Mock Search-ModuleHelp {
+                    @(
+                        [PSCustomObject]@{
+                            Name = 'Get-OperatingSystem'
+                            Synopsis = 'fixture'
+                        }
+                    )
+                }
+
+                $results = Find-PSUtilsFunction "Get"
+                $results | Should -Not -BeNullOrEmpty
+                $results[0].Name | Should -Be 'Get-OperatingSystem'
+                Should -Invoke Search-ModuleHelp -Times 1 -Exactly
+            }
         }
 
         It "无参数调用应该返回所有函数" {
-            $results = Find-PSUtilsFunction
-            $results | Should -Not -BeNullOrEmpty
-            $results.Count | Should -BeGreaterThan 5
+            InModuleScope help {
+                Mock Search-ModuleHelp {
+                    @(
+                        [PSCustomObject]@{ Name = 'Get-One'; Synopsis = 'one' }
+                        [PSCustomObject]@{ Name = 'Get-Two'; Synopsis = 'two' }
+                    )
+                }
+
+                $results = Find-PSUtilsFunction
+                $results | Should -Not -BeNullOrEmpty
+                $results.Count | Should -Be 2
+            }
         }
 
         It "搜索不存在的函数应返回空" {
-            $results = Find-PSUtilsFunction "ZZZNonExistentFunctionXYZ"
-            $results | Should -BeNullOrEmpty
+            InModuleScope help {
+                Mock Search-ModuleHelp { $null }
+                $results = Find-PSUtilsFunction "ZZZNonExistentFunctionXYZ"
+                $results | Should -BeNullOrEmpty
+            }
         }
 
         It "应该返回包含正确属性的对象" {
-            $results = Find-PSUtilsFunction "Get"
-            if ($results) {
+            InModuleScope help {
+                Mock Search-ModuleHelp {
+                    @(
+                        [PSCustomObject]@{
+                            Name = 'Get-OperatingSystem'
+                            Synopsis = 'fixture synopsis'
+                        }
+                    )
+                }
+
+                $results = Find-PSUtilsFunction "Get"
                 $results[0].PSObject.Properties.Name | Should -Contain "Name"
                 $results[0].PSObject.Properties.Name | Should -Contain "Synopsis"
             }
@@ -292,23 +389,56 @@ Describe "Find-PSUtilsFunction 函数测试" {
 Describe "Get-FunctionHelp 函数测试" {
     Context "函数帮助获取" {
         It "应该能够获取指定函数的帮助信息" {
-            $results = Get-FunctionHelp "Get-OperatingSystem"
-            if ($results) {
+            InModuleScope help {
+                Mock Search-ModuleHelp {
+                    [PSCustomObject]@{
+                        Name = 'Get-OperatingSystem'
+                        Synopsis = 'fixture synopsis'
+                    }
+                }
+
+                $results = Get-FunctionHelp "Get-OperatingSystem" -ModulePath $script:HelpFixtureRoot
                 $results.Name | Should -Be "Get-OperatingSystem"
+                Should -Invoke Search-ModuleHelp -Times 1 -Exactly
             }
         }
 
         It "获取不存在的函数应该返回空" {
-            $results = Get-FunctionHelp "ZZZNonExistentXYZ"
-            $results | Should -BeNullOrEmpty
+            InModuleScope help {
+                Mock Search-ModuleHelp { $null }
+
+                $results = Get-FunctionHelp "ZZZNonExistentXYZ" -ModulePath $script:HelpFixtureRoot
+                $results | Should -BeNullOrEmpty
+            }
         }
 
         It "应该支持UseGetHelp参数" {
-            { Get-FunctionHelp "Get-OperatingSystem" -UseGetHelp } | Should -Not -Throw
+            InModuleScope help {
+                Mock Search-ModuleHelp {
+                    [PSCustomObject]@{
+                        Name = 'Get-OperatingSystem'
+                        Synopsis = 'fixture synopsis'
+                    }
+                }
+
+                { Get-FunctionHelp "Get-OperatingSystem" -ModulePath $script:HelpFixtureRoot -UseGetHelp } | Should -Not -Throw
+                Should -Invoke Search-ModuleHelp -Times 1 -Exactly
+            }
         }
 
         It "应该支持IncludeScripts参数" {
-            { Get-FunctionHelp "Get-OperatingSystem" -IncludeScripts } | Should -Not -Throw
+            InModuleScope help {
+                Mock Search-ModuleHelp {
+                    [PSCustomObject]@{
+                        Name = 'install-helper'
+                        Type = 'Script'
+                        Synopsis = 'fixture script'
+                    }
+                }
+
+                { Get-FunctionHelp "install-helper" -ModulePath $script:HelpFixtureRoot -IncludeScripts } | Should -Not -Throw
+                Should -Invoke Search-ModuleHelp -Times 1 -Exactly
+            }
         }
     }
 }

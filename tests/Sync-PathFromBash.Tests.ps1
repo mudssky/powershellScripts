@@ -6,15 +6,15 @@ Describe 'Sync-PathFromBash basic behavior' {
         Import-Module $script:EnvModulePath -Force
         $script:OriginalMockPath = $env:PWSH_TEST_BASH_PATH
         $env:PWSH_TEST_BASH_PATH = "C:\Fake\Bin;C:\Windows\System32"
-        $script:InvokeSyncPathFromBashWhatIfChild = {
+        $script:InvokeSyncPathFromBashWhatIfBatchChild = {
             <#
             .SYNOPSIS
-                在子进程中执行 `Sync-PathFromBash -WhatIf` 并捕获控制台输出。
+                在单个子进程中批量执行多条 `Sync-PathFromBash -WhatIf` 并捕获控制台输出。
 
             .DESCRIPTION
                 PowerShell 的 WhatIf 主机提示不会被常规流重定向静音。
-                这里改为在独立 `pwsh` 子进程中运行待测命令，把提示文本收集回父测试进程，
-                既保留 ShouldProcess 语义验证，又避免默认 Pester 日志被提示刷屏。
+                这里把 append / prepend / login 三条路径合并到同一个 `pwsh` 子进程里运行，
+                既保留 ShouldProcess 语义验证，又减少重复 shell 启动与模块导入成本。
 
             .PARAMETER ModulePath
                 `env.psm1` 的绝对路径，供子进程导入模块。
@@ -22,28 +22,16 @@ Describe 'Sync-PathFromBash basic behavior' {
             .PARAMETER MockPath
                 传给 `PWSH_TEST_BASH_PATH` 的模拟 PATH 文本，用于让子进程走稳定的测试分支。
 
-            .PARAMETER Login
-                是否在子进程里附加 `-Login` 参数。
-
-            .PARAMETER Prepend
-                是否在子进程里附加 `-Prepend` 参数。
-
-            .PARAMETER VerboseOutput
-                是否在子进程里附加 `-Verbose` 参数。
-
             .OUTPUTS
                 `PSCustomObject`
-                返回子进程退出码与捕获到的文本输出，便于断言 WhatIf 提示是否出现。
+                返回子进程退出码与捕获到的文本输出，便于断言多个 WhatIf 提示都出现。
             #>
             [CmdletBinding()]
             param(
                 [Parameter(Mandatory)]
                 [string]$ModulePath,
                 [Parameter(Mandatory)]
-                [string]$MockPath,
-                [switch]$Login,
-                [switch]$Prepend,
-                [switch]$VerboseOutput
+                [string]$MockPath
             )
 
             $pwshPath = (Get-Process -Id $PID).Path
@@ -54,19 +42,9 @@ Describe 'Sync-PathFromBash basic behavior' {
                 "Import-Module '$escapedModulePath' -Force"
                 "`$env:PWSH_TEST_BASH_PATH = '$escapedMockPath'"
                 'Sync-PathFromBash -WhatIf -ReturnObject:$false -CacheSeconds 0'
+                'Sync-PathFromBash -WhatIf -ReturnObject:$false -CacheSeconds 0 -Prepend'
+                'Sync-PathFromBash -WhatIf -ReturnObject:$false -CacheSeconds 0 -Login'
             )
-
-            if ($Login) {
-                $childSegments[-1] += ' -Login'
-            }
-
-            if ($Prepend) {
-                $childSegments[-1] += ' -Prepend'
-            }
-
-            if ($VerboseOutput) {
-                $childSegments[-1] += ' -Verbose'
-            }
 
             $childScript = $childSegments -join '; '
             $output = & $pwshPath -NoProfile -Command $childScript 2>&1
@@ -95,31 +73,15 @@ Describe 'Sync-PathFromBash basic behavior' {
         $result.PSObject.Properties.Name | Should -Contain 'NewPath'
     }
 
-    It 'should support Prepend strategy without error when WhatIf' {
-        $testDir = Join-Path $TestDrive 'prepend-whatif'
+    It 'should support append, prepend and login WhatIf branches without error' {
+        $testDir = Join-Path $TestDrive 'whatif-batch'
         New-Item -ItemType Directory -Path $testDir -Force | Out-Null
 
-        $result = & $script:InvokeSyncPathFromBashWhatIfChild -ModulePath $script:EnvModulePath -MockPath $testDir -Prepend
+        $result = & $script:InvokeSyncPathFromBashWhatIfBatchChild -ModulePath $script:EnvModulePath -MockPath $testDir
         $result.ExitCode | Should -Be 0
-        ($result.Output -join "`n") | Should -Match 'What if: Performing the operation "Prepend 1 路径到 PATH" on target "PATH"\.'
-    }
-
-    It 'should support Append strategy (default) without error when WhatIf' {
-        $testDir = Join-Path $TestDrive 'append-whatif'
-        New-Item -ItemType Directory -Path $testDir -Force | Out-Null
-
-        $result = & $script:InvokeSyncPathFromBashWhatIfChild -ModulePath $script:EnvModulePath -MockPath $testDir
-        $result.ExitCode | Should -Be 0
-        ($result.Output -join "`n") | Should -Match 'What if: Performing the operation "Append 1 路径到 PATH" on target "PATH"\.'
-    }
-
-    It 'should support Login branch without error when WhatIf' {
-        $testDir = Join-Path $TestDrive 'login-whatif'
-        New-Item -ItemType Directory -Path $testDir -Force | Out-Null
-
-        $result = & $script:InvokeSyncPathFromBashWhatIfChild -ModulePath $script:EnvModulePath -MockPath $testDir -Login
-        $result.ExitCode | Should -Be 0
-        ($result.Output -join "`n") | Should -Match 'What if: Performing the operation "Append 1 路径到 PATH" on target "PATH"\.'
+        $outputText = $result.Output -join "`n"
+        $outputText | Should -Match 'What if: Performing the operation "Append 1 路径到 PATH" on target "PATH"\.'
+        $outputText | Should -Match 'What if: Performing the operation "Prepend 1 路径到 PATH" on target "PATH"\.'
     }
 }
 

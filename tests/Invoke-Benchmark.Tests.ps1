@@ -3,6 +3,8 @@ Set-StrictMode -Version Latest
 BeforeAll {
     $script:InvokeBenchmarkScriptPath = Join-Path $PSScriptRoot '..' 'scripts' 'pwsh' 'devops' 'Invoke-Benchmark.ps1'
     $script:PwshPath = (Get-Process -Id $PID).Path
+    $script:SelectionModulePath = Join-Path $PSScriptRoot '..' 'psutils' 'modules' 'selection.psm1'
+    $script:OriginalInProcessBenchmarkFlag = [Environment]::GetEnvironmentVariable('PWSH_TEST_IN_PROCESS_BENCHMARK', 'Process')
     # Unix 测试会把 PATH 临时切到工具目录，因此先解析 chmod 的绝对路径，避免后续补执行权限时再依赖 PATH。
     $script:ChmodPath = if ($IsWindows) { $null } else { (Get-Command chmod -ErrorAction Stop).Source }
     $script:NewTestBenchmarkScript = {
@@ -65,6 +67,7 @@ Describe 'Invoke-Benchmark.ps1' {
         $script:TestRoot = Join-Path $TestDrive ([Guid]::NewGuid().ToString())
         $script:BenchmarksRoot = Join-Path $script:TestRoot 'benchmarks'
         $script:MarkerPath = Join-Path $script:TestRoot 'marker.txt'
+        $env:PWSH_TEST_IN_PROCESS_BENCHMARK = '1'
         # Linux/macOS 的 TestDrive 通常位于 /tmp；某些容器挂载会让这里的文件不适合作为外部可执行程序。
         # 因此 Unix 下把 fake fzf 放到仓库内的临时目录，保证 PowerShell 能正常拉起它。
         $script:ToolsPath = if ($IsWindows) {
@@ -91,7 +94,17 @@ Describe 'Invoke-Benchmark.ps1' {
             $env:FAKE_FZF_MARKER = $script:OriginalFakeFzfMarker
         }
 
+        Remove-Module selection -Force -ErrorAction SilentlyContinue
         Remove-Item -Path $script:ToolsPath -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    AfterAll {
+        if ($null -eq $script:OriginalInProcessBenchmarkFlag) {
+            Remove-Item Env:\PWSH_TEST_IN_PROCESS_BENCHMARK -ErrorAction SilentlyContinue
+        }
+        else {
+            $env:PWSH_TEST_IN_PROCESS_BENCHMARK = $script:OriginalInProcessBenchmarkFlag
+        }
     }
 
     It '显式传入 benchmark 名称时保持原有非交互执行路径' {
@@ -108,7 +121,7 @@ param(
 Set-Content -Path $MarkerPath -Value ("{0}|{1}" -f $Message, $Iterations)
 '@
 
-        & $script:PwshPath -NoProfile -File $script:InvokeBenchmarkScriptPath `
+        $null = & $script:InvokeBenchmarkScriptPath `
             'sample-one' `
             -BenchmarksRoot $script:BenchmarksRoot `
             -MarkerPath $script:MarkerPath `
@@ -138,8 +151,12 @@ Set-Content -Path $MarkerPath -Value 'second'
 '@
 
         $env:PATH = $script:ToolsPath
+        Import-Module $script:SelectionModulePath -Force
+        Mock -ModuleName selection Test-InteractiveSelectionFzfAvailable { return $false }
+        Mock -ModuleName selection Read-Host { return '2' }
+        Mock -ModuleName selection Write-Host {}
 
-        '2' | & $script:PwshPath -NoProfile -File $script:InvokeBenchmarkScriptPath `
+        $null = & $script:InvokeBenchmarkScriptPath `
             -BenchmarksRoot $script:BenchmarksRoot `
             -MarkerPath $script:MarkerPath
 
@@ -162,7 +179,7 @@ Set-Content -Path $MarkerPath -Value 'fzf-selected'
         $env:PATH = $script:ToolsPath
         $env:FAKE_FZF_MARKER = $fzfMarkerPath
 
-        & $script:PwshPath -NoProfile -File $script:InvokeBenchmarkScriptPath `
+        $null = & $script:InvokeBenchmarkScriptPath `
             -BenchmarksRoot $script:BenchmarksRoot `
             -MarkerPath $script:MarkerPath
 
@@ -182,8 +199,12 @@ Set-Content -Path $MarkerPath -Value 'should-not-run'
 '@
 
         $env:PATH = $script:ToolsPath
+        Import-Module $script:SelectionModulePath -Force
+        Mock -ModuleName selection Test-InteractiveSelectionFzfAvailable { return $false }
+        Mock -ModuleName selection Read-Host { return '' }
+        Mock -ModuleName selection Write-Host {}
 
-        '' | & $script:PwshPath -NoProfile -File $script:InvokeBenchmarkScriptPath `
+        $null = & $script:InvokeBenchmarkScriptPath `
             -BenchmarksRoot $script:BenchmarksRoot `
             -MarkerPath $script:MarkerPath
 
@@ -213,7 +234,7 @@ function Get-BenchmarkThing {
 }
 '@
 
-        & $script:PwshPath -NoProfile -File $script:InvokeBenchmarkScriptPath `
+        $benchmarkOutput = & $script:InvokeBenchmarkScriptPath `
             'help-search' `
             -SearchTerm 'Benchmark' `
             -ModulePath $helpSearchInputRoot `
@@ -221,6 +242,7 @@ function Get-BenchmarkThing {
             -AsJson
 
         $LASTEXITCODE | Should -Be 0
+        $benchmarkOutput | Should -Not -BeNullOrEmpty
         (Test-Path $helpSearchOutputPath) | Should -BeTrue
 
         $report = Get-Content -Path $helpSearchOutputPath -Raw | ConvertFrom-Json
