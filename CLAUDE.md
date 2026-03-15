@@ -138,14 +138,26 @@ pnpm test:pwsh:serial
 # Debug output
 pnpm test:pwsh:debug
 
-# Full local validation on host
+# Explicit host coverage validation
+pnpm test:pwsh:coverage
+
+# Full local validation on host (compatibility alias for coverage)
 pnpm test:pwsh:full
+
+# Host full assertions without coverage (used by test:pwsh:all)
+pnpm test:pwsh:full:assertions
+
+# Slowest files on host assertions path
+pnpm test:pwsh:slowest
+
+# Slowest files on explicit coverage path
+pnpm test:pwsh:coverage:slowest
 
 # Linux container validation
 pnpm test:pwsh:linux:fast
 pnpm test:pwsh:linux:full
 
-# Cross-environment pre-commit validation for pwsh-related changes
+# Cross-environment pre-commit assertions for pwsh-related changes
 pnpm test:pwsh:all
 
 # Profile-specific tests only
@@ -165,7 +177,7 @@ Pester configuration is in `PesterConfiguration.ps1` with environment-driven mod
 - Parallelism: 4 threads (disabled in serial mode)
 - CI: `$env:CI` controls exit-on-failure and detailed output
 - Root `pnpm test:pwsh:*` scripts force `Run.Exit = $true`, so CLI commands return non-zero on failures
-- Local coverage responsibility is kept on `pnpm test:pwsh:full`; `pnpm test:pwsh:linux:full` focuses on Linux full assertions to avoid container-specific Pester coverage cleanup failures
+- Local coverage responsibility is kept on `pnpm test:pwsh:coverage`; `pnpm test:pwsh:full` is retained as a compatibility alias, `pnpm test:pwsh:full:assertions` is the host lane used by `pnpm test:pwsh:all`, and `pnpm test:pwsh:linux:full` focuses on Linux full assertions to avoid container-specific Pester coverage cleanup failures
 
 ### Formatting
 
@@ -218,7 +230,7 @@ pnpm qa:benchmark
 
 The Turbo pipeline runs: `typecheck:fast -> check -> test:fast` per workspace package.
 Set `QA_BASE_REF` to change the diff baseline (default: `origin/master`).
-For pwsh-related changes under `scripts/pwsh/**`, `profile/**`, `psutils/**`, `tests/**/*.ps1`, `PesterConfiguration.ps1`, or `docker-compose.pester.yml`, run `pnpm test:pwsh:all` before commit. If Docker is unavailable, run `pnpm test:pwsh:full` and rely on CI or WSL for Linux assertions.
+For pwsh-related changes under `scripts/pwsh/**`, `profile/**`, `psutils/**`, `tests/**/*.ps1`, `PesterConfiguration.ps1`, or `docker-compose.pester.yml`, run `pnpm test:pwsh:all` before commit. Run `pnpm test:pwsh:coverage` when you need an explicit local coverage gate. If Docker is unavailable, run `pnpm test:pwsh:full` and rely on CI or WSL for Linux assertions.
 
 ### Per-workspace QA commands
 

@@ -27,6 +27,7 @@ topic: pwsh-test-log-optimization
 - `cache.Tests.ps1` 双平台都在 `5s` 左右，说明这里既有文件 IO，也有 `Start-Sleep` 一类真实时间等待，属于中优先级热点。
 - 当前日志共有 `32` 行 `What if:`，其中绝大多数来自 `Sync-PathFromBash` 对缓存目录与 PATH 预演的重复提示。额外还有 `3` 条 `WARNING:`，来源集中在 `env.Tests.ps1` 与 `web.Tests.ps1`。
 - 一个关键事实是：`WhatIf` 提示不能靠 `6>$null`、`$WarningPreference='SilentlyContinue'` 或 `$InformationPreference='SilentlyContinue'` 静音。也就是说，剩余 `WhatIf` 噪音不是“流重定向还没写够”，而是测试边界本身需要重构。
+- 在 2026-03-15 的一轮实测中，当前 `pnpm test:pwsh:all` 外层墙钟约为 `50.62s`；仅通过环境变量关闭 host coverage（Linux 维持现状）后，同等命令下降到 `37.72s`。两组日志里的 `host Tests completed in` 分别约为 `30.59s` 与 `31.5s`，说明节省的 `12.9s` 主要不在测试文件本身，而在 host coverage 收尾与结果处理路径。
 
 仓库今天新增的 solution 已经把更早一批热点（例如 `install.Tests.ps1`、`hardware.Tests.ps1`、`test.Tests.ps1`）压下去了，所以这次讨论的是“第二梯队剩余空间”，不是重复上一轮工作。
 
@@ -80,17 +81,19 @@ topic: pwsh-test-log-optimization
 **Best when:** 你接受 `full` 只保留稳定、高信号的功能断言，而把性能展示、交互演示型用例下沉到专门入口。
 
 ## Recommendation
-推荐 **Approach A** 作为主线，但对极少数“明显更像诊断而不是门禁断言”的测试，预留 **Approach C** 的收口空间。
+推荐 **Approach A** 作为主线，但对极少数“明显更像诊断而不是门禁断言”的测试，预留 **Approach C** 的收口空间；同时把 host coverage 从默认 `all` 关键路径中拆出，单独提供 `pnpm test:pwsh:coverage`。
 
 原因很直接：
 
 - 当前 `test:pwsh:all` 的墙钟时间由 host `39.05s` 和 linux `40.4s` 共同决定，优先打共享热点最有效。
+- 仅移除 host coverage 就能让 `pnpm test:pwsh:all` 外层墙钟从 `50.62s` 降到 `37.72s`，这是当前最确定、收益最大的外层优化点。
 - `WhatIf` 残余噪音已经证明不能再靠重定向补丁解决，必须从测试设计上收口。
 - `WARNING:` 残余只剩少数明确来源，属于低风险、可快速收口的问题。
 - 真正可能需要你拍板的，只剩“`help.Tests.ps1` 里的性能对比测试是否继续留在默认 full”这一类边界问题。
 
 ## Key Decisions
 - 下一轮优化优先级应从“只看 host 热点”改为“优先看双平台共享热点”，否则 `all` 的真实体感时间降不下来。
+- 默认 `pnpm test:pwsh:all` 应改为“host 功能断言（不含 coverage）+ linux full”并发门禁；coverage 改由单独的 `pnpm test:pwsh:coverage` 承担。
 - `help.Tests.ps1` 是当前第一优先级，因为它同时兼具“单文件极慢”和“更偏诊断型断言”两个特征。
 - `Test-HelpSearchPerformance` 不再留在默认 `test:pwsh:full` / `test:pwsh:all` 门禁中，改由 benchmark 入口承接。
 - `Invoke-Benchmark.Tests.ps1` 的主要空间不在 Pester 配置，而在测试实现粒度过重；应优先减少重复子进程拉起次数或把非必要端到端路径下沉。
@@ -101,6 +104,8 @@ topic: pwsh-test-log-optimization
 ## Resolved Questions
 - 是否接受把 **明显诊断型** 的测试从默认 `test:pwsh:all` / `full` 门禁中移出，例如 `help.Tests.ps1` 里的性能对比路径，改由 `debug`、`Slow` 或单独 benchmark 命令承接？
   - 接受，但范围先收敛到 `Test-HelpSearchPerformance`，并明确改由 benchmark 入口承接。
+- 是否接受把 host coverage 从默认 `pnpm test:pwsh:all` 中拆出，改为单独命令例如 `pnpm test:pwsh:coverage`？
+  - 接受。实测基线显示，当前 `all` 外层墙钟约 `50.62s`；关闭 host coverage 后约 `37.72s`，收益约 `12.9s`，且 `Tests completed in` 基本不变，证明主要节省来自 coverage 收尾路径。
 
 ## Open Questions
 - 暂无。

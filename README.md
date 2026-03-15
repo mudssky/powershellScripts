@@ -343,8 +343,20 @@ pnpm test:pwsh:slow
 # 全量 + 详细输出
 pnpm test:pwsh:detailed
 
-# Host 完整测试（含覆盖率与 Profile）
+# Host assertions 路径慢测排行（默认不含 coverage）
+pnpm test:pwsh:slowest
+
+# 显式 coverage 路径慢测排行
+pnpm test:pwsh:coverage:slowest
+
+# 显式 coverage 验证（推荐）
+pnpm test:pwsh:coverage
+
+# Host 完整测试（兼容保留，当前等价于 coverage）
 pnpm test:pwsh:full
+
+# Host 完整断言（不含 coverage，与 all 的 host 路径一致）
+pnpm test:pwsh:full:assertions
 
 # 首次运行前构建 Linux 测试镜像
 pnpm test:pwsh:linux:build
@@ -355,15 +367,21 @@ pnpm test:pwsh:linux:fast
 # Linux 容器完整测试
 pnpm test:pwsh:linux:full
 
-# 提交前并发执行 host + Linux 两套完整测试
+# 提交前并发执行 host assertions + Linux full
 pnpm test:pwsh:all
 ```
 
 当前 `pnpm test:pwsh:linux:full` 聚焦 Linux 容器内的 full 断言回归；
-本地 coverage 由 `pnpm test:pwsh:full` 提供，以规避容器内 Pester coverage 收尾异常。
+默认 `pnpm test:pwsh:all` 改为走 host `pnpm test:pwsh:full:assertions` + Linux `pnpm test:pwsh:linux:full`，
+以避免把 host coverage 收尾继续留在提交前关键路径里。
+
+本地 coverage 由 `pnpm test:pwsh:coverage` 提供；
+`pnpm test:pwsh:full` 当前作为兼容保留入口，等价于 `pnpm test:pwsh:coverage`，
+以规避容器内 Pester coverage 收尾异常，并避免现有工具链一次性断裂。
 
 `test:pwsh:*` 只负责 root PowerShell / Pester 测试；`qa` / `qa:all` 仍是快速质量门。
 若改动涉及 `scripts/pwsh/**`、`profile/**`、`psutils/**`、`tests/**/*.ps1`、`PesterConfiguration.ps1` 或 `docker-compose.pester.yml`，提交前执行 `pnpm test:pwsh:all`。
+如需显式验证 coverage 门槛，额外执行 `pnpm test:pwsh:coverage`。
 如果本机 Docker 不可用，至少执行 `pnpm test:pwsh:full`，并依赖 CI 或 WSL 补 Linux 断言验证。
 
 **格式化命令**:

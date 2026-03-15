@@ -108,6 +108,9 @@ $config = @{
         # “full 断言回归但不承担 coverage”的执行模式。
         Enabled                 = $isCoverageEnabled
         Path                    = "./psutils/modules/*.psm1"
+        # 显式写回仓库当前采用的 50% 覆盖率门槛，避免继续沿用 Pester 默认 75%
+        # 导致控制台输出与 OpenSpec 规范长期漂移。
+        CoveragePercentTarget   = 50
         # OutputPath   = "./coverge.xml"
         OutputFormat            = 'CoverageGutters'
         ExcludeFromCodeCoverage = @(

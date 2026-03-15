@@ -4,7 +4,7 @@
     {
       "label": "Run Tests",
       "type": "shell",
-      "command": "Invoke-Pester -Configuration (./PesterConfiguration.ps1)",
+      "command": "pnpm test:pwsh:coverage",
       "group": {
         "kind": "test",
         "isDefault": true

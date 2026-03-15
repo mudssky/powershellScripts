@@ -11,7 +11,9 @@
     该脚本主要服务于：
 
     - `pnpm test:pwsh:all`
+    - `pnpm test:pwsh:coverage`
     - `pnpm test:pwsh:full`
+    - `pnpm test:pwsh:full:assertions`
     - `pnpm test:pwsh:linux:full`
 
     当前实现仍基于控制台摘要行提取耗时，而不是直接消费 `Invoke-Pester -PassThru`。

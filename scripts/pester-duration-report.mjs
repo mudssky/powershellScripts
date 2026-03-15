@@ -78,7 +78,9 @@ function durationToMs(rawDuration) {
  * 从控制台日志中提取文件级 Pester 耗时。
  *
  * 支持：
+ * - `pnpm test:pwsh:coverage`
  * - `pnpm test:pwsh:full`
+ * - `pnpm test:pwsh:full:assertions`
  * - `pnpm test:pwsh:linux:full`
  * - `pnpm test:pwsh:all`（带 `[host]` / `[linux]` 前缀）
  *

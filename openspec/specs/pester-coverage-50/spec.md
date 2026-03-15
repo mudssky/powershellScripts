@@ -1,15 +1,15 @@
 ## ADDED Requirements
 
 ### Requirement: Coverage target
-The system SHALL reach at least 50% command coverage for the Pester suite.
+系统 SHALL 让 Pester 测试套件达到至少 50% 的命令覆盖率。
 
 #### Scenario: Coverage measurement
-- **WHEN** the documented coverage-enabled host test command is run
-- **THEN** the reported coverage is 50% or higher
+- **WHEN** 开发者运行文档规定的 `pnpm test:pwsh:coverage`
+- **THEN** 报告的命令覆盖率不低于 50%
 
 ### Requirement: Coverage increases come from tests
-The system SHALL improve coverage by adding or expanding tests rather than excluding modules from coverage.
+系统 SHALL 通过新增或扩展测试来提升覆盖率，而不是通过把模块排除在 coverage 之外来达成。
 
 #### Scenario: Coverage improvement approach
-- **WHEN** coverage improves toward the 50% target
-- **THEN** the improvement is attributable to additional tests for existing modules
+- **WHEN** 覆盖率向 50% 目标提升
+- **THEN** 该提升应归因于对现有模块新增或扩展的测试

@@ -32,7 +32,16 @@ jobs:
       - name: Run Pester
         shell: pwsh
         run: |
-          Invoke-Pester -Configuration (./PesterConfiguration.ps1)
+          $env:PWSH_TEST_MODE = 'full'
+          if ('${{ matrix.os }}' -eq 'windows-latest') {
+            $env:PWSH_TEST_ENABLE_COVERAGE = 'true'
+          }
+          else {
+            $env:PWSH_TEST_ENABLE_COVERAGE = 'false'
+          }
+          $config = ./PesterConfiguration.ps1
+          $config.Run.Exit = $true
+          Invoke-Pester -Configuration $config
 
       # 测试图形化报告
       - name: Publish Test Report

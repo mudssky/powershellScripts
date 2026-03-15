@@ -139,6 +139,85 @@ function Complete-BenchmarkScript {
     exit $ExitCode
 }
 
+<#
+.SYNOPSIS
+    判断当前 benchmark 调度是否处于测试内静音模式。
+
+.DESCRIPTION
+    `tests/Invoke-Benchmark.Tests.ps1` 会在当前 Pester 进程内直接调用本脚本。
+    这类调用需要保留退出码与功能语义，但不应把 `Write-Host` / `Write-Warning`
+    文案泄露到默认 full 日志中，因此这里复用现有测试环境变量统一判定。
+
+.OUTPUTS
+    `bool`
+    返回当前调用是否应静音非错误级别的 benchmark 提示。
+#>
+function Test-BenchmarkQuietMode {
+    [CmdletBinding()]
+    param()
+
+    return ($env:PWSH_TEST_IN_PROCESS_BENCHMARK -eq '1')
+}
+
+<#
+.SYNOPSIS
+    在允许输出时写入 benchmark 主机提示。
+
+.DESCRIPTION
+    真实 CLI 调用保留 `Write-Host` 提示，便于用户理解当前执行的 benchmark；
+    测试内调用则静音这些非断言输出，避免默认门禁日志继续混入低价值文案。
+
+.PARAMETER Message
+    要输出的主机提示文本。
+
+.PARAMETER ForegroundColor
+    可选的前景色，透传给 `Write-Host`。
+#>
+function Write-BenchmarkHostMessage {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Message,
+        [System.ConsoleColor]$ForegroundColor
+    )
+
+    if (Test-BenchmarkQuietMode) {
+        return
+    }
+
+    if ($PSBoundParameters.ContainsKey('ForegroundColor')) {
+        Write-Host $Message -ForegroundColor $ForegroundColor
+        return
+    }
+
+    Write-Host $Message
+}
+
+<#
+.SYNOPSIS
+    在允许输出时写入 benchmark warning。
+
+.DESCRIPTION
+    取消选择这类用户提示在真实 CLI 路径中仍应可见；
+    但在测试内调用时属于低价值噪音，因此默认静音。
+
+.PARAMETER Message
+    要输出的 warning 文本。
+#>
+function Write-BenchmarkHostWarning {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Message
+    )
+
+    if (Test-BenchmarkQuietMode) {
+        return
+    }
+
+    Write-Warning $Message
+}
+
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..' '..')).Path
 $effectiveBenchmarksRoot = $BenchmarksRoot
 if ([string]::IsNullOrWhiteSpace($effectiveBenchmarksRoot)) {
@@ -155,9 +234,9 @@ if ($catalog.Count -eq 0) {
 }
 
 if ($List) {
-    Write-Host 'Available benchmarks:' -ForegroundColor Cyan
+    Write-BenchmarkHostMessage -Message 'Available benchmarks:' -ForegroundColor Cyan
     foreach ($entry in $catalog) {
-        Write-Host ("  - {0} ({1})" -f $entry.Name, $entry.File)
+        Write-BenchmarkHostMessage -Message ("  - {0} ({1})" -f $entry.Name, $entry.File)
     }
     Complete-BenchmarkScript -ExitCode 0
     return
@@ -166,7 +245,7 @@ if ($List) {
 if ([string]::IsNullOrWhiteSpace($Name)) {
     $selected = Select-BenchmarkCatalogItem -Catalog $catalog -RepoRoot $repoRoot
     if ($null -eq $selected) {
-        Write-Warning '已取消 benchmark 选择，本次不执行任何 benchmark。'
+        Write-BenchmarkHostWarning -Message '已取消 benchmark 选择，本次不执行任何 benchmark。'
         Complete-BenchmarkScript -ExitCode 0
         return
     }
@@ -181,8 +260,8 @@ else {
     }
 }
 
-Write-Host ("Running benchmark: {0}" -f $selected.Name) -ForegroundColor Cyan
-Write-Host ("Script: {0}" -f $selected.File) -ForegroundColor DarkGray
+Write-BenchmarkHostMessage -Message ("Running benchmark: {0}" -f $selected.Name) -ForegroundColor Cyan
+Write-BenchmarkHostMessage -Message ("Script: {0}" -f $selected.File) -ForegroundColor DarkGray
 
 $pwshPath = (Get-Process -Id $PID).Path
 if ([string]::IsNullOrWhiteSpace($pwshPath)) {
