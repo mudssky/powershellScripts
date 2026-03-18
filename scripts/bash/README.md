@@ -78,7 +78,7 @@
 
 也就是说：
 
-- `.env.aliyun-oss-put.local` 可以覆盖 `.env.aliyun-oss-put`
+- `.env.aliyun-oss-put` 先加载，`.env.aliyun-oss-put.local` 后加载，因此后者优先级更高
 - 但 `.env.aliyun-oss-put` / `.env.aliyun-oss-put.local` 都不会覆盖你已经 `export` 到当前 shell 的值
 
 示例：

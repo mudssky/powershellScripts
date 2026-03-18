@@ -1,24 +1,24 @@
 #!/usr/bin/env bash
 
 # aliyun-oss-put.sh
-# Upload a single local file to Alibaba Cloud OSS by using PutObject and V4 signing.
+# 使用 OSS PutObject + V4 签名上传单个本地文件到阿里云 OSS。
 #
-# Supported inputs:
-# - CLI flags for the local file and target object.
-# - Environment variables for credentials and optional defaults.
-# - .env.aliyun-oss-put / .env.aliyun-oss-put.local in the current working directory.
+# 支持的输入来源：
+# - CLI 参数：提供本地文件路径与目标对象信息。
+# - 环境变量：提供凭证与可复用的默认配置。
+# - 当前工作目录下的 .env.aliyun-oss-put / .env.aliyun-oss-put.local。
 #
-# Configuration precedence:
-# 1. Existing shell environment variables
+# 配置优先级：
+# 1. 当前 shell 中已存在的环境变量
 # 2. .env.aliyun-oss-put.local
 # 3. .env.aliyun-oss-put
 #
-# Exit codes:
-# 0  success
-# 1  usage or local validation failure
-# 2  dependency failure
-# 3  network / curl failure
-# 4  OSS API failure
+# 退出码：
+# 0  成功
+# 1  用法错误或本地校验失败
+# 2  依赖缺失
+# 3  网络 / curl 失败
+# 4  OSS API 返回失败
 
 set -euo pipefail
 IFS=$'\n\t'
@@ -49,14 +49,14 @@ RESPONSE_HEADERS_FILE=""
 RESPONSE_BODY_FILE=""
 INITIAL_ENV_VARS=""
 
-# Print a concise log line only when verbose mode is enabled.
+# 仅在 verbose 模式下输出简洁日志，避免默认输出干扰脚本结果。
 log_verbose() {
     if [ "$VERBOSE_MODE" = "true" ]; then
         printf '[%s] %s\n' "$SCRIPT_NAME" "$*" >&2
     fi
 }
 
-# Print a fatal error and exit with the provided code.
+# 输出致命错误并按指定退出码退出。
 die() {
     local exit_code="$1"
     shift
@@ -64,7 +64,7 @@ die() {
     exit "$exit_code"
 }
 
-# Print the command usage and supported configuration sources.
+# 输出命令用法以及支持的配置来源说明。
 show_help() {
     cat <<'EOF'
 Usage:
@@ -117,7 +117,7 @@ Examples:
 EOF
 }
 
-# Remove leading and trailing whitespace from a string.
+# 去除字符串首尾空白字符，统一后续解析行为。
 trim_whitespace() {
     local value="$1"
     value="${value#"${value%%[![:space:]]*}"}"
@@ -125,7 +125,7 @@ trim_whitespace() {
     printf '%s' "$value"
 }
 
-# Detect whether a variable existed before .env loading started.
+# 判断变量是否在 dotenv 加载前就已经存在于 shell 环境中。
 env_var_preexisted() {
     local var_name="$1"
     case "
@@ -138,7 +138,7 @@ $var_name
     esac
 }
 
-# Parse a conservative dotenv value without executing shell code.
+# 以保守方式解析 dotenv 值，避免执行任何 shell 代码。
 normalize_dotenv_value() {
     local raw_value="$1"
     local normalized_value
@@ -167,7 +167,10 @@ normalize_dotenv_value() {
     printf '%s' "$normalized_value"
 }
 
-# Load KEY=VALUE pairs from a dotenv file without overriding existing shell variables.
+# 从 dotenv 文件读取 KEY=VALUE。
+# 设计意图：
+# - 保留用户在脚本启动前已 export 的环境变量最高优先级。
+# - 允许后加载的 .local 覆盖先加载的共享配置文件。
 load_env_file_if_present() {
     local env_file_path="$1"
     local line_number=0
@@ -226,7 +229,8 @@ load_env_file_if_present() {
     done < "$env_file_path"
 }
 
-# Load script-scoped dotenv files from the current working directory to avoid cross-script collisions.
+# 读取脚本专属 dotenv 文件，避免与同目录其他脚本共用通用 .env 时发生冲突。
+# 先读共享配置，再读 .local，本地文件因此拥有更高优先级。
 load_dotenv_files() {
     local work_dir="$PWD"
     INITIAL_ENV_VARS="$(env | LC_ALL=C cut -d= -f1)"
@@ -234,7 +238,7 @@ load_dotenv_files() {
     load_env_file_if_present "$work_dir/.env.aliyun-oss-put.local"
 }
 
-# Parse CLI flags and keep CLI values higher priority than environment defaults.
+# 解析 CLI 参数，命令行显式传值始终高于环境变量默认值。
 parse_arguments() {
     while [ "$#" -gt 0 ]; do
         case "$1" in
@@ -291,7 +295,7 @@ parse_arguments() {
     done
 }
 
-# Fill optional CLI values from environment variables after dotenv loading.
+# 在 dotenv 加载完成后，用环境变量补齐未显式传入的可选参数。
 apply_environment_defaults() {
     if [ -z "$BUCKET_NAME" ] && [ -n "${ALIYUN_OSS_BUCKET:-}" ]; then
         BUCKET_NAME="$ALIYUN_OSS_BUCKET"
@@ -310,7 +314,7 @@ apply_environment_defaults() {
     fi
 }
 
-# Normalize region and host values into the exact request host and URL.
+# 规范化 region 与 host，生成实际请求使用的目标 host。
 normalize_target() {
     local normalized_host
 
@@ -322,7 +326,7 @@ normalize_target() {
 
     normalized_host="$HOST_INPUT"
 
-    # Standard OSS endpoints can be passed either as the service endpoint or as a bucket host.
+    # 标准 OSS endpoint 既可能传服务域名，也可能直接传 bucket 域名；这里统一补齐。
     if [[ "$normalized_host" == oss-*.aliyuncs.com ]] || [[ "$normalized_host" == oss-*.aliyuncs.com.cn ]]; then
         normalized_host="${BUCKET_NAME}.${normalized_host}"
     fi
@@ -330,7 +334,7 @@ normalize_target() {
     REQUEST_HOST="$normalized_host"
 }
 
-# Validate required flags, credential sources, and basic input shape.
+# 校验必填参数、凭证来源与基础输入格式，尽量在发请求前失败。
 validate_inputs() {
     [ -n "$FILE_PATH" ] || die 1 "--file is required"
     [ -n "$BUCKET_NAME" ] || die 1 "--bucket is required or set ALIYUN_OSS_BUCKET"
@@ -356,7 +360,7 @@ validate_inputs() {
     fi
 }
 
-# Ensure runtime dependencies exist before building the request.
+# 构造请求前先确认运行时依赖完整，避免中途失败。
 check_dependencies() {
     command -v bash >/dev/null 2>&1 || die 2 "bash is required"
     command -v curl >/dev/null 2>&1 || die 2 "curl is required"
@@ -370,7 +374,7 @@ check_dependencies() {
     command -v wc >/dev/null 2>&1 || die 2 "wc is required"
 }
 
-# Percent-encode a path while preserving '/' separators for object keys.
+# 对对象 key 做百分号编码，同时保留 '/' 分隔符语义。
 percent_encode_preserving_slash() {
     local LC_ALL=C
     local raw_input="$1"
@@ -399,31 +403,31 @@ percent_encode_preserving_slash() {
     printf '%s' "$encoded_output"
 }
 
-# Convert binary output from openssl into a lowercase hex string.
+# 将 openssl 的二进制输出转换为小写十六进制字符串。
 binary_to_hex() {
     od -An -tx1 -v | tr -d ' \n'
 }
 
-# Compute the SHA256 hex digest for the provided text payload.
+# 计算文本内容的 SHA256 十六进制摘要。
 sha256_hex_of_text() {
     printf '%s' "$1" | openssl dgst -sha256 -binary | binary_to_hex
 }
 
-# Compute the HMAC-SHA256 hex digest with a raw string key.
+# 使用原始字符串 key 计算 HMAC-SHA256 十六进制摘要。
 hmac_sha256_hex_with_raw_key() {
     local raw_key="$1"
     local message="$2"
     printf '%s' "$message" | openssl dgst -sha256 -mac HMAC -macopt "key:${raw_key}" -binary | binary_to_hex
 }
 
-# Compute the HMAC-SHA256 hex digest with a hex-encoded key.
+# 使用十六进制编码 key 计算 HMAC-SHA256 十六进制摘要。
 hmac_sha256_hex_with_hex_key() {
     local hex_key="$1"
     local message="$2"
     printf '%s' "$message" | openssl dgst -sha256 -mac HMAC -macopt "hexkey:${hex_key}" -binary | binary_to_hex
 }
 
-# Compute RFC 1123 and ISO 8601 timestamps plus content integrity headers.
+# 生成请求所需时间戳与内容完整性相关字段。
 prepare_request_values() {
     local encoded_object_key
 
@@ -438,7 +442,7 @@ prepare_request_values() {
     CANONICAL_URI="/${BUCKET_NAME}/${encoded_object_key}"
 }
 
-# Build the canonical header list expected by OSS V4 signing.
+# 构造 OSS V4 签名要求的 canonical headers 列表。
 build_canonical_headers() {
     local canonical_headers=""
 
@@ -470,7 +474,7 @@ build_canonical_headers() {
     printf '%s' "$canonical_headers"
 }
 
-# Build the canonical request string according to OSS V4 rules.
+# 按 OSS V4 规则构造 canonical request。
 build_canonical_request() {
     local canonical_headers
 
@@ -482,7 +486,7 @@ build_canonical_request() {
         "$CONTENT_SHA256"
 }
 
-# Build the string-to-sign from the canonical request hash.
+# 基于 canonical request 摘要构造 string-to-sign。
 build_string_to_sign() {
     local canonical_request="$1"
     local scope
@@ -497,7 +501,7 @@ build_string_to_sign() {
         "$canonical_hash"
 }
 
-# Calculate the final OSS V4 signature by following the documented key derivation chain.
+# 按照官方定义的派生链路计算最终 OSS V4 签名。
 build_signature() {
     local string_to_sign="$1"
     local k_date
@@ -513,7 +517,7 @@ build_signature() {
     hmac_sha256_hex_with_hex_key "$k_signing" "$string_to_sign"
 }
 
-# Print debug signing material without exposing the secret key itself.
+# 输出签名调试材料，同时避免泄露密钥本身。
 print_debug_signing() {
     local canonical_request="$1"
     local string_to_sign="$2"
@@ -539,21 +543,21 @@ ${signature}
 EOF
 }
 
-# Create temporary files for the HTTP response and make sure they are cleaned up.
+# 创建响应头与响应体临时文件，供成功和失败场景统一解析。
 prepare_temp_files() {
     TMP_DIR="$(mktemp -d)"
     RESPONSE_HEADERS_FILE="${TMP_DIR}/response.headers"
     RESPONSE_BODY_FILE="${TMP_DIR}/response.body"
 }
 
-# Remove temporary files on exit regardless of success or failure.
+# 无论成功失败，退出时都清理临时目录。
 cleanup() {
     if [ -n "$TMP_DIR" ] && [ -d "$TMP_DIR" ]; then
         rm -rf "$TMP_DIR"
     fi
 }
 
-# Read a header value from the captured response headers in a case-insensitive way.
+# 从已捕获的响应头中按大小写不敏感方式读取指定 header。
 read_response_header() {
     local header_name="$1"
     awk -v target_header="$(printf '%s' "$header_name" | tr '[:upper:]' '[:lower:]')" '
@@ -572,13 +576,13 @@ read_response_header() {
     ' "$RESPONSE_HEADERS_FILE"
 }
 
-# Extract a simple XML tag value from an OSS error response.
+# 从 OSS XML 错误响应中提取简单标签值。
 xml_tag_value() {
     local tag_name="$1"
     tr -d '\r\n' < "$RESPONSE_BODY_FILE" | sed -n "s:.*<${tag_name}>\\([^<]*\\)</${tag_name}>.*:\\1:p"
 }
 
-# Execute the PUT request and keep both headers and body for success and error handling.
+# 执行 PUT 上传，并同时保留响应头和响应体用于成功/失败处理。
 perform_upload() {
     local canonical_request
     local string_to_sign
