@@ -43,6 +43,7 @@ SHORT_DATE=""
 FILE_SIZE=""
 FILE_MD5_BASE64=""
 CONTENT_SHA256="UNSIGNED-PAYLOAD"
+FILE_SHA256_HEX=""
 
 TMP_DIR=""
 RESPONSE_HEADERS_FILE=""
@@ -73,7 +74,7 @@ Usage:
 Required flags:
   --file <path>             Local file to upload.
   --bucket <bucket>         OSS bucket name.
-  --key <object-key>        Target OSS object key.
+  --key <object-key>        Target OSS object key, including remote path and file name.
   --region <region>         OSS region id such as cn-hangzhou.
   --host <host>             Actual request host or standard OSS endpoint.
 
@@ -428,6 +429,7 @@ hmac_sha256_hex_with_hex_key() {
 }
 
 # 生成请求所需时间戳与内容完整性相关字段。
+# 这里额外计算本地文件 SHA256，仅用于排查问题，不参与当前请求签名。
 prepare_request_values() {
     local encoded_object_key
 
@@ -436,6 +438,7 @@ prepare_request_values() {
     RFC_1123_DATE="$(LC_ALL=C date -u '+%a, %d %b %Y %H:%M:%S GMT')"
     FILE_SIZE="$(wc -c < "$FILE_PATH" | awk '{print $1}')"
     FILE_MD5_BASE64="$(openssl dgst -md5 -binary "$FILE_PATH" | openssl enc -base64 -A)"
+    FILE_SHA256_HEX="$(openssl dgst -sha256 -binary "$FILE_PATH" | binary_to_hex)"
 
     encoded_object_key="$(percent_encode_preserving_slash "$OBJECT_KEY")"
     REQUEST_URL="https://${REQUEST_HOST}/${encoded_object_key}"
@@ -582,6 +585,14 @@ xml_tag_value() {
     tr -d '\r\n' < "$RESPONSE_BODY_FILE" | sed -n "s:.*<${tag_name}>\\([^<]*\\)</${tag_name}>.*:\\1:p"
 }
 
+# 在真正上传前打印本地文件关键信息，便于比对“上传的是不是预期文件”。
+print_pre_upload_diagnostics() {
+    printf '[%s] local-file: %s\n' "$SCRIPT_NAME" "$FILE_PATH" >&2
+    printf '[%s] object-key: %s\n' "$SCRIPT_NAME" "$OBJECT_KEY" >&2
+    printf '[%s] file-size: %s\n' "$SCRIPT_NAME" "$FILE_SIZE" >&2
+    printf '[%s] sha256: %s\n' "$SCRIPT_NAME" "$FILE_SHA256_HEX" >&2
+}
+
 # 执行 PUT 上传，并同时保留响应头和响应体用于成功/失败处理。
 perform_upload() {
     local canonical_request
@@ -701,6 +712,7 @@ main() {
     check_dependencies
     prepare_temp_files
     prepare_request_values
+    print_pre_upload_diagnostics
     perform_upload
 }
 

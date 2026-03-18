@@ -37,6 +37,24 @@
 - `--verbose`
 - `--debug-signing`
 
+### 上传后的文件名
+
+远端对象名由 `--key` 指定，`--key` 就是上传到 OSS 后看到的完整对象路径。
+
+- 只改文件名：`--key renamed-demo.txt`
+- 带目录一起指定：`--key release/2026-03-18/demo.txt`
+
+例如本地文件叫 `./demo.txt`，也可以上传成另一个名字：
+
+```bash
+./scripts/bash/aliyun-oss-put.sh \
+  --file ./demo.txt \
+  --bucket examplebucket \
+  --key archive/demo-renamed.txt \
+  --region cn-hangzhou \
+  --host examplebucket.oss-cn-hangzhou.aliyuncs.com
+```
+
 ### 环境变量
 
 脚本支持以下环境变量：
@@ -104,6 +122,8 @@ ALIYUN_SECURITY_TOKEN=your-sts-token
   --file ./demo.txt \
   --key demo/demo.txt
 ```
+
+脚本会在发起上传前打印本地文件的 `sha256`、文件大小和目标 `object-key`，方便排查“传错文件”“内容被修改”这类问题。
 
 ### Host 说明
 
