@@ -36,7 +36,7 @@
     "deny": [],
     "defaultMode": "acceptEdits"
   },
-  "model": "opus",
+  "model": "opus[1m]",
   "hooks": {},
   "statusLine": {
     "type": "command",
@@ -46,7 +46,7 @@
   "enabledPlugins": {
     "feature-dev@claude-plugins-official": false,
     "frontend-design@claude-plugins-official": false,
-    "serena@claude-plugins-official": true,
+    "serena@claude-plugins-official": false,
     "compound-engineering@compound-engineering-plugin": true
   },
   "outputStyle": "engineer-professional",
