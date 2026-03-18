@@ -49,28 +49,42 @@
 - `ALIYUN_OSS_HOST`
 - `ALIYUN_OSS_CONTENT_TYPE`
 
-### .env / .env.local
+### env 文件命名规范
+
+为避免 `scripts/bash/` 下多个脚本共享通用 `.env` 时互相覆盖，env 文件名统一带脚本名：
+
+- 共享默认值：`.env.<script-name>`
+- 本地私有覆盖：`.env.<script-name>.local`
+- 示例模板：`.env.<script-name>.example`
+
+以 `aliyun-oss-put.sh` 为例，对应文件名是：
+
+- `.env.aliyun-oss-put`
+- `.env.aliyun-oss-put.local`
+- `.env.aliyun-oss-put.example`
+
+### .env.aliyun-oss-put / .env.aliyun-oss-put.local
 
 脚本会在**当前工作目录**下自动读取：
 
-1. `.env`
-2. `.env.local`
+1. `.env.aliyun-oss-put`
+2. `.env.aliyun-oss-put.local`
 
 优先级规则如下：
 
 1. 当前 shell 已存在的环境变量
-2. `.env.local`
-3. `.env`
+2. `.env.aliyun-oss-put.local`
+3. `.env.aliyun-oss-put`
 
 也就是说：
 
-- `.env.local` 可以覆盖 `.env`
-- 但 `.env` / `.env.local` 都不会覆盖你已经 `export` 到当前 shell 的值
+- `.env.aliyun-oss-put.local` 可以覆盖 `.env.aliyun-oss-put`
+- 但 `.env.aliyun-oss-put` / `.env.aliyun-oss-put.local` 都不会覆盖你已经 `export` 到当前 shell 的值
 
 示例：
 
 ```dotenv
-# .env
+# .env.aliyun-oss-put
 ALIYUN_ACCESS_KEY_ID=your-access-key-id
 ALIYUN_ACCESS_KEY_SECRET=your-access-key-secret
 ALIYUN_OSS_BUCKET=examplebucket
@@ -79,7 +93,7 @@ ALIYUN_OSS_HOST=examplebucket.oss-cn-hangzhou.aliyuncs.com
 ```
 
 ```dotenv
-# .env.local
+# .env.aliyun-oss-put.local
 ALIYUN_SECURITY_TOKEN=your-sts-token
 ```
 

@@ -6,12 +6,12 @@
 # Supported inputs:
 # - CLI flags for the local file and target object.
 # - Environment variables for credentials and optional defaults.
-# - .env / .env.local in the current working directory.
+# - .env.aliyun-oss-put / .env.aliyun-oss-put.local in the current working directory.
 #
 # Configuration precedence:
 # 1. Existing shell environment variables
-# 2. .env.local
-# 3. .env
+# 2. .env.aliyun-oss-put.local
+# 3. .env.aliyun-oss-put
 #
 # Exit codes:
 # 0  success
@@ -94,7 +94,7 @@ Environment variables:
   ALIYUN_OSS_CONTENT_TYPE   Optional default for --content-type.
 
 Dotenv loading:
-  The script reads .env first and then .env.local from the current working directory.
+  The script reads .env.aliyun-oss-put first and then .env.aliyun-oss-put.local from the current working directory.
   Existing shell environment variables always win over file-based values.
 
 Examples:
@@ -226,12 +226,12 @@ load_env_file_if_present() {
     done < "$env_file_path"
 }
 
-# Load .env and .env.local from the current working directory.
+# Load script-scoped dotenv files from the current working directory to avoid cross-script collisions.
 load_dotenv_files() {
     local work_dir="$PWD"
     INITIAL_ENV_VARS="$(env | LC_ALL=C cut -d= -f1)"
-    load_env_file_if_present "$work_dir/.env"
-    load_env_file_if_present "$work_dir/.env.local"
+    load_env_file_if_present "$work_dir/.env.aliyun-oss-put"
+    load_env_file_if_present "$work_dir/.env.aliyun-oss-put.local"
 }
 
 # Parse CLI flags and keep CLI values higher priority than environment defaults.
