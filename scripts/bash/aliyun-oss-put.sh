@@ -6,12 +6,12 @@
 # 支持的输入来源：
 # - CLI 参数：提供本地文件路径与目标对象信息。
 # - 环境变量：提供凭证与可复用的默认配置。
-# - 当前工作目录下的 .env.aliyun-oss-put / .env.aliyun-oss-put.local。
+# - 当前工作目录下的 aliyun-oss-put.env / aliyun-oss-put.env.local。
 #
 # 配置优先级：
 # 1. 当前 shell 中已存在的环境变量
-# 2. .env.aliyun-oss-put.local
-# 3. .env.aliyun-oss-put
+# 2. aliyun-oss-put.env.local
+# 3. aliyun-oss-put.env
 #
 # 退出码：
 # 0  成功
@@ -95,7 +95,7 @@ Environment variables:
   ALIYUN_OSS_CONTENT_TYPE   Optional default for --content-type.
 
 Dotenv loading:
-  The script reads .env.aliyun-oss-put first and then .env.aliyun-oss-put.local from the current working directory.
+  The script reads aliyun-oss-put.env first and then aliyun-oss-put.env.local from the current working directory.
   Existing shell environment variables always win over file-based values.
 
 Examples:
@@ -235,8 +235,8 @@ load_env_file_if_present() {
 load_dotenv_files() {
     local work_dir="$PWD"
     INITIAL_ENV_VARS="$(env | LC_ALL=C cut -d= -f1)"
-    load_env_file_if_present "$work_dir/.env.aliyun-oss-put"
-    load_env_file_if_present "$work_dir/.env.aliyun-oss-put.local"
+    load_env_file_if_present "$work_dir/aliyun-oss-put.env"
+    load_env_file_if_present "$work_dir/aliyun-oss-put.env.local"
 }
 
 # 解析 CLI 参数，命令行显式传值始终高于环境变量默认值。

@@ -71,38 +71,38 @@
 
 为避免 `scripts/bash/` 下多个脚本共享通用 `.env` 时互相覆盖，env 文件名统一带脚本名：
 
-- 共享默认值：`.env.<script-name>`
-- 本地私有覆盖：`.env.<script-name>.local`
-- 示例模板：`.env.<script-name>.example`
+- 共享默认值：`<script-name>.env`
+- 本地私有覆盖：`<script-name>.env.local`
+- 示例模板：`<script-name>.env.example`
 
 以 `aliyun-oss-put.sh` 为例，对应文件名是：
 
-- `.env.aliyun-oss-put`
-- `.env.aliyun-oss-put.local`
-- `.env.aliyun-oss-put.example`
+- `aliyun-oss-put.env`
+- `aliyun-oss-put.env.local`
+- `aliyun-oss-put.env.example`
 
-### .env.aliyun-oss-put / .env.aliyun-oss-put.local
+### aliyun-oss-put.env / aliyun-oss-put.env.local
 
 脚本会在**当前工作目录**下自动读取：
 
-1. `.env.aliyun-oss-put`
-2. `.env.aliyun-oss-put.local`
+1. `aliyun-oss-put.env`
+2. `aliyun-oss-put.env.local`
 
 优先级规则如下：
 
 1. 当前 shell 已存在的环境变量
-2. `.env.aliyun-oss-put.local`
-3. `.env.aliyun-oss-put`
+2. `aliyun-oss-put.env.local`
+3. `aliyun-oss-put.env`
 
 也就是说：
 
-- `.env.aliyun-oss-put` 先加载，`.env.aliyun-oss-put.local` 后加载，因此后者优先级更高
-- 但 `.env.aliyun-oss-put` / `.env.aliyun-oss-put.local` 都不会覆盖你已经 `export` 到当前 shell 的值
+- `aliyun-oss-put.env` 先加载，`aliyun-oss-put.env.local` 后加载，因此后者优先级更高
+- 但 `aliyun-oss-put.env` / `aliyun-oss-put.env.local` 都不会覆盖你已经 `export` 到当前 shell 的值
 
 示例：
 
 ```dotenv
-# .env.aliyun-oss-put
+# aliyun-oss-put.env
 ALIYUN_ACCESS_KEY_ID=your-access-key-id
 ALIYUN_ACCESS_KEY_SECRET=your-access-key-secret
 ALIYUN_OSS_BUCKET=examplebucket
@@ -111,7 +111,7 @@ ALIYUN_OSS_HOST=examplebucket.oss-cn-hangzhou.aliyuncs.com
 ```
 
 ```dotenv
-# .env.aliyun-oss-put.local
+# aliyun-oss-put.env.local
 ALIYUN_SECURITY_TOKEN=your-sts-token
 ```
 
