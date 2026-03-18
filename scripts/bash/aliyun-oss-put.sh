@@ -7,11 +7,14 @@
 # - CLI 参数：提供本地文件路径与目标对象信息。
 # - 环境变量：提供凭证与可复用的默认配置。
 # - 当前工作目录下的 aliyun-oss-put.env / aliyun-oss-put.env.local。
+# - 脚本所在目录下的 aliyun-oss-put.env / aliyun-oss-put.env.local。
 #
 # 配置优先级：
 # 1. 当前 shell 中已存在的环境变量
-# 2. aliyun-oss-put.env.local
-# 3. aliyun-oss-put.env
+# 2. 当前工作目录下的 aliyun-oss-put.env.local
+# 3. 当前工作目录下的 aliyun-oss-put.env
+# 4. 脚本所在目录下的 aliyun-oss-put.env.local
+# 5. 脚本所在目录下的 aliyun-oss-put.env
 #
 # 退出码：
 # 0  成功
@@ -95,7 +98,8 @@ Environment variables:
   ALIYUN_OSS_CONTENT_TYPE   Optional default for --content-type.
 
 Dotenv loading:
-  The script reads aliyun-oss-put.env first and then aliyun-oss-put.env.local from the current working directory.
+  The script reads aliyun-oss-put.env first and then aliyun-oss-put.env.local
+  from the script directory, then repeats the same order for the current working directory.
   Existing shell environment variables always win over file-based values.
 
 Examples:
@@ -230,11 +234,20 @@ load_env_file_if_present() {
     done < "$env_file_path"
 }
 
-# 读取脚本专属 dotenv 文件，避免与同目录其他脚本共用通用 .env 时发生冲突。
-# 先读共享配置，再读 .local，本地文件因此拥有更高优先级。
+# 读取脚本专属 dotenv 文件，支持“脚本目录默认配置 + 当前工作目录覆盖”模式。
+# 优先级：
+# 1. 当前 shell 环境变量
+# 2. 当前工作目录 aliyun-oss-put.env.local
+# 3. 当前工作目录 aliyun-oss-put.env
+# 4. 脚本目录 aliyun-oss-put.env.local
+# 5. 脚本目录 aliyun-oss-put.env
 load_dotenv_files() {
     local work_dir="$PWD"
+    local script_dir
+    script_dir="$(cd "$(dirname "$0")" && pwd)"
     INITIAL_ENV_VARS="$(env | LC_ALL=C cut -d= -f1)"
+    load_env_file_if_present "$script_dir/aliyun-oss-put.env"
+    load_env_file_if_present "$script_dir/aliyun-oss-put.env.local"
     load_env_file_if_present "$work_dir/aliyun-oss-put.env"
     load_env_file_if_present "$work_dir/aliyun-oss-put.env.local"
 }
@@ -462,6 +475,7 @@ build_canonical_headers() {
 
     append_canonical_header "content-md5" "$FILE_MD5_BASE64"
     append_canonical_header "content-type" "$CONTENT_TYPE"
+    append_canonical_header "content-length" "$FILE_SIZE"
 
     if [ "$OVERWRITE_MODE" != "true" ]; then
         append_canonical_header "x-oss-forbid-overwrite" "true"
@@ -477,15 +491,24 @@ build_canonical_headers() {
     printf '%s' "$canonical_headers"
 }
 
+# 构造 Authorization 头里的 AdditionalHeaders 字段。
+# 当前上传实现显式发送了 Content-Length，因此这里固定将其纳入签名。
+build_additional_headers_value() {
+    printf '%s' "content-length"
+}
+
 # 按 OSS V4 规则构造 canonical request。
 build_canonical_request() {
     local canonical_headers
+    local additional_headers_value
 
     canonical_headers="$(build_canonical_headers)"
+    additional_headers_value="$(build_additional_headers_value)"
 
-    printf 'PUT\n%s\n\n%s\n\n%s' \
+    printf 'PUT\n%s\n\n%s\n\n%s\n%s' \
         "$CANONICAL_URI" \
         "$canonical_headers" \
+        "$additional_headers_value" \
         "$CONTENT_SHA256"
 }
 
@@ -599,6 +622,7 @@ perform_upload() {
     local string_to_sign
     local signature
     local authorization_header
+    local additional_headers_value
     local -a curl_args
     local http_status
     local curl_exit_code
@@ -611,8 +635,9 @@ perform_upload() {
     canonical_request="$(build_canonical_request)"
     string_to_sign="$(build_string_to_sign "$canonical_request")"
     signature="$(build_signature "$string_to_sign")"
+    additional_headers_value="$(build_additional_headers_value)"
 
-    authorization_header="OSS4-HMAC-SHA256 Credential=${ALIYUN_ACCESS_KEY_ID}/${SHORT_DATE}/${REGION_ID}/oss/aliyun_v4_request,Signature=${signature}"
+    authorization_header="OSS4-HMAC-SHA256 Credential=${ALIYUN_ACCESS_KEY_ID}/${SHORT_DATE}/${REGION_ID}/oss/aliyun_v4_request,AdditionalHeaders=${additional_headers_value},Signature=${signature}"
 
     print_debug_signing "$canonical_request" "$string_to_sign" "$signature"
     log_verbose "Request URL: $REQUEST_URL"
