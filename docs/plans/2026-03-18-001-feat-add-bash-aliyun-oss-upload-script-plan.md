@@ -441,7 +441,7 @@ origin: docs/brainstorms/2026-03-18-aliyun-oss-upload-script-brainstorm.md
 ### Quality Gates
 
 - [ ] 至少完成一次离线签名校验
-- [ ] 至少完成一次真实 OSS 上传 smoke test
+- [x] 至少完成一次真实 OSS 上传 smoke test
 - [x] 更新 [docs/跨平台单文件脚本最佳实践.md](/home/administrator/projects/env/powershellScripts/docs/跨平台单文件脚本最佳实践.md)
 - [x] 若新增 `scripts/bash/README.md`，其示例命令与最终脚本参数保持一致
 

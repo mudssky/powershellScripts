@@ -248,8 +248,10 @@ load_dotenv_files() {
     INITIAL_ENV_VARS="$(env | LC_ALL=C cut -d= -f1)"
     load_env_file_if_present "$script_dir/aliyun-oss-put.env"
     load_env_file_if_present "$script_dir/aliyun-oss-put.env.local"
-    load_env_file_if_present "$work_dir/aliyun-oss-put.env"
-    load_env_file_if_present "$work_dir/aliyun-oss-put.env.local"
+    if [ "$work_dir" != "$script_dir" ]; then
+        load_env_file_if_present "$work_dir/aliyun-oss-put.env"
+        load_env_file_if_present "$work_dir/aliyun-oss-put.env.local"
+    fi
 }
 
 # 解析 CLI 参数，命令行显式传值始终高于环境变量默认值。
@@ -462,30 +464,18 @@ prepare_request_values() {
 build_canonical_headers() {
     local canonical_headers=""
 
-    append_canonical_header() {
-        local header_name="$1"
-        local header_value="$2"
-
-        if [ -n "$canonical_headers" ]; then
-            canonical_headers="${canonical_headers}"$'\n'
-        fi
-
-        canonical_headers="${canonical_headers}${header_name}:${header_value}"
-    }
-
-    append_canonical_header "content-md5" "$FILE_MD5_BASE64"
-    append_canonical_header "content-type" "$CONTENT_TYPE"
-    append_canonical_header "content-length" "$FILE_SIZE"
+    canonical_headers="${canonical_headers}content-length:${FILE_SIZE}"$'\n'
+    canonical_headers="${canonical_headers}content-md5:${FILE_MD5_BASE64}"$'\n'
+    canonical_headers="${canonical_headers}content-type:${CONTENT_TYPE}"$'\n'
+    canonical_headers="${canonical_headers}x-oss-content-sha256:${CONTENT_SHA256}"$'\n'
+    canonical_headers="${canonical_headers}x-oss-date:${ISO_8601_DATE}"$'\n'
 
     if [ "$OVERWRITE_MODE" != "true" ]; then
-        append_canonical_header "x-oss-forbid-overwrite" "true"
+        canonical_headers="${canonical_headers}x-oss-forbid-overwrite:true"$'\n'
     fi
 
-    append_canonical_header "x-oss-content-sha256" "$CONTENT_SHA256"
-    append_canonical_header "x-oss-date" "$ISO_8601_DATE"
-
     if [ -n "${ALIYUN_SECURITY_TOKEN:-}" ]; then
-        append_canonical_header "x-oss-security-token" "${ALIYUN_SECURITY_TOKEN}"
+        canonical_headers="${canonical_headers}x-oss-security-token:${ALIYUN_SECURITY_TOKEN}"$'\n'
     fi
 
     printf '%s' "$canonical_headers"
