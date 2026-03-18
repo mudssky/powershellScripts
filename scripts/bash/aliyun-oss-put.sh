@@ -93,6 +93,7 @@ Environment variables:
   ALIYUN_ACCESS_KEY_SECRET
   ALIYUN_SECURITY_TOKEN     Optional STS token.
   ALIYUN_OSS_BUCKET         Optional default for --bucket.
+  ALIYUN_OSS_OBJECT_KEY     Optional default for --key.
   ALIYUN_OSS_REGION         Optional default for --region.
   ALIYUN_OSS_HOST           Optional default for --host.
   ALIYUN_OSS_CONTENT_TYPE   Optional default for --content-type.
@@ -317,6 +318,10 @@ apply_environment_defaults() {
         BUCKET_NAME="$ALIYUN_OSS_BUCKET"
     fi
 
+    if [ -z "$OBJECT_KEY" ] && [ -n "${ALIYUN_OSS_OBJECT_KEY:-}" ]; then
+        OBJECT_KEY="$ALIYUN_OSS_OBJECT_KEY"
+    fi
+
     if [ -z "$REGION_ID" ] && [ -n "${ALIYUN_OSS_REGION:-}" ]; then
         REGION_ID="$ALIYUN_OSS_REGION"
     fi
@@ -354,7 +359,7 @@ normalize_target() {
 validate_inputs() {
     [ -n "$FILE_PATH" ] || die 1 "--file is required"
     [ -n "$BUCKET_NAME" ] || die 1 "--bucket is required or set ALIYUN_OSS_BUCKET"
-    [ -n "$OBJECT_KEY" ] || die 1 "--key is required"
+    [ -n "$OBJECT_KEY" ] || die 1 "--key is required or set ALIYUN_OSS_OBJECT_KEY"
     [ -n "$REGION_ID" ] || die 1 "--region is required or set ALIYUN_OSS_REGION"
     [ -n "$HOST_INPUT" ] || die 1 "--host is required or set ALIYUN_OSS_HOST"
     [ -n "${ALIYUN_ACCESS_KEY_ID:-}" ] || die 1 "ALIYUN_ACCESS_KEY_ID is required"

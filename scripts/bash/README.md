@@ -63,6 +63,7 @@
 - `ALIYUN_ACCESS_KEY_SECRET`
 - `ALIYUN_SECURITY_TOKEN`
 - `ALIYUN_OSS_BUCKET`
+- `ALIYUN_OSS_OBJECT_KEY`
 - `ALIYUN_OSS_REGION`
 - `ALIYUN_OSS_HOST`
 - `ALIYUN_OSS_CONTENT_TYPE`
@@ -106,6 +107,7 @@
 ALIYUN_ACCESS_KEY_ID=your-access-key-id
 ALIYUN_ACCESS_KEY_SECRET=your-access-key-secret
 ALIYUN_OSS_BUCKET=examplebucket
+ALIYUN_OSS_OBJECT_KEY=demo/demo.txt
 ALIYUN_OSS_REGION=cn-hangzhou
 ALIYUN_OSS_HOST=examplebucket.oss-cn-hangzhou.aliyuncs.com
 ```
@@ -119,9 +121,10 @@ ALIYUN_SECURITY_TOKEN=your-sts-token
 
 ```bash
 ./scripts/bash/aliyun-oss-put.sh \
-  --file ./demo.txt \
-  --key demo/demo.txt
+  --file ./demo.txt
 ```
+
+如果你在命令行里显式传了 `--key`，它的优先级仍然高于 `ALIYUN_OSS_OBJECT_KEY`。
 
 脚本会在发起上传前打印本地文件的 `sha256`、文件大小和目标 `object-key`，方便排查“传错文件”“内容被修改”这类问题。
 
