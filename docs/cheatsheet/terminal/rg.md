@@ -323,7 +323,97 @@ Get-ChildItem .\logs -File |
 
 ---
 
-## 8. 常见坑
+## 8. 过滤超长行
+
+日志里经常会出现超长 JSON、Base64、堆栈展开、压缩后的单行文本。这类内容会影响终端可读性，也容易把有效信息淹没。
+
+### 只是不想完整打印超长行
+
+如果你的目标是“搜索仍然照常进行，但不要把超长行原样输出”，直接用 `-M`：
+
+```powershell
+rg -n -M 300 'error|warn|exception' .\logs -g '*.log'
+```
+
+说明：
+
+- `-M 300` 表示超过 300 字节的行不完整打印
+- 默认会用一条提示信息代替原始长行
+- 这更适合先快速扫一遍日志
+
+### 长行只保留前面一段预览
+
+如果你想保留前面一部分内容，方便判断是不是目标日志，可以加 `--max-columns-preview`：
+
+```powershell
+rg -n -M 300 --max-columns-preview 'error|warn|exception' .\logs -g '*.log'
+```
+
+这适合排查以下场景：
+
+- 日志前缀里有时间、级别、模块名
+- 后半段是很长的 JSON 或请求体
+- 你只想先看开头判断是否值得继续深挖
+
+### 真正过滤掉超长行
+
+如果你的目标是“只匹配长度不超过 300 个字符的行”，可以用 PCRE2：
+
+```powershell
+rg -n -P '^(?=.{0,300}$).*(error|warn|exception)' .\logs -g '*.log'
+```
+
+说明：
+
+- `(?=.{0,300}$)` 先限制整行长度不超过 300 个字符
+- 后面的 `.*(error|warn|exception)` 再判断该行是否包含目标关键词
+- 这种写法属于真正按长度过滤，不只是输出裁剪
+
+### 只保留短行，再继续做 PowerShell 处理
+
+如果你后面还要继续做排序、截取、格式化，PowerShell 管道会更灵活：
+
+```powershell
+Get-Content .\logs\app.log |
+  Where-Object { $_.Length -le 300 } |
+  rg -n 'error|warn|exception'
+```
+
+也可以先过滤，再看前几条：
+
+```powershell
+Get-Content .\logs\app.log |
+  Where-Object { $_.Length -le 300 -and $_ -match 'error|warn|exception' } |
+  Select-Object -First 20
+```
+
+### 过滤长行但保留文件名与行号
+
+如果你搜的是多个文件，又想保留定位信息，优先仍然用 `rg`：
+
+```powershell
+rg -n -P '^(?=.{0,300}$).*(timeout|connection refused|panic)' .\logs -g '*.log'
+```
+
+因为 `Get-Content` 管道虽然灵活，但默认会丢掉“来自哪个文件、原始第几行”的上下文。
+
+### 字节数和字符数的区别
+
+这点在中文日志里尤其重要：
+
+- `-M 300` 按字节数限制
+- `$_ .Length` 和 `.{0,300}` 更接近按字符数限制
+- 如果日志中包含较多中文、emoji 或其他非 ASCII 内容，`-M 300` 和“300 个字符”不一定等价
+
+实际建议：
+
+- 只是嫌输出太长，用 `-M 300 --max-columns-preview`
+- 需要严格过滤长行，用 `-P '^(?=.{0,300}$)...'`
+- 后面还要继续做筛选整形，用 PowerShell 管道
+
+---
+
+## 9. 常见坑
 
 ### 正则特殊字符误伤
 
@@ -366,7 +456,7 @@ rg -n -uuu 'keyword' .
 
 ---
 
-## 9. 一句话建议
+## 10. 一句话建议
 
 - 查固定文本，用 `-F`
 - 排查日志，用 `-n -i -C 3`
