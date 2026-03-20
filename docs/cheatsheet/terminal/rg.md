@@ -39,11 +39,15 @@ rg -F "GET /health" .\logs\app.log
 | :--- | :--- | :--- |
 | `-n` | 显示行号 | `rg -n error` |
 | `-i` | 忽略大小写 | `rg -i timeout` |
+| `-S` | 智能大小写：模式全小写时忽略大小写，出现大写时改为区分大小写 | `rg -S error` |
+| `-e` | 显式指定搜索模式，适合模式以 `-` 开头时使用 | `rg -e '--help'` |
 | `-F` | 按固定字符串搜索，不当正则解释 | `rg -F '[ERROR]' logs` |
 | `-w` | 按完整单词匹配 | `rg -w error` |
 | `-v` | 反向匹配，排除命中行 | `rg -v healthcheck app.log` |
 | `-c` | 只显示每个文件的命中次数 | `rg -c error logs` |
+| `--count-matches` | 显示每个文件的总匹配次数，而不只是命中行数 | `rg --count-matches error logs` |
 | `-l` | 只显示命中的文件名 | `rg -l timeout src` |
+| `--files-without-match` | 只显示没有命中的文件名 | `rg --files-without-match TODO docs` |
 | `--files` | 列出可搜索文件，不做正文匹配 | `rg --files` |
 | `-g` | 用 glob 限定文件范围 | `rg error -g '*.log'` |
 | `-t` | 按文件类型筛选 | `rg TODO -t ps1` |
@@ -51,10 +55,15 @@ rg -F "GET /health" .\logs\app.log
 | `-B 3` | 显示命中前 3 行 | `rg -B 3 error app.log` |
 | `-C 3` | 显示命中前后各 3 行 | `rg -C 3 error app.log` |
 | `--hidden` | 包含隐藏文件 | `rg --hidden token .` |
-| `-uuu` | 不忽略隐藏文件、二进制文件、ignore 规则 | `rg -uuu secret .` |
+| `--no-ignore` | 不遵守 `.gitignore`、`.ignore`、`.rgignore` 等 ignore 规则 | `rg --no-ignore secret .` |
+| `--no-ignore-vcs` | 只不遵守版本控制 ignore 规则，例如 `.gitignore` | `rg --no-ignore-vcs dist .` |
+| `-uu` | 等价于 `--no-ignore --hidden`，仍默认跳过二进制文件 | `rg -uu secret .` |
+| `-uuu` | 等价于 `--no-ignore --hidden --binary`，几乎关闭默认过滤 | `rg -uuu secret .` |
 | `--sort path` | 按路径排序输出 | `rg error logs --sort path` |
 | `--max-count 20` | 最多显示 20 条命中 | `rg --max-count 20 error logs` |
+| `--max-filesize 10M` | 跳过超过指定体积的文件 | `rg error logs --max-filesize 10M` |
 | `-o` | 仅输出匹配到的片段 | `rg -o '\d{3}' app.log` |
+| `-U` | 启用多行搜索，允许匹配跨越换行符 | `rg -U 'BEGIN[\\s\\S]*END' app.log` |
 | `--stats` | 输出搜索统计信息 | `rg error logs --stats` |
 
 ---
@@ -72,6 +81,20 @@ rg -n 'timeout'
 ```powershell
 rg -n -i 'error'
 ```
+
+### 智能大小写
+
+如果你想要“全小写时宽松匹配，写了大写时严格匹配”，用 `-S` 比 `-i` 更顺手：
+
+```powershell
+rg -n -S 'error'
+rg -n -S 'NullReferenceException'
+```
+
+说明：
+
+- `rg -S 'error'` 会匹配 `error`、`Error`、`ERROR`
+- `rg -S 'NullReferenceException'` 会因为模式里出现大写，自动切换为区分大小写
 
 ### 查固定文本而不是正则
 
@@ -96,6 +119,34 @@ rg -n 'error' .\logs -g '!archive/**'
 rg -n 'error' .\logs -g '!*.bak'
 ```
 
+### 搜索以 `-` 开头的模式
+
+如果模式本身长得像参数，例如 `--help`、`-ErrorAction`，要用 `-e` 明确告诉 `rg` 后面是模式，不是选项：
+
+```powershell
+rg -n -e '--help' .\docs
+rg -n -e '-ErrorAction' .\scripts
+```
+
+### 不想遵守 `.gitignore`
+
+`rg` 默认会遵守 `.gitignore`。如果你想把 Git 忽略的文件也一起搜出来，优先用下面这几种：
+
+```powershell
+rg -n --no-ignore-vcs 'dist' .
+rg -n --no-ignore 'dist' .
+rg -n -uu 'secret' .
+rg -n -uuu 'secret' .
+```
+
+说明：
+
+- `--no-ignore-vcs` 只关闭 Git 这类版本控制的 ignore 规则；如果你只是想“不要管 `.gitignore`”，优先用它
+- `--no-ignore` 会连 `.ignore`、`.rgignore`、全局 ignore 一起关闭，范围更大
+- `--hidden` 只负责“包含隐藏文件”，不会自动取消 `.gitignore`
+- `-uu` 适合“连隐藏文件和 ignore 文件都一起搜，但仍不碰二进制文件”
+- `-uuu` 更激进，适合排查“明明有内容却怎么都搜不到”的情况
+
 ### 显示上下文
 
 排查问题时，上下文通常比“只看到一行命中”更重要：
@@ -117,6 +168,56 @@ rg -l 'Connection refused' .\logs
 ```powershell
 rg -c 'error' .\logs
 ```
+
+如果你想统计“总共匹配了多少次”，而不是“多少行里出现过匹配”，改用：
+
+```powershell
+rg --count-matches 'error' .\logs
+```
+
+说明：
+
+- `-c` 统计的是命中行数
+- `--count-matches` 统计的是实际匹配次数
+- 一行里如果出现多个 `error`，两者结果可能不同
+
+### 只看没命中的文件
+
+找“缺少某个配置”或“哪些文件还没包含某段文本”时很方便：
+
+```powershell
+rg --files-without-match 'Set-StrictMode' .\scripts -g '*.ps1'
+rg --files-without-match '^# ' .\docs -g '*.md'
+```
+
+### 跳过超大文件
+
+日志目录或仓库里有超大文件时，可以先限制文件体积，避免搜索明显变慢：
+
+```powershell
+rg -n 'error' .\logs --max-filesize 10M
+rg -n 'TODO' . --max-filesize 1M
+```
+
+说明：
+
+- `--max-filesize 10M` 表示跳过大于 10 MB 的文件
+- 这更适合先快速筛查，再决定是否单独查看大文件
+
+### 跨多行搜索
+
+默认情况下，`rg` 按“单行”匹配；如果模式需要跨越换行符，必须加 `-U`：
+
+```powershell
+rg -n -U 'BEGIN[\s\S]*END' .\logs\app.log
+rg -n -U --multiline-dotall 'error.*stack trace' .\logs\app.log
+```
+
+说明：
+
+- `-U` 启用 multiline 模式，允许匹配跨行内容
+- `.` 默认不会跨过换行；想让 `.` 也匹配换行，可再加 `--multiline-dotall`
+- 多行搜索通常更慢，也更吃内存，优先先缩小文件范围
 
 ---
 
