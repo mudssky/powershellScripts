@@ -405,8 +405,7 @@
         "name": "llmfit",
         "cliName": "llmfit",
         "description": "llmfit 命令行工具",
-        "command": "scoop install llmfit",
-        "skipInstall": true
+        "command": "scoop install llmfit"
       }
     ],
     "winget": [
@@ -786,8 +785,7 @@
         "cliName": "llmfit",
         "description": "llmfit 命令行工具",
         "command": "brew install llmfit",
-        "supportOs": ["linux", "macOS"],
-        "skipInstall": true
+        "supportOs": ["macOS", "linux"]
       }
     ],
     "npm": [
