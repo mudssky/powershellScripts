@@ -722,6 +722,14 @@
         "tag": ["linuxserver"]
       },
       {
+        "name": "dua-cli",
+        "cliName": "dua",
+        "description": "磁盘占用情况分析工具 (dua)",
+        "command": "brew install dua-cli",
+        "supportOs": ["linux", "macOS"],
+        "tag": ["linuxserver"]
+      },
+      {
         "name": "lazygit",
         "cliName": "lazygit",
         "description": "git的TUI界面",
