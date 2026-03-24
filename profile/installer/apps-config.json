@@ -400,6 +400,13 @@
         "cliName": "rclone",
         "description": "命令行云存储管理工具",
         "command": "scoop install rclone"
+      },
+      {
+        "name": "llmfit",
+        "cliName": "llmfit",
+        "description": "llmfit 命令行工具",
+        "command": "scoop install llmfit",
+        "skipInstall": true
       }
     ],
     "winget": [
@@ -773,6 +780,14 @@
         "command": "brew install zellij",
         "supportOs": ["macOS", "linux"],
         "tag": ["linuxserver"]
+      },
+      {
+        "name": "llmfit",
+        "cliName": "llmfit",
+        "description": "llmfit 命令行工具",
+        "command": "brew install llmfit",
+        "supportOs": ["linux", "macOS"],
+        "skipInstall": true
       }
     ],
     "npm": [
