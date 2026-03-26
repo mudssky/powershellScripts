@@ -16,3 +16,4 @@ ccline.exe
 .claude/transcripts
 .claude/backups
 .claude/ide
+.claude/sessions
