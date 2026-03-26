@@ -15,6 +15,7 @@
     "check:pwsh:rs": "pnpm run pwshfmt:rs -- check --git-changed --strict-fallback",
     "format:biome": "biome format --write .",
     "format:md": "rumdl fmt .",
+    "check:md": "rumdl check --fix .",
     "format:python": "uvx ruff format .",
     "lint:python": "uvx ruff check --fix .",
     "format": "pnpm format:pwsh && pnpm format:md && pnpm format:python",
