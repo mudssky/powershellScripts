@@ -5,36 +5,38 @@
 #### **第 1 部分：安装与项目初始化**
 
 1. **安装依赖**
-    * `prisma`: 命令行工具 (CLI)，作为开发依赖。
-    * `@prisma/client`: 在应用代码中使用的客户端库。
+   * `prisma`: 命令行工具 (CLI)，作为开发依赖。
+   * `@prisma/client`: 在应用代码中使用的客户端库。
 
-    ```bash
-    npm install prisma --save-dev
-    npm install @prisma/client
-    ```
+     ```bash
+     npm install prisma --save-dev
+     npm install @prisma/client
+
+     ```text
 
 2. **初始化项目**
 
-    * 此命令会创建 `prisma` 文件夹，并在其中生成 `schema.prisma` 文件，同时还会创建一个 `.env` 文件用于存放数据库连接字符串。
+   * 此命令会创建 `prisma` 文件夹，并在其中生成 `schema.prisma` 文件，同时还会创建一个 `.env` 文件用于存放数据库连接字符串。
 
-    ```bash
-    npx prisma init
-    ```
+     ```bash
+     npx prisma init
 
-    * **`schema.prisma` 初始内容:**
+     ```text
+
+   * **`schema.prisma` 初始内容:**
 
         ```prisma
         generator client {
           provider = "prisma-client-js"
         }
-    
+
         datasource db {
           provider = "postgresql" // 可选: postgresql, mysql, sqlite, sqlserver, mongodb, cockroachdb
           url      = env("DATABASE_URL")
         }
         ```
 
-    * **`.env` 初始内容:**
+   * **`.env` 初始内容:**
 
         ```env
         # 示例 PostgreSQL 连接字符串
@@ -129,13 +131,13 @@ model User {
       title      String
       categories CategoriesOnPosts[] // 关联到中间表
     }
-    
+
     model Category {
       id    String             @id @default(cuid())
       name  String
       posts CategoriesOnPosts[] // 关联到中间表
     }
-    
+
     // 中间表 (Join Table)
     model CategoriesOnPosts {
       post       Post     @relation(fields: [postId], references: [id])
@@ -143,7 +145,7 @@ model User {
       category   Category @relation(fields: [categoryId], references: [id])
       categoryId String
       assignedAt DateTime @default(now())
-    
+
       @@id([postId, categoryId]) // 复合主键
     }
     ```
@@ -162,35 +164,41 @@ model User {
 #### **第 3 部分：数据库迁移**
 
 1. **开发中的迁移（最常用）**
-    * 此命令会：
+   * 此命令会：
         1. 在 `prisma/migrations` 中创建一个新的 SQL 迁移文件。
         2. 将迁移应用到数据库。
         3. 重新生成 Prisma Client，使其与新的 schema 保持同步。
 
-    ```bash
-    # 第一次迁移
-    npx prisma migrate dev --name init
-    
-    # 后续迁移
+     ```bash
+
+# 第一次迁移
+
+```text
+npx prisma migrate dev --name init
+```
+
+## 后续迁移
+
     npx prisma migrate dev --name added_user_model
-    ```
+     ```
 
 2. **生产环境部署**
-    * 此命令只应用待执行的迁移，不会尝试创建或修改迁移文件。
+   * 此命令只应用待执行的迁移，不会尝试创建或修改迁移文件。
 
-    ```bash
-    npx prisma migrate deploy
-    ```
+     ```bash
+     npx prisma migrate deploy
+
+     ```text
 
 3. **其他常用迁移命令**
-    * `npx prisma db push`: （不推荐用于生产）快速同步 schema 到数据库，但不创建迁移文件。适合原型开发。
-    * `npx prisma migrate reset`: 重置数据库，并重新应用所有迁移。**会删除所有数据！**
+   * `npx prisma db push`: （不推荐用于生产）快速同步 schema 到数据库，但不创建迁移文件。适合原型开发。
+   * `npx prisma migrate reset`: 重置数据库，并重新应用所有迁移。**会删除所有数据！**
 
 ---
 
-#### **第 4 部分：Prisma Client 数据操作**
+### **第 4 部分：Prisma Client 数据操作**
 
-##### **初始化客户端**
+#### **初始化客户端**
 
 ```typescript
 import { PrismaClient } from '@prisma/client';
@@ -268,7 +276,7 @@ const prisma = new PrismaClient();
     });
     ```
 
-##### **高级查询**
+###### **高级查询**
 
 * **关系过滤**: 查询所有至少有一篇已发布文章的用户。
 
@@ -293,10 +301,10 @@ const prisma = new PrismaClient();
 
 ---
 
-#### **第 5 部分：工作流与其他工具**
+##### **第 5 部分：工作流与其他工具**
 
 1. **数据填充 (Seeding)**
-    * 在 `package.json` 中添加:
+   * 在 `package.json` 中添加:
 
         ```json
         "prisma": {
@@ -304,19 +312,21 @@ const prisma = new PrismaClient();
         }
         ```
 
-    * 创建 `prisma/seed.ts` 文件，并在其中使用 Prisma Client 创建初始数据。
-    * 运行 `npx prisma db seed`。
+   * 创建 `prisma/seed.ts` 文件，并在其中使用 Prisma Client 创建初始数据。
+   * 运行 `npx prisma db seed`。
 
 2. **Prisma Studio (可视化数据库编辑器)**
-    * 启动一个本地的、可视化的数据库管理界面。非常适合调试和快速查看数据。
+   * 启动一个本地的、可视化的数据库管理界面。非常适合调试和快速查看数据。
 
-    ```bash
-    npx prisma studio
-    ```
+     ```bash
+     npx prisma studio
+
+     ```text
 
 3. **从现有数据库生成 Schema (Introspection)**
-    * 如果你的数据库已经存在，此命令会读取数据库结构，并自动生成 `schema.prisma` 文件。
+   * 如果你的数据库已经存在，此命令会读取数据库结构，并自动生成 `schema.prisma` 文件。
 
-    ```bash
-    npx prisma db pull
-    ```
+     ```bash
+     npx prisma db pull
+
+     ```text

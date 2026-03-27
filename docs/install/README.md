@@ -20,7 +20,7 @@
 1. 配置 `wslconfig`，执行 `./linux/wsl2/loadWslConfig.ps1`
 2. 配置 WSL2 DNS
 
-```
+```text
 # /etc/wsl.conf 这个文件增加下面的配置后，就不会随机生成了
 [network]
 generateResolvConf = false
@@ -28,7 +28,7 @@ generateResolvConf = false
 
 之后执行 `sudo vi /etc/resolv.conf`，添加下面内容：
 
-```
+```text
 nameserver 114.114.114.114
 ```
 

@@ -508,7 +508,7 @@ CI 中已提供独立工作流 `.github/workflows/qa-benchmark.yml`，
 
 ## 🌐 网络和下载工具
 
-#### `downGithub`
+### `downGithub`
 
 **功能**: GitHub 仓库下载工具
 
@@ -518,7 +518,7 @@ CI 中已提供独立工作流 `.github/workflows/qa-benchmark.yml`，
 
 ## 📁 文件格式处理
 
-#### `ExtractAss`
+### `ExtractAss`
 
 **功能**: ASS 字幕文件提取
 
@@ -532,7 +532,7 @@ CI 中已提供独立工作流 `.github/workflows/qa-benchmark.yml`，
 
 ## 🐳 容器和服务
 
-#### `start-container`
+### `start-container`
 
 **功能**: 容器启动工具
 
@@ -542,7 +542,7 @@ CI 中已提供独立工作流 `.github/workflows/qa-benchmark.yml`，
 
 ## 📊 数据处理
 
-#### `jupyconvert`
+### `jupyconvert`
 
 **功能**: Jupyter Notebook 转换工具
 
@@ -552,7 +552,7 @@ CI 中已提供独立工作流 `.github/workflows/qa-benchmark.yml`，
 
 ## 🧹 清理工具
 
-#### `cleanTorrent`
+### `cleanTorrent`
 
 **功能**: 种子文件清理工具
 
@@ -564,7 +564,7 @@ CI 中已提供独立工作流 `.github/workflows/qa-benchmark.yml`，
 
 位于 `scripts/ahk` 目录下，提供了一系列 Windows 自动化脚本。
 
-#### `capslock.ahk`
+### `capslock.ahk`
 
 **功能**: CapsLock 增强工具，提供 VIM 风格的光标移动和快捷键。
 
@@ -639,7 +639,7 @@ Import-Module "$PSScriptRoot\psutils" -Force
 
 ### 目录结构
 
-```
+```text
 powershellScripts/
 ├── psutils/                 # 通用工具模块
 ├── profile/                 # PowerShell 配置文件

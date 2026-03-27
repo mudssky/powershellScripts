@@ -1,7 +1,9 @@
 ## 目标与依据
+
 - 依据 `docs/cheatsheet/pwsh/Pwsh跨平台脚本最佳实践.md` 与示例 `docs/cheatsheet/pwsh/script-template.ps1`，为项目根目录的所有 `.ps1` 脚本统一落地跨平台与工程化规范。
 
 ## Plan
+
 - [ ] Impact Analysis (影响面分析)
   - 修改文件（根目录脚本，共 41 个）：
     - `Compare-JsonFiles.ps1`, `ConventAllbyExt.ps1`, `DownloadVSCodeExtension.ps1`, `ExtractAss.ps1`, `PesterConfiguration.ps1`, `Setup-SshNoPasswd.ps1`, `Setup-VSCodeSSH.ps1`, `Start-Bee.ps1`, `VideoToAudio.ps1`, `abematv.ps1`, `cbz.ps1`, `cleanEnvPath.ps1`, `cleanTorrent.ps1`, `concatXML.ps1`, `concatflv.ps1`, `denmodown.ps1`, `dlsiteUpdate.ps1`, `downGithub.ps1`, `downWith.ps1`, `dvdcompress.ps1`, `ffmpegPreset.ps1`, `findLostNum.ps1`, `folderSize.ps1`, `get-SnippetsBody.ps1`, `gitconfig_personal.ps1`, `install.ps1`, `jupyconvert.ps1`, `losslessToQaac.ps1`, `lrc-maker.ps1`, `pngCompress.ps1`, `proxyHelper.ps1`, `pslint.ps1`, `renameLegal.ps1`, `restoreEnvPath.ps1`, `runScripts.ps1`, `smallFileCleaner.ps1`, `start-container.ps1`, `startaria2c.ps1`, `syncConfig.ps1`, `tesseract.ps1`, `test-lint-staged.ps1`, `webpCompress.ps1`
@@ -57,6 +59,7 @@
   - 在 `docs/cheatsheet/pwsh/Pwsh跨平台脚本最佳实践.md` 增补“迁移清单”示例。
 
 ## 代码引用（确认改造点）
+
 - `docs/cheatsheet/pwsh/script-template.ps1:26-41`（高级函数与严格模式示例）
 - `docs/cheatsheet/pwsh/script-template.ps1:43-100`（`Main`/`try/catch/finally`/`ShouldProcess` 模式）
 - `docs/cheatsheet/pwsh/Pwsh跨平台脚本最佳实践.md:46-48`（跨平台 `Join-Path`）
@@ -65,11 +68,13 @@
 - `Compare-JsonFiles.ps1:239-246`（工具路径字符串，建议改 `Join-Path`）
 
 ## 风险缓解
+
 - 分批次改造与验证，优先处理无外部依赖的脚本；
 - 对可能影响生产使用的脚本保留原行为，新增 `-WhatIf` 干运行；
 - 一旦发现兼容性问题，快速回滚具体文件并记录差异。
 
 ## 交付物
+
 - 全量更新后的根目录 `.ps1` 文件；
 - 验证报告（静态分析与冒烟结果摘要）；
 - 变更说明（包含规范对照与关键差异）。

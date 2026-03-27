@@ -2,6 +2,7 @@
 alwaysApply: false
 globs: psutils/**/*
 ---
+
 # 📂 Project Specific Rules (PSUtils)
 
 ## 1. Architecture

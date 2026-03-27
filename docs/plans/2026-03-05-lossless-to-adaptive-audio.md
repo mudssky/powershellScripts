@@ -10,9 +10,10 @@
 
 ---
 
-### Task 1: 建立可测试骨架并添加失败测试
+## Task 1: 建立可测试骨架并添加失败测试
 
 **Files:**
+
 - Create: `tests/losslessToAdaptiveAudio.Tests.ps1`
 - Modify: `scripts/pwsh/misc/losslessToQaac.ps1`
 
@@ -89,6 +90,7 @@ git commit -m "test(audio): add encoder selection coverage"
 ### Task 2: 实现回退编码命令与输出路径切换
 
 **Files:**
+
 - Modify: `scripts/pwsh/misc/losslessToQaac.ps1`
 - Test: `tests/losslessToAdaptiveAudio.Tests.ps1`
 
@@ -133,6 +135,7 @@ function New-EncodeCommand {
 ```
 
 并将主流程改为：
+
 - 启动时调用 `Resolve-EncoderMode`。
 - 通过 `Get-OutputExtension` 生成输出后缀。
 - 并行块中统一调用 `New-EncodeCommand`。
@@ -153,6 +156,7 @@ git commit -m "feat(audio): add ffmpeg opus fallback when qaac missing"
 ### Task 3: 重命名脚本并修正文档引用
 
 **Files:**
+
 - Move: `scripts/pwsh/misc/losslessToQaac.ps1` -> `scripts/pwsh/misc/losslessToAdaptiveAudio.ps1`
 - Modify: `README.md`
 - Modify: `QWEN.md`
@@ -195,6 +199,7 @@ git commit -m "refactor(audio): rename script to losslessToAdaptiveAudio"
 ### Task 4: 端到端验证与 QA 收尾
 
 **Files:**
+
 - Modify (if needed): `scripts/pwsh/misc/losslessToAdaptiveAudio.ps1`
 - Modify (if needed): `tests/losslessToAdaptiveAudio.Tests.ps1`
 

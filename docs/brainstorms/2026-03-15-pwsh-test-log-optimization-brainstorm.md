@@ -6,6 +6,7 @@ topic: pwsh-test-log-optimization
 # 基于 test.log 的 PowerShell 测试进一步提速与输出收口
 
 ## What We're Building
+
 这次要解决的是 `pnpm test:pwsh:all` 在已经完成上一轮稳定性修复之后，仍然暴露出来的两类剩余问题：
 
 1. 总墙钟时间仍然被少数热点测试文件拉高。
@@ -19,6 +20,7 @@ topic: pwsh-test-log-optimization
 这意味着接下来的优化不能只盯 Windows 或只盯 Linux；只有命中双平台共享热点，才会明显降低 `pnpm test:pwsh:all` 的真实体感时间。
 
 ## Why This Approach
+
 当前日志已经足够说明下一轮该打哪里，而不是继续泛泛地讲“优化测试”：
 
 - 共享热点最明显的是 `psutils/tests/help.Tests.ps1`、`tests/Invoke-Benchmark.Tests.ps1`、`psutils/tests/cache.Tests.ps1`。
@@ -38,11 +40,13 @@ topic: pwsh-test-log-optimization
 保持 `pnpm test:pwsh:all` 继续是 `host full + linux full` 的提交门禁，不改命令语义；优先处理共享热点，并把默认通过日志中的非断言输出继续压回测试边界。
 
 **Pros:**
+
 - 不需要重新解释 `qa`、`full`、`all` 的职责边界。
 - 最符合当前仓库已经形成的测试语义。
 - 对共享热点下手后，能同时降低 host 与 linux 的体感耗时。
 
 **Cons:**
+
 - 需要分别处理 `help`、`benchmark`、`cache`、`profile`、`env` 等多处剩余边界。
 - 一些最有效的提速点最终还是会逼近“是否把诊断型测试移出 full”这个语义问题。
 
@@ -53,11 +57,13 @@ topic: pwsh-test-log-optimization
 继续执行同样的 host / linux full 集合，但把原始输出先按 lane 收集，再只打印文件级摘要、失败详情和最终汇总；低价值通过日志默认不直接刷屏。
 
 **Pros:**
+
 - 对可读性改善最快。
 - 不需要先触碰具体测试实现。
 - 可以和后续热点提速并行推进。
 
 **Cons:**
+
 - 基本不解决真实执行时长。
 - 实时观察感会变弱，调试路径需要额外设计。
 - 如果测试本身仍在输出大量 host 文本，只是把噪音“藏起来”，不是根因修复。
@@ -69,11 +75,13 @@ topic: pwsh-test-log-optimization
 明确承认有些测试更像基准或交互链路演示，不适合作为每次提交都跑的 full 门禁内容。例如 `Test-HelpSearchPerformance` 这种“性能对比能否跑通”的断言，可以移到 `Slow`、`debug` 或单独 benchmark 命令。
 
 **Pros:**
+
 - 对总时长的改善最大，尤其能直接打掉 Linux 上 `help.Tests.ps1` 的主热点。
 - 也能顺手减少不少默认输出噪音。
 - 有利于把“功能正确性”与“诊断/基准观察”分层。
 
 **Cons:**
+
 - 这已经不是单纯提速，而是调整门禁覆盖边界。
 - 需要额外约定这些测试以后在哪条命令里兜底。
 - 如果边界划错，可能让某些真实回归延后暴露。
@@ -81,6 +89,7 @@ topic: pwsh-test-log-optimization
 **Best when:** 你接受 `full` 只保留稳定、高信号的功能断言，而把性能展示、交互演示型用例下沉到专门入口。
 
 ## Recommendation
+
 推荐 **Approach A** 作为主线，但对极少数“明显更像诊断而不是门禁断言”的测试，预留 **Approach C** 的收口空间；同时把 host coverage 从默认 `all` 关键路径中拆出，单独提供 `pnpm test:pwsh:coverage`。
 
 原因很直接：
@@ -92,6 +101,7 @@ topic: pwsh-test-log-optimization
 - 真正可能需要你拍板的，只剩“`help.Tests.ps1` 里的性能对比测试是否继续留在默认 full”这一类边界问题。
 
 ## Key Decisions
+
 - 下一轮优化优先级应从“只看 host 热点”改为“优先看双平台共享热点”，否则 `all` 的真实体感时间降不下来。
 - 默认 `pnpm test:pwsh:all` 应改为“host 功能断言（不含 coverage）+ linux full”并发门禁；coverage 改由单独的 `pnpm test:pwsh:coverage` 承担。
 - `help.Tests.ps1` 是当前第一优先级，因为它同时兼具“单文件极慢”和“更偏诊断型断言”两个特征。
@@ -102,13 +112,16 @@ topic: pwsh-test-log-optimization
 - `env.Tests.ps1` 与 `web.Tests.ps1` 的剩余 warning 属于低风险快修项，应和热点提速并行处理，而不是留到最后。
 
 ## Resolved Questions
+
 - 是否接受把 **明显诊断型** 的测试从默认 `test:pwsh:all` / `full` 门禁中移出，例如 `help.Tests.ps1` 里的性能对比路径，改由 `debug`、`Slow` 或单独 benchmark 命令承接？
   - 接受，但范围先收敛到 `Test-HelpSearchPerformance`，并明确改由 benchmark 入口承接。
 - 是否接受把 host coverage 从默认 `pnpm test:pwsh:all` 中拆出，改为单独命令例如 `pnpm test:pwsh:coverage`？
   - 接受。实测基线显示，当前 `all` 外层墙钟约 `50.62s`；关闭 host coverage 后约 `37.72s`，收益约 `12.9s`，且 `Tests completed in` 基本不变，证明主要节省来自 coverage 收尾路径。
 
 ## Open Questions
+
 - 暂无。
 
 ## Next Steps
+
 -> 在你确认边界后，可进入 `/ce:plan`，把剩余热点按“共享热点优先、低风险噪音并行收口、诊断型测试是否分层”拆成实施清单。

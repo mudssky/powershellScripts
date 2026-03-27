@@ -93,12 +93,12 @@ Closes #42
 1. **拉取最新代码：** `git checkout main` -> `git pull`
 2. **创建新分支：** `git checkout -b feature/my-cool-feature`
 3. **开发与提交：**
-    * 修改代码
-    * `git add .`
-    * `git commit -m "feat: add cool feature logic"`
+   * 修改代码
+   * `git add .`
+   * `git commit -m "feat: add cool feature logic"`
 4. **保持同步（避免冲突）：**
-    * `git fetch origin`
-    * `git rebase origin/main` (解决可能产生的冲突)
+   * `git fetch origin`
+   * `git rebase origin/main` (解决可能产生的冲突)
 5. **推送分支：** `git push origin feature/my-cool-feature`
 6. **发起 PR/MR：** 请求代码审查。
 7. **修正代码：** 根据审查意见修改，再次 Push（会自动更新 PR）。

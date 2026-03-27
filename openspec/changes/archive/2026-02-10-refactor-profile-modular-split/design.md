@@ -7,12 +7,14 @@
 ## Goals / Non-Goals
 
 **Goals:**
+
 - 将 `profile/profile.ps1` 拆分为入口编排 + 职责模块，降低维护复杂度。
 - 保持 `Full/Minimal/UltraMinimal` 的语义、优先级与日志输出行为兼容。
 - 保持 `Show-MyProfileHelp`、`Initialize-Environment`、`Set-PowerShellProfile` 的可见性与调用方式兼容。
 - 采用“先 pure refactor，再单独优化”的策略，降低回归风险。
 
 **Non-Goals:**
+
 - 不新增功能，不改变对外参数接口。
 - 不在本次拆分中引入性能优化或行为修正。
 - 不修改 `profile_unix.ps1` 的 shim 语义。

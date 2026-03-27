@@ -1,6 +1,7 @@
 为 apps-config.json 中的 12 个指定工具添加 `tag` 数组，并标记为 `linuxserver`：
 
 **需要修改的工具**：
+
 1. jq - JSON 处理工具
 2. ripgrep - 快速文本搜索
 3. fd - 文件搜索工具

@@ -214,8 +214,8 @@ log("Something happened")
 1. 检查 `package.loaded["mod"]` 是否已有缓存。
 2. 检查 `package.preload["mod"]` 是否有预加载器。
 3. 搜索 `package.path` (Lua 文件)。
-    * `mod.lua`
-    * `mod/init.lua`
+   * `mod.lua`
+   * `mod/init.lua`
 4. 搜索 `package.cpath` (C 库 .so/.dll)。
 
 ---

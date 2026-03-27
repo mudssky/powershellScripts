@@ -17,9 +17,11 @@
 ## Capabilities
 
 ### New Capabilities
+
 - `pwshfmt-rs`: 定义重新开发后的 Rust PowerShell 格式化工具能力，包括命令行模型、配置系统、文件发现、casing 修复、fallback 策略与错误诊断契约。
 
 ### Modified Capabilities
+
 - (none)
 
 ## Impact

@@ -44,7 +44,7 @@ from rich.panel import Panel
 
 def main():
     console = Console()
-    
+
     # 1. 使用第三方库 (requests)
     try:
         resp = requests.get("https://httpbin.org/get")
@@ -159,14 +159,14 @@ python -m nuitka --onefile --follow-imports script.py
 ### 最终建议
 
 1. **首选方案**：使用 **PEP 723 格式** + **`uv`**。
-    * 它解决了 Python 脚本长期以来“必须先建 venv 再 pip install”的繁琐流程。
-    * 它让 Python 脚本拥有了类似 Shell/Deno 的“即插即用”体验。
+   * 它解决了 Python 脚本长期以来“必须先建 venv 再 pip install”的繁琐流程。
+   * 它让 Python 脚本拥有了类似 Shell/Deno 的“即插即用”体验。
 
 2. **Windows 兼容技巧**：
-    * 在 Windows 上，虽然不能直接 `./script.py`，但你可以创建一个同名的 `script.bat` 或 `script.cmd` 放在旁边：
+   * 在 Windows 上，虽然不能直接 `./script.py`，但你可以创建一个同名的 `script.bat` 或 `script.cmd` 放在旁边：
 
         ```batch
         @uv run "%~dp0script.py" %*
         ```
 
-    * 这样在 Windows 命令行里也可以直接输入 `script` 回车执行了。
+   * 这样在 Windows 命令行里也可以直接输入 `script` 回车执行了。

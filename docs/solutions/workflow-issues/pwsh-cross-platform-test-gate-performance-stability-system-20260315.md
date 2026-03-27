@@ -51,12 +51,15 @@ tags: [powershell, pester, pre-commit, performance, stability, console-output, q
 ## What Didn't Work
 
 **Attempted Solution 1:** 直接在测试里用原生命令探测或真实命令调用判断外部环境。  
+
 - **Why it failed:** 像 `brew`、`nvidia-smi`、`free` 这类命令缺失时，会落回明显更慢、而且依赖宿主机状态的路径，把少数测试直接拖成热点。
 
 **Attempted Solution 2:** 直接 mock `Install-Module` / `Import-Module` 这类外部 cmdlet。  
+
 - **Why it failed:** 这种 mock 边界不够稳定，外部 cmdlet 仍可能穿过模块边界触发真实模块解析，甚至碰到 PowerShell Gallery 相关路径，既慢又不稳定。
 
 **Attempted Solution 3:** 让测试默认输出保留所有用户提示型信息。  
+
 - **Why it failed:** 这些输出对调试有用，但对提交门禁的默认阅读路径是噪音，会把关键断言和耗时摘要稀释掉。
 
 ## Solution

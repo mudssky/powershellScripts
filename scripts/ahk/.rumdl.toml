@@ -1,0 +1,15 @@
+# rumdl 配置 - ahk 脚本
+# 从 .markdownlint.json 迁移而来
+
+[global]
+respect-gitignore = true
+disable = [
+  "MD013",   # line-length
+  "MD033",   # no-inline-html
+  "MD034",   # no-bare-urls
+  "MD041",   # first-line-heading
+  "MD051",   # no-emphasis-as-heading
+]
+
+[MD024]
+allow_different_nesting = true

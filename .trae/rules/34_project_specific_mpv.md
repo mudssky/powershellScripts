@@ -2,6 +2,7 @@
 alwaysApply: false
 globs: config/software/mpv/**/*
 ---
+
 # 📂 Project Specific Rules (MPV)
 
 globs: config/software/mpv/**/*

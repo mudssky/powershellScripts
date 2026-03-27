@@ -20,6 +20,7 @@
 ## 📋 使用示例
 
 ### 1. 单一过滤函数
+
 ```powershell
 Install-PackageManagerApps -PackageManager "homebrew" -FilterPredicate {
     param($app)
@@ -28,6 +29,7 @@ Install-PackageManagerApps -PackageManager "homebrew" -FilterPredicate {
 ```
 
 ### 2. 多过滤函数组合
+
 ```powershell
 Install-PackageManagerApps -PackageManager "homebrew" -FilterPredicates @(
     { param($app) $app.supportOs -contains "Linux" },
@@ -37,6 +39,7 @@ Install-PackageManagerApps -PackageManager "homebrew" -FilterPredicates @(
 ```
 
 ### 3. 复杂业务逻辑
+
 ```powershell
 Install-PackageManagerApps -PackageManager "homebrew" -FilterPredicate {
     param($app)
@@ -44,12 +47,13 @@ Install-PackageManagerApps -PackageManager "homebrew" -FilterPredicate {
     $isLinuxCompatible = $app.supportOs -contains "Linux"
     $notSkipped = -not $app.skipInstall
     $isServerTool = $app.tag -and "linuxserver" -in $app.tag
-    
+
     $isLinuxCompatible -and $notSkipped -and $isServerTool
 }
 ```
 
 ### 4. 预设过滤器函数
+
 ```powershell
 # 创建可复用的过滤器
 $linuxServerFilter = {
@@ -71,6 +75,7 @@ Install-PackageManagerApps -PackageManager "homebrew" -FilterPredicate $linuxSer
 ## 🔧 实现要点
 
 ### 1. 过滤执行逻辑
+
 ```powershell
 function Test-AppFilter {
     param(
@@ -78,7 +83,7 @@ function Test-AppFilter {
         [ScriptBlock[]]$Predicates,
         [string]$Mode = "And"
     )
-    
+
     $results = foreach ($predicate in $Predicates) {
         try {
             & $predicate $AppInfo
@@ -88,7 +93,7 @@ function Test-AppFilter {
             $false
         }
     }
-    
+
     if ($Mode -eq "And") {
         return $results -notcontains $false
     } else {
@@ -98,13 +103,14 @@ function Test-AppFilter {
 ```
 
 ### 2. 集成到现有函数
+
 ```powershell
 # 在 Install-PackageManagerApps 中添加过滤逻辑
 if ($FilterPredicate -or $FilterPredicates) {
     $predicates = @()
     if ($FilterPredicate) { $predicates += $FilterPredicate }
     if ($FilterPredicates) { $predicates += $FilterPredicates }
-    
+
     $InstallList = $InstallList | Where-Object {
         Test-AppFilter -AppInfo $_ -Predicates $predicates -Mode $FilterMode
     }
@@ -122,25 +128,27 @@ if ($FilterPredicate -or $FilterPredicates) {
 ## 🚀 扩展能力
 
 ### 1. 动态过滤条件
+
 ```powershell
 # 根据运行时条件动态生成过滤器
 $dynamicFilter = {
     param($app)
     $shouldInstall = $true
-    
+
     if ($IsServerEnvironment) {
         $shouldInstall = $app.tag -contains "server"
     }
-    
+
     if ($IsDevelopmentMachine) {
         $shouldInstall = $app.tag -contains "development"
     }
-    
+
     return $shouldInstall
 }
 ```
 
 ### 2. 外部数据源过滤
+
 ```powershell
 # 结合外部配置或API
 $externalFilter = {
@@ -151,6 +159,7 @@ $externalFilter = {
 ```
 
 ### 3. 复杂业务规则
+
 ```powershell
 $businessRuleFilter = {
     param($app)

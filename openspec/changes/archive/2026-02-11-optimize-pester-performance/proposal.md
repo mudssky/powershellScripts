@@ -11,9 +11,11 @@ Pester full test runs are slow (~58s) mainly due to expensive module/command sca
 ## Capabilities
 
 ### New Capabilities
+
 - `pester-test-performance`: Defines fast vs full Pester run modes and their required behaviors.
 
 ### Modified Capabilities
+
 - (none)
 
 ## Impact

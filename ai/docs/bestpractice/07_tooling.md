@@ -26,11 +26,11 @@
 
 ## 相关工具链接
 
-- 模型网关/路由：<https://github.com/BerriAI/litellm>
-- 编排框架：<https://github.com/langchain-ai/langchain>，<https://github.com/run-llama/llama_index>
-- 文档解析/清洗：<https://github.com/Unstructured-IO/unstructured>
-- 向量数据库：<https://github.com/pgvector/pgvector>，<https://github.com/qdrant/qdrant>，<https://github.com/milvus-io/milvus>
-- Evals：<https://github.com/explodinggradients/ragas>，<https://github.com/confident-ai/deepeval>，<https://github.com/promptfoo/promptfoo>
-- 观测与 Trace：<https://github.com/langfuse/langfuse>，<https://github.com/Helicone/helicone>
-- Guardrails：<https://github.com/NVIDIA/NeMo-Guardrails>，<https://github.com/guardrails-ai/guardrails>
-- 平台：<https://github.com/langgenius/dify>
+* 模型网关/路由：<https://github.com/BerriAI/litellm>
+* 编排框架：<https://github.com/langchain-ai/langchain>，<https://github.com/run-llama/llama_index>
+* 文档解析/清洗：<https://github.com/Unstructured-IO/unstructured>
+* 向量数据库：<https://github.com/pgvector/pgvector>，<https://github.com/qdrant/qdrant>，<https://github.com/milvus-io/milvus>
+* Evals：<https://github.com/explodinggradients/ragas>，<https://github.com/confident-ai/deepeval>，<https://github.com/promptfoo/promptfoo>
+* 观测与 Trace：<https://github.com/langfuse/langfuse>，<https://github.com/Helicone/helicone>
+* Guardrails：<https://github.com/NVIDIA/NeMo-Guardrails>，<https://github.com/guardrails-ai/guardrails>
+* 平台：<https://github.com/langgenius/dify>

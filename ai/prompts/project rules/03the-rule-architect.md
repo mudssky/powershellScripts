@@ -8,7 +8,7 @@
 
 ---
 
-# Goal
+## Goal
 
 根据 **Project Context** 与 **Existing Rules（可选）**，
 生成一组 **分层、可组合、可演进** 的项目规则文档（Project Ruleset）。
@@ -21,7 +21,7 @@
 
 ---
 
-# Input Data
+## Input Data
 
 - **Project Context**: [项目业务目标]
 - **Core Stack**: [React 18 / Next.js 14 / TypeScript / etc.]
@@ -33,9 +33,9 @@
 
 ---
 
-# Rule Generation Strategy
+## Rule Generation Strategy
 
-## Mode A — Genesis（全新项目）
+### Mode A — Genesis（全新项目）
 
 当 `Existing Rules` 为空时：
 
@@ -43,7 +43,7 @@
 - 所有高优先级规则必须来自 **Core Constitution** (Agent Mode)
 - 项目定制内容只能放入 `30_project_specific.md`
 
-## Mode B — Optimization（规则审计）
+### Mode B — Optimization（规则审计）
 
 当 `Existing Rules` 不为空时：
 
@@ -59,13 +59,13 @@
 
 ---
 
-# Output Structure（必须严格遵守）
+## Output Structure（必须严格遵守）
 
 你必须按以下顺序输出 **多个文档**：
 
 ---
 
-## 📜 00_core_constitution.md
+### 📜 00_core_constitution.md
 >
 > 不可违背的最高法则
 
@@ -75,18 +75,22 @@
 # 📜 Core Constitution
 
 ## 🚨 1. Smart Editing (智能编辑)
+
 - **Edit over Write**: 修改现有文件时，优先使用 `Edit` 工具进行局部更新（Hunk/Search&Replace），**无需**在对话中输出全量代码。
 - **No Conversation Dump**: 严禁将大段代码直接输出到对话框中（stdout），除非用户明确要求 "显示代码"。直接将代码写入/修改到文件中。
 - **No Placeholders**: 在执行写入操作时，严禁使用 `// ... existing code`。新文件必须完整。
 
 ## 🚨 2. No Hallucination (拒绝幻觉)
+
 - **Environment Aware**: 你在一个真实的 CLI 环境中。不要假设不存在的文件存在。
 - **Package Safety**: 严禁引入 `package.json` 中未声明的依赖。如需引入，必须先询问。
 
 ## 🚨 3. Language Policy (语言规范)
+
 - **中文优先**: 思考链(Thinking)、解释、Commit Message 使用中文。代码中的变量名保持英文。
 
 ## 🚨 4. Workflow (强制流程)
+
 - **Read -> Plan -> Act -> Verify**:
     1. 涉及特定功能或现有逻辑时，**必须**先读取相关上下文文件。
     2. 输出 Plan。
@@ -96,7 +100,7 @@
 
 ---
 
-## 🧠 10_workflow_rules.md
+### 🧠 10_workflow_rules.md
 >
 > Agent 的思考与执行流程
 
@@ -106,22 +110,22 @@
 
   ```markdown
    - [ ] Goals：清晰描述要达成的结果
-      - [ ] Steps：
-        - [ ] 步骤 1 …
-      - [ ] **Impact Analysis**（必须）：
-        - 修改文件：`path/to/file`
-        - 受影响模块：`ComponentName`
-      - [ ] **Verification**:
-        - 自动执行: [具体命令，如 `pnpm test` 或 `./bin/test.ps1`]
-        - 结果检查: 确认无报错，功能符合预期。
+     - [ ] Steps：
+       - [ ] 步骤 1 …
+     - [ ] **Impact Analysis**（必须）：
+       - 修改文件：`path/to/file`
+       - 受影响模块：`ComponentName`
+     - [ ] **Verification**:
+       - 自动执行: [具体命令，如 `pnpm test` 或 `./bin/test.ps1`]
+       - 结果检查: 确认无报错，功能符合预期。
   ```
-  
+
 - Context → Plan → Code → Verify → Self-Correct
 - 任何阶段跳过 = 错误
 
 ---
 
-## 🛡️ 20_coding_standards.md
+### 🛡️ 20_coding_standards.md
 >
 > 编码、架构、可维护性与测试
 
@@ -135,7 +139,7 @@
 
 ---
 
-## 📂 30_project_specific.md
+### 📂 30_project_specific.md
 >
 > **唯一允许出现项目细节的文件**
 
@@ -149,7 +153,7 @@
 
 ---
 
-# Style & Tone Requirements
+## Style & Tone Requirements
 
 - **语言**：指令式（Imperative）
 - **语气**：像编译器报错一样冷酷、精确
@@ -159,7 +163,7 @@
 
 ---
 
-# Final Output Rules
+## Final Output Rules
 
 1. 直接输出 Markdown 文件内容
 2. 每个文件必须有清晰标题
@@ -169,6 +173,7 @@
 
 ```md
 ## ⚖️ Optimization Log
+
 - [x] do something
 - [x] do something else
 ```

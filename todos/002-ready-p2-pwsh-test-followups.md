@@ -33,10 +33,12 @@ dependencies: []
 **Approach:** 保留 1 条真实 CLI smoke，其余 catalog / 参数路由 / 输出文件断言继续下沉到更轻的 helper seam。
 
 **Pros:**
+
 - 对门禁墙钟时间最直接
 - 不影响 benchmark 用户入口
 
 **Cons:**
+
 - 需要进一步重构 `scripts/pwsh/devops/Invoke-Benchmark.ps1`
 - 若拆分边界不慎，容易损失 CLI 真实覆盖
 
@@ -51,10 +53,12 @@ dependencies: []
 **Approach:** 选取当前 coverage 较低但价值高的模块，补充测试而不是继续排除统计对象。
 
 **Pros:**
+
 - 直接提升 `pester-coverage-50` 相关信号质量
 - 不会牺牲既有行为覆盖
 
 **Cons:**
+
 - 需要先识别哪些模块最划算
 - 不一定会立刻改善 `test:pwsh:all` 墙钟时间
 
@@ -69,10 +73,12 @@ dependencies: []
 **Approach:** 先小幅压 `Invoke-Benchmark.Tests.ps1`，同时补一批低成本 coverage。
 
 **Pros:**
+
 - 同时改善性能与 coverage
 - 能把后续收尾一次做完
 
 **Cons:**
+
 - 作用域更大
 - 更适合单独开一轮 work，而不是夹在小修里顺手做
 
@@ -90,6 +96,7 @@ dependencies: []
 ## Technical Details
 
 **Affected files:**
+
 - `tests/Invoke-Benchmark.Tests.ps1`
 - `scripts/pwsh/devops/Invoke-Benchmark.ps1`
 - `tests/benchmarks/*.Benchmark.ps1`
@@ -97,11 +104,13 @@ dependencies: []
 - `psutils/tests/**/*.Tests.ps1`
 
 **Related components:**
+
 - `pnpm benchmark -- help-search`
 - `pnpm test:pwsh:full`
 - `pnpm test:pwsh:all`
 
 **Database changes (if any):**
+
 - 无
 
 ## Resources
@@ -125,10 +134,12 @@ dependencies: []
 **By:** Codex
 
 **Actions:**
+
 - 根据本轮完整回归结果，记录 `Invoke-Benchmark.Tests.ps1` 热点与 host coverage 未达标两项后续工作。
 - 结合已完成的 benchmark 分层与日志去噪结果，整理后续候选方案与推荐顺序。
 
 **Learnings:**
+
 - benchmark discoverability 已经成型，后续再压 CLI 测试时不需要重新设计入口。
 - coverage 问题更适合做一次单独分析，而不是继续夹在性能收口里顺手处理。
 

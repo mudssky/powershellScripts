@@ -13,9 +13,11 @@
 ## Capabilities
 
 ### New Capabilities
+
 - 无
 
 ### Modified Capabilities
+
 - `unified-profile`: 增加“模块化拆分与入口稳定性”要求，确保拆分后外部行为与加载语义保持一致。
 
 ## Impact

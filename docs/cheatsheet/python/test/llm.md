@@ -32,7 +32,7 @@ def test_prompt_parsing():
     # 模拟 LLM 返回了脏数据，测试你的清洗函数是否健壮
     mock_ret = MagicMock()
     mock_ret.choices[0].message.content = ' ```json\n{"val": 1}\n``` '
-    
+
     with patch("openai.resources.chat.Completions.create", return_value=mock_ret):
         result = my_llm_function("input")
         assert result == {"val": 1}  # 验证解析逻辑
@@ -88,13 +88,13 @@ def test_integration_with_openai_protocol():
 @pytest.mark.ai_model  # 打标，平时跳过
 def test_summarization_quality():
     summary = generate_summary(LONG_TEXT)
-    
+
     # 1. 刚性断言 (Pydantic)
     assert isinstance(summary, SummaryModel)
-    
+
     # 2. 柔性断言 (关键词)
     assert any(w in summary.text for w in ["关键点A", "关键点B"])
-    
+
     # 3. 语义断言 (伪代码: 用 embedding 算相似度)
     # assert cosine_similarity(summary.text, reference) > 0.8
 ```

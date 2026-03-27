@@ -80,7 +80,7 @@ json-diff file1.json file2.json --no-color
 
 ### 表格格式 (默认)
 
-```
+```text
 ┌─────────────────┬──────────┬───────────┬───────────┐
 │ Path            │ Type     │ Old Value │ New Value │
 ├─────────────────┼──────────┼───────────┼───────────┤
@@ -120,7 +120,7 @@ Statistics:
 
 ### 树形格式
 
-```
+```text
 Differences:
 ├── name (MODIFIED: Alice → Bob)
 ├── age (ADDED: → 25)
@@ -132,6 +132,7 @@ Differences:
 ## 支持的文件格式
 
 ### JSON
+
 标准的 JSON 格式文件。
 
 ```json
@@ -142,6 +143,7 @@ Differences:
 ```
 
 ### JSONC
+
 带注释的 JSON 格式文件。
 
 ```jsonc
@@ -153,6 +155,7 @@ Differences:
 ```
 
 ### JSON5
+
 扩展的 JSON 格式，支持更灵活的语法。
 
 ```json5
@@ -192,7 +195,7 @@ await formatter.outputToFile(output, 'result.txt');
 
 ### 项目结构
 
-```
+```text
 json-diff-tool/
 ├── src/                    # 源代码
 │   ├── index.ts           # 入口文件
@@ -256,6 +259,7 @@ npm run test:watch
 ### Jest 配置
 
 测试配置在 `jest.config.js` 中，包括：
+
 - 覆盖率要求：80%
 - 支持 TypeScript
 - 自定义匹配器
@@ -326,6 +330,7 @@ MIT License - 详见 [LICENSE](LICENSE) 文件。
 ## 更新日志
 
 ### v1.0.0
+
 - 初始版本发布
 - 支持 JSON、JSONC、JSON5 格式
 - 多种输出格式
@@ -428,13 +433,17 @@ json-diff file1.json file2.json --verbose
 ## 支持的文件格式
 
 ### JSON
+
 标准的 JSON 格式文件。
 
 ### JSONC
+
 JSON with Comments，支持单行注释 (`//`) 和多行注释 (`/* */`)。
 
 ### JSON5
+
 扩展的 JSON 格式，支持：
+
 - 注释
 - 尾随逗号
 - 单引号字符串
@@ -444,7 +453,8 @@ JSON with Comments，支持单行注释 (`//`) 和多行注释 (`/* */`)。
 ## 输出示例
 
 ### 表格格式
-```
+
+```text
 ┌─────────────┬──────────┬─────────────┬─────────────┐
 │ Path        │ Type     │ Old Value   │ New Value   │
 ├─────────────┼──────────┼─────────────┼─────────────┤
@@ -455,6 +465,7 @@ JSON with Comments，支持单行注释 (`//`) 和多行注释 (`/* */`)。
 ```
 
 ### JSON 格式
+
 ```json
 {
   "files": ["file1.json", "file2.json"],
@@ -479,7 +490,7 @@ JSON with Comments，支持单行注释 (`//`) 和多行注释 (`/* */`)。
 
 ### 项目结构
 
-```
+```text
 json-diff-tool/
 ├── src/
 │   ├── index.ts          # 主入口文件

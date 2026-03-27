@@ -98,7 +98,7 @@ program
   .argument('[target]', '目标目录', '.') // 默认当前目录
   .option('-d, --dry-run', '仅模拟运行，不删除文件')
   .action((targetDir, options) => {
-    
+
     const absPath = path.resolve(process.cwd(), targetDir);
     console.log(chalk.blue(`正在扫描目录: ${absPath}`));
 
@@ -167,11 +167,11 @@ npx tsx scripts/clean-logs.ts --help
 ### 5. 跨平台兼容性细节
 
 1. **Shebang (`#!/usr/bin/env -S npx tsx`)**:
-    * **Linux/macOS**: 直接运行脚本文件（如 `./scripts/clean-logs.ts`）时，这行起作用。它会告诉系统用 `npx tsx` 来解释该文件。
-    * **Windows**: Windows 内核完全忽略 Shebang。但是，当你运行 `npm link` 时，npm 生成的 `sys-clean.cmd` 脚本会负责调用 Node。所以这行代码在 Windows 上也是安全的（被视为注释）。
+   * **Linux/macOS**: 直接运行脚本文件（如 `./scripts/clean-logs.ts`）时，这行起作用。它会告诉系统用 `npx tsx` 来解释该文件。
+   * **Windows**: Windows 内核完全忽略 Shebang。但是，当你运行 `npm link` 时，npm 生成的 `sys-clean.cmd` 脚本会负责调用 Node。所以这行代码在 Windows 上也是安全的（被视为注释）。
 
 2. **路径问题**:
-    * 始终使用 `path.join()` 或 `path.resolve()`，不要手动拼接字符串（如 `dir + "/" + file`），这在 Windows 上会出问题。
+   * 始终使用 `path.join()` 或 `path.resolve()`，不要手动拼接字符串（如 `dir + "/" + file`），这在 Windows 上会出问题。
 
 ### 6. 总结清单
 

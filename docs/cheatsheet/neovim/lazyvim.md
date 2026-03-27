@@ -4,11 +4,11 @@
 
 命令模式输入 `cd /path/to/project`
 
-#### Markdown 大纲视图
+### Markdown 大纲视图
 
 在 LazyVim 中，可以使用多种方式查看 Markdown 文件的大纲结构：
 
-##### 使用 neo-tree 大纲视图
+#### 使用 neo-tree 大纲视图
 
 **快捷键**：
 

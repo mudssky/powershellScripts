@@ -46,15 +46,19 @@ tags: [powershell, pester, linux, macos, cross-platform, path, fzf, command-disc
 ## What Didn't Work
 
 **Attempted Solution 1:** 只在 Windows 本机运行 Pester，认为本地通过就代表问题不在代码本身。  
+
 - **Why it failed:** 这只能覆盖 Windows 分支，无法暴露 Unix 下的空 `PATHEXT`、`chmod` 依赖和平台特定安装提示差异。
 
 **Attempted Solution 2:** 继续在 benchmark 测试里使用 Windows 风格的 `fzf.cmd`，或者简单换成 `#!/usr/bin/env sh` 的 shell 脚本。  
+
 - **Why it failed:** Unix 不会执行 `.cmd`；而测试又把 `PATH` 缩到临时工具目录，`/usr/bin/env sh` 会再次依赖 `PATH`；另外容器里的 `TestDrive` 落在 `/tmp`，不适合作为稳定的外部可执行文件位置。
 
 **Attempted Solution 3:** 在 Profile 安装提示集成测试中继续硬编码“6 个命令 + `scoop install starship zoxide`”的 Windows 断言。  
+
 - **Why it failed:** macOS/Linux 的真实跟踪集合不同，Unix 会把 `fnm` 一并纳入提示，Linux 还要求在 mock 中显式提供 `apt` 才能生成自动安装命令。
 
 **Attempted Solution 4:** 保持 `commandDiscovery.psm1` 里的 `PathExtValue` / `PathValue` 参数为默认的强制非空字符串。  
+
 - **Why it failed:** Unix 下空 `PATHEXT` 是合法状态，参数绑定层先报错，连真正的命令探测逻辑都到不了。
 
 ## Solution

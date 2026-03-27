@@ -54,8 +54,6 @@
 
 ```
 
-
-
 ---
 
 ### **3. 字体格式对比**
@@ -84,8 +82,6 @@
 
 ### **5. 核心 CSS 字体属性**
 
-
-
 *   `font-family`: 指定字体族。**务必提供一个后备字体栈**。
 
 ```css
@@ -95,15 +91,16 @@
     }
 ```
 
-*   `font-weight`: 设置字重。值可以是 `normal`(400), `bold`(700)，或 100 到 900 的数字。它会匹配 `@font-face` 中定义的 `font-weight`。
+* `font-weight`: 设置字重。值可以是 `normal`(400), `bold`(700)，或 100 到 900 的数字。它会匹配 `@font-face` 中定义的 `font-weight`。
 
-*   `font-style`: 设置字体样式，主要是 `normal` (正常) 或 `italic` (斜体)。
+* `font-style`: 设置字体样式，主要是 `normal` (正常) 或 `italic` (斜体)。
 
-*   `font-size`: 设置字体大小。推荐使用相对单位，如 `rem` 或 `em`，以获得更好的可访问性。
+* `font-size`: 设置字体大小。推荐使用相对单位，如 `rem` 或 `em`，以获得更好的可访问性。
 
 *   `line-height`: 设置行高。**最佳实践是使用一个无单位的数字**（如 `1.5`），它会根据 `font-size` 自动计算，避免继承问题。
 
-*   `font` (简写属性): 可以一次性设置多个属性，但顺序很严格，且容易重置未指定的属性，需谨慎使用。
+* `font` (简写属性): 可以一次性设置多个属性，但顺序很严格，且容易重置未指定的属性，需谨慎使用。
+
     ```css
     /* 顺序：font-style font-weight font-size/line-height font-family */
     p {
@@ -121,13 +118,14 @@
 
 *   **优点**: 大大减少 HTTP 请求次数和总体积，设计灵活性极高。
 *   **CSS 使用**:
+
     ```css
     @font-face {
       font-family: 'MyVariableFont';
       src: url('my-variable-font.woff2') format('woff2-variations');
       font-weight: 100 900; /* 声明支持的字重范围 */
     }
-    
+
     .heavy {
       /* 可以使用 100-900 之间的任意值，不再局限于 400/700 */
       font-weight: 850; 
@@ -139,9 +137,9 @@
 通过 `font-feature-settings` 或更现代的 `font-variant-*` 属性，可以开启字体中内置的高级排版功能。
 
 *   **常见特性**:
-    *   **连字 (Ligatures)**: 将特定字符组合（如 `fi`, `fl`）替换为单个优美的字形。`font-variant-ligatures: common-ligatures;` (默认开启)
-    *   **字偶距微调 (Kerning)**: 调整特定字符对之间的间距（如 `AV`）。`font-kerning: normal;` (默认开启)
-    *   **数字样式**: 等宽数字、比例数字、旧式数字等。`font-variant-numeric: tabular-nums;` (用于表格对齐)
+  *   **连字 (Ligatures)**: 将特定字符组合（如 `fi`, `fl`）替换为单个优美的字形。`font-variant-ligatures: common-ligatures;` (默认开启)
+  *   **字偶距微调 (Kerning)**: 调整特定字符对之间的间距（如 `AV`）。`font-kerning: normal;` (默认开启)
+  *   **数字样式**: 等宽数字、比例数字、旧式数字等。`font-variant-numeric: tabular-nums;` (用于表格对齐)
 
 ```css
 .price-table {

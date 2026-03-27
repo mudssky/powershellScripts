@@ -18,6 +18,7 @@
 ## Capabilities
 
 ### New Capabilities
+
 - `shell-config-structure`: 跨平台 shell 配置的目录结构重组，将共享片段从 `linux/` 提升为独立的 `shell/` 顶级目录
 - `shell-snippet-compat`: shell 配置片段的 Bash/Zsh 双 shell 兼容性，包含 zoxide、ls、proxy、fzf-history 等修复
 - `shell-deploy-unified`: 统一的 shell 配置部署工具，支持 Linux/macOS 双平台、Bash/Zsh 双 shell 的自动部署

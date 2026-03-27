@@ -133,11 +133,11 @@
    # 安装 SSH 服务 (如果未安装)
    sudo apt update
    sudo apt install openssh-server
-   
+
    # 启动并启用 SSH 服务
    sudo systemctl start ssh
    sudo systemctl enable ssh
-   
+
    # 检查服务状态
    sudo systemctl status ssh
    ```
@@ -149,11 +149,11 @@
    sudo yum install openssh-server
    # 或者在较新版本中使用
    sudo dnf install openssh-server
-   
+
    # 启动并启用 SSH 服务
    sudo systemctl start sshd
    sudo systemctl enable sshd
-   
+
    # 检查服务状态
    sudo systemctl status sshd
    ```
@@ -163,11 +163,11 @@
    ```bash
    # 安装 SSH 服务 (如果未安装)
    sudo pacman -S openssh
-   
+
    # 启动并启用 SSH 服务
    sudo systemctl start sshd
    sudo systemctl enable sshd
-   
+
    # 检查服务状态
    sudo systemctl status sshd
    ```
@@ -204,7 +204,7 @@
 
    **macOS 主机配置示例:**
 
-   ```
+   ```text
    # 自定义一个易于识别的主机别名
    Host my-mac
        # 替换为 macOS 的 IP 地址或主机名
@@ -217,7 +217,7 @@
 
    **Linux 主机配置示例:**
 
-   ```
+   ```text
    # 自定义一个易于识别的主机别名
    Host my-linux
        # 替换为 Linux 服务器的 IP 地址或主机名

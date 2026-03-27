@@ -49,9 +49,11 @@
 - 文件名正确：是 `hosts`，而不是 `hosts.txt`。
 - 文件路径正确：位于 `C:\Windows\System32\drivers\etc\hosts`。
 - 内容已写入：用 `type` 查看能看到新增记录。
+
   ```powershell
   type C:\Windows\System32\drivers\etc\hosts
   ```
+
 - 编辑方式和格式：
   - 以管理员身份编辑。
   - 换行、空格、注释格式均正常。
@@ -215,6 +217,7 @@ ACL 重置后，重新进行验证：
 2. **确认文件路径和内容**
    - 路径：`C:\Windows\System32\drivers\etc\hosts`。
    - 使用 `type` 查看内容，确保记录已写入：
+
      ```powershell
      type C:\Windows\System32\drivers\etc\hosts
      ```
@@ -232,11 +235,14 @@ ACL 重置后，重新进行验证：
 
 6. **检查 ACL**
    - 对比 `hosts` 与同目录文件（如 `services`）的权限：
+
      ```powershell
      icacls C:\Windows\System32\drivers\etc\hosts
      icacls C:\Windows\System32\drivers\etc\services
      ```
+
    - 如发现 `hosts` 权限明显不同（无继承、主体缺失），执行：
+
      ```powershell
      cd C:\Windows\System32\drivers\etc
      icacls .\hosts /reset
@@ -248,4 +254,3 @@ ACL 重置后，重新进行验证：
    - `[System.Net.Dns]::GetHostAddresses("<hosts 中的测试域名>")`
 
 通过以上步骤，可以快速定位大部分 “hosts 不生效 / 被忽略” 问题，并在确认是 ACL 导致时通过 `/reset` 安全恢复。
-

@@ -44,12 +44,15 @@ tags: [powershell, psutils, benchmark, fzf, interactive-selection, fallback]
 ## What Didn't Work
 
 **Attempted Solution 1:** 继续在 `Invoke-Benchmark.ps1` 内局部添加 `fzf` 与文本编号选择逻辑。  
+
 - **Why it failed:** 这只能修 benchmark 的单点体验，无法解决仓库里交互选择能力分散的问题；下一个脚本出现类似需求时，仍会继续复制实现。
 
 **Attempted Solution 2:** 沿用 PowerShell 最直接的命令探测方式，用 `Get-Command` 判断 `fzf` 是否存在。  
+
 - **Why it failed:** 仓库已有性能回归经验表明，`Get-Command` 在缺失命令场景下会触发高成本命令发现链路。对一个本应很轻的交互选择模块来说，这个代价不必要，也会放大测试时延。
 
 **Attempted Solution 3:** 只做 `fzf` happy path，把文本编号选择当作附带兜底。  
+
 - **Why it failed:** 这会让没有 `fzf` 的环境继续退回到糟糕的 CLI 体验，等于没有真正解决“脚本能引导用户完成选择”这个目标。
 
 ## Solution

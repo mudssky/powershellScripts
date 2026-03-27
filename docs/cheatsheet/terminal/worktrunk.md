@@ -5,18 +5,21 @@ Worktrunk 是一个用于管理 Git worktree 的 CLI 工具，专为并行 AI Ag
 ## 安装 (Installation)
 
 ### Homebrew (macOS & Linux)
+
 ```bash
 brew install worktrunk
 wt config shell install
 ```
 
 ### Cargo
+
 ```bash
 cargo install worktrunk
 wt config shell install
 ```
 
 ### Windows (Winget)
+
 ```bash
 winget install max-sixty.worktrunk
 git-wt config shell install
@@ -25,6 +28,7 @@ git-wt config shell install
 ```
 
 ### Arch Linux
+
 ```bash
 paru worktrunk-bin
 wt config shell install
@@ -42,35 +46,42 @@ wt config shell install
 
 ## 快速开始工作流 (Quick Start Workflow)
 
-1.  **创建新功能 worktree**:
+1. **创建新功能 worktree**:
     这会自动创建分支、创建目录并切换过去。
+
     ```bash
     wt switch --create feature-auth
     ```
 
-2.  **查看 worktrees 列表**:
+2. **查看 worktrees 列表**:
+
     ```bash
     wt list
     ```
+
     输出示例:
+
     ```text
       Branch        Status        HEAD±    main↕  Remote⇅  Commit    Age   Message
     @ feature-auth  +   –      +53                         0e631add  1d    Initial commit
     ^ main              ^⇡                         ⇡1      0e631add  1d    Initial commit
     ```
+
     (`@` 表示当前 worktree, `+` 表示有未提交更改)
 
-3.  **合并与清理**:
-    
+3. **合并与清理**:
+
     **本地合并 (Local Merge)**:
     将当前更改 squash、rebase 并合并到 main 分支。
     **注意：合并成功后，`wt` 会自动在后台删除当前 worktree 和分支。**
+
     ```bash
     wt merge main
     ```
 
     **PR 工作流 (Pull Request)**:
     提交、推送、创建 PR，合并后手动清理。
+
     ```bash
     wt step commit    # 提交暂存更改
     gh pr create      # 创建 PR
@@ -85,11 +96,13 @@ wt config shell install
 wt switch -x claude -c feature-a -- 'Add user authentication'
 wt switch -x claude -c feature-b -- 'Fix the pagination bug'
 ```
+
 (`-x` 标志在切换后执行命令)
 
 ## 配置 (Configuration)
 
 为了使 `wt` 能够更改当前 shell 的目录 (`cd`)，必须安装 shell 集成：
+
 ```bash
 wt config shell install
 ```

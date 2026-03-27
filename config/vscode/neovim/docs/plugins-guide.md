@@ -32,47 +32,55 @@
 **插件地址**: [folke/flash.nvim](https://github.com/folke/flash.nvim)
 
 #### 功能概述
+
 Flash.nvim 是一个现代化的快速跳转插件，提供了比传统 EasyMotion 更强大和直观的跳转体验。
 
 #### 配置文件位置
+
 `lua/plugins/flash.lua`
 
 #### 基础使用
 
 ##### 字符跳转
-```
+
+```text
 s + 字符    # 跳转到指定字符的位置
 S + 字符    # 反向跳转到指定字符的位置
 ```
 
 **示例**:
-```
+
+```text
 原文本: The quick brown fox jumps over the lazy dog
 按键: s + o
 结果: 显示所有 'o' 字符的跳转标签，选择对应标签即可跳转
 ```
 
 ##### 智能跳转
-```
+
+```text
 S          # 基于语法树的智能跳转（Treesitter 跳转）
 ```
 
 #### 高级功能
 
 ##### 多字符搜索
-```
+
+```text
 s + 多个字符  # 搜索多字符组合
 例如: s + th   # 搜索 "th" 组合
 ```
 
 ##### 可视模式跳转
-```
+
+```text
 # 在可视模式下使用
 v + s + 字符   # 选择到跳转位置的文本
 ```
 
 ##### 操作符模式跳转
-```
+
+```text
 d + s + 字符   # 删除到跳转位置的文本
 y + s + 字符   # 复制到跳转位置的文本
 c + s + 字符   # 修改到跳转位置的文本
@@ -115,22 +123,26 @@ require("flash").setup({
 **插件地址**: [kylechui/nvim-surround](https://github.com/kylechui/nvim-surround)
 
 #### 功能概述
+
 快速添加、删除、修改包围符号（括号、引号、标签等）。
 
 #### 配置文件位置
+
 `lua/plugins/surround.lua`
 
 #### 基础操作
 
 ##### 添加包围符号
-```
+
+```text
 ys{motion}{char}   # 给 motion 选中的文本添加包围符号
 yss{char}          # 给整行添加包围符号
 ysiw{char}         # 给当前单词添加包围符号
 ```
 
 **示例**:
-```
+
+```text
 原文本: hello world
 操作: ysiw"         # 给当前单词添加双引号
 结果: "hello" world
@@ -141,12 +153,14 @@ ysiw{char}         # 给当前单词添加包围符号
 ```
 
 ##### 删除包围符号
-```
+
+```text
 ds{char}           # 删除指定的包围符号
 ```
 
 **示例**:
-```
+
+```text
 原文本: "hello world"
 操作: ds"           # 删除双引号
 结果: hello world
@@ -157,12 +171,14 @@ ds{char}           # 删除指定的包围符号
 ```
 
 ##### 修改包围符号
-```
+
+```text
 cs{old}{new}       # 将旧的包围符号替换为新的
 ```
 
 **示例**:
-```
+
+```text
 原文本: "hello world"
 操作: cs"'          # 将双引号替换为单引号
 结果: 'hello world'
@@ -174,13 +190,14 @@ cs{old}{new}       # 将旧的包围符号替换为新的
 
 #### 可视模式操作
 
-```
+```text
 # 在可视模式下选择文本后
 S{char}            # 给选中的文本添加包围符号
 ```
 
 **示例**:
-```
+
+```text
 1. 使用 v 进入可视模式
 2. 选择文本 "hello world"
 3. 按 S"
@@ -190,19 +207,22 @@ S{char}            # 给选中的文本添加包围符号
 #### 支持的包围符号
 
 ##### 基础符号
-```
+
+```text
 "  '  `          # 引号
 (  )  [  ]  {  } # 括号
 <  >             # 尖括号
 ```
 
 ##### HTML/XML 标签
-```
+
+```text
 t                # HTML 标签
 例如: yst<p>     # 添加 <p> 标签
 ```
 
 ##### 自定义符号
+
 可以在配置中添加自定义的包围符号：
 
 ```lua
@@ -220,7 +240,8 @@ require("nvim-surround").setup({
 #### 高级用法
 
 ##### 函数调用包围
-```
+
+```text
 ysiw)              # 给单词添加函数调用括号
 例如: hello → hello()
 
@@ -229,13 +250,15 @@ ysiwf              # 添加函数调用并进入插入模式输入函数名
 ```
 
 ##### 多行操作
-```
+
+```text
 yss{char}          # 给整行添加包围符号
 ySS{char}          # 给整行添加包围符号（新行格式）
 ```
 
 **示例**:
-```
+
+```text
 原文本: hello world
 操作: ySS)         # 添加括号并格式化
 结果:
@@ -258,22 +281,26 @@ ySS{char}          # 给整行添加包围符号（新行格式）
 **插件地址**: [numToStr/Comment.nvim](https://github.com/numToStr/Comment.nvim)
 
 #### 功能概述
+
 智能的代码注释切换插件，支持多种编程语言的行注释和块注释。
 
 #### 配置文件位置
+
 `lua/plugins/comment.lua`
 
 #### 基础操作
 
 ##### 行注释
-```
+
+```text
 gcc                # 切换当前行注释
 gc{motion}         # 注释 motion 选中的内容
 gc{count}cc        # 注释指定行数
 ```
 
 **示例**:
-```
+
+```text
 # JavaScript 文件
 原文本: console.log("Hello World");
 操作: gcc
@@ -286,13 +313,15 @@ gc{count}cc        # 注释指定行数
 ```
 
 ##### 块注释
-```
+
+```text
 gbc                # 切换当前行块注释
 gb{motion}         # 块注释 motion 选中的内容
 ```
 
 **示例**:
-```
+
+```text
 # JavaScript 文件
 原文本: console.log("Hello World");
 操作: gbc
@@ -301,7 +330,7 @@ gb{motion}         # 块注释 motion 选中的内容
 
 #### 可视模式操作
 
-```
+```text
 # 在可视模式下选择文本后
 gc                 # 切换行注释
 gb                 # 切换块注释
@@ -310,9 +339,10 @@ gb                 # 切换块注释
 #### 高级功能
 
 ##### 智能注释检测
+
 Comment.nvim 会自动检测文件类型并使用相应的注释符号：
 
-```
+```text
 .js, .ts    →  // 和 /* */
 .py         →  #
 .lua        →  -- 和 --[[ ]]
@@ -322,7 +352,8 @@ Comment.nvim 会自动检测文件类型并使用相应的注释符号：
 ```
 
 ##### 注释文本对象
-```
+
+```text
 gc{motion}         # 使用任意 motion
 例如:
 gciw               # 注释当前单词
@@ -332,7 +363,8 @@ gcG                # 注释到文件末尾
 ```
 
 ##### 计数操作
-```
+
+```text
 3gcc               # 注释当前行及下面 2 行（共 3 行）
 gc2j               # 注释当前行及下面 2 行
 ```
@@ -345,31 +377,31 @@ require('Comment').setup({
   padding = true,           -- 注释符号后添加空格
   sticky = true,            -- 光标保持在原位置
   ignore = '^$',           -- 忽略空行
-  
+
   -- 切换映射
   toggler = {
     line = 'gcc',           -- 行注释切换
     block = 'gbc'           -- 块注释切换
   },
-  
+
   -- 操作符映射
   opleader = {
     line = 'gc',            -- 行注释操作符
     block = 'gb'            -- 块注释操作符
   },
-  
+
   -- 额外映射
   extra = {
     above = 'gcO',          -- 在上方添加注释
     below = 'gco',          # 在下方添加注释
     eol = 'gcA',            # 在行尾添加注释
   },
-  
+
   -- 预处理钩子
   pre_hook = function(ctx)
     -- 可以在注释前执行自定义逻辑
   end,
-  
+
   -- 后处理钩子
   post_hook = function(ctx)
     -- 可以在注释后执行自定义逻辑
@@ -404,15 +436,18 @@ end
 **插件地址**: [echasnovski/mini.ai](https://github.com/echasnovski/mini.nvim/blob/main/readmes/mini-ai.md)
 
 #### 功能概述
+
 mini.ai 提供了增强的文本对象，扩展了 Vim 原生的文本对象功能，支持更智能的代码块选择。
 
 #### 配置文件位置
+
 `lua/plugins/mini-ai.lua`
 
 #### 基础文本对象
 
 ##### 原生文本对象增强
-```
+
+```text
 aw/iw              # 单词（word）
 as/is              # 句子（sentence）
 ap/ip              # 段落（paragraph）
@@ -425,7 +460,8 @@ at/it              # HTML/XML 标签
 ```
 
 ##### 新增文本对象
-```
+
+```text
 ao/io              # 代码块（函数、循环、条件语句等）
 af/if              # 函数
 ac/ic              # 类
@@ -435,6 +471,7 @@ aa/ia              # 参数
 #### 使用示例
 
 ##### 函数操作
+
 ```javascript
 // JavaScript 示例
 function calculateSum(a, b) {
@@ -450,6 +487,7 @@ cif                # 修改函数内容
 ```
 
 ##### 代码块操作
+
 ```python
 # Python 示例
 if condition:
@@ -466,6 +504,7 @@ yao                # 复制整个代码块
 ```
 
 ##### 参数操作
+
 ```javascript
 // JavaScript 示例
 function example(param1, param2, param3) {
@@ -482,6 +521,7 @@ cia                # 修改当前参数
 #### 高级功能
 
 ##### 智能边界检测
+
 mini.ai 使用 Treesitter 进行智能的语法分析：
 
 ```lua
@@ -505,6 +545,7 @@ require('mini.ai').setup({
 ```
 
 ##### 自定义文本对象
+
 可以定义自己的文本对象：
 
 ```lua
@@ -512,12 +553,12 @@ require('mini.ai').setup({
   custom_textobjects = {
     -- 自定义数字文本对象
     d = { '%f[%d]%d+' },
-    
+
     -- 自定义 URL 文本对象
     u = {
       { 'https?://[%w_.-]+' },
     },
-    
+
     -- 基于函数的文本对象
     e = function()
       local from = { line = 1, col = 1 }
@@ -536,6 +577,7 @@ require('mini.ai').setup({
 mini.ai 对不同编程语言提供了特定的支持：
 
 ##### JavaScript/TypeScript
+
 ```javascript
 // 类方法
 class MyClass {
@@ -549,6 +591,7 @@ class MyClass {
 ```
 
 ##### Python
+
 ```python
 # 类和方法
 class MyClass:
@@ -560,6 +603,7 @@ class MyClass:
 ```
 
 ##### Lua
+
 ```lua
 -- 函数定义
 local function calculate(a, b)
@@ -587,6 +631,7 @@ end
 **插件地址**: [folke/tokyonight.nvim](https://github.com/folke/tokyonight.nvim)
 
 #### 配置文件位置
+
 `lua/plugins/theme.lua`
 
 #### 主题变体
@@ -628,6 +673,7 @@ require("tokyonight").setup({
 **插件地址**: [nvim-lualine/lualine.nvim](https://github.com/nvim-lualine/lualine.nvim)
 
 #### 配置文件位置
+
 `lua/plugins/statusline.lua`
 
 #### 基础配置
@@ -672,12 +718,12 @@ local function lsp_status()
   if next(clients) == nil then
     return 'No LSP'
   end
-  
+
   local client_names = {}
   for _, client in pairs(clients) do
     table.insert(client_names, client.name)
   end
-  
+
   return ' ' .. table.concat(client_names, ', ')
 end
 
@@ -692,6 +738,7 @@ sections = {
 **插件地址**: [akinsho/bufferline.nvim](https://github.com/akinsho/bufferline.nvim)
 
 #### 配置文件位置
+
 `lua/plugins/bufferline.lua`
 
 #### 基础功能
@@ -753,11 +800,12 @@ require('bufferline').setup({
 **插件地址**: [nvim-tree/nvim-tree.lua](https://github.com/nvim-tree/nvim-tree.lua)
 
 #### 配置文件位置
+
 `lua/plugins/nvim-tree.lua`
 
 #### 基础操作
 
-```
+```text
 <leader>e          # 切换文件树
 o 或 <Enter>       # 打开文件/文件夹
 a                  # 创建文件/文件夹
@@ -846,6 +894,7 @@ require('nvim-tree').setup({
 **插件地址**: [rcarriga/nvim-notify](https://github.com/rcarriga/nvim-notify)
 
 #### 配置文件位置
+
 `lua/plugins/notify.lua`
 
 #### 基础使用
@@ -887,6 +936,7 @@ vim.notify = require("notify")
 **插件地址**: [lukas-reineke/indent-blankline.nvim](https://github.com/lukas-reineke/indent-blankline.nvim)
 
 #### 配置文件位置
+
 `lua/plugins/indent.lua`
 
 #### 基础配置
@@ -922,6 +972,7 @@ require("ibl").setup({
 **插件地址**: [echasnovski/mini.icons](https://github.com/echasnovski/mini.nvim/blob/main/readmes/mini-icons.md)
 
 #### 配置文件位置
+
 `lua/plugins/icons.lua`
 
 #### 基础配置
@@ -933,14 +984,14 @@ require('mini.icons').setup({
     ['.gitignore'] = { glyph = '', hl = 'MiniIconsGrey' },
     ['README.md'] = { glyph = '', hl = 'MiniIconsYellow' },
   },
-  
+
   -- 文件类型图标
   filetype = {
     lua = { glyph = '', hl = 'MiniIconsBlue' },
     python = { glyph = '', hl = 'MiniIconsYellow' },
     javascript = { glyph = '', hl = 'MiniIconsYellow' },
   },
-  
+
   -- 扩展名图标
   extension = {
     lua = { glyph = '', hl = 'MiniIconsBlue' },
@@ -959,6 +1010,7 @@ require('mini.icons').setup({
 **插件地址**: [neovim/nvim-lspconfig](https://github.com/neovim/nvim-lspconfig)
 
 #### 配置文件位置
+
 `lua/plugins/lsp.lua`
 
 #### 支持的语言服务器
@@ -1022,6 +1074,7 @@ vim.diagnostic.config({
 **插件地址**: [nvim-treesitter/nvim-treesitter](https://github.com/nvim-treesitter/nvim-treesitter)
 
 #### 配置文件位置
+
 `lua/plugins/treesitter.lua`
 
 #### 基础配置
@@ -1032,19 +1085,19 @@ require('nvim-treesitter.configs').setup({
     "lua", "python", "javascript", "typescript", "html", "css",
     "json", "yaml", "markdown", "bash", "vim", "regex"
   },
-  
+
   sync_install = false,
   auto_install = true,
-  
+
   highlight = {
     enable = true,
     additional_vim_regex_highlighting = false,
   },
-  
+
   indent = {
     enable = true,
   },
-  
+
   incremental_selection = {
     enable = true,
     keymaps = {
@@ -1060,7 +1113,8 @@ require('nvim-treesitter.configs').setup({
 #### 高级功能
 
 ##### 增量选择
-```
+
+```text
 gnn                # 开始增量选择
 grn                # 扩展选择到下一个节点
 grc                # 扩展选择到作用域
@@ -1068,7 +1122,8 @@ grm                # 缩小选择
 ```
 
 ##### 文本对象
-```
+
+```text
 af/if              # 函数
 ac/ic              # 类
 aa/ia              # 参数
@@ -1079,11 +1134,12 @@ aa/ia              # 参数
 **插件地址**: [nvim-telescope/telescope.nvim](https://github.com/nvim-telescope/telescope.nvim)
 
 #### 配置文件位置
+
 `lua/plugins/telescope.lua`
 
 #### 基础操作
 
-```
+```text
 <leader>ff         # 查找文件
 <leader>fg         # 全局搜索
 <leader>fb         # 查找缓冲区
@@ -1095,7 +1151,7 @@ aa/ia              # 参数
 
 #### Telescope 内部键位
 
-```
+```text
 <C-n>/<Down>       # 下一个结果
 <C-p>/<Up>         # 上一个结果
 <C-c>/<Esc>        # 关闭 Telescope
@@ -1164,11 +1220,12 @@ require('telescope').setup({
 **插件地址**: [akinsho/toggleterm.nvim](https://github.com/akinsho/toggleterm.nvim)
 
 #### 配置文件位置
+
 `lua/plugins/toggleterm.lua`
 
 #### 基础操作
 
-```
+```text
 <C-\>              # 切换终端
 <leader>tf         # 浮动终端
 <leader>th         # 水平终端
@@ -1177,7 +1234,7 @@ require('telescope').setup({
 
 #### 终端内操作
 
-```
+```text
 <C-\>              # 切换回编辑器
 <C-h/j/k/l>        # 窗口导航
 exit               # 退出终端
@@ -1220,6 +1277,7 @@ require("toggleterm").setup({
 **插件地址**: [folke/which-key.nvim](https://github.com/folke/which-key.nvim)
 
 #### 配置文件位置
+
 `lua/plugins/which-key.lua`
 
 #### 基础功能
@@ -1308,6 +1366,7 @@ require("which-key").setup({
 ### 条件加载
 
 #### 环境检测
+
 ```lua
 local utils = require('utils')
 
@@ -1319,6 +1378,7 @@ return {
 ```
 
 #### 功能检测
+
 ```lua
 return {
   "plugin-name",
@@ -1331,6 +1391,7 @@ return {
 ### 延迟加载策略
 
 #### 事件触发
+
 ```lua
 return {
   "plugin-name",
@@ -1341,6 +1402,7 @@ return {
 ```
 
 #### 键位触发
+
 ```lua
 return {
   "plugin-name",
@@ -1352,6 +1414,7 @@ return {
 ```
 
 #### 命令触发
+
 ```lua
 return {
   "plugin-name",
@@ -1360,6 +1423,7 @@ return {
 ```
 
 #### 文件类型触发
+
 ```lua
 return {
   "plugin-name",
@@ -1387,6 +1451,7 @@ return {
 ### 配置模式
 
 #### 简单配置
+
 ```lua
 return {
   "plugin-name",
@@ -1395,6 +1460,7 @@ return {
 ```
 
 #### 自定义配置
+
 ```lua
 return {
   "plugin-name",
@@ -1407,6 +1473,7 @@ return {
 ```
 
 #### 配置选项传递
+
 ```lua
 return {
   "plugin-name",
@@ -1419,6 +1486,7 @@ return {
 ### 键位映射最佳实践
 
 #### 描述性映射
+
 ```lua
 keys = {
   {
@@ -1438,6 +1506,7 @@ keys = {
 ```
 
 #### 模式特定映射
+
 ```lua
 keys = {
   { "<C-n>", mode = { "n", "v" } },  -- 普通和可视模式
@@ -1457,6 +1526,7 @@ keys = {
 **症状**: 启动时出现插件错误或插件功能不可用
 
 **诊断步骤**:
+
 ```vim
 :Lazy                    # 检查插件状态
 :Lazy log                # 查看加载日志
@@ -1465,6 +1535,7 @@ keys = {
 ```
 
 **解决方案**:
+
 1. 检查插件配置语法
 2. 确认依赖插件已安装
 3. 重新安装插件：`:Lazy clean` 然后 `:Lazy install`
@@ -1475,6 +1546,7 @@ keys = {
 **症状**: 按键无响应或执行错误命令
 
 **诊断步骤**:
+
 ```vim
 :map <leader>ff          # 检查特定键位映射
 :verbose map <leader>ff  # 查看键位映射来源
@@ -1482,6 +1554,7 @@ keys = {
 ```
 
 **解决方案**:
+
 1. 检查键位冲突
 2. 确认插件已正确加载
 3. 验证键位映射语法
@@ -1492,6 +1565,7 @@ keys = {
 **症状**: 在 VSCode 中某些功能不工作
 
 **诊断步骤**:
+
 ```lua
 -- 检查 VSCode 环境
 print(vim.g.vscode)      -- 应该返回 true
@@ -1501,6 +1575,7 @@ vim.fn.VSCodeNotify('workbench.action.quickOpen')
 ```
 
 **解决方案**:
+
 1. 确认 VSCode Neovim 插件已启用
 2. 检查 VSCode 设置中的 Neovim 路径
 3. 重启 VSCode
@@ -1511,12 +1586,14 @@ vim.fn.VSCodeNotify('workbench.action.quickOpen')
 **症状**: 启动缓慢或编辑器响应迟钝
 
 **诊断步骤**:
+
 ```vim
 :Lazy profile            # 查看插件加载时间
 :startuptime             # 查看启动时间分析
 ```
 
 **解决方案**:
+
 1. 使用延迟加载（`event = "VeryLazy"`）
 2. 减少启动时加载的插件
 3. 优化插件配置
@@ -1527,6 +1604,7 @@ vim.fn.VSCodeNotify('workbench.action.quickOpen')
 **症状**: 语言服务器功能不工作
 
 **诊断步骤**:
+
 ```vim
 :LspInfo                 # 查看 LSP 状态
 :checkhealth lsp         # 检查 LSP 健康状态
@@ -1534,6 +1612,7 @@ vim.fn.VSCodeNotify('workbench.action.quickOpen')
 ```
 
 **解决方案**:
+
 1. 确认语言服务器已安装
 2. 检查文件类型检测
 3. 验证 LSP 配置
@@ -1542,12 +1621,14 @@ vim.fn.VSCodeNotify('workbench.action.quickOpen')
 ### 调试技巧
 
 #### 1. 启用调试日志
+
 ```lua
 vim.lsp.set_log_level("debug")
 -- 日志文件位置: ~/.cache/nvim/lsp.log
 ```
 
 #### 2. 插件特定调试
+
 ```lua
 -- 为特定插件启用调试
 require("plugin-name").setup({
@@ -1557,6 +1638,7 @@ require("plugin-name").setup({
 ```
 
 #### 3. 配置验证
+
 ```lua
 -- 检查配置是否正确加载
 local ok, config = pcall(require, "plugin-name")
@@ -1566,6 +1648,7 @@ end
 ```
 
 #### 4. 性能分析
+
 ```vim
 " 启动时间分析
 nvim --startuptime startup.log
@@ -1577,6 +1660,7 @@ nvim --startuptime startup.log
 ### 维护建议
 
 #### 1. 定期更新
+
 ```vim
 :Lazy update             # 更新所有插件
 :Lazy clean              # 清理未使用的插件
@@ -1584,6 +1668,7 @@ nvim --startuptime startup.log
 ```
 
 #### 2. 配置备份
+
 ```bash
 # 备份配置文件
 cp -r ~/.config/nvim ~/.config/nvim.backup
@@ -1596,12 +1681,14 @@ git commit -m "Initial configuration"
 ```
 
 #### 3. 测试环境
+
 ```bash
 # 使用临时配置测试
 NVIM_APPNAME=nvim-test nvim
 ```
 
 #### 4. 文档维护
+
 - 为自定义配置添加注释
 - 记录重要的配置更改
 - 维护键位映射文档

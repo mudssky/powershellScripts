@@ -19,6 +19,7 @@
 ## Capabilities
 
 ### New Capabilities
+
 - `install-pipeline-linux`: Linux 平台的完整安装流水线，包含按编号排序的脚本和 INSTALL.md manifest
 - `install-pipeline-macos`: macOS 平台的完整安装流水线，包含按编号排序的脚本和 INSTALL.md manifest
 - `install-pipeline-cross-platform`: 跨平台 PowerShell 层安装文档（`docs/INSTALL.md`），作为总入口串联平台安装和 PowerShell 层安装

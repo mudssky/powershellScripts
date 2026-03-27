@@ -13,9 +13,11 @@
 ## Capabilities
 
 ### New Capabilities
+
 - _None_
 
 ### Modified Capabilities
+
 - `unified-profile`: 更新运行时兼容边界（移除 5.1 兼容要求）、目录组织与加载约定的规范要求。
 
 ## Impact

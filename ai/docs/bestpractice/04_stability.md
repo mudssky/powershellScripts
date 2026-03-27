@@ -13,5 +13,5 @@
 
 ## 相关工具链接
 
-- Guardrails（规则/策略编排）：<https://github.com/NVIDIA/NeMo-Guardrails>，<https://github.com/guardrails-ai/guardrails>
-- PII 检测与脱敏：<https://github.com/microsoft/presidio>
+* Guardrails（规则/策略编排）：<https://github.com/NVIDIA/NeMo-Guardrails>，<https://github.com/guardrails-ai/guardrails>
+* PII 检测与脱敏：<https://github.com/microsoft/presidio>

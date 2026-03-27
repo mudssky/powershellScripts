@@ -16,9 +16,9 @@
 * **最佳实践架构**：
     1. **Session 级 Fixture**：启动 DB 容器，运行 Migration（或 `create_all`）建表。整个测试过程只做一次。
     2. **Function 级 Fixture**：
-        * 在测试开始前：开启一个数据库**事务 (Transaction)**。
-        * 运行测试逻辑（增删改查）。
-        * 在测试结束后：**强制回滚 (Rollback)** 事务。
+       * 在测试开始前：开启一个数据库**事务 (Transaction)**。
+       * 运行测试逻辑（增删改查）。
+       * 在测试结束后：**强制回滚 (Rollback)** 事务。
 * **结果**：下一个测试用例拿到的永远是干净的空表（或只有基础种子数据的表），且无需重复建表，速度极快。
 
 ### 3. 数据管理：使用 Factory Boy (而非硬编码字典)
@@ -79,7 +79,7 @@ def pg_container():
 def engine(pg_container):
     db_url = pg_container.get_connection_url()
     engine = create_engine(db_url)
-    
+
     # 创建所有表结构
     Base.metadata.create_all(engine)
     return engine
@@ -91,7 +91,7 @@ def db_session(engine):
     connection = engine.connect()
     # 开启事务
     transaction = connection.begin()
-    
+
     # 绑定 session 到这个连接
     Session = sessionmaker(bind=connection)
     session = Session()

@@ -4,7 +4,7 @@
 
 <https://github.com/RubyMetric/chsrc>
 
-```
+```text
 curl -LO https://gitee.com/RubyMetric/chsrc/releases/download/pre/chsrc_latest-1_amd64.deb
 sudo apt install ./chsrc_latest-1_amd64.deb
 ```
@@ -17,7 +17,7 @@ sudo apt install ./chsrc_latest-1_amd64.deb
 
 在终端输入以下几行命令设置环境变量：
 
-```
+```text
 export HOMEBREW_BREW_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git"
 export HOMEBREW_CORE_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git"
 export HOMEBREW_INSTALL_FROM_API=1
@@ -28,7 +28,7 @@ export HOMEBREW_INSTALL_FROM_API=1
 
 在终端运行以下命令以安装 Homebrew / Linuxbrew
 
-```
+```text
 # 从镜像下载安装脚本并安装 Homebrew / Linuxbrew
 git clone --depth=1 https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/install.git brew-install
 /bin/bash brew-install/install.sh
@@ -42,7 +42,7 @@ rm -rf brew-install
 
 使用homebrew 安装fnm
 
-```
+```text
 brew install fnm
 # 安装后需要peizhishell
 # 在 ~/.bashrc中添加下面这行
@@ -112,7 +112,7 @@ RUN python -m pip install --no-cache-dir -i https://pypi.tuna.tsinghua.edu.cn/si
 
 通过环境变量配置uv下载时的源地址
 
-```
+```text
 # 配置 uv 默认索引与下载容错
 ENV UV_DEFAULT_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple \
     UV_HTTP_TIMEOUT=60 \

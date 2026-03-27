@@ -10,12 +10,14 @@ This command helps you create well-formatted commits following the Conventional 
 ## Usage
 
 Basic usage:
-```
+
+```text
 /commit
 ```
 
 With options:
-```
+
+```text
 /commit --no-verify
 /commit --style=full
 /commit --style=full --type=feat
@@ -24,7 +26,7 @@ With options:
 ## Command Options
 
 - `--no-verify`: Skip pre-commit checks (lint, build, generate:docs)
-- `--style=simple|full`: 
+- `--style=simple|full`:
   - `simple` (default): Creates concise single-line commit messages
   - `full`: Creates detailed commit messages with body and footer sections
 - `--type=<type>`: Specify the commit type (overrides automatic detection)
@@ -53,13 +55,16 @@ With options:
 ## Conventional Commits Format
 
 ### Simple Style (Default)
-```
+
+```text
 <emoji> <type>[optional scope]: <description>
 ```
+
 Example: `✨ feat(auth): add JWT token validation`
 
-### Full Style  
-```
+### Full Style
+
+```text
 <emoji> <type>[optional scope]: <description>
 
 <body>
@@ -68,7 +73,8 @@ Example: `✨ feat(auth): add JWT token validation`
 ```
 
 Example:
-```
+
+```text
 ✨ feat(auth): add JWT token validation
 
 Implement JWT token validation middleware that:
@@ -103,6 +109,7 @@ Closes: #123
 ## Body Section Guidelines (Full Style)
 
 The body should:
+
 - Explain **what** changed and **why** (not how)
 - Use bullet points for multiple changes
 - Include motivation for the change
@@ -111,7 +118,8 @@ The body should:
 - Be wrapped at 72 characters per line
 
 Good body example:
-```
+
+```text
 Previously, the application allowed unauthenticated access to
 user profile endpoints, creating a security vulnerability.
 
@@ -128,13 +136,15 @@ overall application security posture.
 ## Footer Section Guidelines (Full Style)
 
 Footer contains:
+
 - **Breaking changes**: Start with `BREAKING CHANGE:`
 - **Issue references**: `Closes:`, `Fixes:`, `Refs:`
 - **Co-authors**: `Co-authored-by: name <email>`
 - **Review references**: `Reviewed-by:`, `Approved-by:`
 
 Example footers:
-```
+
+```text
 BREAKING CHANGE: rename config.auth to config.authentication
 Closes: #123, #124
 Co-authored-by: Jane Doe <jane@example.com>
@@ -143,11 +153,13 @@ Co-authored-by: Jane Doe <jane@example.com>
 ## Scope Guidelines
 
 Scope should be:
+
 - A noun describing the section of codebase
 - Consistent across the project
 - Brief and meaningful
 
 Common scopes:
+
 - `api`, `auth`, `ui`, `db`, `config`, `deps`
 - Component names: `button`, `modal`, `header`
 - Module names: `parser`, `compiler`, `validator`
@@ -155,6 +167,7 @@ Common scopes:
 ## Commit Splitting Strategy
 
 Automatically suggest splitting when detecting:
+
 1. **Mixed types**: Features + fixes in same commit
 2. **Multiple concerns**: Unrelated changes
 3. **Large scope**: Changes across many modules
@@ -163,7 +176,8 @@ Automatically suggest splitting when detecting:
 
 ## Best Practices
 
-### DO:
+### DO
+
 - ✅ Write in present tense, imperative mood ("add" not "added")
 - ✅ Keep first line under 50 characters (72 max)
 - ✅ Capitalize first letter of description
@@ -172,7 +186,8 @@ Automatically suggest splitting when detecting:
 - ✅ Use body to explain what and why vs. how
 - ✅ Reference issues and breaking changes
 
-### DON'T:
+### DON'T
+
 - ❌ Mix multiple logical changes in one commit
 - ❌ Include implementation details in subject
 - ❌ Use past tense ("added" instead of "add")
@@ -183,6 +198,7 @@ Automatically suggest splitting when detecting:
 ## Examples
 
 ### Simple Style Examples
+
 ```bash
 ✨ feat: add user registration flow
 🐛 fix: resolve memory leak in event handler
@@ -193,6 +209,7 @@ Automatically suggest splitting when detecting:
 ```
 
 ### Full Style Example
+
 ```bash
 ✨ feat(auth): implement OAuth2 authentication flow
 

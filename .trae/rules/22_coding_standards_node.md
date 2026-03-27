@@ -2,6 +2,7 @@
 alwaysApply: false
 globs: *.js,*.ts
 ---
+
 # 🛡️ Coding Standards (Node.js/TypeScript)
 
 ## 1. Naming Conventions

@@ -3,6 +3,7 @@
 ### Requirement: psutils 分层延迟加载
 
 Profile 启动时 SHALL 仅同步加载 psutils 的核心子模块集合。核心模块列表按平台差异化：
+
 - 全平台：`os.psm1`、`cache.psm1`、`proxy.psm1`、`wrapper.psm1`
 - 仅 Linux/macOS：`env.psm1`（`Sync-PathFromBash` 依赖）
 

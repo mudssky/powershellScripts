@@ -12,6 +12,7 @@ macOS 和 Linux 的 Bash/Zsh 原生 shell 缺少 Starship prompt 初始化。Pow
 ## Capabilities
 
 ### New Capabilities
+
 - `starship-shell-init`: Bash/Zsh 原生 shell 的 Starship prompt 初始化片段
 
 ### Modified Capabilities

@@ -15,9 +15,11 @@
 ## Capabilities
 
 ### New Capabilities
+
 - `docker-image-cleanup`: 提供可配置、可预览的 Docker 冗余镜像清理能力，包含安全默认策略、保留规则、`fzf` 多选交互与空间统计。
 
 ### Modified Capabilities
+
 - 无
 
 ## Impact

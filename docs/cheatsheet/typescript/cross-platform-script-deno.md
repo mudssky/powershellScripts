@@ -40,7 +40,7 @@ async function main() {
             else resolve(data || "");
         });
     });
-    
+
     console.log(green(text));
 
     // 2. 平台检测
@@ -49,11 +49,11 @@ async function main() {
 
     // 3. 执行 Shell 命令 (跨平台调用)
     const cmd = os === "windows" ? ["powershell", "-c", "echo 'Hi from PS'"] : ["echo", "Hi from Bash"];
-    
+
     const command = new Deno.Command(cmd[0], {
         args: cmd.slice(1),
     });
-    
+
     const { code, stdout } = await command.output();
     console.log(`Command output: ${new TextDecoder().decode(stdout).trim()}`);
 }
@@ -177,12 +177,12 @@ console.log(msg);
 ### 最终建议
 
 1. **对于通用工具脚本**：使用 **Deno**。
-    * 它解决了依赖地狱，代码拷给别人就能跑（只要对方有 Deno）。
-    * 如果对方连 Deno 都不想装，你可以用 `deno compile` 把它变成一个 `.exe` 给对方。
+   * 它解决了依赖地狱，代码拷给别人就能跑（只要对方有 Deno）。
+   * 如果对方连 Deno 都不想装，你可以用 `deno compile` 把它变成一个 `.exe` 给对方。
 
 2. **对于主要是为了调用 Shell 命令的脚本**：使用 **zx**。
-    * 代码写起来最像 Bash，最简洁。
+   * 代码写起来最像 Bash，最简洁。
 
 3. **在 Windows 上直接执行**：
-    * 最优雅的方式是 `deno compile` 生成 exe。
-    * 或者是写一个同名的 `.cmd` 或 `.bat` 文件来引导执行。
+   * 最优雅的方式是 `deno compile` 生成 exe。
+   * 或者是写一个同名的 `.cmd` 或 `.bat` 文件来引导执行。

@@ -5,6 +5,7 @@
 ## Goals / Non-Goals
 
 **Goals:**
+
 - 以“重建”方式交付可维护的 `pwshfmt-rs` 实现。
 - 建立清晰模块边界：`cli`、`config`、`discovery`、`processor`、`formatter`、`summary`、`error`。
 - 使用 `clap` 提供可扩展命令行模型。
@@ -14,6 +15,7 @@
 - 以集成测试覆盖关键行为路径。
 
 **Non-Goals:**
+
 - 不在本次覆盖 `Invoke-Formatter` 的全部规则能力。
 - 不引入常驻进程、远程配置中心或复杂插件系统。
 - 不追求与旧探索版 CLI 文本输出逐字兼容。

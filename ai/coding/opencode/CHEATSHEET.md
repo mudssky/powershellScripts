@@ -55,8 +55,8 @@
     /connect
     ```
 
-    * 选择提供商（如 `anthropic`, `openai`, `google` 等）。
-    * 按提示输入 API Key（这是最安全的配置方式，Key 会被加密存储）。
+   * 选择提供商（如 `anthropic`, `openai`, `google` 等）。
+   * 按提示输入 API Key（这是最安全的配置方式，Key 会被加密存储）。
 
 3. **项目初始化**:
     进入你的代码仓库目录，运行：
@@ -65,7 +65,7 @@
     /init
     ```
 
-    * 这会扫描项目并生成 `AGENTS.md`（类似于 `.cursorrules`），帮助 AI 理解项目结构和规范。建议将此文件提交到 Git。
+   * 这会扫描项目并生成 `AGENTS.md`（类似于 `.cursorrules`），帮助 AI 理解项目结构和规范。建议将此文件提交到 Git。
 
 ---
 

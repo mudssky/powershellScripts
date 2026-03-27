@@ -2,9 +2,7 @@
 
 本速查表旨在帮助你快速在 Next.js 项目中使用 `next/font` 模块来优化并管理字体，涵盖 Google Fonts 和本地字体，以及在 CSS 和 Tailwind CSS 中的应用。
 
-
 ---
-
 
 ### **核心优势**
 
@@ -145,7 +143,7 @@ h1, h2, h3 {
 
 #### **Tailwind CSS (v3)**
 
-1.  **配置 `tailwind.config.js`**
+1. **配置 `tailwind.config.js`**
 
     在 `theme.extend.fontFamily` 中扩展字体，将 CSS 变量作为值。
 
@@ -173,7 +171,7 @@ h1, h2, h3 {
     };
     ```
 
-2.  **在组件中使用**
+2. **在组件中使用**
 
     现在你可以直接使用 Tailwind 的功能类来应用字体。
 
@@ -194,7 +192,7 @@ h1, h2, h3 {
 
 在 Tailwind CSS v4 中，配置方式发生了变化，不再需要 `tailwind.config.js` 文件，而是直接在 CSS 文件中使用 `@theme` 规则定义字体变量。<mcreference link="https://tailwindcss.com/docs/font-family" index="4">4</mcreference>
 
-1.  **在 CSS 中配置字体**
+1. **在 CSS 中配置字体**
 
     在你的主 CSS 文件中，使用 `@theme` 块来定义字体。
 
@@ -209,7 +207,7 @@ h1, h2, h3 {
     }
     ```
 
-2.  **在组件中使用**
+2. **在组件中使用**
 
     使用方式与 v3 相同。
 
@@ -226,7 +224,7 @@ h1, h2, h3 {
     }
     ```
 
- **3.禁用 Preflight (可选)**
+   **3.禁用 Preflight (可选)**
 
 如果你想完全禁用 Tailwind 的基础样式 (Preflight)，以便使用自己的或现有的基础样式，你可以通过修改 CSS 的导入方式来实现。<mcreference link="https://tailwindcss.com/docs/preflight" index="1">1</mcreference>
 
@@ -273,6 +271,3 @@ export default function Page() {
   );
 }
 ```
-
-
-

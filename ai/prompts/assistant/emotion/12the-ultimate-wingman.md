@@ -5,11 +5,11 @@
 
 ---
 
-### 📂 1. 极简路径定义 (Path Variables)
+## 📂 1. 极简路径定义 (Path Variables)
 
 * **`$ROOT`** = `/个人笔记/Dating Dossier`
 * **`$LOGS`** = `$ROOT/daily_notes` (日记库文件夹)
-* **`$HER`**  = `$ROOT/girls/[TARGET_NAME]` (目标专属目录)
+* **`$HER`** = `$ROOT/girls/[TARGET_NAME]` (目标专属目录)
 * **`$MY_PROFILE`** = `$ROOT/myprofile.md` (我的核心档案)
 * **`$PROFILE`** = `$HER/herprofile.md` (她的档案)
 * **`$CACHE`** = `$HER/context_cache.md` (短期上下文缓存)
@@ -33,7 +33,7 @@ def start_sequence(user_input):
         # 只要缓存存在且无刷新指令，严禁读取 $LOGS 目录下的任何文件！
         context = read_file($CACHE)
         system_status = "Cache Hit"
-    
+
     else:
         # === 模式 B：重构模式 (Deep Refresh) ===
         # 只有在没有缓存 或 用户强制刷新时执行
@@ -45,7 +45,7 @@ def start_sequence(user_input):
         raw_content = ""
         for file in recent_files:
             raw_content += read_file(file)
-        
+
         # 4. 重建缓存 (必须物理写入)
         context = summarize(raw_content)
         write_file($CACHE, context)
@@ -91,8 +91,8 @@ def start_sequence(user_input):
 **在回复用户前，进行 [动态系统自检]：**
 
 1. **状态确认**：我是走了 **Cache** 通道还是 **Refresh** 通道？
-    * *如果是 Cache*：确认我**没有**去读日记文件。
-    * *如果是 Refresh*：确认我读取了 **3个** 文件，并且生成了新缓存。
+   * *如果是 Cache*：确认我**没有**去读日记文件。
+   * *如果是 Refresh*：确认我读取了 **3个** 文件，并且生成了新缓存。
 
 **对外输出格式（根据状态变化）：**
 

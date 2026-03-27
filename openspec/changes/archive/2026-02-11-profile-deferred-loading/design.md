@@ -64,17 +64,21 @@
 **选择：** 与 starship/zoxide 使用相同的 `Invoke-WithFileCache` 模式
 
 **当前实现：**
+
 ```powershell
 fnm env --use-on-cd | Out-String | Invoke-Expression
 ```
+
 每次 profile 加载都启动 `fnm` 外部进程（~50-100ms）。
 
 **优化后：**
+
 ```powershell
 $fnmFile = Invoke-WithFileCache -Key "fnm-init-powershell" -MaxAge ([TimeSpan]::FromDays(7)) `
     -Generator { fnm env --use-on-cd } -BaseDir (Join-Path $profileRoot '.cache')
 . $fnmFile
 ```
+
 缓存命中时仅 dot-source 缓存文件，无外部进程开销。
 
 **替代方案：** 无（这是已验证有效的模式，starship/zoxide 已成功使用）。
@@ -84,6 +88,7 @@ $fnmFile = Invoke-WithFileCache -Key "fnm-init-powershell" -MaxAge ([TimeSpan]::
 **选择：** 用 `[System.Environment]::GetEnvironmentVariable($Name)` 替换 `Get-Item -Path "Env:$Name"`
 
 **理由：**
+
 - `Get-Item -Path "Env:$Name"` 走 PowerShell Provider 子系统，每次约 ~10ms
 - `[Environment]::GetEnvironmentVariable()` 是 .NET 原生调用，约 ~0.1ms
 - `Get-ProfileModeDecision` 中调用 `Test-EnvSwitchEnabled` / `Test-EnvValuePresent` 约 8-10 次，累积开销 ~80ms → 优化后 ~1ms
@@ -129,6 +134,7 @@ if (Get-Command -Name Register-FzfHistorySmartKeyBinding -CommandType Function -
 **问题：** PowerShell 7.5.3 的 `Register-EngineEvent -MessageData` 对 `PowerShell.OnIdle` 事件存在引擎 bug——`$Event.MessageData` 在 Action 脚本块中始终为 `$null`（已通过调试日志确认）。
 
 **修复后：**
+
 ```powershell
 $__idleManifestPath = [string]$moduleManifest
 $__idleWrapperPath  = [string](Join-Path ...)
@@ -195,22 +201,29 @@ Describe "延迟加载防护" {
 ## Risks / Trade-offs
 
 ### [风险] PowerShell.OnIdle 事件兼容性不稳定
+
 → **缓解：** PSModulePath 兜底机制确保即使 OnIdle 永远不触发，用户首次调用未加载函数时 PowerShell 自动发现并加载完整模块。行为等价于"首次使用时延迟加载"。
 
 ### [风险] dot-source 的函数在 global scope 而非 module scope
+
 → **缓解：** OnIdle 的 `Import-Module -Force -Global` 会用模块系统重新注册同名函数，覆盖 dot-source 版本。在覆盖前的短暂窗口期内，函数功能完全一致（代码相同），仅作用域不同。对 profile 场景无实际影响。
 
 ### [风险] OnIdle 触发前用户调用了未加载的扩展函数（如 Get-Tree）
+
 → **缓解：** PSModulePath 自动加载兜底。PowerShell 发现 `psutils.psd1` 的 `FunctionsToExport` 包含该函数名，自动执行 `Import-Module`。用户感知到的是首次调用稍慢（~400ms），后续正常。
 
 ### [风险] fnm 缓存文件过期导致环境变量不正确
+
 → **缓解：** 缓存有效期设为 7 天（与 starship/zoxide 一致）。`fnm env` 输出中的路径是固定的（基于 fnm 安装位置），不会频繁变化。用户手动更新 fnm 版本后，可通过删除 `.cache/fnm-init-powershell*` 强制刷新。
 
 ### [风险] Tab 补全延迟窗口
+
 OnIdle 触发前（通常 prompt 显示后 1-2 秒），非核心子模块的函数 Tab 补全不可用。但 PSModulePath 兜底确保输入完整命令名后可执行。实际影响极小——用户打开 shell 后通常有 1-2 秒的"看一眼 prompt"时间，足够 OnIdle 完成加载。
 
 ### [风险] PSModulePath 自动发现可能被意外触发
+
 → **严重性：高（已验证发生）**。任何对非核心模块函数的 `Get-Command` 调用都会通过 PSModulePath 触发 psutils 全量自动导入（~1200ms），完全抵消延迟加载收益。**必须审查 profile 所有同步路径中的 `Get-Command` 调用，确保不引用非核心模块导出的函数。** 已发现并修复的实例：`encoding.ps1` 中的 `Get-Command -Name Register-FzfHistorySmartKeyBinding`。
 
 ### [风险] PowerShell 7.5 的 Register-EngineEvent -MessageData 引擎 bug
+
 → **严重性：高（已验证发生）**。`-MessageData` 传递的哈希表在 `PowerShell.OnIdle` 事件的 Action 脚本块中 `$Event.MessageData` 始终为 `$null`。**必须使用 `.GetNewClosure()` 替代 `-MessageData` 方案。**

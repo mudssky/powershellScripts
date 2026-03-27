@@ -2,6 +2,7 @@
 alwaysApply: false
 globs: scripts/ahk/**/*
 ---
+
 # 📂 Project Specific Rules (AutoHotkey)
 
 globs: scripts/ahk/**/*

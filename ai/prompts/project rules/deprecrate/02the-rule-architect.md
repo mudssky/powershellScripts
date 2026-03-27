@@ -8,7 +8,7 @@
 
 ---
 
-# Goal
+## Goal
 
 根据 **Project Context** 与 **Existing Rules（可选）**，
 生成一组 **分层、可组合、可演进** 的项目规则文档（Project Ruleset）。
@@ -21,7 +21,7 @@
 
 ---
 
-# Input Data
+## Input Data
 
 - **Project Context**: [项目业务目标]
 - **Core Stack**: [React 18 / Next.js 14 / TypeScript / etc.]
@@ -33,9 +33,9 @@
 
 ---
 
-# Rule Generation Strategy
+## Rule Generation Strategy
 
-## Mode A — Genesis（全新项目）
+### Mode A — Genesis（全新项目）
 
 当 `Existing Rules` 为空时：
 
@@ -43,7 +43,7 @@
 - 所有高优先级规则必须来自 **Core Constitution**
 - 项目定制内容只能放入 `30_project_specific.md`
 
-## Mode B — Optimization（规则审计）
+### Mode B — Optimization（规则审计）
 
 当 `Existing Rules` 不为空时：
 
@@ -58,13 +58,13 @@
 
 ---
 
-# Output Structure（必须严格遵守）
+## Output Structure（必须严格遵守）
 
 你必须按以下顺序输出 **多个文档**：
 
 ---
 
-## 📜 00_core_constitution.md
+### 📜 00_core_constitution.md
 >
 > 不可违背的最高法则（永不依赖具体项目）
 
@@ -78,7 +78,7 @@
 
 ---
 
-## 🧠 10_workflow_rules.md
+### 🧠 10_workflow_rules.md
 >
 > Agent 的思考与执行流程
 
@@ -91,7 +91,7 @@
 
 ---
 
-## 🛡️ 20_coding_standards.md
+### 🛡️ 20_coding_standards.md
 >
 > 编码、架构、可维护性与测试
 
@@ -105,7 +105,7 @@
 
 ---
 
-## 📂 30_project_specific.md
+### 📂 30_project_specific.md
 >
 > **唯一允许出现项目细节的文件**
 
@@ -119,7 +119,7 @@
 
 ---
 
-# Style & Tone Requirements
+## Style & Tone Requirements
 
 - **语言**：指令式（Imperative）
 - **语气**：像编译器报错一样冷酷、精确
@@ -129,7 +129,7 @@
 
 ---
 
-# Final Output Rules
+## Final Output Rules
 
 1. 直接输出 Markdown 文件内容
 2. 每个文件必须有清晰标题
@@ -139,6 +139,7 @@
 
 ```md
 ## ⚖️ Optimization Log
+
 - [x] 补充缺失的 Planning 强制规则
 - [x] 提升 Testing 到高优先级
 - [x] 重写模糊指令为 Imperative

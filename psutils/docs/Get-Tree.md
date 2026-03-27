@@ -101,7 +101,7 @@ Get-Tree -Path "./src" -MaxDepth 4 -ShowFiles $true -Exclude @("*.min.js", "node
 
 ## 输出示例
 
-```
+```text
 C:\MyProject
 ├── src/
 │   ├── components/

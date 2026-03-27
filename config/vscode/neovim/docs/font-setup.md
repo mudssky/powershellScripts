@@ -11,6 +11,7 @@
 #### Windows 系统（推荐方法）
 
 ##### 方法一：使用 Scoop 安装（推荐）
+
 ```powershell
 # 如果还没有安装 Scoop
 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
@@ -27,6 +28,7 @@ scoop install Hack-NF              # Hack Nerd Font
 ```
 
 ##### 方法二：手动下载安装
+
 1. 访问 [Nerd Fonts 官网](https://www.nerdfonts.com/font-downloads)
 2. 下载推荐字体之一：
    - **FiraCode Nerd Font**（推荐）
@@ -37,6 +39,7 @@ scoop install Hack-NF              # Hack Nerd Font
 4. 右键点击 `.ttf` 文件，选择"为所有用户安装"
 
 ##### 方法三：使用 PowerShell 脚本自动安装
+
 ```powershell
 # 创建字体安装脚本
 $fontScript = @'
@@ -58,10 +61,10 @@ Get-ChildItem -Path $fontDir -Filter "*.ttf" | ForEach-Object {
     $fontPath = $_.FullName
     $fontName = $_.BaseName
     Write-Host "正在安装字体: $fontName"
-    
+
     # 复制字体文件到系统字体目录
     Copy-Item -Path $fontPath -Destination $systemFontDir -Force
-    
+
     # 注册字体到注册表
     $regPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts"
     Set-ItemProperty -Path $regPath -Name "$fontName (TrueType)" -Value $_.Name
@@ -83,11 +86,13 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
 ### 2. 配置 VSCode 使用 Nerd Font
 
 #### 打开 VSCode 设置
+
 1. 按 `Ctrl + ,` 打开设置
 2. 搜索 "font family"
 3. 在 "Editor: Font Family" 中设置字体
 
 #### 推荐的字体配置
+
 ```json
 {
   "editor.fontFamily": "'FiraCode Nerd Font', 'JetBrains Mono NL', Consolas, 'Courier New', monospace",
@@ -99,6 +104,7 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
 ```
 
 #### 或者通过 settings.json 文件配置
+
 1. 按 `Ctrl + Shift + P` 打开命令面板
 2. 输入 "Preferences: Open Settings (JSON)"
 3. 添加以下配置：
@@ -118,6 +124,7 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
 ### 3. 配置终端使用 Nerd Font
 
 #### Windows Terminal
+
 1. 打开 Windows Terminal
 2. 按 `Ctrl + ,` 打开设置
 3. 选择你使用的配置文件（如 PowerShell）
@@ -126,11 +133,13 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
    - **大小**: `12` 或你喜欢的大小
 
 #### PowerShell 控制台
+
 1. 右键点击 PowerShell 窗口标题栏
 2. 选择 "属性"
 3. 在 "字体" 选项卡中选择 Nerd Font
 
 #### CMD 控制台
+
 1. 右键点击 CMD 窗口标题栏
 2. 选择 "属性"
 3. 在 "字体" 选项卡中选择 Nerd Font
@@ -138,42 +147,53 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
 ### 4. 验证字体安装
 
 #### 方法一：在终端中测试
+
 ```bash
 # 在终端中运行以下命令，应该能看到各种图标
 echo "  󰅖    "
 ```
 
 #### 方法二：在 Neovim 中测试
+
 1. 打开 Neovim
 2. 运行 `:echo "  󰅖    "`
 3. 如果看到正确的图标而不是问号，说明配置成功
 
 #### 方法三：检查 bufferline
+
 1. 在 Neovim 中打开多个文件
 2. 查看顶部标签栏的图标是否正确显示
 
 ### 5. 故障排除
 
 #### 问题：安装字体后仍然显示问号
+
 **解决方案**:
+
 1. 重启 VSCode 和终端
 2. 确认字体名称正确（注意大小写和空格）
 3. 检查字体是否真正安装到系统中
 
 #### 问题：字体安装失败
+
 **解决方案**:
+
 1. 以管理员身份运行 PowerShell
 2. 手动下载字体文件并右键安装
 3. 检查系统字体目录权限
 
 #### 问题：VSCode 中字体不生效
+
 **解决方案**:
+
 1. 检查 VSCode 设置中的字体配置
 2. 尝试重新加载 VSCode 窗口（`Ctrl + Shift + P` → "Developer: Reload Window"）
 3. 检查是否有其他扩展覆盖了字体设置
 
 #### 问题：终端中字体不生效
+
 **解决方案**:
+
 1. 确认终端应用程序支持 Unicode 字符
 2. 检查终端的字体设置
 3. 尝试不同的 Nerd Font 字体
@@ -202,46 +222,46 @@ $ErrorActionPreference = "Stop"
 
 function Install-NerdFont {
     param([string]$Font)
-    
+
     $fontUrls = @{
         "FiraCode" = "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.1.1/FiraCode.zip"
         "JetBrainsMono" = "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.1.1/JetBrainsMono.zip"
         "CascadiaCode" = "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.1.1/CascadiaCode.zip"
         "Hack" = "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.1.1/Hack.zip"
     }
-    
+
     if (-not $fontUrls.ContainsKey($Font)) {
         Write-Error "不支持的字体: $Font. 支持的字体: $($fontUrls.Keys -join ', ')"
         return
     }
-    
+
     $fontUrl = $fontUrls[$Font]
     $fontZip = "$env:TEMP\$Font.zip"
     $fontDir = "$env:TEMP\$Font"
-    
+
     try {
         Write-Host "正在下载 $Font Nerd Font..." -ForegroundColor Green
         Invoke-WebRequest -Uri $fontUrl -OutFile $fontZip -UseBasicParsing
-        
+
         Write-Host "正在解压字体文件..." -ForegroundColor Green
         if (Test-Path $fontDir) {
             Remove-Item $fontDir -Recurse -Force
         }
         Expand-Archive -Path $fontZip -DestinationPath $fontDir -Force
-        
+
         Write-Host "正在安装字体..." -ForegroundColor Green
         $shell = New-Object -ComObject Shell.Application
         $fontsFolder = $shell.Namespace(0x14)
-        
+
         Get-ChildItem -Path $fontDir -Filter "*.ttf" | ForEach-Object {
             $fontPath = $_.FullName
             Write-Host "  安装: $($_.Name)" -ForegroundColor Yellow
             $fontsFolder.CopyHere($fontPath, 0x10)
         }
-        
+
         Write-Host "字体安装完成！" -ForegroundColor Green
         Write-Host "请重启 VSCode 和终端以使字体生效。" -ForegroundColor Cyan
-        
+
     } catch {
         Write-Error "安装失败: $($_.Exception.Message)"
     } finally {
@@ -264,6 +284,7 @@ Install-NerdFont -Font $FontName
 ```
 
 使用方法：
+
 ```powershell
 # 安装 FiraCode（默认）
 .\install-nerd-fonts.ps1

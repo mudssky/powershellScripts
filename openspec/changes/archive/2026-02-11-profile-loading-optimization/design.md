@@ -15,6 +15,7 @@
 6. **PSModulePath 包含额外目录**：命令发现阶段需要扫描更多路径寻找自动加载模块。
 
 约束条件：
+
 - 不能破坏 Full/Minimal/UltraMinimal 三种模式的语义和行为
 - `psutils` 模块功能必须完整保留
 - 所有现有函数、别名、环境变量在 Full 模式下必须仍然可用
@@ -44,12 +45,15 @@
 **选择**：将 `Invoke-WithFileCache` 的 Generator 从 `{ & starship init powershell }` 改为 `{ & starship init powershell --print-full-init }`。
 
 **问题分析**：`starship init powershell` 不加 `--print-full-init` 时输出的是一行引导代码：
+
 ```powershell
 Invoke-Expression (& starship init powershell --print-full-init | Out-String)
 ```
+
 缓存这段代码后 dot-source 时仍会调用 starship 二进制。加 `--print-full-init` 后输出约 200 行完整的 PowerShell 初始化脚本（包含 prompt 函数定义等），缓存后 dot-source 不再需要外部进程。
 
 **替代方案**：
+
 - 不缓存直接每次调用 → 每次启动都要 spawn starship 进程，更慢
 - 在 prompt 函数中做异步渲染 → 改动太大，属于 starship 上游职责
 
@@ -60,6 +64,7 @@ Invoke-Expression (& starship init powershell --print-full-init | Out-String)
 **选择**：将 `Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete` 改为 `Set-PSReadLineKeyHandler -Key Tab -Function Complete`。
 
 **替代方案**：
+
 - 保持 MenuComplete + 优化候选源 → 根本问题无法解决，PowerShell 仍需一次性枚举全部候选
 - 使用 PSReadLine Prediction 替代 → 互补关系，不冲突但不解决 Tab 问题
 
@@ -70,6 +75,7 @@ Invoke-Expression (& starship init powershell --print-full-init | Out-String)
 **选择**：用单次 `Get-Command -Name @('starship','zoxide','sccache','fnm') -CommandType Application -ErrorAction SilentlyContinue` 批量查询替代 4 次独立 `Test-EXEProgram` 调用。
 
 **替代方案**：
+
 - 用 `[System.IO.File]::Exists()` 检查已知路径 → 不跨平台，需要维护路径表
 - 用 `where.exe`/`which` 命令 → 启动外部进程更慢
 
@@ -78,6 +84,7 @@ Invoke-Expression (& starship init powershell --print-full-init | Out-String)
 ### Decision 4: 代理探测优化
 
 **选择**：
+
 1. 将 `Set-Proxy auto` 的 TCP 超时从 100ms 缩短为 50ms
 2. 取消 `Set-Proxy on` 中的二次端口检测（200ms timeout），改为仅设置环境变量
 3. 在 `Initialize-Environment` 中为 `Set-Proxy auto` 包装 `Invoke-WithCache` 缓存层，缓存有效期 5 分钟
@@ -87,6 +94,7 @@ Invoke-Expression (& starship init powershell --print-full-init | Out-String)
 ### Decision 5: Get-Command 搜索范围收窄
 
 **选择**：在 `Set-ProfileUtf8Encoding` 中：
+
 - PSReadLine 是 pwsh 7 内置模块，直接调用 `Set-PSReadLineKeyHandler` 而不做 `Get-Command` 检查
 - `Register-FzfHistorySmartKeyBinding` 加 `-CommandType Function` 限定搜索范围
 
@@ -97,6 +105,7 @@ Invoke-Expression (& starship init powershell --print-full-init | Out-String)
 **选择**：在 `profile/core/loadModule.ps1` 中不再将项目父目录追加到 `PSModulePath`，仅保留 PSModulePath 去重逻辑。
 
 **替代方案**：
+
 - 保持添加但在命令发现策略中优化 → PowerShell 不提供此级别控制
 
 **理由**：额外的 PSModulePath 条目会导致 PowerShell 命令发现阶段扫描更多目录。项目父目录可能包含大量子目录，拖慢命令查找和 Tab 补全。psutils 模块通过显式 `Import-Module` 加载，不依赖 PSModulePath 自动发现。

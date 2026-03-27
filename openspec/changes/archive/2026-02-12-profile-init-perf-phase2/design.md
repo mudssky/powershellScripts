@@ -16,12 +16,14 @@ Phase 1 优化（`psutils-deferred-loading`）通过分层延迟加载将 `core-
 ## Goals / Non-Goals
 
 **Goals:**
+
 - 将 `initialize-environment` 从 ~594ms 降至 ~300ms 以下
 - 将总 profile 加载时间从 ~1150ms 降至 ~800ms 以下
 - 消除 starship continuation prompt 每次启动的子进程调用
 - 消除 PSReadLine 冷启动对 profile 加载的影响
 
 **Non-Goals:**
+
 - 不优化 starship `New-Module` 的编译开销（~100-120ms，属于 PowerShell 引擎固有成本）
 - 不优化 `core-loaders` 阶段（Phase 1 已优化到位）
 - 不修改 starship 本身的 init 脚本结构
@@ -34,12 +36,14 @@ Phase 1 优化（`psutils-deferred-loading`）通过分层延迟加载将 `core-
 **选择**: 将 `encoding.ps1` 中的 `Set-PSReadLineKeyHandler -Key Tab -Function Complete` 移到现有 `loadModule.ps1` 的 OnIdle Action 中。
 
 **理由**:
+
 - PSReadLine 的 `Set-PSReadLineKeyHandler` 在冷启动时触发模块完整初始化（~260ms）
 - Tab 补全在 profile 加载后的前几秒内几乎不可能使用（用户还没开始输入命令）
 - OnIdle 在用户首次空闲时触发，此时 PSReadLine 已自然初始化，键绑定注册接近零成本
 - 复用现有 OnIdle 事件处理器，不需要注册新的引擎事件
 
 **替代方案**:
+
 - 注册独立的 OnIdle 事件：增加复杂度，且 `-MaxTriggerCount 1` 限制了灵活性
 - 保持现状：放弃 ~260ms 的优化
 
@@ -48,6 +52,7 @@ Phase 1 优化（`psutils-deferred-loading`）通过分层延迟加载将 `core-
 **选择**: 使用 `Invoke-WithFileCache` 缓存 `starship prompt --continuation` 的输出，按平台区分缓存 key。
 
 **缓存策略**:
+
 - 缓存 key: `starship-continuation-prompt`（与 starship-init 缓存同目录）
 - 有效期: 7 天（与 starship init 缓存一致）
 - 缓存内容: continuation prompt 的纯文本输出
@@ -56,11 +61,13 @@ Phase 1 优化（`psutils-deferred-loading`）通过分层延迟加载将 `core-
 **实现方式**: 在 starship init 缓存脚本生成后，对其内容进行 post-processing——将 `Set-PSReadLineOption -ContinuationPrompt (Invoke-Native ...)` 替换为缓存的字面量值。
 
 **理由**:
+
 - `starship prompt --continuation` 输出是确定性的（仅依赖 starship 配置）
 - 当前每次 profile 启动都 spawn 一个 starship 子进程，耗时 ~100-150ms
 - 缓存后降为 0ms（字面量字符串赋值）
 
 **替代方案**:
+
 - 修改 starship init 脚本模板：需要在 starship 版本更新时维护 patch，成本太高
 - 使用环境变量传递 continuation prompt：starship 不支持此机制
 
@@ -71,6 +78,7 @@ Phase 1 优化（`psutils-deferred-loading`）通过分层延迟加载将 `core-
 **缓存 key**: `starship-init-powershell-<platform>`，其中 `<platform>` 为 `win`/`linux`/`macos`。
 
 **理由**:
+
 - 诊断中发现 Linux 生成的缓存文件包含 `/home/linuxbrew/.linuxbrew/bin/starship` 硬编码路径
 - 在 Windows 上 dot-source 此缓存时，`Invoke-Native` 使用错误路径导致进程启动失败/超时
 - 删除并重新生成 Windows 缓存后立刻节省 ~178ms

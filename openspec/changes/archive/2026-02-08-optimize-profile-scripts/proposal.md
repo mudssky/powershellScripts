@@ -1,6 +1,7 @@
 ## Why
 
 当前 `profile.ps1` 相关脚本在功能上稳定，但存在一些“脆弱点”和维护性成本：
+
 - `Import-Module` 失败时错误定位不够明确，容易让人以为是别的逻辑出错
 - `Test-EXEProgram` / `Test-ExeProgram` 命名不一致，可能导致工具探测误判
 - 别名函数通过字符串拼接生成脚本块，遇到复杂参数/引号时易出错
@@ -23,9 +24,11 @@
 ## Capabilities
 
 ### New Capabilities
+
 - 无
 
 ### Modified Capabilities
+
 - 无（现有需求不变，仅改进实现与健壮性）
 
 ## Impact

@@ -1,10 +1,10 @@
 # ADDED Requirements
 
-### Requirement: 统一入口加载
+## Requirement: 统一入口加载
 
 `profile.ps1` SHALL 作为所有平台（Windows/Linux/macOS）的统一 Profile 入口脚本。脚本 SHALL 通过 PowerShell 内置变量 `$IsWindows`/`$IsLinux`/`$IsMacOS` 识别当前平台并执行对应的平台特定逻辑。
 
-#### Scenario: Windows 平台加载
+### Scenario: Windows 平台加载
 
 - **WHEN** 在 Windows 平台执行 `profile.ps1`
 - **THEN** 脚本 SHALL 初始化 sccache（如已安装）、加载所有通用模块和别名、显示加载耗时
@@ -211,24 +211,30 @@
 - **THEN** SHALL 加载 zoxide 初始化脚本、移除懒加载代理函数、执行实际的 `z` 命令
 
 ### Requirement: PowerShell 7+ 运行时基线
+
 `profile.ps1` SHALL 仅支持 PowerShell 7+（`pwsh`）运行时，不提供 PowerShell 5.x 兼容路径。
 
 #### Scenario: 受支持运行时正常加载
+
 - **WHEN** 用户在 PowerShell 7+ 环境执行 `profile.ps1`
 - **THEN** 系统 SHALL 继续执行统一入口初始化流程
 
 #### Scenario: 非受支持运行时不受支持
+
 - **WHEN** 用户在 Windows PowerShell 5.1 执行 `profile.ps1`
 - **THEN** 系统 SHALL 不保证行为正确且不提供兼容分支
 
 ### Requirement: 用户别名配置目录化
+
 用户别名配置 SHALL 从专用配置目录加载，而非直接放置在 `profile/` 根目录。
 
 #### Scenario: 从配置目录加载用户别名
+
 - **WHEN** profile 初始化扩展加载链路
 - **THEN** 系统 SHALL 从约定的别名配置目录读取用户别名定义并完成注册
 
 #### Scenario: 根目录不再承载别名配置文件
+
 - **WHEN** 用户查看 `profile/` 根目录结构
 - **THEN** 系统 SHALL 不再要求 `user_aliases.ps1` 位于根目录才能完成加载
 

@@ -13,12 +13,14 @@
 | **`ollama show`** | 显示模型详情 (Modelfile, 参数等) | `ollama show --modelfile llama3` |
 
 ### 交互模式下的快捷指令
+
 在 `ollama run <model>` 进入对话框后使用：
-*   `/?`: 获取帮助
-*   `/bye` 或 `Ctrl + D`: 退出对话
-*   `/set parameter seed 123`: 临时设置参数
-*   `/show info`: 查看当前模型信息
-*   `"""`: 输入多行文本
+
+* `/?`: 获取帮助
+* `/bye` 或 `Ctrl + D`: 退出对话
+* `/set parameter seed 123`: 临时设置参数
+* `/show info`: 查看当前模型信息
+* `"""`: 输入多行文本
 
 ---
 
@@ -27,6 +29,7 @@
 创建自定义的角色（System Prompt）或调整参数。
 
 **1. 创建文件 `Modelfile`**
+
 ```dockerfile
 FROM llama3
 
@@ -45,12 +48,14 @@ SYSTEM """
 ```
 
 **2. 编译模型**
+
 ```bash
 # 语法: ollama create <新模型名> -f <Modelfile路径>
 ollama create linux-expert -f ./Modelfile
 ```
 
 **3. 运行新模型**
+
 ```bash
 ollama run linux-expert
 ```
@@ -62,6 +67,7 @@ ollama run linux-expert
 Ollama 默认监听 `11434` 端口。
 
 **1. 生成回复 (Generate - 流式)**
+
 ```bash
 curl http://localhost:11434/api/generate -d '{
   "model": "llama3",
@@ -70,6 +76,7 @@ curl http://localhost:11434/api/generate -d '{
 ```
 
 **2. 聊天模式 (Chat - 类似 OpenAI)**
+
 ```bash
 curl http://localhost:11434/api/chat -d '{
   "model": "llama3",
@@ -81,6 +88,7 @@ curl http://localhost:11434/api/chat -d '{
 ```
 
 **3. 获取 Embeddings (用于 RAG)**
+
 ```bash
 curl http://localhost:11434/api/embeddings -d '{
   "model": "nomic-embed-text",
@@ -140,14 +148,16 @@ curl http://localhost:11434/api/embeddings -d '{
 
 如果你配置了远程访问，请核对以下三点：
 
-1.  **绑定地址**：`OLLAMA_HOST=0.0.0.0`
-2.  **防火墙**：`sudo ufw allow 11434` (仅允许可信 IP) 或配置 Nginx 端口。
-3.  **认证**：**必须**配置 Nginx Basic Auth 或 LiteLLM (因为 Ollama 原生无密码)。
+1. **绑定地址**：`OLLAMA_HOST=0.0.0.0`
+2. **防火墙**：`sudo ufw allow 11434` (仅允许可信 IP) 或配置 Nginx 端口。
+3. **认证**：**必须**配置 Nginx Basic Auth 或 LiteLLM (因为 Ollama 原生无密码)。
 
 ---
 
 ### 一键卸载 (Linux)
+
 如果需要重装或清除：
+
 ```bash
 sudo systemctl stop ollama
 sudo systemctl disable ollama

@@ -22,7 +22,7 @@
 
 ## 相关工具链接
 
-- 模型路由/代理：<https://github.com/BerriAI/litellm>
-- 编排与结构化输出：<https://github.com/langchain-ai/langchain>
-- 类型与 Schema 校验：<https://github.com/pydantic/pydantic>
-- 缓存：<https://github.com/redis/redis>
+* 模型路由/代理：<https://github.com/BerriAI/litellm>
+* 编排与结构化输出：<https://github.com/langchain-ai/langchain>
+* 类型与 Schema 校验：<https://github.com/pydantic/pydantic>
+* 缓存：<https://github.com/redis/redis>

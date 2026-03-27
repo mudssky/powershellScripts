@@ -12,9 +12,11 @@
 ## Capabilities
 
 ### New Capabilities
+
 - `cherry-diagnosis`: cherry 诊断与智能同步策略选择，包括 reset + cherry-pick 路径
 
 ### Modified Capabilities
+
 - `worktree-sync`: 状态概览增加重复 commit 预警列；单分支/批量同步流程集成 cherry 诊断
 
 ## Impact

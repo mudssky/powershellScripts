@@ -4,7 +4,7 @@
 
 ## 目录结构
 
-```
+```text
 scripts/
 └── pwsh/
     ├── media/          # 媒体处理相关脚本
@@ -178,7 +178,7 @@ renameLegal.ps1 -reverse
 1. 打开"系统属性" → "高级" → "环境变量"
 2. 在用户变量或系统变量的PATH中添加：
 
-   ```
+   ```text
    C:\home\env\powershellScripts\bin
    ```
 
