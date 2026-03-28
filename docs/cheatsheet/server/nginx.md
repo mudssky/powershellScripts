@@ -27,10 +27,10 @@ nginx -V                    # 查看版本及编译参数 (查看安装了哪些
 
 **文件路径 (常见默认值)**
 
-*   **主配置文件**: `/etc/nginx/nginx.conf`
-*   **子配置文件目录**: `/etc/nginx/conf.d/` 或 `/etc/nginx/sites-enabled/`
-*   **日志目录**: `/var/log/nginx/`
-*   **默认 Web 根目录**: `/usr/share/nginx/html` 或 `/var/www/html`
+* **主配置文件**: `/etc/nginx/nginx.conf`
+* **子配置文件目录**: `/etc/nginx/conf.d/` 或 `/etc/nginx/sites-enabled/`
+* **日志目录**: `/var/log/nginx/`
+* **默认 Web 根目录**: `/usr/share/nginx/html` 或 `/var/www/html`
 
 ---
 
@@ -269,19 +269,16 @@ location ~ /\.ht {
 ## 10. 常见陷阱
 
 1. **root vs alias**:
-   *   `root`: 会将 location 路径**追加**到 root 路径后。
-   *   `alias`: 会用 alias 路径**替换** location 路径。
+   * `root`: 会将 location 路径**追加**到 root 路径后。
+   * `alias`: 会用 alias 路径**替换** location 路径。
 
-       ```nginx
+     ```nginx
+     # 请求 /static/img.png -> /var/www/static/img.png
+     location /static/ { root /var/www; }
 
-## 请求 /static/img.png -> /var/www/static/img.png
-
-    location /static/ { root /var/www; }
-
-## 请求 /static/img.png -> /var/www/images/img.png
-
-    location /static/ { alias /var/www/images/; }
-       ```
+     # 请求 /static/img.png -> /var/www/images/img.png
+     location /static/ { alias /var/www/images/; }
+     ```
 
 2. **缺少分号**: 每行指令必须以 `;` 结尾。
 3. **if 是邪恶的**: 尽量避免在 `location` 中使用 `if`，除非你非常清楚自己在做什么（通常用 `try_files` 或 `rewrite` 替代）。

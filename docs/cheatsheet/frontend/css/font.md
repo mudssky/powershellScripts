@@ -82,7 +82,7 @@
 
 ### **5. 核心 CSS 字体属性**
 
-*   `font-family`: 指定字体族。**务必提供一个后备字体栈**。
+* `font-family`: 指定字体族。**务必提供一个后备字体栈**。
 
 ```css
     body {
@@ -97,7 +97,7 @@
 
 * `font-size`: 设置字体大小。推荐使用相对单位，如 `rem` 或 `em`，以获得更好的可访问性。
 
-*   `line-height`: 设置行高。**最佳实践是使用一个无单位的数字**（如 `1.5`），它会根据 `font-size` 自动计算，避免继承问题。
+* `line-height`: 设置行高。**最佳实践是使用一个无单位的数字**（如 `1.5`），它会根据 `font-size` 自动计算，避免继承问题。
 
 * `font` (简写属性): 可以一次性设置多个属性，但顺序很严格，且容易重置未指定的属性，需谨慎使用。
 
@@ -116,8 +116,8 @@
 
 一个字体文件包含了多个样式（如不同字重、字宽、斜度）。
 
-*   **优点**: 大大减少 HTTP 请求次数和总体积，设计灵活性极高。
-*   **CSS 使用**:
+* **优点**: 大大减少 HTTP 请求次数和总体积，设计灵活性极高。
+* **CSS 使用**:
 
     ```css
     @font-face {
@@ -136,10 +136,10 @@
 
 通过 `font-feature-settings` 或更现代的 `font-variant-*` 属性，可以开启字体中内置的高级排版功能。
 
-*   **常见特性**:
-  *   **连字 (Ligatures)**: 将特定字符组合（如 `fi`, `fl`）替换为单个优美的字形。`font-variant-ligatures: common-ligatures;` (默认开启)
-  *   **字偶距微调 (Kerning)**: 调整特定字符对之间的间距（如 `AV`）。`font-kerning: normal;` (默认开启)
-  *   **数字样式**: 等宽数字、比例数字、旧式数字等。`font-variant-numeric: tabular-nums;` (用于表格对齐)
+* **常见特性**:
+  * **连字 (Ligatures)**: 将特定字符组合（如 `fi`, `fl`）替换为单个优美的字形。`font-variant-ligatures: common-ligatures;` (默认开启)
+  * **字偶距微调 (Kerning)**: 调整特定字符对之间的间距（如 `AV`）。`font-kerning: normal;` (默认开启)
+  * **数字样式**: 等宽数字、比例数字、旧式数字等。`font-variant-numeric: tabular-nums;` (用于表格对齐)
 
 ```css
 .price-table {

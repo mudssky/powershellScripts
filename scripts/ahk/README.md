@@ -1,6 +1,9 @@
 
 - [myAHKScripts](#myahkscripts)
   - [安装](#安装)
+    - [1. 安装 AutoHotkey 2.0](#1-安装-autohotkey-20)
+      - [注意事项](#注意事项)
+    - [2. 部署脚本](#2-部署脚本)
   - [01. capslock.ahk](#01-capslockahk)
   - [02.switchIME.ahk](#02switchimeahk)
   - [03.win.ahk](#03winahk)
@@ -28,7 +31,7 @@
 .\install-autohotkey.ps1 -Force
 ```
 
-**注意事项：**
+#### 注意事项
 
 - 建议以管理员身份运行 PowerShell
 - 确保 PowerShell 执行策略允许运行脚本

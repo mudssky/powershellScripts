@@ -12,12 +12,14 @@
     - 统一 `Join-Path` 替换硬编码反斜杠可能影响与外部 Windows 原生命令的交互；
     - 引入 `SupportsShouldProcess` 后流程需适配 `-WhatIf`；
     - Shebang 与 LF 换行对 Windows 无影响，但需确保 UTF-8 无 BOM，以避免 Unix 下 `exec format error`。
+
 - [ ] Step 1: Context Gathering（上下文收集）
   - 已盘点根目录脚本清单（见上）。
   - 抽样现状：
     - `install.ps1`：无 Shebang、未启用 StrictMode/Stop，路径使用 `"$PSScriptRoot\psutils"`（建议换 `Join-Path`），交互式 `Read-Host`（需保持）；`install.ps1:21-39`。
     - `start-container.ps1`：已启用 `[CmdletBinding]` 与 `Set-StrictMode`，缺少 `$ErrorActionPreference='Stop'` 与 Shebang；部分 `Join-Path` 已使用，但仍有字符串拼接风险；参考 `start-container.ps1:263-266`。
     - `Compare-JsonFiles.ps1`：有 `[CmdletBinding]` 与 `ShouldProcess`，缺少 Shebang/StrictMode/Stop；路径使用反斜杠字符串；参考 `Compare-JsonFiles.ps1:239-246`。
+
 - [ ] Step 2: Implementation（落地改造）
   - 统一头部与运行时规范（所有文件）：
     - 第一行添加 Shebang：`#!/usr/bin/env pwsh`（参考 `script-template.ps1:1`）。

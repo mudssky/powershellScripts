@@ -68,17 +68,17 @@ vim.keymap.set('n', '<leader>fh', '<cmd>Telescope help_tags<cr>', { desc = 'Find
 
 ### 实用技巧
 
-*   **多选操作**：在 Telescope 窗口中，可以使用 `<Tab>` 键标记多个条目，然后使用 `<C-q>` 将它们一次性发送到快速修复列表，方便进行批量操作。
-*   **预览窗口控制**：在插入模式下，使用 `<C-u>` 和 `<C-d>` 可以在不离开输入框的情况下滚动预览窗口。
-*   **忽略文件**：Telescope 默认会使用 `.gitignore` 文件来排除不需要搜索的文件。
-*   **自定义**：Telescope 提供了丰富的配置选项，您可以自定义主题、布局、排序逻辑等。
+* **多选操作**：在 Telescope 窗口中，可以使用 `<Tab>` 键标记多个条目，然后使用 `<C-q>` 将它们一次性发送到快速修复列表，方便进行批量操作。
+* **预览窗口控制**：在插入模式下，使用 `<C-u>` 和 `<C-d>` 可以在不离开输入框的情况下滚动预览窗口。
+* **忽略文件**：Telescope 默认会使用 `.gitignore` 文件来排除不需要搜索的文件。
+* **自定义**：Telescope 提供了丰富的配置选项，您可以自定义主题、布局、排序逻辑等。
 
 ### 扩展插件
 
 Telescope 的强大之处在于其可扩展性。社区开发了许多有用的扩展，让 Telescope 能够与其他插件和工具集成：
 
-*   **telescope-fzf-native.nvim**: 使用 C 编写的原生 FZF 排序器，可以大幅提升性能。
-*   **telescope-file-browser.nvim**: 在 Telescope 中实现一个文件浏览器。
-*   **telescope-ui-select.nvim**: 将 Neovim 的 `vim.ui.select` 替换为 Telescope 界面，提供更统一的体验。
+* **telescope-fzf-native.nvim**: 使用 C 编写的原生 FZF 排序器，可以大幅提升性能。
+* **telescope-file-browser.nvim**: 在 Telescope 中实现一个文件浏览器。
+* **telescope-ui-select.nvim**: 将 Neovim 的 `vim.ui.select` 替换为 Telescope 界面，提供更统一的体验。
 
 要安装这些扩展，您需要使用您的插件管理器（如 `lazy.nvim` 或 `packer.nvim`）添加相应的插件，并按照其文档进行配置。

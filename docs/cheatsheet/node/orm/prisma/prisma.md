@@ -170,16 +170,11 @@ model User {
         3. 重新生成 Prisma Client，使其与新的 schema 保持同步。
 
      ```bash
+     # 第一次迁移
+     npx prisma migrate dev --name init
 
-# 第一次迁移
-
-```text
-npx prisma migrate dev --name init
-```
-
-## 后续迁移
-
-    npx prisma migrate dev --name added_user_model
+     # 后续迁移
+     npx prisma migrate dev --name added_user_model
      ```
 
 2. **生产环境部署**
@@ -187,8 +182,7 @@ npx prisma migrate dev --name init
 
      ```bash
      npx prisma migrate deploy
-
-     ```text
+     ```
 
 3. **其他常用迁移命令**
    * `npx prisma db push`: （不推荐用于生产）快速同步 schema 到数据库，但不创建迁移文件。适合原型开发。
@@ -226,23 +220,26 @@ const prisma = new PrismaClient();
 * **Read (查询)**
   * **查询单个**:
 
-        ```typescript
-        const post = await prisma.post.findUnique({
-          where: { id: 'post_cuid_abc' },
-          include: { author: true }, // 同时加载关联的 author 数据
-        });
-        ```    *   **查询列表**:
-        ```typescript
-        const posts = await prisma.post.findMany({
-          where: {
-            published: true,
-            title: { contains: 'Prisma' },
-          },
-          orderBy: { createdAt: 'desc' },
-          take: 10, // 取10条
-          skip: 20, // 跳过20条 (用于分页)
-        });
-        ```
+    ```typescript
+    const post = await prisma.post.findUnique({
+      where: { id: 'post_cuid_abc' },
+      include: { author: true }, // 同时加载关联的 author 数据
+    });
+    ```
+
+  * **查询列表**:
+
+    ```typescript
+    const posts = await prisma.post.findMany({
+      where: {
+        published: true,
+        title: { contains: 'Prisma' },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 10, // 取10条
+      skip: 20, // 跳过20条 (用于分页)
+    });
+    ```
 
 * **Update (更新)**
 
@@ -320,13 +317,11 @@ const prisma = new PrismaClient();
 
      ```bash
      npx prisma studio
-
-     ```text
+     ```
 
 3. **从现有数据库生成 Schema (Introspection)**
    * 如果你的数据库已经存在，此命令会读取数据库结构，并自动生成 `schema.prisma` 文件。
 
      ```bash
      npx prisma db pull
-
-     ```text
+     ```
