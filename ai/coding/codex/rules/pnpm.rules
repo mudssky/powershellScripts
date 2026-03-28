@@ -1,0 +1,24 @@
+# Common pnpm workflows that are low-risk and reusable across projects.
+# Keep project-specific `-C` rules, deploy/release flows, and external scaffolding
+# commands in `default.rules`.
+
+prefix_rule(pattern=["pnpm", "add"], decision="allow")
+prefix_rule(pattern=["pnpm", "install"], decision="allow")
+prefix_rule(pattern=["pnpm", "dev"], decision="allow")
+prefix_rule(pattern=["pnpm", "test:e2e"], decision="allow")
+prefix_rule(pattern=["pnpm", "typecheck"], decision="allow")
+prefix_rule(pattern=["pnpm", "typecheck:changed"], decision="allow")
+prefix_rule(pattern=["pnpm", "test:fast"], decision="allow")
+prefix_rule(pattern=["pnpm", "test:fast:parallel"], decision="allow")
+prefix_rule(pattern=["pnpm", "test:unit"], decision="allow")
+prefix_rule(pattern=["pnpm", "test:integration:smoke"], decision="allow")
+prefix_rule(pattern=["pnpm", "qa"], decision="allow")
+prefix_rule(pattern=["pnpm", "qa:full"], decision="allow")
+prefix_rule(pattern=["pnpm", "qa:time:quiet"], decision="allow")
+prefix_rule(pattern=["pnpm", "qa:pwsh"], decision="allow")
+prefix_rule(pattern=["pnpm", "run", "qa"], decision="allow")
+prefix_rule(pattern=["pnpm", "run", "qa:all"], decision="allow")
+prefix_rule(pattern=["pnpm", "run", "qa:verbose"], decision="allow")
+prefix_rule(pattern=["pnpm", "exec", "playwright", "install"], decision="allow")
+prefix_rule(pattern=["pnpm", "exec", "playwright", "test"], decision="allow")
+prefix_rule(pattern=["pnpm", "exec", "next", "dev"], decision="allow")

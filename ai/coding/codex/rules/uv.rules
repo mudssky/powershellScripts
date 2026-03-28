@@ -1,0 +1,10 @@
+# Common uv workflows that are low-risk and reusable across projects.
+# Keep one-off migration scripts and path-specific exceptions in `default.rules`.
+
+prefix_rule(pattern=["uv", "add"], decision="allow")
+prefix_rule(pattern=["uv", "sync"], decision="allow")
+prefix_rule(pattern=["uv", "lock"], decision="allow")
+prefix_rule(pattern=["uv", "run", "python"], decision="allow")
+prefix_rule(pattern=["uv", "run", "pytest"], decision="allow")
+prefix_rule(pattern=["uv", "run", "ruff"], decision="allow")
+prefix_rule(pattern=["uv", "run", "pyright"], decision="allow")

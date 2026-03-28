@@ -1,0 +1,6 @@
+# Read-only curl patterns. Keep shell-wrapped curl commands and anything that
+# looks like a download-execute chain out of this file.
+
+prefix_rule(pattern=["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}\\n"], decision="allow")
+prefix_rule(pattern=["curl", "-L"], decision="allow")
+prefix_rule(pattern=["curl", "-fsSL"], decision="allow")

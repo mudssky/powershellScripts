@@ -1,0 +1,6 @@
+# Common low-risk local process helpers.
+# Do not use this file for broad wrappers around arbitrary commands.
+
+prefix_rule(pattern=["sleep"], decision="allow")
+prefix_rule(pattern=["timeout", "15s", "pnpm", "dev"], decision="allow")
+prefix_rule(pattern=["timeout", "15s", "pnpm", "dev:web"], decision="allow")
