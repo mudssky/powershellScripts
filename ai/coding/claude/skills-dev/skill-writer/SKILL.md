@@ -187,32 +187,9 @@ pip install package-name
 ```
 ```
 
-
-```text
-
-```text
-
-```text
-
-```text
-
-```text
-
-```text
-
-```text
-
-```text
-
-```text
-
-```text
-
 ## Advanced usage
 
 For complex scenarios, see [reference.md](reference.md).
-
-```text
 
 ### Step 7: Add supporting files (optional)
 
@@ -224,6 +201,7 @@ Create additional files for progressive disclosure:
 **templates/**: File templates or boilerplate
 
 Reference them from SKILL.md:
+
 ```markdown
 For advanced usage, see [reference.md](reference.md).
 
