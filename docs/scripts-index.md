@@ -90,6 +90,7 @@ renameLegal.ps1 -reverse
 
 | 脚本名 | 描述 | 关键词 |
 |--------|------|--------|
+| aliyun-oss-put.ps1 | 阿里云 OSS 上传脚本，支持单文件与目录递归上传，默认不覆盖已有对象 | aliyun, oss, upload, object-storage, cloud |
 | downGithub.ps1 | 批量下载指定GitHub用户的所有仓库 | github, download, repository, git |
 | downWith.ps1 | 通用下载脚本 | download, http, network |
 | startaria2c.ps1 | 启动aria2c下载工具脚本 | aria2c, download, torrent, manager |
@@ -137,11 +138,11 @@ renameLegal.ps1 -reverse
 
 ## 统计信息
 
-- **总脚本数**: 43个
+- **总脚本数**: 44个
 - **分类分布**:
   - Media: 5个
   - Filesystem: 3个
-  - Network: 3个
+  - Network: 4个
   - DevOps: 2个
   - Misc: 30个
 

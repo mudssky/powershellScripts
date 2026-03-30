@@ -104,7 +104,7 @@ Describe "Convert-JsoncToJson 函数测试" {
         Get-Content $outputPath -Raw | Should -Not -Match "//"
     }
 
-    It "正确处理包含$schema的JSONC文件" {
+    It '正确处理包含$schema的JSONC文件' {
         $result = Convert-JsoncToJson -Path $testJsoncWithSchemaPath 
         $result | Should -Not -BeNullOrEmpty
         $result | ConvertFrom-Json | ForEach-Object { $_.name } | Should -Be "schema_test"

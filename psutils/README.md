@@ -22,6 +22,7 @@
       - [主要函数](#主要函数-2)
       - [使用示例](#使用示例-2)
     - [🌐 网络工具 (network)](#-网络工具-network)
+    - [☁️ OSS 工具 (oss)](#️-oss-工具-oss)
       - [主要函数](#主要函数-3)
       - [使用示例](#使用示例-3)
     - [📦 模块安装管理 (install)](#-模块安装管理-install)
@@ -52,7 +53,7 @@
 
 ## 🚀 模块概述
 
-PSUtils 是一个模块化的 PowerShell 工具集，包含 15 个功能模块，涵盖了环境管理、字符串处理、系统检测、网络工具等多个方面。每个模块都经过精心设计，提供简洁易用的 API 和完整的帮助文档。
+PSUtils 是一个模块化的 PowerShell 工具集，涵盖环境管理、字符串处理、系统检测、网络工具、对象存储工具等多个方面。每个模块都经过精心设计，提供简洁易用的 API 和完整的帮助文档。
 
 ### 主要特性
 
@@ -181,6 +182,46 @@ if ($processInfo) {
 
 # 等待服务启动
 Wait-ForURL -URL "http://localhost:8080" -Timeout 30 -Verbose
+```
+
+### ☁️ OSS 工具 (oss)
+
+提供阿里云 OSS 的上下文创建、对象检查、轻量列举以及单文件 / 目录上传能力。
+
+#### 主要函数
+
+- **`New-OssContext`**: 创建规范化的 OSS 上下文对象
+- **`Test-OssObject`**: 检查对象是否存在
+- **`Get-OssObjectInfo`**: 读取对象元信息
+- **`Get-OssObjectList`**: 列举指定前缀下的对象
+- **`Publish-OssObject`**: 上传单个本地文件
+- **`Publish-OssDirectory`**: 递归上传本地目录
+
+#### 使用示例
+
+```powershell
+# 创建 OSS 上下文
+$context = New-OssContext `
+    -Bucket 'examplebucket' `
+    -Region 'cn-hangzhou' `
+    -Host 'static.example.com' `
+    -AccessKeyId $env:ALIYUN_ACCESS_KEY_ID `
+    -AccessKeySecret $env:ALIYUN_ACCESS_KEY_SECRET
+
+# 检查对象是否存在
+if (-not (Test-OssObject -Context $context -ObjectKey 'assets/app.js')) {
+    Publish-OssObject `
+        -Context $context `
+        -FilePath './dist/app.js' `
+        -ObjectKey 'assets/app.js'
+}
+
+# 递归上传整个目录
+Publish-OssDirectory `
+    -Context $context `
+    -DirectoryPath './dist' `
+    -Prefix 'site-assets' `
+    -Force
 ```
 
 ### 💾 缓存管理 (cache)
@@ -446,6 +487,7 @@ Invoke-Pester .\tests\string.Tests.ps1
 - ✅ 字符串处理
 - ✅ 操作系统检测
 - ✅ 网络工具
+- ✅ OSS 工具
 - ✅ 缓存管理
 - ✅ 模块安装管理
 - ✅ 通用函数
