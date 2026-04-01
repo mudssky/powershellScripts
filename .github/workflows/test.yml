@@ -45,7 +45,7 @@ jobs:
 
       # 测试图形化报告
       - name: Publish Test Report
-        uses: dorny/test-reporter@v2
+        uses: dorny/test-reporter@v3
         if: always() || failure()
         with:
           name: Pester Tests (${{ matrix.os }})
@@ -65,7 +65,7 @@ jobs:
 
       # 1. 安装 pnpm
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v5
 
       # 2. 安装 Node 并开启 pnpm 缓存 (这是 Monorepo 速度的关键)
       - name: Setup Node
@@ -89,7 +89,7 @@ jobs:
 
       # 5. 上传 Vitest 报告
       - name: Report Vitest
-        uses: dorny/test-reporter@v2
+        uses: dorny/test-reporter@v3
         if: success() || failure()
         with:
           name: Vitest Results
