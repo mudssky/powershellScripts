@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { spawnSync } from 'node:child_process'
+import { buildPnpmCommand } from './pnpm-command.mjs'
 
 // Turbo 版 QA 编排器。
 // 这个入口把 workspace QA 拆成可缓存、可并行的任务链，优先服务速度和 affected 场景；
@@ -214,11 +215,14 @@ function hasPathChanges(pathspecs, sinceRef, ignorePatterns = []) {
 function resolveTurboRunner() {
   // 优先走 `pnpm exec turbo`，确保使用工作区锁定的版本；
   // 若外部环境已安装 turbo，则允许回退到全局命令，降低本地接入门槛。
+  // 这里复用共享 pnpm 解析逻辑，避免 Windows 下把 pnpm 可执行文件交给错误的启动器。
+  const pnpmTurboCommand = buildPnpmCommand(['exec', 'turbo'])
+  const pnpmTurboVersionCommand = buildPnpmCommand(['exec', 'turbo', '--version'])
   const candidates = [
     {
-      command: 'pnpm',
-      args: ['exec', 'turbo'],
-      versionArgs: ['exec', 'turbo', '--version'],
+      command: pnpmTurboCommand.command,
+      args: pnpmTurboCommand.args,
+      versionArgs: pnpmTurboVersionCommand.args,
     },
     { command: 'turbo', args: [], versionArgs: ['--version'] },
   ]
@@ -242,10 +246,11 @@ function runWorkspaceQa(modeValue, sinceRef) {
   const turboRunner = resolveTurboRunner()
 
   if (!turboRunner) {
+    const pnpmTurboVersionCommand = buildPnpmCommand(['exec', 'turbo', '--version'])
     throw new CommandFailedError(
       'workspace-turbo-not-found',
-      'pnpm',
-      ['exec', 'turbo', '--version'],
+      pnpmTurboVersionCommand.command,
+      pnpmTurboVersionCommand.args,
       1,
       new Error('turbo command is not available'),
     )
@@ -302,7 +307,8 @@ function runRootPwshQa(modeValue, sinceRef) {
   // 这样可以在享受 workspace 并行收益的同时，避免一次性重构根目录测试编排。
   if (modeValue === 'all') {
     console.log('[turbo:qa] run root qa:pwsh (all)')
-    runCommand('root-qa-pwsh-all', 'pnpm', ['run', 'qa:pwsh'])
+    const pnpmCommand = buildPnpmCommand(['run', 'qa:pwsh'])
+    runCommand('root-qa-pwsh-all', pnpmCommand.command, pnpmCommand.args)
     return
   }
 
@@ -321,7 +327,8 @@ function runRootPwshQa(modeValue, sinceRef) {
   }
 
   console.log('[turbo:qa] run root qa:pwsh (changed)')
-  runCommand('root-qa-pwsh-changed', 'pnpm', ['run', 'qa:pwsh'])
+  const pnpmCommand = buildPnpmCommand(['run', 'qa:pwsh'])
+  runCommand('root-qa-pwsh-changed', pnpmCommand.command, pnpmCommand.args)
 }
 
 const sinceRef = mode === 'changed' ? resolveSinceRef() : null
