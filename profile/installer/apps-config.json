@@ -406,6 +406,12 @@
         "cliName": "llmfit",
         "description": "llmfit 命令行工具",
         "command": "scoop install llmfit"
+      },
+      {
+        "name": "perl",
+        "cliName": "perl",
+        "description": "Perl 编程语言",
+        "command": "scoop install perl"
       }
     ],
     "winget": [
