@@ -34,6 +34,8 @@ function runCapture(command, args) {
  */
 function getStagedMarkdownFiles() {
   const result = runCapture('git', [
+    '-c',
+    'core.quotePath=false',
     'diff',
     '--cached',
     '--name-only',
