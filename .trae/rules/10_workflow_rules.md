@@ -1,3 +1,7 @@
+---
+alwaysApply: false
+---
+
 # 🧠 Workflow Rules
 
 ## 1. The Golden Loop
