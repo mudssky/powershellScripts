@@ -15,7 +15,7 @@ fm_print_disk_status() {
   local device_path
   device_path="$(fm_source_to_device_path "${source}")"
   local mounted_target=""
-  mounted_target="$(fm_find_mount_target_for_device "${device_path}")"
+  mounted_target="$(fm_find_mount_target_for_device "${device_path}" || true)"
 
   printf '%s\n' "${name}"
   printf '  source: %s\n' "${source}"

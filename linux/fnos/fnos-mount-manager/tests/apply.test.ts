@@ -29,6 +29,8 @@ describe('fnos mount manager apply', () => {
       'apply',
       '--target',
       workspace.targetFstab,
+      '--tmpfiles-target',
+      workspace.targetTmpfiles,
     ])
 
     expect(result.exitCode).toBe(0)
@@ -39,6 +41,9 @@ describe('fnos mount manager apply', () => {
     expect(targetContent).toContain('# BEGIN FNOS MOUNT MANAGER')
     expect(targetContent).toContain(
       'LABEL=local-book /mnt/local/books/bookDisk ntfs',
+    )
+    expect(readText(workspace.targetTmpfiles)).toContain(
+      'd /mnt/local/books/bookDisk 0755 root root -',
     )
   })
 
@@ -58,6 +63,8 @@ describe('fnos mount manager apply', () => {
       'apply',
       '--target',
       workspace.targetFstab,
+      '--tmpfiles-target',
+      workspace.targetTmpfiles,
     ])
 
     expect(result.exitCode).not.toBe(0)

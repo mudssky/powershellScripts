@@ -29,13 +29,18 @@ describe('fnos mount manager config + generate', () => {
     expect(readText(workspace.exampleFstab)).toContain(
       'LABEL=example-book /mnt/example/bookDisk ntfs',
     )
+    expect(readText(workspace.exampleTmpfiles)).toContain(
+      'd /mnt/example/bookDisk 0755 root root -',
+    )
     expect(readText(workspace.localFstab)).toContain(
       'LABEL=local-book /mnt/local/books/bookDisk ntfs',
     )
-    expect(readText(workspace.localFstab)).toContain('x-mount.mkdir=0755')
     expect(readText(workspace.localFstab)).toContain('x-systemd.automount')
     expect(readText(workspace.localFstab)).toContain(
       'UUID=local-debut /mnt/local/debutDisk ntfs',
+    )
+    expect(readText(workspace.localTmpfiles)).toContain(
+      'd /mnt/local/books/bookDisk 0755 root root -',
     )
   })
 

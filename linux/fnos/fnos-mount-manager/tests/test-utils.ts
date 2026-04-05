@@ -17,9 +17,12 @@ export type Workspace = {
   builtBin: string
   builtLocal: string
   exampleFstab: string
+  exampleTmpfiles: string
   localFstab: string
+  localTmpfiles: string
   localConfig: string
   targetFstab: string
+  targetTmpfiles: string
   deviceRoot: string
   mockBin: string
   home: string
@@ -67,9 +70,12 @@ export function createWorkspace(): Workspace {
     builtBin: path.join(root, 'bin', 'fnos-mount-manager'),
     builtLocal: path.join(managerHome, 'fnos-mount-manager.sh'),
     exampleFstab: path.join(managerHome, 'fstab.example'),
+    exampleTmpfiles: path.join(managerHome, 'tmpfiles.example.conf'),
     localFstab: path.join(managerHome, 'fstab'),
+    localTmpfiles: path.join(managerHome, 'tmpfiles.conf'),
     localConfig: path.join(managerHome, 'disks.local.conf'),
     targetFstab: path.join(root, 'system.fstab'),
+    targetTmpfiles: path.join(root, 'fnos-mount-manager.tmpfiles.conf'),
     deviceRoot,
     mockBin,
     home,

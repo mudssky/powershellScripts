@@ -82,6 +82,16 @@ fm_local_fstab_path() {
   printf '%s/fstab\n' "${FM_MANAGER_HOME}"
 }
 
+# 返回示例 tmpfiles 预览文件路径。
+fm_example_tmpfiles_path() {
+  printf '%s/tmpfiles.example.conf\n' "${FM_MANAGER_HOME}"
+}
+
+# 返回本机 tmpfiles 预览文件路径。
+fm_local_tmpfiles_path() {
+  printf '%s/tmpfiles.conf\n' "${FM_MANAGER_HOME}"
+}
+
 # 返回源码入口路径，便于测试对照源码入口与构建产物。
 fm_source_entry_path() {
   printf '%s/main.sh\n' "${FM_MANAGER_HOME}"
@@ -160,7 +170,7 @@ fm_find_mount_target_for_device() {
   local resolved_device
   resolved_device="$(fm_resolve_device_path "${device_path}")"
 
-  findmnt -rn -S "${resolved_device}" -o TARGET 2>/dev/null | head -n 1
+  findmnt -rn -S "${resolved_device}" -o TARGET 2>/dev/null | head -n 1 || true
 }
 
 # 判断目标路径是否正好是一个独立挂载点，而不是仅仅位于某个已挂载父文件系统下。
@@ -169,6 +179,14 @@ fm_is_exact_mountpoint() {
   local mounted_target
   mounted_target="$(findmnt -rn -M "${mountpoint}" -o TARGET 2>/dev/null || true)"
   [[ "${mounted_target}" == "${mountpoint}" ]]
+}
+
+# 把当前磁盘配置渲染为 tmpfiles 规则，确保开机前挂载点目录已存在。
+fm_render_tmpfiles_entries() {
+  local i
+  for (( i = 0; i < ${#FM_CONFIG_DISK_MOUNTPOINTS[@]}; i += 1 )); do
+    printf 'd %s 0755 root root -\n' "${FM_CONFIG_DISK_MOUNTPOINTS[${i}]}"
+  done
 }
 
 # 生成 systemd mount/automount unit 名称，优先复用 systemd-escape 以兼容空格路径。

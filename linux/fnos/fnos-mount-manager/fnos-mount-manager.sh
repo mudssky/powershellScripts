@@ -88,6 +88,16 @@ fm_local_fstab_path() {
   printf '%s/fstab\n' "${FM_MANAGER_HOME}"
 }
 
+# 返回示例 tmpfiles 预览文件路径。
+fm_example_tmpfiles_path() {
+  printf '%s/tmpfiles.example.conf\n' "${FM_MANAGER_HOME}"
+}
+
+# 返回本机 tmpfiles 预览文件路径。
+fm_local_tmpfiles_path() {
+  printf '%s/tmpfiles.conf\n' "${FM_MANAGER_HOME}"
+}
+
 # 返回源码入口路径，便于测试对照源码入口与构建产物。
 fm_source_entry_path() {
   printf '%s/main.sh\n' "${FM_MANAGER_HOME}"
@@ -166,7 +176,7 @@ fm_find_mount_target_for_device() {
   local resolved_device
   resolved_device="$(fm_resolve_device_path "${device_path}")"
 
-  findmnt -rn -S "${resolved_device}" -o TARGET 2>/dev/null | head -n 1
+  findmnt -rn -S "${resolved_device}" -o TARGET 2>/dev/null | head -n 1 || true
 }
 
 # 判断目标路径是否正好是一个独立挂载点，而不是仅仅位于某个已挂载父文件系统下。
@@ -175,6 +185,14 @@ fm_is_exact_mountpoint() {
   local mounted_target
   mounted_target="$(findmnt -rn -M "${mountpoint}" -o TARGET 2>/dev/null || true)"
   [[ "${mounted_target}" == "${mountpoint}" ]]
+}
+
+# 把当前磁盘配置渲染为 tmpfiles 规则，确保开机前挂载点目录已存在。
+fm_render_tmpfiles_entries() {
+  local i
+  for (( i = 0; i < ${#FM_CONFIG_DISK_MOUNTPOINTS[@]}; i += 1 )); do
+    printf 'd %s 0755 root root -\n' "${FM_CONFIG_DISK_MOUNTPOINTS[${i}]}"
+  done
 }
 
 # 生成 systemd mount/automount unit 名称，优先复用 systemd-escape 以兼容空格路径。
@@ -461,7 +479,7 @@ fm_disk_rendered_options() {
   local disk_options="${FM_CONFIG_DISK_OPTIONS[${index}]}"
   local mode="${FM_CONFIG_DISK_MODES[${index}]}"
   local device_timeout="${FM_CONFIG_DISK_TIMEOUTS[${index}]}"
-  local mode_options="x-mount.mkdir=0755"
+  local mode_options=""
 
   if [[ -n "${device_timeout}" ]]; then
     mode_options="$(fm_merge_csv_options "${mode_options}" "x-systemd.device-timeout=${device_timeout}")"
@@ -505,15 +523,18 @@ if [[ -n "${FNOS_MOUNT_MANAGER_GENERATE_LOADED:-}" ]]; then
 fi
 FNOS_MOUNT_MANAGER_GENERATE_LOADED=1
 
-# 把指定配置文件渲染为受控 fstab 区块预览。
+# 把指定配置文件同时渲染为 fstab 区块预览和 tmpfiles 目录规则预览。
 fm_generate_scope() {
   local config_path="$1"
-  local output_path="$2"
-  local source_label="$3"
+  local fstab_output_path="$2"
+  local tmpfiles_output_path="$3"
+  local source_label="$4"
 
   fm_load_config "${config_path}"
-  fm_render_managed_block "${source_label}" > "${output_path}"
-  fm_log "info" "Wrote ${output_path}"
+  fm_render_managed_block "${source_label}" > "${fstab_output_path}"
+  fm_render_tmpfiles_entries > "${tmpfiles_output_path}"
+  fm_log "info" "Wrote ${fstab_output_path}"
+  fm_log "info" "Wrote ${tmpfiles_output_path}"
 }
 
 # 处理 generate 子命令，默认同时更新 example 和 local 预览。
@@ -542,14 +563,22 @@ EOF
 
   case "${scope}" in
     all | example)
-      fm_generate_scope "$(fm_example_config_path)" "$(fm_example_fstab_path)" "disks.example.conf"
+      fm_generate_scope \
+        "$(fm_example_config_path)" \
+        "$(fm_example_fstab_path)" \
+        "$(fm_example_tmpfiles_path)" \
+        "disks.example.conf"
       ;;
   esac
 
   case "${scope}" in
     all | local)
       if [[ -f "$(fm_local_config_path)" ]]; then
-        fm_generate_scope "$(fm_local_config_path)" "$(fm_local_fstab_path)" "disks.local.conf"
+        fm_generate_scope \
+          "$(fm_local_config_path)" \
+          "$(fm_local_fstab_path)" \
+          "$(fm_local_tmpfiles_path)" \
+          "disks.local.conf"
       elif [[ "${scope}" == "local" ]]; then
         fm_die "Local config not found: $(fm_local_config_path)"
       else
@@ -570,21 +599,35 @@ FNOS_MOUNT_MANAGER_APPLY_LOADED=1
 
 # 检查本机预览文件是否与当前 local 配置一致，防止 apply 直接跳过 generate。
 fm_assert_local_preview_is_fresh() {
-  local preview_path
-  preview_path="$(fm_local_fstab_path)"
-  [[ -f "${preview_path}" ]] || fm_die "Local preview is missing. Run generate first."
+  local fstab_preview_path
+  local tmpfiles_preview_path
+  fstab_preview_path="$(fm_local_fstab_path)"
+  tmpfiles_preview_path="$(fm_local_tmpfiles_path)"
+  [[ -f "${fstab_preview_path}" ]] || fm_die "Local preview is missing. Run generate first."
+  [[ -f "${tmpfiles_preview_path}" ]] || fm_die "Local tmpfiles preview is missing. Run generate first."
 
-  local temp_render
-  temp_render="$(mktemp)"
+  local temp_fstab_render
+  local temp_tmpfiles_render
+  temp_fstab_render="$(mktemp)"
+  temp_tmpfiles_render="$(mktemp)"
 
-  fm_generate_scope "$(fm_local_config_path)" "${temp_render}" "disks.local.conf"
+  fm_generate_scope \
+    "$(fm_local_config_path)" \
+    "${temp_fstab_render}" \
+    "${temp_tmpfiles_render}" \
+    "disks.local.conf"
 
-  if ! cmp -s "${preview_path}" "${temp_render}"; then
-    rm -f "${temp_render}"
+  if ! cmp -s "${fstab_preview_path}" "${temp_fstab_render}"; then
+    rm -f "${temp_fstab_render}" "${temp_tmpfiles_render}"
     fm_die "Local preview is stale. Run generate before apply."
   fi
 
-  rm -f "${temp_render}"
+  if ! cmp -s "${tmpfiles_preview_path}" "${temp_tmpfiles_render}"; then
+    rm -f "${temp_fstab_render}" "${temp_tmpfiles_render}"
+    fm_die "Local tmpfiles preview is stale. Run generate before apply."
+  fi
+
+  rm -f "${temp_fstab_render}" "${temp_tmpfiles_render}"
 }
 
 # 确保所有受管挂载点目录存在，避免 mount 或 automount 首次触发时落到不存在路径。
@@ -598,6 +641,7 @@ fm_prepare_mountpoints() {
 # 处理 apply 子命令，支持通过 --target 把受控区块写到其他 fstab 文件。
 fm_cmd_apply() {
   local target="/etc/fstab"
+  local tmpfiles_target="/etc/tmpfiles.d/fnos-mount-manager.conf"
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -605,11 +649,15 @@ fm_cmd_apply() {
         target="$2"
         shift 2
         ;;
+      --tmpfiles-target)
+        tmpfiles_target="$2"
+        shift 2
+        ;;
       --help | -h)
         cat <<'EOF'
-Usage: fnos-mount-manager apply [--target /path/to/fstab]
+Usage: fnos-mount-manager apply [--target /path/to/fstab] [--tmpfiles-target /path/to/tmpfiles.conf]
 
-Merge the generated managed block into the target fstab file.
+Merge the generated managed block into the target fstab file and optionally install tmpfiles rules.
 EOF
         return 0
         ;;
@@ -640,8 +688,16 @@ EOF
   rm -f "${temp_output}"
   fm_log "info" "Applied managed block to ${target}"
 
+  if [[ "${target}" == "/etc/fstab" ]]; then
+    fm_install_file "$(fm_local_tmpfiles_path)" "${tmpfiles_target}"
+    fm_log "info" "Applied tmpfiles rules to ${tmpfiles_target}"
+  fi
+
   if [[ "${target}" == "/etc/fstab" ]] && command -v systemctl >/dev/null 2>&1; then
     fm_run_privileged systemctl daemon-reload
+    if command -v systemd-tmpfiles >/dev/null 2>&1; then
+      fm_run_privileged systemd-tmpfiles --create "${tmpfiles_target}"
+    fi
   fi
 }
 
@@ -847,7 +903,7 @@ fm_print_disk_status() {
   local device_path
   device_path="$(fm_source_to_device_path "${source}")"
   local mounted_target=""
-  mounted_target="$(fm_find_mount_target_for_device "${device_path}")"
+  mounted_target="$(fm_find_mount_target_for_device "${device_path}" || true)"
 
   printf '%s\n' "${name}"
   printf '  source: %s\n' "${source}"

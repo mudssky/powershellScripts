@@ -5,15 +5,18 @@ if [[ -n "${FNOS_MOUNT_MANAGER_GENERATE_LOADED:-}" ]]; then
 fi
 FNOS_MOUNT_MANAGER_GENERATE_LOADED=1
 
-# 把指定配置文件渲染为受控 fstab 区块预览。
+# 把指定配置文件同时渲染为 fstab 区块预览和 tmpfiles 目录规则预览。
 fm_generate_scope() {
   local config_path="$1"
-  local output_path="$2"
-  local source_label="$3"
+  local fstab_output_path="$2"
+  local tmpfiles_output_path="$3"
+  local source_label="$4"
 
   fm_load_config "${config_path}"
-  fm_render_managed_block "${source_label}" > "${output_path}"
-  fm_log "info" "Wrote ${output_path}"
+  fm_render_managed_block "${source_label}" > "${fstab_output_path}"
+  fm_render_tmpfiles_entries > "${tmpfiles_output_path}"
+  fm_log "info" "Wrote ${fstab_output_path}"
+  fm_log "info" "Wrote ${tmpfiles_output_path}"
 }
 
 # 处理 generate 子命令，默认同时更新 example 和 local 预览。
@@ -42,14 +45,22 @@ EOF
 
   case "${scope}" in
     all | example)
-      fm_generate_scope "$(fm_example_config_path)" "$(fm_example_fstab_path)" "disks.example.conf"
+      fm_generate_scope \
+        "$(fm_example_config_path)" \
+        "$(fm_example_fstab_path)" \
+        "$(fm_example_tmpfiles_path)" \
+        "disks.example.conf"
       ;;
   esac
 
   case "${scope}" in
     all | local)
       if [[ -f "$(fm_local_config_path)" ]]; then
-        fm_generate_scope "$(fm_local_config_path)" "$(fm_local_fstab_path)" "disks.local.conf"
+        fm_generate_scope \
+          "$(fm_local_config_path)" \
+          "$(fm_local_fstab_path)" \
+          "$(fm_local_tmpfiles_path)" \
+          "disks.local.conf"
       elif [[ "${scope}" == "local" ]]; then
         fm_die "Local config not found: $(fm_local_config_path)"
       else

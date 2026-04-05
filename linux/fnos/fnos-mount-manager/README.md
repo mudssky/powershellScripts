@@ -8,8 +8,10 @@
 - `linux/fnos/fnos-mount-manager/disks.local.conf`: 当前机器的私有配置
 - `linux/fnos/fnos-mount-manager/fstab.example`: 从示例配置生成的受控挂载区块预览
 - `linux/fnos/fnos-mount-manager/fstab`: 从本机私有配置生成的受控挂载区块预览
+- `linux/fnos/fnos-mount-manager/tmpfiles.example.conf`: 从示例配置生成的目录创建规则预览
+- `linux/fnos/fnos-mount-manager/tmpfiles.conf`: 从本机私有配置生成的目录创建规则预览
 
-不要手改 `fstab.example` 或 `fstab`。这两个文件都是生成产物。
+不要手改 `fstab.example`、`fstab`、`tmpfiles.example.conf` 或 `tmpfiles.conf`。这些文件都是生成产物。
 
 ## 构建
 

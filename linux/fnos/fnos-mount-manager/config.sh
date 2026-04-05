@@ -158,7 +158,7 @@ fm_disk_rendered_options() {
   local disk_options="${FM_CONFIG_DISK_OPTIONS[${index}]}"
   local mode="${FM_CONFIG_DISK_MODES[${index}]}"
   local device_timeout="${FM_CONFIG_DISK_TIMEOUTS[${index}]}"
-  local mode_options="x-mount.mkdir=0755"
+  local mode_options=""
 
   if [[ -n "${device_timeout}" ]]; then
     mode_options="$(fm_merge_csv_options "${mode_options}" "x-systemd.device-timeout=${device_timeout}")"

@@ -98,4 +98,35 @@ exit 0
       'mounted_elsewhere: /vol00/WDC WD40EZRZ-00GXCB0',
     )
   })
+
+  it('continues printing later disks when the first device is not mounted', () => {
+    const workspace = createWorkspace()
+    workspaces.push(workspace)
+
+    ensureFakeDevice(workspace, 'LABEL:local-book')
+    ensureFakeDevice(workspace, 'UUID:local-debut')
+
+    installMockCommand(
+      workspace,
+      'systemctl',
+      `#!/usr/bin/env bash
+set -eu
+printf '%s\\n' "inactive"
+`,
+    )
+    installMockCommand(
+      workspace,
+      'findmnt',
+      `#!/usr/bin/env bash
+set -eu
+exit 1
+`,
+    )
+
+    const result = runSource(workspace, ['status'])
+
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout).toContain('bookDisk')
+    expect(result.stdout).toContain('debutDisk')
+  })
 })

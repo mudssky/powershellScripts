@@ -57,16 +57,18 @@ fm_check_rendered_file() {
   fi
 
   local temp_render
+  local temp_tmpfiles
   temp_render="$(mktemp)"
+  temp_tmpfiles="$(mktemp)"
 
-  fm_generate_scope "${config_path}" "${temp_render}" "${source_label}"
+  fm_generate_scope "${config_path}" "${temp_render}" "${temp_tmpfiles}" "${source_label}"
 
   if ! cmp -s "${rendered_path}" "${temp_render}"; then
     fm_log "error" "Rendered file is stale: ${rendered_path}"
     error_count_ref=$(( error_count_ref + 1 ))
   fi
 
-  rm -f "${temp_render}"
+  rm -f "${temp_render}" "${temp_tmpfiles}"
 }
 
 # 检查已知的 shell 登录补挂载片段，避免把副作用留在非显式命令路径里。
