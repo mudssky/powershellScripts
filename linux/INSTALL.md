@@ -80,7 +80,22 @@ bash linux/fnos/fnos-mount-manager/fnos-mount-manager.sh check
 
 # 6. 应用到系统
 bash linux/fnos/fnos-mount-manager/fnos-mount-manager.sh apply
+
+# 7. 重启后若 FNOS 把磁盘挂到型号路径或漏挂，执行统一协调
+bash linux/fnos/fnos-mount-manager/fnos-mount-manager.sh reconcile
+
+# 8. 注册开机自动协调 service
+sudo bash linux/fnos/fnos-mount-manager/fnos-mount-manager.sh install-reconcile-service
 ```
+
+补充说明：
+
+- `install-reconcile-service` 会把 `reconcile` 注册成开机 oneshot service；如需安装后立刻跑一次，可加 `--start-now`。
+- `reconcile` 是推荐的重启后入口，会先给已挂错路径的磁盘补业务名 alias，再补挂真正未挂上的磁盘。
+- `repair` 仍保留为保守修复工具，`remount` 仅用于你明确要接管底层真实挂载路径的场景。
+- `tmpfiles` 规则继续保留，不要移除；它只负责创建挂载点目录，不会替代 `reconcile`。
+- 需要移除的是旧的 `force-remount-disks.service` 或 shell 登录时的 `mount -a` 遗留逻辑，新 service 会尽量自动停用前者。
+- 当业务名路径验证稳定后，Samba 共享路径应优先指向业务名路径，而不是 FNOS 自动生成的型号路径。
 
 ---
 

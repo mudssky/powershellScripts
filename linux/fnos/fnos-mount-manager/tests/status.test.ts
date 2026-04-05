@@ -55,6 +55,7 @@ exit 0
 
     expect(result.exitCode).toBe(0)
     expect(result.stdout).toContain('bookDisk')
+    expect(result.stdout).toContain('classification: mounted_expected')
     expect(result.stdout).toContain('mounted: yes')
     expect(result.stdout).toContain('automount_state: active')
   })
@@ -93,6 +94,7 @@ exit 0
     const result = runSource(workspace, ['status'])
 
     expect(result.exitCode).toBe(0)
+    expect(result.stdout).toContain('classification: mounted_elsewhere')
     expect(result.stdout).toContain('mounted: no')
     expect(result.stdout).toContain(
       'mounted_elsewhere: /vol00/WDC WD40EZRZ-00GXCB0',
@@ -127,6 +129,7 @@ exit 1
 
     expect(result.exitCode).toBe(0)
     expect(result.stdout).toContain('bookDisk')
+    expect(result.stdout).toContain('classification: not_mounted')
     expect(result.stdout).toContain('debutDisk')
   })
 })

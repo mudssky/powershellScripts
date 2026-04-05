@@ -12,6 +12,8 @@ origin: docs/brainstorms/2026-04-05-fnos-portable-disk-mounting-requirements.md
 
 本计划承接 `docs/brainstorms/2026-04-05-fnos-portable-disk-mounting-requirements.md`，目标是把当前分散在 `linux/fnos/fnos-mount-manager/fstab`、`linux/fnos/remount.sh`、以及机器侧临时 systemd / shell 补救逻辑里的数据盘挂载流程，收敛为一套可复制、可校验、可修复的 FNOS 挂载管理器。
 
+后续补充说明：这份计划已经完成“统一管理器骨架、配置生成、检查、修复”这一层；针对“FNOS 开机后把部分磁盘挂到型号路径、部分磁盘完全未挂”的启动后命名稳定化问题，后续工作已拆分到 `docs/plans/2026-04-05-002-feat-add-fnos-alias-backfill-plan.md`，不再继续堆叠到本计划里。
+
 这次不再把“编辑 `fstab`”和“修复挂载异常”视为两个独立脚本问题，而是统一为一个模块化 shell 工具链：
 
 1. `linux/fnos/` 下维护结构化 shell 配置与模块化源码。

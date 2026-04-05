@@ -145,4 +145,28 @@ describe('fnos mount manager check', () => {
     expect(result.stderr + result.stdout).toContain('-UUID=local-debut /mnt/local/debutDisk ntfs nofail,uid=1000,gid=1000,umask=022,big_writes,x-systemd.device-timeout=45 0 0')
     expect(result.stderr + result.stdout).toContain('+UUID=local-debut /mnt/local/debutDisk ntfs nofail,uid=1000,gid=1000,umask=022 0 0')
   })
+
+  it('fails when a configured device is missing from the system view', () => {
+    const workspace = createWorkspace()
+    workspaces.push(workspace)
+
+    installCheckSystemctl(workspace)
+    ensureFakeDevice(workspace, 'LABEL:local-book')
+    expect(runSource(workspace, ['generate']).exitCode).toBe(0)
+    expect(
+      runSource(workspace, ['apply', '--target', workspace.targetFstab])
+        .exitCode,
+    ).toBe(0)
+
+    const result = runSource(workspace, [
+      'check',
+      '--target',
+      workspace.targetFstab,
+    ])
+
+    expect(result.exitCode).not.toBe(0)
+    expect(result.stderr + result.stdout).toContain(
+      'Disk source is missing for debutDisk',
+    )
+  })
 })

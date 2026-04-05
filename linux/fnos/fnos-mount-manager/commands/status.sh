@@ -8,35 +8,29 @@ FNOS_MOUNT_MANAGER_STATUS_LOADED=1
 # 输出单块受管磁盘的配置与当前系统状态，供人工排障使用。
 fm_print_disk_status() {
   local index="$1"
-  local name="${FM_CONFIG_DISK_NAMES[${index}]}"
-  local source="${FM_CONFIG_DISK_SOURCES[${index}]}"
-  local mountpoint="${FM_CONFIG_DISK_MOUNTPOINTS[${index}]}"
-  local mode="${FM_CONFIG_DISK_MODES[${index}]}"
-  local device_path
-  device_path="$(fm_source_to_device_path "${source}")"
-  local mounted_target=""
-  mounted_target="$(fm_find_mount_target_for_device "${device_path}" || true)"
+  fm_resolve_disk_runtime_state "${index}"
 
-  printf '%s\n' "${name}"
-  printf '  source: %s\n' "${source}"
-  printf '  mountpoint: %s\n' "${mountpoint}"
-  printf '  mode: %s\n' "${mode}"
-  printf '  device_path: %s\n' "${device_path}"
-  printf '  device_exists: %s\n' "$([[ -e "${device_path}" ]] && printf 'yes' || printf 'no')"
-  printf '  mounted: %s\n' "$([[ -n "${mounted_target}" && "${mounted_target}" == "${mountpoint}" ]] && printf 'yes' || printf 'no')"
-  if [[ -n "${mounted_target}" && "${mounted_target}" != "${mountpoint}" ]]; then
-    printf '  mounted_elsewhere: %s\n' "${mounted_target}"
+  printf '%s\n' "${FM_DISK_STATE_NAME}"
+  printf '  source: %s\n' "${FM_DISK_STATE_SOURCE}"
+  printf '  mountpoint: %s\n' "${FM_DISK_STATE_MOUNTPOINT}"
+  printf '  mode: %s\n' "${FM_DISK_STATE_MODE}"
+  printf '  device_path: %s\n' "${FM_DISK_STATE_DEVICE_PATH}"
+  printf '  device_exists: %s\n' "${FM_DISK_STATE_DEVICE_EXISTS}"
+  printf '  classification: %s\n' "${FM_DISK_STATE_CLASS}"
+  printf '  mounted: %s\n' "$([[ "${FM_DISK_STATE_CLASS}" == "mounted_expected" ]] && printf 'yes' || printf 'no')"
+  if [[ "${FM_DISK_STATE_CLASS}" == "mounted_elsewhere" ]]; then
+    printf '  mounted_elsewhere: %s\n' "${FM_DISK_STATE_MOUNTED_TARGET}"
   fi
 
   if command -v systemctl >/dev/null 2>&1; then
     local mount_unit
-    mount_unit="$(fm_unit_name_for_path "${mountpoint}" mount)"
+    mount_unit="$(fm_unit_name_for_path "${FM_DISK_STATE_MOUNTPOINT}" mount)"
     printf '  mount_unit: %s\n' "${mount_unit}"
     printf '  mount_state: %s\n' "$(systemctl show "${mount_unit}" -p ActiveState --value 2>/dev/null || printf 'unknown')"
 
-    if [[ "${mode}" == "automount" ]]; then
+    if [[ "${FM_DISK_STATE_MODE}" == "automount" ]]; then
       local automount_unit
-      automount_unit="$(fm_unit_name_for_path "${mountpoint}" automount)"
+      automount_unit="$(fm_unit_name_for_path "${FM_DISK_STATE_MOUNTPOINT}" automount)"
       printf '  automount_unit: %s\n' "${automount_unit}"
       printf '  automount_state: %s\n' "$(systemctl show "${automount_unit}" -p ActiveState --value 2>/dev/null || printf 'unknown')"
     fi

@@ -16,8 +16,16 @@ if [[ -z "${FNOS_MANAGER_STANDALONE:-}" ]]; then
   source "${SCRIPT_DIR}/commands/check.sh"
   # shellcheck source=linux/fnos/fnos-mount-manager/commands/status.sh
   source "${SCRIPT_DIR}/commands/status.sh"
+  # shellcheck source=linux/fnos/fnos-mount-manager/commands/service.sh
+  source "${SCRIPT_DIR}/commands/service.sh"
+  # shellcheck source=linux/fnos/fnos-mount-manager/commands/alias.sh
+  source "${SCRIPT_DIR}/commands/alias.sh"
   # shellcheck source=linux/fnos/fnos-mount-manager/commands/repair.sh
   source "${SCRIPT_DIR}/commands/repair.sh"
+  # shellcheck source=linux/fnos/fnos-mount-manager/commands/backfill.sh
+  source "${SCRIPT_DIR}/commands/backfill.sh"
+  # shellcheck source=linux/fnos/fnos-mount-manager/commands/reconcile.sh
+  source "${SCRIPT_DIR}/commands/reconcile.sh"
   # shellcheck source=linux/fnos/fnos-mount-manager/commands/remount.sh
   source "${SCRIPT_DIR}/commands/remount.sh"
 fi
@@ -32,6 +40,11 @@ Commands:
   apply       Merge the local managed block into a target fstab
   check       Validate config drift and known conflicts
   status      Show current disk and unit status
+  install-reconcile-service
+              Install and enable the boot-time reconcile oneshot service
+  alias       Create business-name bind aliases for FNOS-mounted disks
+  backfill    Mount disks that FNOS failed to mount
+  reconcile   Run alias sync first, then backfill missing disks
   repair      Attempt a unified mount repair
   remount     Move disks back onto the managed mountpoints
   help        Show this help
@@ -57,6 +70,18 @@ fm_main() {
       ;;
     status)
       fm_cmd_status "$@"
+      ;;
+    install-reconcile-service)
+      fm_cmd_install_reconcile_service "$@"
+      ;;
+    alias)
+      fm_cmd_alias "$@"
+      ;;
+    backfill)
+      fm_cmd_backfill "$@"
+      ;;
+    reconcile)
+      fm_cmd_reconcile "$@"
       ;;
     repair)
       fm_cmd_repair "$@"

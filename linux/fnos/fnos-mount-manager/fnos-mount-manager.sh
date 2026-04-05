@@ -66,6 +66,27 @@ fm_init_environment() {
 
   FM_MANAGER_BLOCK_BEGIN="# BEGIN FNOS MOUNT MANAGER"
   FM_MANAGER_BLOCK_END="# END FNOS MOUNT MANAGER"
+  FM_MANAGER_ENTRY_PATH="$(fm_resolve_absolute_path "${script_path}")"
+}
+
+# 尽量把相对路径转成绝对路径，保证 systemd unit 引用当前入口时稳定可用。
+fm_resolve_absolute_path() {
+  local input_path="$1"
+
+  if command -v realpath >/dev/null 2>&1; then
+    realpath "${input_path}" 2>/dev/null && return 0
+  fi
+
+  if command -v readlink >/dev/null 2>&1; then
+    readlink -f "${input_path}" 2>/dev/null && return 0
+  fi
+
+  if [[ "${input_path}" == /* ]]; then
+    printf '%s\n' "${input_path}"
+    return 0
+  fi
+
+  printf '%s/%s\n' "${PWD}" "${input_path}"
 }
 
 # 返回示例配置文件路径。
@@ -96,6 +117,16 @@ fm_example_tmpfiles_path() {
 # 返回本机 tmpfiles 预览文件路径。
 fm_local_tmpfiles_path() {
   printf '%s/tmpfiles.conf\n' "${FM_MANAGER_HOME}"
+}
+
+# 返回 systemd unit 默认安装目录，允许测试覆写。
+fm_systemd_unit_dir() {
+  printf '%s\n' "${FNOS_MANAGER_SYSTEMD_UNIT_DIR:-/etc/systemd/system}"
+}
+
+# 返回 reconcile oneshot service 的默认安装路径。
+fm_reconcile_service_path() {
+  printf '%s/fnos-mount-manager-reconcile.service\n' "$(fm_systemd_unit_dir)"
 }
 
 # 返回源码入口路径，便于测试对照源码入口与构建产物。
@@ -179,12 +210,98 @@ fm_find_mount_target_for_device() {
   findmnt -rn -S "${resolved_device}" -o TARGET 2>/dev/null | head -n 1 || true
 }
 
+# 解析单块受管磁盘的运行时状态。
+# 参数：1=磁盘索引。
+# 返回：通过 FM_DISK_STATE_* 全局变量暴露设备路径、当前目标路径和分类结果。
+fm_resolve_disk_runtime_state() {
+  local index="$1"
+
+  FM_DISK_STATE_NAME="${FM_CONFIG_DISK_NAMES[${index}]}"
+  FM_DISK_STATE_SOURCE="${FM_CONFIG_DISK_SOURCES[${index}]}"
+  FM_DISK_STATE_MOUNTPOINT="${FM_CONFIG_DISK_MOUNTPOINTS[${index}]}"
+  FM_DISK_STATE_MODE="${FM_CONFIG_DISK_MODES[${index}]}"
+  FM_DISK_STATE_DEVICE_PATH="$(fm_source_to_device_path "${FM_DISK_STATE_SOURCE}")"
+  FM_DISK_STATE_DEVICE_EXISTS="no"
+  FM_DISK_STATE_MOUNTED_TARGET=""
+  FM_DISK_STATE_CLASS="not_mounted"
+
+  if [[ -e "${FM_DISK_STATE_DEVICE_PATH}" ]]; then
+    FM_DISK_STATE_DEVICE_EXISTS="yes"
+    FM_DISK_STATE_MOUNTED_TARGET="$(
+      fm_find_mount_target_for_device "${FM_DISK_STATE_DEVICE_PATH}" || true
+    )"
+  fi
+
+  case "${FM_DISK_STATE_DEVICE_EXISTS}:${FM_DISK_STATE_MOUNTED_TARGET}" in
+    no:*)
+      FM_DISK_STATE_CLASS="device_missing"
+      ;;
+    yes:"${FM_DISK_STATE_MOUNTPOINT}")
+      FM_DISK_STATE_CLASS="mounted_expected"
+      ;;
+    yes:*)
+      if [[ -n "${FM_DISK_STATE_MOUNTED_TARGET}" ]]; then
+        FM_DISK_STATE_CLASS="mounted_elsewhere"
+      fi
+      ;;
+  esac
+}
+
 # 判断目标路径是否正好是一个独立挂载点，而不是仅仅位于某个已挂载父文件系统下。
 fm_is_exact_mountpoint() {
   local mountpoint="$1"
   local mounted_target
   mounted_target="$(findmnt -rn -M "${mountpoint}" -o TARGET 2>/dev/null || true)"
   [[ "${mounted_target}" == "${mountpoint}" ]]
+}
+
+# 读取路径对应的设备号和 inode，用于识别两个目录是否指向同一底层实体。
+# 参数：1=待检测路径。
+# 返回：stdout 输出 "<device>:<inode>"；路径不可读时返回非零。
+fm_path_identity() {
+  local path="$1"
+  stat -Lc '%d:%i' "${path}" 2>/dev/null
+}
+
+# 判断两个路径是否指向同一底层目录，避免对已同步的 bind mount 重复执行挂载。
+# 参数：1=源路径；2=目标路径。
+# 返回：0=同一目录实体；1=不同或任一路径不可识别。
+fm_paths_share_same_inode() {
+  local source_path="$1"
+  local target_path="$2"
+  local source_identity=""
+  local target_identity=""
+
+  source_identity="$(fm_path_identity "${source_path}" || true)"
+  target_identity="$(fm_path_identity "${target_path}" || true)"
+
+  [[ -n "${source_identity}" && "${source_identity}" == "${target_identity}" ]]
+}
+
+# 描述业务名路径当前的 bind alias 状态，供 alias/reconcile 做幂等判断。
+# 参数：1=原始挂载路径；2=业务名路径。
+# 返回：stdout 输出 already_synced、needs_bind 或 occupied。
+fm_describe_bind_alias_state() {
+  local source_path="$1"
+  local alias_path="$2"
+
+  if ! fm_is_exact_mountpoint "${alias_path}"; then
+    printf 'needs_bind\n'
+    return 0
+  fi
+
+  if fm_paths_share_same_inode "${source_path}" "${alias_path}"; then
+    printf 'already_synced\n'
+    return 0
+  fi
+
+  printf 'occupied\n'
+}
+
+# 统一初始化 alias/backfill/reconcile 复用的结果变量，避免跨磁盘串状态。
+fm_reset_operation_result() {
+  FM_OPERATION_LAST_ACTION="unchanged"
+  FM_OPERATION_LAST_REASON=""
 }
 
 # 把当前磁盘配置渲染为 tmpfiles 规则，确保开机前挂载点目录已存在。
@@ -851,12 +968,20 @@ EOF
 
     local i
     for (( i = 0; i < ${#FM_CONFIG_DISK_SOURCES[@]}; i += 1 )); do
-      local source_path
-      source_path="$(fm_source_to_device_path "${FM_CONFIG_DISK_SOURCES[${i}]}")"
-      if [[ ! -e "${source_path}" ]]; then
-        fm_log "error" "Disk source is missing for ${FM_CONFIG_DISK_NAMES[${i}]}: ${source_path}"
-        error_count=$(( error_count + 1 ))
-      fi
+      fm_resolve_disk_runtime_state "${i}"
+
+      case "${FM_DISK_STATE_CLASS}" in
+        device_missing)
+          fm_log "error" "Disk source is missing for ${FM_DISK_STATE_NAME}: ${FM_DISK_STATE_DEVICE_PATH}"
+          error_count=$(( error_count + 1 ))
+          ;;
+        mounted_elsewhere)
+          fm_log "warn" "Disk is mounted outside the managed path for ${FM_DISK_STATE_NAME}: ${FM_DISK_STATE_MOUNTED_TARGET}"
+          ;;
+        not_mounted)
+          fm_log "warn" "Disk is not mounted for ${FM_DISK_STATE_NAME}: ${FM_DISK_STATE_MOUNTPOINT}"
+          ;;
+      esac
     done
 
     if [[ -f "${target}" ]]; then
@@ -901,35 +1026,29 @@ FNOS_MOUNT_MANAGER_STATUS_LOADED=1
 # 输出单块受管磁盘的配置与当前系统状态，供人工排障使用。
 fm_print_disk_status() {
   local index="$1"
-  local name="${FM_CONFIG_DISK_NAMES[${index}]}"
-  local source="${FM_CONFIG_DISK_SOURCES[${index}]}"
-  local mountpoint="${FM_CONFIG_DISK_MOUNTPOINTS[${index}]}"
-  local mode="${FM_CONFIG_DISK_MODES[${index}]}"
-  local device_path
-  device_path="$(fm_source_to_device_path "${source}")"
-  local mounted_target=""
-  mounted_target="$(fm_find_mount_target_for_device "${device_path}" || true)"
+  fm_resolve_disk_runtime_state "${index}"
 
-  printf '%s\n' "${name}"
-  printf '  source: %s\n' "${source}"
-  printf '  mountpoint: %s\n' "${mountpoint}"
-  printf '  mode: %s\n' "${mode}"
-  printf '  device_path: %s\n' "${device_path}"
-  printf '  device_exists: %s\n' "$([[ -e "${device_path}" ]] && printf 'yes' || printf 'no')"
-  printf '  mounted: %s\n' "$([[ -n "${mounted_target}" && "${mounted_target}" == "${mountpoint}" ]] && printf 'yes' || printf 'no')"
-  if [[ -n "${mounted_target}" && "${mounted_target}" != "${mountpoint}" ]]; then
-    printf '  mounted_elsewhere: %s\n' "${mounted_target}"
+  printf '%s\n' "${FM_DISK_STATE_NAME}"
+  printf '  source: %s\n' "${FM_DISK_STATE_SOURCE}"
+  printf '  mountpoint: %s\n' "${FM_DISK_STATE_MOUNTPOINT}"
+  printf '  mode: %s\n' "${FM_DISK_STATE_MODE}"
+  printf '  device_path: %s\n' "${FM_DISK_STATE_DEVICE_PATH}"
+  printf '  device_exists: %s\n' "${FM_DISK_STATE_DEVICE_EXISTS}"
+  printf '  classification: %s\n' "${FM_DISK_STATE_CLASS}"
+  printf '  mounted: %s\n' "$([[ "${FM_DISK_STATE_CLASS}" == "mounted_expected" ]] && printf 'yes' || printf 'no')"
+  if [[ "${FM_DISK_STATE_CLASS}" == "mounted_elsewhere" ]]; then
+    printf '  mounted_elsewhere: %s\n' "${FM_DISK_STATE_MOUNTED_TARGET}"
   fi
 
   if command -v systemctl >/dev/null 2>&1; then
     local mount_unit
-    mount_unit="$(fm_unit_name_for_path "${mountpoint}" mount)"
+    mount_unit="$(fm_unit_name_for_path "${FM_DISK_STATE_MOUNTPOINT}" mount)"
     printf '  mount_unit: %s\n' "${mount_unit}"
     printf '  mount_state: %s\n' "$(systemctl show "${mount_unit}" -p ActiveState --value 2>/dev/null || printf 'unknown')"
 
-    if [[ "${mode}" == "automount" ]]; then
+    if [[ "${FM_DISK_STATE_MODE}" == "automount" ]]; then
       local automount_unit
-      automount_unit="$(fm_unit_name_for_path "${mountpoint}" automount)"
+      automount_unit="$(fm_unit_name_for_path "${FM_DISK_STATE_MOUNTPOINT}" automount)"
       printf '  automount_unit: %s\n' "${automount_unit}"
       printf '  automount_state: %s\n' "$(systemctl show "${automount_unit}" -p ActiveState --value 2>/dev/null || printf 'unknown')"
     fi
@@ -970,6 +1089,231 @@ EOF
 }
 
 
+# --- service.sh ---
+# shellcheck shell=bash
+
+if [[ -n "${FNOS_MOUNT_MANAGER_SERVICE_LOADED:-}" ]]; then
+  return 0
+fi
+FNOS_MOUNT_MANAGER_SERVICE_LOADED=1
+
+# 渲染开机后 reconcile 的 oneshot service，保持启动顺序和入口路径可读。
+# 参数：1=要执行的管理器脚本绝对路径。
+fm_render_reconcile_service_unit() {
+  local entry_path="$1"
+
+  cat <<EOF
+[Unit]
+Description=FNOS mount manager reconcile after boot
+After=local-fs.target trim_main.service
+Wants=local-fs.target
+ConditionPathExists=${entry_path}
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/env bash "${entry_path}" reconcile
+TimeoutStartSec=180
+
+[Install]
+WantedBy=multi-user.target
+EOF
+}
+
+# 若系统里还残留旧的 force-remount service，则在安装新 service 时一并停用，避免双重干预。
+fm_disable_legacy_force_remount_service_if_needed() {
+  command -v systemctl >/dev/null 2>&1 || return 0
+
+  local load_state
+  load_state="$(systemctl show force-remount-disks.service -p LoadState --value 2>/dev/null || true)"
+  [[ -n "${load_state}" && "${load_state}" != "not-found" ]] || return 0
+
+  if systemctl cat force-remount-disks.service 2>/dev/null | grep -q "linux/fnos/remount.sh"; then
+    fm_run_privileged systemctl disable --now force-remount-disks.service >/dev/null 2>&1 || true
+    fm_log "warn" "Disabled legacy force-remount-disks.service"
+  fi
+}
+
+# 安装并启用 reconcile 开机 service。默认写入 systemd unit 目录并执行 enable；
+# 若输出路径不在 systemd unit 目录下，则只写文件，不自动 enable。
+fm_cmd_install_reconcile_service() {
+  local output_path
+  output_path="$(fm_reconcile_service_path)"
+  local start_now="0"
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --output)
+        output_path="$2"
+        shift 2
+        ;;
+      --start-now)
+        start_now="1"
+        shift
+        ;;
+      --help | -h)
+        cat <<'EOF'
+Usage: fnos-mount-manager install-reconcile-service [--output /path/to/unit.service] [--start-now]
+
+Install and enable a boot-time oneshot service that runs `reconcile` after FNOS mount services settle.
+EOF
+        return 0
+        ;;
+      *)
+        fm_die "Unknown install-reconcile-service option: $1"
+        ;;
+    esac
+  done
+
+  local entry_path="${FM_MANAGER_ENTRY_PATH}"
+  [[ -f "${entry_path}" ]] || fm_die "Manager entry path not found: ${entry_path}"
+
+  local output_dir
+  output_dir="$(dirname "${output_path}")"
+  fm_run_privileged mkdir -p "${output_dir}"
+
+  local temp_unit
+  temp_unit="$(mktemp)"
+  fm_render_reconcile_service_unit "${entry_path}" > "${temp_unit}"
+  fm_install_file "${temp_unit}" "${output_path}"
+  rm -f "${temp_unit}"
+  fm_log "info" "Installed reconcile service to ${output_path}"
+
+  local systemd_unit_dir
+  systemd_unit_dir="$(fm_systemd_unit_dir)"
+  local unit_name
+  unit_name="$(basename "${output_path}")"
+
+  if command -v systemctl >/dev/null 2>&1 && [[ "${output_dir}" == "${systemd_unit_dir}" ]]; then
+    fm_run_privileged systemctl daemon-reload
+    fm_run_privileged systemctl enable "${unit_name}" >/dev/null 2>&1
+    fm_log "info" "Enabled ${unit_name}"
+
+    fm_disable_legacy_force_remount_service_if_needed
+
+    if [[ "${start_now}" == "1" ]]; then
+      fm_run_privileged systemctl start "${unit_name}" >/dev/null 2>&1
+      fm_log "info" "Started ${unit_name}"
+    fi
+    return 0
+  fi
+
+  fm_log "warn" "Skipped systemctl enable because ${output_path} is outside $(fm_systemd_unit_dir)"
+}
+
+
+# --- alias.sh ---
+# shellcheck shell=bash
+
+if [[ -n "${FNOS_MOUNT_MANAGER_ALIAS_LOADED:-}" ]]; then
+  return 0
+fi
+FNOS_MOUNT_MANAGER_ALIAS_LOADED=1
+
+# 为已挂在型号路径的磁盘建立业务名 bind mount 别名。
+# 参数：1=磁盘索引。
+# 返回：0=成功或无需动作；1=同步失败。结果通过 FM_OPERATION_LAST_* 暴露。
+fm_alias_disk() {
+  local index="$1"
+  fm_reset_operation_result
+  fm_resolve_disk_runtime_state "${index}"
+
+  case "${FM_DISK_STATE_CLASS}" in
+    mounted_expected)
+      fm_log "info" "${FM_DISK_STATE_NAME} already uses ${FM_DISK_STATE_MOUNTPOINT}"
+      return 0
+      ;;
+    not_mounted)
+      FM_OPERATION_LAST_ACTION="skipped"
+      FM_OPERATION_LAST_REASON="disk is not mounted yet"
+      fm_log "info" "Skipping ${FM_DISK_STATE_NAME}: ${FM_OPERATION_LAST_REASON}"
+      return 0
+      ;;
+    device_missing)
+      FM_OPERATION_LAST_ACTION="skipped"
+      FM_OPERATION_LAST_REASON="device is missing at ${FM_DISK_STATE_DEVICE_PATH}"
+      fm_log "warn" "Skipping ${FM_DISK_STATE_NAME}: ${FM_OPERATION_LAST_REASON}"
+      return 0
+      ;;
+  esac
+
+  if ! fm_is_exact_mountpoint "${FM_DISK_STATE_MOUNTED_TARGET}"; then
+    FM_OPERATION_LAST_ACTION="skipped"
+    FM_OPERATION_LAST_REASON="source mountpoint is no longer available at ${FM_DISK_STATE_MOUNTED_TARGET}"
+    fm_log "warn" "Skipping ${FM_DISK_STATE_NAME}: ${FM_OPERATION_LAST_REASON}"
+    return 0
+  fi
+
+  fm_run_privileged mkdir -p "${FM_DISK_STATE_MOUNTPOINT}"
+
+  local alias_state
+  alias_state="$(
+    fm_describe_bind_alias_state \
+      "${FM_DISK_STATE_MOUNTED_TARGET}" \
+      "${FM_DISK_STATE_MOUNTPOINT}"
+  )"
+
+  case "${alias_state}" in
+    already_synced)
+      fm_log "info" "${FM_DISK_STATE_NAME} already exposes a business alias at ${FM_DISK_STATE_MOUNTPOINT}"
+      return 0
+      ;;
+    occupied)
+      FM_OPERATION_LAST_ACTION="failed"
+      FM_OPERATION_LAST_REASON="managed mountpoint is occupied by another mount: ${FM_DISK_STATE_MOUNTPOINT}"
+      fm_log "error" "${FM_DISK_STATE_NAME} ${FM_OPERATION_LAST_REASON}"
+      return 1
+      ;;
+  esac
+
+  if fm_run_privileged mount --bind "${FM_DISK_STATE_MOUNTED_TARGET}" "${FM_DISK_STATE_MOUNTPOINT}" >/dev/null 2>&1; then
+    FM_OPERATION_LAST_ACTION="alias_synced"
+    fm_log "info" "Bound ${FM_DISK_STATE_NAME} from ${FM_DISK_STATE_MOUNTED_TARGET} to ${FM_DISK_STATE_MOUNTPOINT}"
+    return 0
+  fi
+
+  FM_OPERATION_LAST_ACTION="failed"
+  FM_OPERATION_LAST_REASON="bind mount failed from ${FM_DISK_STATE_MOUNTED_TARGET} to ${FM_DISK_STATE_MOUNTPOINT}"
+  fm_log "error" "${FM_DISK_STATE_NAME} ${FM_OPERATION_LAST_REASON}"
+  return 1
+}
+
+# 处理 alias 子命令，只对 mounted_elsewhere 的磁盘建立业务名 bind mount 别名。
+fm_cmd_alias() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --help | -h)
+        cat <<'EOF'
+Usage: fnos-mount-manager alias
+
+Create business-name bind aliases for disks already mounted elsewhere by FNOS.
+EOF
+        return 0
+        ;;
+      *)
+        fm_die "Unknown alias option: $1"
+        ;;
+    esac
+  done
+
+  [[ -f "$(fm_local_config_path)" ]] || fm_die "Local config not found: $(fm_local_config_path)"
+  fm_load_config "$(fm_local_config_path)"
+
+  local failures=0
+  local i
+  for (( i = 0; i < ${#FM_CONFIG_DISK_NAMES[@]}; i += 1 )); do
+    if ! fm_alias_disk "${i}"; then
+      failures=$(( failures + 1 ))
+    fi
+  done
+
+  if (( failures > 0 )); then
+    fm_die "Alias sync completed with ${failures} failure(s)"
+  fi
+
+  fm_log "info" "Alias sync completed successfully"
+}
+
+
 # --- repair.sh ---
 # shellcheck shell=bash
 
@@ -984,23 +1328,14 @@ fm_legacy_service_uses_old_script() {
   systemctl cat force-remount-disks.service 2>/dev/null | grep -q "linux/fnos/remount.sh"
 }
 
-# 对单块受管磁盘执行统一修复：刷新 unit、确保目录存在、按挂载点重试。
-fm_repair_disk() {
-  local index="$1"
-  local force_mode="$2"
-  local name="${FM_CONFIG_DISK_NAMES[${index}]}"
-  local source="${FM_CONFIG_DISK_SOURCES[${index}]}"
-  local mountpoint="${FM_CONFIG_DISK_MOUNTPOINTS[${index}]}"
-  local mode="${FM_CONFIG_DISK_MODES[${index}]}"
-  local device_path
-  device_path="$(fm_source_to_device_path "${source}")"
-  local mounted_target=""
-  mounted_target="$(fm_find_mount_target_for_device "${device_path}")"
-
-  if [[ -n "${mounted_target}" && "${mounted_target}" != "${mountpoint}" ]]; then
-    fm_log "warn" "${name} device is already mounted at ${mounted_target}"
-    return 1
-  fi
+# 为一次显式挂载重试准备目录和 systemd 状态。
+# 参数：1=挂载点；2=挂载模式；3=设备路径；4=是否 force。
+# 返回：0=准备完成；非零=准备失败。
+fm_prepare_configured_mount_retry() {
+  local mountpoint="$1"
+  local mode="$2"
+  local device_path="$3"
+  local force_mode="$4"
 
   fm_run_privileged mkdir -p "${mountpoint}"
 
@@ -1031,12 +1366,59 @@ fm_repair_disk() {
     fi
   fi
 
-  if fm_run_privileged mount "${mountpoint}" >/dev/null 2>&1; then
-    fm_log "info" "Mounted ${mountpoint}"
+  return 0
+}
+
+# 按受管挂载点执行一次显式 mount 重试，供 repair/backfill 共用。
+# 参数：1=磁盘索引；2=是否 force。
+# 返回：0=mount 命令成功；1=mount 命令失败。
+fm_mount_disk_to_configured_target() {
+  local index="$1"
+  local force_mode="$2"
+  fm_resolve_disk_runtime_state "${index}"
+
+  fm_prepare_configured_mount_retry \
+    "${FM_DISK_STATE_MOUNTPOINT}" \
+    "${FM_DISK_STATE_MODE}" \
+    "${FM_DISK_STATE_DEVICE_PATH}" \
+    "${force_mode}"
+
+  if fm_run_privileged mount "${FM_DISK_STATE_MOUNTPOINT}" >/dev/null 2>&1; then
+    fm_log "info" "Mounted ${FM_DISK_STATE_MOUNTPOINT}"
     return 0
   fi
 
-  fm_log "warn" "Mount retry failed for ${mountpoint}"
+  fm_log "warn" "Mount retry failed for ${FM_DISK_STATE_MOUNTPOINT}"
+  return 1
+}
+
+# 对单块受管磁盘执行统一修复：刷新 unit、确保目录存在、按挂载点重试。
+# 参数：1=磁盘索引；2=是否 force。
+# 返回：0=修复成功或无需动作；1=修复失败。
+fm_repair_disk() {
+  local index="$1"
+  local force_mode="$2"
+  fm_resolve_disk_runtime_state "${index}"
+
+  case "${FM_DISK_STATE_CLASS}" in
+    mounted_expected)
+      fm_log "info" "${FM_DISK_STATE_NAME} already mounted at ${FM_DISK_STATE_MOUNTPOINT}"
+      return 0
+      ;;
+    mounted_elsewhere)
+      fm_log "warn" "${FM_DISK_STATE_NAME} device is already mounted at ${FM_DISK_STATE_MOUNTED_TARGET}"
+      return 1
+      ;;
+    device_missing)
+      fm_log "warn" "${FM_DISK_STATE_NAME} device is missing at ${FM_DISK_STATE_DEVICE_PATH}"
+      return 1
+      ;;
+  esac
+
+  if fm_mount_disk_to_configured_target "${index}" "${force_mode}"; then
+    return 0
+  fi
+
   return 1
 }
 
@@ -1088,6 +1470,235 @@ EOF
   fi
 
   fm_log "info" "Repair completed successfully"
+}
+
+
+# --- backfill.sh ---
+# shellcheck shell=bash
+
+if [[ -n "${FNOS_MOUNT_MANAGER_BACKFILL_LOADED:-}" ]]; then
+  return 0
+fi
+FNOS_MOUNT_MANAGER_BACKFILL_LOADED=1
+
+# 为未被 FNOS 成功挂上的磁盘执行单独补挂，不干扰已健康或已挂错路径的盘。
+# 参数：1=磁盘索引。
+# 返回：0=成功或无需动作；1=补挂失败。结果通过 FM_OPERATION_LAST_* 暴露。
+fm_backfill_disk() {
+  local index="$1"
+  fm_reset_operation_result
+  fm_resolve_disk_runtime_state "${index}"
+
+  case "${FM_DISK_STATE_CLASS}" in
+    mounted_expected)
+      fm_log "info" "${FM_DISK_STATE_NAME} already uses ${FM_DISK_STATE_MOUNTPOINT}"
+      return 0
+      ;;
+    mounted_elsewhere)
+      FM_OPERATION_LAST_ACTION="skipped"
+      FM_OPERATION_LAST_REASON="disk is already mounted at ${FM_DISK_STATE_MOUNTED_TARGET}"
+      fm_log "info" "Skipping ${FM_DISK_STATE_NAME}: ${FM_OPERATION_LAST_REASON}"
+      return 0
+      ;;
+    device_missing)
+      FM_OPERATION_LAST_ACTION="failed"
+      FM_OPERATION_LAST_REASON="device is missing at ${FM_DISK_STATE_DEVICE_PATH}"
+      fm_log "error" "${FM_DISK_STATE_NAME} ${FM_OPERATION_LAST_REASON}"
+      return 1
+      ;;
+  esac
+
+  if ! fm_mount_disk_to_configured_target "${index}" "0"; then
+    FM_OPERATION_LAST_ACTION="failed"
+    FM_OPERATION_LAST_REASON="mount retry failed for ${FM_DISK_STATE_MOUNTPOINT}"
+    fm_log "error" "${FM_DISK_STATE_NAME} ${FM_OPERATION_LAST_REASON}"
+    return 1
+  fi
+
+  fm_resolve_disk_runtime_state "${index}"
+  if [[ "${FM_DISK_STATE_CLASS}" == "mounted_expected" ]]; then
+    FM_OPERATION_LAST_ACTION="backfilled"
+    fm_log "info" "Backfilled ${FM_DISK_STATE_NAME} to ${FM_DISK_STATE_MOUNTPOINT}"
+    return 0
+  fi
+
+  FM_OPERATION_LAST_ACTION="failed"
+  FM_OPERATION_LAST_REASON="mount command succeeded but final state is ${FM_DISK_STATE_CLASS}"
+  fm_log "error" "${FM_DISK_STATE_NAME} ${FM_OPERATION_LAST_REASON}"
+  return 1
+}
+
+# 处理 backfill 子命令，只对 not_mounted 的磁盘尝试补挂。
+fm_cmd_backfill() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --help | -h)
+        cat <<'EOF'
+Usage: fnos-mount-manager backfill
+
+Mount not-yet-mounted disks onto their configured business mountpoints.
+EOF
+        return 0
+        ;;
+      *)
+        fm_die "Unknown backfill option: $1"
+        ;;
+    esac
+  done
+
+  [[ -f "$(fm_local_config_path)" ]] || fm_die "Local config not found: $(fm_local_config_path)"
+  fm_load_config "$(fm_local_config_path)"
+
+  local failures=0
+  local i
+  for (( i = 0; i < ${#FM_CONFIG_DISK_NAMES[@]}; i += 1 )); do
+    if ! fm_backfill_disk "${i}"; then
+      failures=$(( failures + 1 ))
+    fi
+  done
+
+  if (( failures > 0 )); then
+    fm_die "Backfill completed with ${failures} failure(s)"
+  fi
+
+  fm_log "info" "Backfill completed successfully"
+}
+
+
+# --- reconcile.sh ---
+# shellcheck shell=bash
+
+if [[ -n "${FNOS_MOUNT_MANAGER_RECONCILE_LOADED:-}" ]]; then
+  return 0
+fi
+FNOS_MOUNT_MANAGER_RECONCILE_LOADED=1
+
+# 输出 reconcile 汇总，既给人看阶段结果，也给测试提供稳定断言面。
+# 参数：1=磁盘名数组名；2=动作数组名；3=失败原因数组名。
+# 返回：通过 FM_RECONCILE_FAILED_COUNT 暴露失败计数。
+fm_print_reconcile_summary() {
+  local -n names_ref="$1"
+  local -n actions_ref="$2"
+  local -n reasons_ref="$3"
+  local unchanged=0
+  local alias_synced=0
+  local backfilled=0
+  local failed=0
+  local i
+
+  for (( i = 0; i < ${#actions_ref[@]}; i += 1 )); do
+    case "${actions_ref[${i}]}" in
+      unchanged)
+        unchanged=$(( unchanged + 1 ))
+        ;;
+      alias_synced)
+        alias_synced=$(( alias_synced + 1 ))
+        ;;
+      backfilled)
+        backfilled=$(( backfilled + 1 ))
+        ;;
+      failed)
+        failed=$(( failed + 1 ))
+        ;;
+    esac
+  done
+
+  FM_RECONCILE_FAILED_COUNT="${failed}"
+
+  printf 'Reconcile summary:\n'
+  printf '  unchanged: %s\n' "${unchanged}"
+  printf '  alias_synced: %s\n' "${alias_synced}"
+  printf '  backfilled: %s\n' "${backfilled}"
+  printf '  failed: %s\n' "${failed}"
+
+  for (( i = 0; i < ${#names_ref[@]}; i += 1 )); do
+    printf '  %s: %s' "${names_ref[${i}]}" "${actions_ref[${i}]}"
+    if [[ "${actions_ref[${i}]}" == "failed" && -n "${reasons_ref[${i}]}" ]]; then
+      printf ' (%s)' "${reasons_ref[${i}]}"
+    fi
+    printf '\n'
+  done
+}
+
+# 处理 reconcile 子命令，按“先 alias、再 backfill”的顺序输出统一纠偏结果。
+fm_cmd_reconcile() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --help | -h)
+        cat <<'EOF'
+Usage: fnos-mount-manager reconcile
+
+Synchronize business-name aliases first, then backfill disks that are still not mounted.
+EOF
+        return 0
+        ;;
+      *)
+        fm_die "Unknown reconcile option: $1"
+        ;;
+    esac
+  done
+
+  [[ -f "$(fm_local_config_path)" ]] || fm_die "Local config not found: $(fm_local_config_path)"
+  fm_load_config "$(fm_local_config_path)"
+
+  local -a disk_names=()
+  local -a disk_actions=()
+  local -a disk_reasons=()
+  local i
+
+  for (( i = 0; i < ${#FM_CONFIG_DISK_NAMES[@]}; i += 1 )); do
+    disk_names[${i}]="${FM_CONFIG_DISK_NAMES[${i}]}"
+    disk_actions[${i}]="unchanged"
+    disk_reasons[${i}]=""
+
+    fm_resolve_disk_runtime_state "${i}"
+    if [[ "${FM_DISK_STATE_CLASS}" == "device_missing" ]]; then
+      disk_actions[${i}]="failed"
+      disk_reasons[${i}]="device is missing at ${FM_DISK_STATE_DEVICE_PATH}"
+    fi
+  done
+
+  for (( i = 0; i < ${#FM_CONFIG_DISK_NAMES[@]}; i += 1 )); do
+    [[ "${disk_actions[${i}]}" == "failed" ]] && continue
+
+    fm_resolve_disk_runtime_state "${i}"
+    [[ "${FM_DISK_STATE_CLASS}" == "mounted_elsewhere" ]] || continue
+
+    if fm_alias_disk "${i}"; then
+      if [[ "${FM_OPERATION_LAST_ACTION}" == "alias_synced" ]]; then
+        disk_actions[${i}]="alias_synced"
+      fi
+      continue
+    fi
+
+    disk_actions[${i}]="failed"
+    disk_reasons[${i}]="${FM_OPERATION_LAST_REASON}"
+  done
+
+  for (( i = 0; i < ${#FM_CONFIG_DISK_NAMES[@]}; i += 1 )); do
+    [[ "${disk_actions[${i}]}" == "failed" ]] && continue
+
+    fm_resolve_disk_runtime_state "${i}"
+    [[ "${FM_DISK_STATE_CLASS}" == "not_mounted" ]] || continue
+
+    if fm_backfill_disk "${i}"; then
+      if [[ "${FM_OPERATION_LAST_ACTION}" == "backfilled" ]]; then
+        disk_actions[${i}]="backfilled"
+      fi
+      continue
+    fi
+
+    disk_actions[${i}]="failed"
+    disk_reasons[${i}]="${FM_OPERATION_LAST_REASON}"
+  done
+
+  fm_print_reconcile_summary disk_names disk_actions disk_reasons
+
+  if (( FM_RECONCILE_FAILED_COUNT > 0 )); then
+    fm_die "Reconcile completed with ${FM_RECONCILE_FAILED_COUNT} failure(s)"
+  fi
+
+  fm_log "info" "Reconcile completed successfully"
 }
 
 
@@ -1211,8 +1822,16 @@ if [[ -z "${FNOS_MANAGER_STANDALONE:-}" ]]; then
   source "${SCRIPT_DIR}/commands/check.sh"
   # shellcheck source=linux/fnos/fnos-mount-manager/commands/status.sh
   source "${SCRIPT_DIR}/commands/status.sh"
+  # shellcheck source=linux/fnos/fnos-mount-manager/commands/service.sh
+  source "${SCRIPT_DIR}/commands/service.sh"
+  # shellcheck source=linux/fnos/fnos-mount-manager/commands/alias.sh
+  source "${SCRIPT_DIR}/commands/alias.sh"
   # shellcheck source=linux/fnos/fnos-mount-manager/commands/repair.sh
   source "${SCRIPT_DIR}/commands/repair.sh"
+  # shellcheck source=linux/fnos/fnos-mount-manager/commands/backfill.sh
+  source "${SCRIPT_DIR}/commands/backfill.sh"
+  # shellcheck source=linux/fnos/fnos-mount-manager/commands/reconcile.sh
+  source "${SCRIPT_DIR}/commands/reconcile.sh"
   # shellcheck source=linux/fnos/fnos-mount-manager/commands/remount.sh
   source "${SCRIPT_DIR}/commands/remount.sh"
 fi
@@ -1227,6 +1846,11 @@ Commands:
   apply       Merge the local managed block into a target fstab
   check       Validate config drift and known conflicts
   status      Show current disk and unit status
+  install-reconcile-service
+              Install and enable the boot-time reconcile oneshot service
+  alias       Create business-name bind aliases for FNOS-mounted disks
+  backfill    Mount disks that FNOS failed to mount
+  reconcile   Run alias sync first, then backfill missing disks
   repair      Attempt a unified mount repair
   remount     Move disks back onto the managed mountpoints
   help        Show this help
@@ -1252,6 +1876,18 @@ fm_main() {
       ;;
     status)
       fm_cmd_status "$@"
+      ;;
+    install-reconcile-service)
+      fm_cmd_install_reconcile_service "$@"
+      ;;
+    alias)
+      fm_cmd_alias "$@"
+      ;;
+    backfill)
+      fm_cmd_backfill "$@"
+      ;;
+    reconcile)
+      fm_cmd_reconcile "$@"
       ;;
     repair)
       fm_cmd_repair "$@"

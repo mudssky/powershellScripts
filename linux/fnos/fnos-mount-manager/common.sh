@@ -60,6 +60,27 @@ fm_init_environment() {
 
   FM_MANAGER_BLOCK_BEGIN="# BEGIN FNOS MOUNT MANAGER"
   FM_MANAGER_BLOCK_END="# END FNOS MOUNT MANAGER"
+  FM_MANAGER_ENTRY_PATH="$(fm_resolve_absolute_path "${script_path}")"
+}
+
+# 尽量把相对路径转成绝对路径，保证 systemd unit 引用当前入口时稳定可用。
+fm_resolve_absolute_path() {
+  local input_path="$1"
+
+  if command -v realpath >/dev/null 2>&1; then
+    realpath "${input_path}" 2>/dev/null && return 0
+  fi
+
+  if command -v readlink >/dev/null 2>&1; then
+    readlink -f "${input_path}" 2>/dev/null && return 0
+  fi
+
+  if [[ "${input_path}" == /* ]]; then
+    printf '%s\n' "${input_path}"
+    return 0
+  fi
+
+  printf '%s/%s\n' "${PWD}" "${input_path}"
 }
 
 # 返回示例配置文件路径。
@@ -90,6 +111,16 @@ fm_example_tmpfiles_path() {
 # 返回本机 tmpfiles 预览文件路径。
 fm_local_tmpfiles_path() {
   printf '%s/tmpfiles.conf\n' "${FM_MANAGER_HOME}"
+}
+
+# 返回 systemd unit 默认安装目录，允许测试覆写。
+fm_systemd_unit_dir() {
+  printf '%s\n' "${FNOS_MANAGER_SYSTEMD_UNIT_DIR:-/etc/systemd/system}"
+}
+
+# 返回 reconcile oneshot service 的默认安装路径。
+fm_reconcile_service_path() {
+  printf '%s/fnos-mount-manager-reconcile.service\n' "$(fm_systemd_unit_dir)"
 }
 
 # 返回源码入口路径，便于测试对照源码入口与构建产物。
@@ -173,12 +204,98 @@ fm_find_mount_target_for_device() {
   findmnt -rn -S "${resolved_device}" -o TARGET 2>/dev/null | head -n 1 || true
 }
 
+# 解析单块受管磁盘的运行时状态。
+# 参数：1=磁盘索引。
+# 返回：通过 FM_DISK_STATE_* 全局变量暴露设备路径、当前目标路径和分类结果。
+fm_resolve_disk_runtime_state() {
+  local index="$1"
+
+  FM_DISK_STATE_NAME="${FM_CONFIG_DISK_NAMES[${index}]}"
+  FM_DISK_STATE_SOURCE="${FM_CONFIG_DISK_SOURCES[${index}]}"
+  FM_DISK_STATE_MOUNTPOINT="${FM_CONFIG_DISK_MOUNTPOINTS[${index}]}"
+  FM_DISK_STATE_MODE="${FM_CONFIG_DISK_MODES[${index}]}"
+  FM_DISK_STATE_DEVICE_PATH="$(fm_source_to_device_path "${FM_DISK_STATE_SOURCE}")"
+  FM_DISK_STATE_DEVICE_EXISTS="no"
+  FM_DISK_STATE_MOUNTED_TARGET=""
+  FM_DISK_STATE_CLASS="not_mounted"
+
+  if [[ -e "${FM_DISK_STATE_DEVICE_PATH}" ]]; then
+    FM_DISK_STATE_DEVICE_EXISTS="yes"
+    FM_DISK_STATE_MOUNTED_TARGET="$(
+      fm_find_mount_target_for_device "${FM_DISK_STATE_DEVICE_PATH}" || true
+    )"
+  fi
+
+  case "${FM_DISK_STATE_DEVICE_EXISTS}:${FM_DISK_STATE_MOUNTED_TARGET}" in
+    no:*)
+      FM_DISK_STATE_CLASS="device_missing"
+      ;;
+    yes:"${FM_DISK_STATE_MOUNTPOINT}")
+      FM_DISK_STATE_CLASS="mounted_expected"
+      ;;
+    yes:*)
+      if [[ -n "${FM_DISK_STATE_MOUNTED_TARGET}" ]]; then
+        FM_DISK_STATE_CLASS="mounted_elsewhere"
+      fi
+      ;;
+  esac
+}
+
 # 判断目标路径是否正好是一个独立挂载点，而不是仅仅位于某个已挂载父文件系统下。
 fm_is_exact_mountpoint() {
   local mountpoint="$1"
   local mounted_target
   mounted_target="$(findmnt -rn -M "${mountpoint}" -o TARGET 2>/dev/null || true)"
   [[ "${mounted_target}" == "${mountpoint}" ]]
+}
+
+# 读取路径对应的设备号和 inode，用于识别两个目录是否指向同一底层实体。
+# 参数：1=待检测路径。
+# 返回：stdout 输出 "<device>:<inode>"；路径不可读时返回非零。
+fm_path_identity() {
+  local path="$1"
+  stat -Lc '%d:%i' "${path}" 2>/dev/null
+}
+
+# 判断两个路径是否指向同一底层目录，避免对已同步的 bind mount 重复执行挂载。
+# 参数：1=源路径；2=目标路径。
+# 返回：0=同一目录实体；1=不同或任一路径不可识别。
+fm_paths_share_same_inode() {
+  local source_path="$1"
+  local target_path="$2"
+  local source_identity=""
+  local target_identity=""
+
+  source_identity="$(fm_path_identity "${source_path}" || true)"
+  target_identity="$(fm_path_identity "${target_path}" || true)"
+
+  [[ -n "${source_identity}" && "${source_identity}" == "${target_identity}" ]]
+}
+
+# 描述业务名路径当前的 bind alias 状态，供 alias/reconcile 做幂等判断。
+# 参数：1=原始挂载路径；2=业务名路径。
+# 返回：stdout 输出 already_synced、needs_bind 或 occupied。
+fm_describe_bind_alias_state() {
+  local source_path="$1"
+  local alias_path="$2"
+
+  if ! fm_is_exact_mountpoint "${alias_path}"; then
+    printf 'needs_bind\n'
+    return 0
+  fi
+
+  if fm_paths_share_same_inode "${source_path}" "${alias_path}"; then
+    printf 'already_synced\n'
+    return 0
+  fi
+
+  printf 'occupied\n'
+}
+
+# 统一初始化 alias/backfill/reconcile 复用的结果变量，避免跨磁盘串状态。
+fm_reset_operation_result() {
+  FM_OPERATION_LAST_ACTION="unchanged"
+  FM_OPERATION_LAST_REASON=""
 }
 
 # 把当前磁盘配置渲染为 tmpfiles 规则，确保开机前挂载点目录已存在。

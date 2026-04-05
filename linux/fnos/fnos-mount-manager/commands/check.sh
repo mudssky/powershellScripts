@@ -143,12 +143,20 @@ EOF
 
     local i
     for (( i = 0; i < ${#FM_CONFIG_DISK_SOURCES[@]}; i += 1 )); do
-      local source_path
-      source_path="$(fm_source_to_device_path "${FM_CONFIG_DISK_SOURCES[${i}]}")"
-      if [[ ! -e "${source_path}" ]]; then
-        fm_log "error" "Disk source is missing for ${FM_CONFIG_DISK_NAMES[${i}]}: ${source_path}"
-        error_count=$(( error_count + 1 ))
-      fi
+      fm_resolve_disk_runtime_state "${i}"
+
+      case "${FM_DISK_STATE_CLASS}" in
+        device_missing)
+          fm_log "error" "Disk source is missing for ${FM_DISK_STATE_NAME}: ${FM_DISK_STATE_DEVICE_PATH}"
+          error_count=$(( error_count + 1 ))
+          ;;
+        mounted_elsewhere)
+          fm_log "warn" "Disk is mounted outside the managed path for ${FM_DISK_STATE_NAME}: ${FM_DISK_STATE_MOUNTED_TARGET}"
+          ;;
+        not_mounted)
+          fm_log "warn" "Disk is not mounted for ${FM_DISK_STATE_NAME}: ${FM_DISK_STATE_MOUNTPOINT}"
+          ;;
+      esac
     done
 
     if [[ -f "${target}" ]]; then

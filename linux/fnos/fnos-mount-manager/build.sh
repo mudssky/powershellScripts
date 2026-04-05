@@ -17,7 +17,11 @@ MODULES=(
   "${SOURCE_DIR}/commands/apply.sh"
   "${SOURCE_DIR}/commands/check.sh"
   "${SOURCE_DIR}/commands/status.sh"
+  "${SOURCE_DIR}/commands/service.sh"
+  "${SOURCE_DIR}/commands/alias.sh"
   "${SOURCE_DIR}/commands/repair.sh"
+  "${SOURCE_DIR}/commands/backfill.sh"
+  "${SOURCE_DIR}/commands/reconcile.sh"
   "${SOURCE_DIR}/commands/remount.sh"
   "${SOURCE_DIR}/main.sh"
 )

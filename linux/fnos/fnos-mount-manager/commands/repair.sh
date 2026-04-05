@@ -11,23 +11,14 @@ fm_legacy_service_uses_old_script() {
   systemctl cat force-remount-disks.service 2>/dev/null | grep -q "linux/fnos/remount.sh"
 }
 
-# 对单块受管磁盘执行统一修复：刷新 unit、确保目录存在、按挂载点重试。
-fm_repair_disk() {
-  local index="$1"
-  local force_mode="$2"
-  local name="${FM_CONFIG_DISK_NAMES[${index}]}"
-  local source="${FM_CONFIG_DISK_SOURCES[${index}]}"
-  local mountpoint="${FM_CONFIG_DISK_MOUNTPOINTS[${index}]}"
-  local mode="${FM_CONFIG_DISK_MODES[${index}]}"
-  local device_path
-  device_path="$(fm_source_to_device_path "${source}")"
-  local mounted_target=""
-  mounted_target="$(fm_find_mount_target_for_device "${device_path}")"
-
-  if [[ -n "${mounted_target}" && "${mounted_target}" != "${mountpoint}" ]]; then
-    fm_log "warn" "${name} device is already mounted at ${mounted_target}"
-    return 1
-  fi
+# 为一次显式挂载重试准备目录和 systemd 状态。
+# 参数：1=挂载点；2=挂载模式；3=设备路径；4=是否 force。
+# 返回：0=准备完成；非零=准备失败。
+fm_prepare_configured_mount_retry() {
+  local mountpoint="$1"
+  local mode="$2"
+  local device_path="$3"
+  local force_mode="$4"
 
   fm_run_privileged mkdir -p "${mountpoint}"
 
@@ -58,12 +49,59 @@ fm_repair_disk() {
     fi
   fi
 
-  if fm_run_privileged mount "${mountpoint}" >/dev/null 2>&1; then
-    fm_log "info" "Mounted ${mountpoint}"
+  return 0
+}
+
+# 按受管挂载点执行一次显式 mount 重试，供 repair/backfill 共用。
+# 参数：1=磁盘索引；2=是否 force。
+# 返回：0=mount 命令成功；1=mount 命令失败。
+fm_mount_disk_to_configured_target() {
+  local index="$1"
+  local force_mode="$2"
+  fm_resolve_disk_runtime_state "${index}"
+
+  fm_prepare_configured_mount_retry \
+    "${FM_DISK_STATE_MOUNTPOINT}" \
+    "${FM_DISK_STATE_MODE}" \
+    "${FM_DISK_STATE_DEVICE_PATH}" \
+    "${force_mode}"
+
+  if fm_run_privileged mount "${FM_DISK_STATE_MOUNTPOINT}" >/dev/null 2>&1; then
+    fm_log "info" "Mounted ${FM_DISK_STATE_MOUNTPOINT}"
     return 0
   fi
 
-  fm_log "warn" "Mount retry failed for ${mountpoint}"
+  fm_log "warn" "Mount retry failed for ${FM_DISK_STATE_MOUNTPOINT}"
+  return 1
+}
+
+# 对单块受管磁盘执行统一修复：刷新 unit、确保目录存在、按挂载点重试。
+# 参数：1=磁盘索引；2=是否 force。
+# 返回：0=修复成功或无需动作；1=修复失败。
+fm_repair_disk() {
+  local index="$1"
+  local force_mode="$2"
+  fm_resolve_disk_runtime_state "${index}"
+
+  case "${FM_DISK_STATE_CLASS}" in
+    mounted_expected)
+      fm_log "info" "${FM_DISK_STATE_NAME} already mounted at ${FM_DISK_STATE_MOUNTPOINT}"
+      return 0
+      ;;
+    mounted_elsewhere)
+      fm_log "warn" "${FM_DISK_STATE_NAME} device is already mounted at ${FM_DISK_STATE_MOUNTED_TARGET}"
+      return 1
+      ;;
+    device_missing)
+      fm_log "warn" "${FM_DISK_STATE_NAME} device is missing at ${FM_DISK_STATE_DEVICE_PATH}"
+      return 1
+      ;;
+  esac
+
+  if fm_mount_disk_to_configured_target "${index}" "${force_mode}"; then
+    return 0
+  fi
+
   return 1
 }
 
