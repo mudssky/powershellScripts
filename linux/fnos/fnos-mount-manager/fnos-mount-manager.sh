@@ -150,6 +150,33 @@ fm_source_to_device_path() {
   esac
 }
 
+# 解析设备软链接到真实块设备路径，方便 findmnt 和占用检测得到一致结果。
+fm_resolve_device_path() {
+  local device_path="$1"
+  if command -v realpath >/dev/null 2>&1 && [[ -e "${device_path}" ]]; then
+    realpath "${device_path}"
+    return 0
+  fi
+  printf '%s\n' "${device_path}"
+}
+
+# 查找指定设备当前已经挂载到的目标路径。
+fm_find_mount_target_for_device() {
+  local device_path="$1"
+  local resolved_device
+  resolved_device="$(fm_resolve_device_path "${device_path}")"
+
+  findmnt -rn -S "${resolved_device}" -o TARGET 2>/dev/null | head -n 1
+}
+
+# 判断目标路径是否正好是一个独立挂载点，而不是仅仅位于某个已挂载父文件系统下。
+fm_is_exact_mountpoint() {
+  local mountpoint="$1"
+  local mounted_target
+  mounted_target="$(findmnt -rn -M "${mountpoint}" -o TARGET 2>/dev/null || true)"
+  [[ "${mounted_target}" == "${mountpoint}" ]]
+}
+
 # 生成 systemd mount/automount unit 名称，优先复用 systemd-escape 以兼容空格路径。
 fm_unit_name_for_path() {
   local path="$1"
@@ -434,10 +461,10 @@ fm_disk_rendered_options() {
   local disk_options="${FM_CONFIG_DISK_OPTIONS[${index}]}"
   local mode="${FM_CONFIG_DISK_MODES[${index}]}"
   local device_timeout="${FM_CONFIG_DISK_TIMEOUTS[${index}]}"
-  local mode_options=""
+  local mode_options="x-mount.mkdir=0755"
 
   if [[ -n "${device_timeout}" ]]; then
-    mode_options="x-systemd.device-timeout=${device_timeout}"
+    mode_options="$(fm_merge_csv_options "${mode_options}" "x-systemd.device-timeout=${device_timeout}")"
   fi
 
   if [[ "${mode}" == "automount" ]]; then
@@ -819,6 +846,8 @@ fm_print_disk_status() {
   local mode="${FM_CONFIG_DISK_MODES[${index}]}"
   local device_path
   device_path="$(fm_source_to_device_path "${source}")"
+  local mounted_target=""
+  mounted_target="$(fm_find_mount_target_for_device "${device_path}")"
 
   printf '%s\n' "${name}"
   printf '  source: %s\n' "${source}"
@@ -826,7 +855,10 @@ fm_print_disk_status() {
   printf '  mode: %s\n' "${mode}"
   printf '  device_path: %s\n' "${device_path}"
   printf '  device_exists: %s\n' "$([[ -e "${device_path}" ]] && printf 'yes' || printf 'no')"
-  printf '  mounted: %s\n' "$([[ -n "$(findmnt -rn -T "${mountpoint}" -o TARGET 2>/dev/null || true)" ]] && printf 'yes' || printf 'no')"
+  printf '  mounted: %s\n' "$([[ -n "${mounted_target}" && "${mounted_target}" == "${mountpoint}" ]] && printf 'yes' || printf 'no')"
+  if [[ -n "${mounted_target}" && "${mounted_target}" != "${mountpoint}" ]]; then
+    printf '  mounted_elsewhere: %s\n' "${mounted_target}"
+  fi
 
   if command -v systemctl >/dev/null 2>&1; then
     local mount_unit
@@ -895,8 +927,19 @@ fm_legacy_service_uses_old_script() {
 fm_repair_disk() {
   local index="$1"
   local force_mode="$2"
+  local name="${FM_CONFIG_DISK_NAMES[${index}]}"
+  local source="${FM_CONFIG_DISK_SOURCES[${index}]}"
   local mountpoint="${FM_CONFIG_DISK_MOUNTPOINTS[${index}]}"
   local mode="${FM_CONFIG_DISK_MODES[${index}]}"
+  local device_path
+  device_path="$(fm_source_to_device_path "${source}")"
+  local mounted_target=""
+  mounted_target="$(fm_find_mount_target_for_device "${device_path}")"
+
+  if [[ -n "${mounted_target}" && "${mounted_target}" != "${mountpoint}" ]]; then
+    fm_log "warn" "${name} device is already mounted at ${mounted_target}"
+    return 1
+  fi
 
   fm_run_privileged mkdir -p "${mountpoint}"
 
@@ -922,8 +965,6 @@ fm_repair_disk() {
   fi
 
   if [[ "${force_mode}" == "1" ]]; then
-    local device_path
-    device_path="$(fm_source_to_device_path "${FM_CONFIG_DISK_SOURCES[${index}]}")"
     if command -v fuser >/dev/null 2>&1 && [[ -e "${device_path}" ]]; then
       fm_run_privileged fuser -k -9 "${device_path}" >/dev/null 2>&1 || true
     fi

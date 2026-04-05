@@ -127,8 +127,8 @@ describe('fnos mount manager check', () => {
     ).toBe(0)
 
     const drifted = readText(workspace.targetFstab).replace(
-      'UUID=local-debut /mnt/local/debutDisk ntfs nofail,uid=1000,gid=1000,umask=022,big_writes,x-systemd.device-timeout=45 0 0',
-      'UUID=local-debut /mnt/local/debutDisk ntfs nofail,uid=1000,gid=1000,umask=022 0 0',
+      'UUID=local-debut /mnt/local/debutDisk ntfs nofail,uid=1000,gid=1000,umask=022,big_writes,x-mount.mkdir=0755,x-systemd.device-timeout=45 0 0',
+      'UUID=local-debut /mnt/local/debutDisk ntfs nofail,uid=1000,gid=1000,umask=022,x-mount.mkdir=0755 0 0',
     )
     fs.writeFileSync(workspace.targetFstab, drifted, 'utf8')
 
@@ -142,7 +142,7 @@ describe('fnos mount manager check', () => {
     expect(result.stderr + result.stdout).toContain('Managed block diff:')
     expect(result.stderr + result.stdout).toContain('--- local-preview')
     expect(result.stderr + result.stdout).toContain('+++ target-managed-block')
-    expect(result.stderr + result.stdout).toContain('-UUID=local-debut /mnt/local/debutDisk ntfs nofail,uid=1000,gid=1000,umask=022,big_writes,x-systemd.device-timeout=45 0 0')
-    expect(result.stderr + result.stdout).toContain('+UUID=local-debut /mnt/local/debutDisk ntfs nofail,uid=1000,gid=1000,umask=022 0 0')
+    expect(result.stderr + result.stdout).toContain('-UUID=local-debut /mnt/local/debutDisk ntfs nofail,uid=1000,gid=1000,umask=022,big_writes,x-mount.mkdir=0755,x-systemd.device-timeout=45 0 0')
+    expect(result.stderr + result.stdout).toContain('+UUID=local-debut /mnt/local/debutDisk ntfs nofail,uid=1000,gid=1000,umask=022,x-mount.mkdir=0755 0 0')
   })
 })
