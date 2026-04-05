@@ -14,6 +14,8 @@ fm_print_disk_status() {
   local mode="${FM_CONFIG_DISK_MODES[${index}]}"
   local device_path
   device_path="$(fm_source_to_device_path "${source}")"
+  local mounted_target=""
+  mounted_target="$(fm_find_mount_target_for_device "${device_path}")"
 
   printf '%s\n' "${name}"
   printf '  source: %s\n' "${source}"
@@ -21,7 +23,10 @@ fm_print_disk_status() {
   printf '  mode: %s\n' "${mode}"
   printf '  device_path: %s\n' "${device_path}"
   printf '  device_exists: %s\n' "$([[ -e "${device_path}" ]] && printf 'yes' || printf 'no')"
-  printf '  mounted: %s\n' "$([[ -n "$(findmnt -rn -T "${mountpoint}" -o TARGET 2>/dev/null || true)" ]] && printf 'yes' || printf 'no')"
+  printf '  mounted: %s\n' "$([[ -n "${mounted_target}" && "${mounted_target}" == "${mountpoint}" ]] && printf 'yes' || printf 'no')"
+  if [[ -n "${mounted_target}" && "${mounted_target}" != "${mountpoint}" ]]; then
+    printf '  mounted_elsewhere: %s\n' "${mounted_target}"
+  fi
 
   if command -v systemctl >/dev/null 2>&1; then
     local mount_unit

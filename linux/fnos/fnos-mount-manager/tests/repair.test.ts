@@ -77,4 +77,49 @@ exit 0
       '/mnt/local/books/bookDisk',
     )
   })
+
+  it('explains when a device is already mounted at another target', () => {
+    const workspace = createWorkspace()
+    workspaces.push(workspace)
+
+    ensureFakeDevice(workspace, 'LABEL:local-book')
+    ensureFakeDevice(workspace, 'UUID:local-debut')
+
+    installMockCommand(
+      workspace,
+      'systemctl',
+      `#!/usr/bin/env bash
+set -eu
+exit 0
+`,
+    )
+    installMockCommand(
+      workspace,
+      'findmnt',
+      `#!/usr/bin/env bash
+set -eu
+if [[ "\${1:-}" == "-rn" && "\${2:-}" == "-S" ]]; then
+  printf '%s\\n' "/vol00/WDC WD40EZRZ-00GXCB0"
+  exit 0
+fi
+exit 1
+`,
+    )
+    installMockCommand(
+      workspace,
+      'mount',
+      `#!/usr/bin/env bash
+set -eu
+printf 'mount should not run\\n' >&2
+exit 1
+`,
+    )
+
+    const result = runSource(workspace, ['repair'])
+
+    expect(result.exitCode).not.toBe(0)
+    expect(result.stderr + result.stdout).toContain(
+      'device is already mounted at /vol00/WDC WD40EZRZ-00GXCB0',
+    )
+  })
 })

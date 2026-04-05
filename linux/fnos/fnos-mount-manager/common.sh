@@ -144,6 +144,33 @@ fm_source_to_device_path() {
   esac
 }
 
+# 解析设备软链接到真实块设备路径，方便 findmnt 和占用检测得到一致结果。
+fm_resolve_device_path() {
+  local device_path="$1"
+  if command -v realpath >/dev/null 2>&1 && [[ -e "${device_path}" ]]; then
+    realpath "${device_path}"
+    return 0
+  fi
+  printf '%s\n' "${device_path}"
+}
+
+# 查找指定设备当前已经挂载到的目标路径。
+fm_find_mount_target_for_device() {
+  local device_path="$1"
+  local resolved_device
+  resolved_device="$(fm_resolve_device_path "${device_path}")"
+
+  findmnt -rn -S "${resolved_device}" -o TARGET 2>/dev/null | head -n 1
+}
+
+# 判断目标路径是否正好是一个独立挂载点，而不是仅仅位于某个已挂载父文件系统下。
+fm_is_exact_mountpoint() {
+  local mountpoint="$1"
+  local mounted_target
+  mounted_target="$(findmnt -rn -M "${mountpoint}" -o TARGET 2>/dev/null || true)"
+  [[ "${mounted_target}" == "${mountpoint}" ]]
+}
+
 # 生成 systemd mount/automount unit 名称，优先复用 systemd-escape 以兼容空格路径。
 fm_unit_name_for_path() {
   local path="$1"

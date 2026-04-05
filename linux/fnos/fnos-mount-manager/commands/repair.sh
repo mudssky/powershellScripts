@@ -15,8 +15,19 @@ fm_legacy_service_uses_old_script() {
 fm_repair_disk() {
   local index="$1"
   local force_mode="$2"
+  local name="${FM_CONFIG_DISK_NAMES[${index}]}"
+  local source="${FM_CONFIG_DISK_SOURCES[${index}]}"
   local mountpoint="${FM_CONFIG_DISK_MOUNTPOINTS[${index}]}"
   local mode="${FM_CONFIG_DISK_MODES[${index}]}"
+  local device_path
+  device_path="$(fm_source_to_device_path "${source}")"
+  local mounted_target=""
+  mounted_target="$(fm_find_mount_target_for_device "${device_path}")"
+
+  if [[ -n "${mounted_target}" && "${mounted_target}" != "${mountpoint}" ]]; then
+    fm_log "warn" "${name} device is already mounted at ${mounted_target}"
+    return 1
+  fi
 
   fm_run_privileged mkdir -p "${mountpoint}"
 
@@ -42,8 +53,6 @@ fm_repair_disk() {
   fi
 
   if [[ "${force_mode}" == "1" ]]; then
-    local device_path
-    device_path="$(fm_source_to_device_path "${FM_CONFIG_DISK_SOURCES[${index}]}")"
     if command -v fuser >/dev/null 2>&1 && [[ -e "${device_path}" ]]; then
       fm_run_privileged fuser -k -9 "${device_path}" >/dev/null 2>&1 || true
     fi
