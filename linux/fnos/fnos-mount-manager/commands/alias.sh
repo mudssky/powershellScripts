@@ -39,8 +39,6 @@ fm_alias_disk() {
     return 0
   fi
 
-  fm_run_privileged mkdir -p "${FM_DISK_STATE_MOUNTPOINT}"
-
   local alias_state
   alias_state="$(
     fm_describe_bind_alias_state \
@@ -60,6 +58,8 @@ fm_alias_disk() {
       return 1
       ;;
   esac
+
+  fm_run_privileged mkdir -p "${FM_DISK_STATE_MOUNTPOINT}"
 
   if fm_run_privileged mount --bind "${FM_DISK_STATE_MOUNTED_TARGET}" "${FM_DISK_STATE_MOUNTPOINT}" >/dev/null 2>&1; then
     FM_OPERATION_LAST_ACTION="alias_synced"

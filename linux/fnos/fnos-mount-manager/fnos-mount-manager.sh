@@ -206,8 +206,21 @@ fm_find_mount_target_for_device() {
   local device_path="$1"
   local resolved_device
   resolved_device="$(fm_resolve_device_path "${device_path}")"
+  local mounted_target=""
 
-  findmnt -rn -S "${resolved_device}" -o TARGET 2>/dev/null | head -n 1 || true
+  mounted_target="$(findmnt -rn -S "${resolved_device}" -o TARGET 2>/dev/null | head -n 1 || true)"
+  if [[ -n "${mounted_target}" ]]; then
+    fm_decode_findmnt_value "${mounted_target}"
+    return 0
+  fi
+
+  return 0
+}
+
+# 把 findmnt 输出里的转义序列还原成真实路径，避免带空格型号路径被误判成不存在。
+fm_decode_findmnt_value() {
+  local value="$1"
+  printf '%b' "${value}"
 }
 
 # 解析单块受管磁盘的运行时状态。
@@ -252,6 +265,7 @@ fm_is_exact_mountpoint() {
   local mountpoint="$1"
   local mounted_target
   mounted_target="$(findmnt -rn -M "${mountpoint}" -o TARGET 2>/dev/null || true)"
+  mounted_target="$(fm_decode_findmnt_value "${mounted_target}")"
   [[ "${mounted_target}" == "${mountpoint}" ]]
 }
 
@@ -1243,8 +1257,6 @@ fm_alias_disk() {
     return 0
   fi
 
-  fm_run_privileged mkdir -p "${FM_DISK_STATE_MOUNTPOINT}"
-
   local alias_state
   alias_state="$(
     fm_describe_bind_alias_state \
@@ -1264,6 +1276,8 @@ fm_alias_disk() {
       return 1
       ;;
   esac
+
+  fm_run_privileged mkdir -p "${FM_DISK_STATE_MOUNTPOINT}"
 
   if fm_run_privileged mount --bind "${FM_DISK_STATE_MOUNTED_TARGET}" "${FM_DISK_STATE_MOUNTPOINT}" >/dev/null 2>&1; then
     FM_OPERATION_LAST_ACTION="alias_synced"
