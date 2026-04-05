@@ -627,6 +627,44 @@ if [[ -n "${FNOS_MOUNT_MANAGER_CHECK_LOADED:-}" ]]; then
 fi
 FNOS_MOUNT_MANAGER_CHECK_LOADED=1
 
+# 在受管区块不一致时输出统一 diff，方便直接看 preview 和目标文件的差异。
+fm_report_managed_block_diff() {
+  local expected_block="$1"
+  local actual_block="$2"
+  local expected_file
+  local actual_file
+  expected_file="$(mktemp)"
+  actual_file="$(mktemp)"
+
+  printf '%s\n' "${expected_block}" > "${expected_file}"
+  printf '%s\n' "${actual_block}" > "${actual_file}"
+
+  if command -v diff >/dev/null 2>&1; then
+    local diff_output
+    diff_output="$(
+      diff -u \
+        --label "local-preview" \
+        --label "target-managed-block" \
+        "${expected_file}" \
+        "${actual_file}" || true
+    )"
+    if [[ -n "${diff_output}" ]]; then
+      fm_log "error" "Managed block diff:"
+      while IFS= read -r line; do
+        printf '[fnos-mount-manager][error] %s\n' "${line}" >&2
+      done <<< "${diff_output}"
+    fi
+  else
+    fm_log "error" "Managed block diff: diff command not available"
+    fm_log "error" "Expected block:"
+    printf '%s\n' "${expected_block}" >&2
+    fm_log "error" "Actual block:"
+    printf '%s\n' "${actual_block}" >&2
+  fi
+
+  rm -f "${expected_file}" "${actual_file}"
+}
+
 # 检查单个渲染产物是否与当前配置匹配，并把异常累加到错误计数里。
 fm_check_rendered_file() {
   local config_path="$1"
@@ -741,6 +779,7 @@ EOF
 
       if [[ "${expected_block}" != "${actual_block}" ]]; then
         fm_log "error" "Managed block in ${target} does not match the local preview"
+        fm_report_managed_block_diff "${expected_block}" "${actual_block}"
         error_count=$(( error_count + 1 ))
       fi
     else
