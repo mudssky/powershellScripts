@@ -18,6 +18,8 @@ if [[ -z "${FNOS_MANAGER_STANDALONE:-}" ]]; then
   source "${SCRIPT_DIR}/commands/status.sh"
   # shellcheck source=linux/fnos/fnos-mount-manager/commands/repair.sh
   source "${SCRIPT_DIR}/commands/repair.sh"
+  # shellcheck source=linux/fnos/fnos-mount-manager/commands/remount.sh
+  source "${SCRIPT_DIR}/commands/remount.sh"
 fi
 
 # 输出统一帮助信息，说明配置路径和常用命令。
@@ -31,6 +33,7 @@ Commands:
   check       Validate config drift and known conflicts
   status      Show current disk and unit status
   repair      Attempt a unified mount repair
+  remount     Move disks back onto the managed mountpoints
   help        Show this help
 EOF
 }
@@ -57,6 +60,9 @@ fm_main() {
       ;;
     repair)
       fm_cmd_repair "$@"
+      ;;
+    remount)
+      fm_cmd_remount "$@"
       ;;
     help | --help | -h)
       fm_show_help

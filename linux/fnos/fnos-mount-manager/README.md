@@ -44,6 +44,9 @@ bash linux/fnos/fnos-mount-manager/fnos-mount-manager.sh apply --target /tmp/fst
 
 # 执行统一修复
 bash linux/fnos/fnos-mount-manager/fnos-mount-manager.sh repair
+
+# 把被 FNOS 挂到型号路径的磁盘重新挂回业务名路径
+bash linux/fnos/fnos-mount-manager/fnos-mount-manager.sh remount
 ```
 
 ## 迁移说明
