@@ -1,0 +1,443 @@
+# shellcheck shell=bash
+
+if [[ -n "${FNOS_MOUNT_MANAGER_COMMON_LOADED:-}" ]]; then
+  return 0
+fi
+FNOS_MOUNT_MANAGER_COMMON_LOADED=1
+
+# 输出统一的管理器日志，方便诊断 generate/apply/check/repair 流程。
+fm_log() {
+  local level="$1"
+  shift
+  printf '[fnos-mount-manager][%s] %s\n' "${level}" "$*"
+}
+
+# 输出错误并终止当前命令。
+fm_die() {
+  fm_log "error" "$*" >&2
+  exit 1
+}
+
+# 去掉字符串前后空白，保证 CSV 选项合并结果稳定。
+fm_trim() {
+  local value="$1"
+  value="${value#"${value%%[![:space:]]*}"}"
+  value="${value%"${value##*[![:space:]]}"}"
+  printf '%s' "${value}"
+}
+
+# 解析当前脚本对应的管理器目录，兼容源码入口、bin 产物和目录内副本。
+fm_detect_manager_home() {
+  local script_path="$1"
+  local script_dir
+  script_dir="$(cd "$(dirname "${script_path}")" && pwd)"
+  local candidates=(
+    "${script_dir}"
+    "${script_dir}/../fnos-mount-manager"
+    "${script_dir}/../linux/fnos/fnos-mount-manager"
+  )
+  local candidate
+
+  for candidate in "${candidates[@]}"; do
+    if [[ -f "${candidate}/disks.example.conf" || -f "${candidate}/build.sh" ]]; then
+      (cd "${candidate}" && pwd)
+      return 0
+    fi
+  done
+
+  printf '%s\n' "${script_dir}"
+}
+
+# 初始化管理器根目录，允许测试通过环境变量覆写。
+fm_init_environment() {
+  local script_path="$1"
+
+  if [[ -n "${FNOS_MANAGER_HOME:-}" ]]; then
+    FM_MANAGER_HOME="${FNOS_MANAGER_HOME}"
+  else
+    FM_MANAGER_HOME="$(fm_detect_manager_home "${script_path}")"
+  fi
+
+  FM_MANAGER_BLOCK_BEGIN="# BEGIN FNOS MOUNT MANAGER"
+  FM_MANAGER_BLOCK_END="# END FNOS MOUNT MANAGER"
+  FM_MANAGER_ENTRY_PATH="$(fm_resolve_absolute_path "${script_path}")"
+}
+
+# 尽量把相对路径转成绝对路径，保证 systemd unit 引用当前入口时稳定可用。
+fm_resolve_absolute_path() {
+  local input_path="$1"
+
+  if command -v realpath >/dev/null 2>&1; then
+    realpath "${input_path}" 2>/dev/null && return 0
+  fi
+
+  if command -v readlink >/dev/null 2>&1; then
+    readlink -f "${input_path}" 2>/dev/null && return 0
+  fi
+
+  if [[ "${input_path}" == /* ]]; then
+    printf '%s\n' "${input_path}"
+    return 0
+  fi
+
+  printf '%s/%s\n' "${PWD}" "${input_path}"
+}
+
+# 返回示例配置文件路径。
+fm_example_config_path() {
+  printf '%s/disks.example.conf\n' "${FM_MANAGER_HOME}"
+}
+
+# 返回本机私有配置文件路径。
+fm_local_config_path() {
+  printf '%s/disks.local.conf\n' "${FM_MANAGER_HOME}"
+}
+
+# 返回示例挂载区块预览文件路径。
+fm_example_fstab_path() {
+  printf '%s/fstab.example\n' "${FM_MANAGER_HOME}"
+}
+
+# 返回本机挂载区块预览文件路径。
+fm_local_fstab_path() {
+  printf '%s/fstab\n' "${FM_MANAGER_HOME}"
+}
+
+# 返回示例 tmpfiles 预览文件路径。
+fm_example_tmpfiles_path() {
+  printf '%s/tmpfiles.example.conf\n' "${FM_MANAGER_HOME}"
+}
+
+# 返回本机 tmpfiles 预览文件路径。
+fm_local_tmpfiles_path() {
+  printf '%s/tmpfiles.conf\n' "${FM_MANAGER_HOME}"
+}
+
+# 返回 systemd unit 默认安装目录，允许测试覆写。
+fm_systemd_unit_dir() {
+  printf '%s\n' "${FNOS_MANAGER_SYSTEMD_UNIT_DIR:-/etc/systemd/system}"
+}
+
+# 返回 reconcile oneshot service 的默认安装路径。
+fm_reconcile_service_path() {
+  printf '%s/fnos-mount-manager-reconcile.service\n' "$(fm_systemd_unit_dir)"
+}
+
+# 返回源码入口路径，便于测试对照源码入口与构建产物。
+fm_source_entry_path() {
+  printf '%s/main.sh\n' "${FM_MANAGER_HOME}"
+}
+
+# 合并逗号分隔的挂载选项，避免重复选项污染生成结果。
+fm_merge_csv_options() {
+  local part
+  local item
+  local -a merged=()
+  local -A seen=()
+
+  for part in "$@"; do
+    [[ -n "${part}" ]] || continue
+    IFS=',' read -r -a items <<< "${part}"
+    for item in "${items[@]}"; do
+      item="$(fm_trim "${item}")"
+      [[ -n "${item}" ]] || continue
+      if [[ -z "${seen["${item}"]+x}" ]]; then
+        seen["${item}"]=1
+        merged+=("${item}")
+      fi
+    done
+  done
+
+  local IFS=','
+  printf '%s' "${merged[*]}"
+}
+
+# 把 LABEL:/UUID: 前缀转换成 fstab 可直接使用的 source spec。
+fm_source_to_spec() {
+  local source="$1"
+  case "${source}" in
+    LABEL:*)
+      printf 'LABEL=%s' "${source#LABEL:}"
+      ;;
+    UUID:*)
+      printf 'UUID=%s' "${source#UUID:}"
+      ;;
+    *)
+      fm_die "Unsupported disk source: ${source}"
+      ;;
+  esac
+}
+
+# 把 LABEL:/UUID: 前缀转换成 /dev/disk/by-* 路径，便于检查设备是否存在。
+fm_source_to_device_path() {
+  local source="$1"
+  local device_root="${FNOS_MANAGER_DEVICE_ROOT:-/dev/disk}"
+  case "${source}" in
+    LABEL:*)
+      printf '%s/by-label/%s' "${device_root}" "${source#LABEL:}"
+      ;;
+    UUID:*)
+      printf '%s/by-uuid/%s' "${device_root}" "${source#UUID:}"
+      ;;
+    *)
+      fm_die "Unsupported disk source: ${source}"
+      ;;
+  esac
+}
+
+# 解析设备软链接到真实块设备路径，方便 findmnt 和占用检测得到一致结果。
+fm_resolve_device_path() {
+  local device_path="$1"
+  if command -v realpath >/dev/null 2>&1 && [[ -e "${device_path}" ]]; then
+    realpath "${device_path}"
+    return 0
+  fi
+  printf '%s\n' "${device_path}"
+}
+
+# 查找指定设备当前已经挂载到的目标路径。
+fm_find_mount_target_for_device() {
+  local device_path="$1"
+  local resolved_device
+  resolved_device="$(fm_resolve_device_path "${device_path}")"
+  local mounted_target=""
+
+  mounted_target="$(findmnt -rn -S "${resolved_device}" -o TARGET 2>/dev/null | head -n 1 || true)"
+  if [[ -n "${mounted_target}" ]]; then
+    fm_decode_findmnt_value "${mounted_target}"
+    return 0
+  fi
+
+  return 0
+}
+
+# 把 findmnt 输出里的转义序列还原成真实路径，避免带空格型号路径被误判成不存在。
+fm_decode_findmnt_value() {
+  local value="$1"
+  printf '%b' "${value}"
+}
+
+# 解析单块受管磁盘的运行时状态。
+# 参数：1=磁盘索引。
+# 返回：通过 FM_DISK_STATE_* 全局变量暴露设备路径、当前目标路径和分类结果。
+fm_resolve_disk_runtime_state() {
+  local index="$1"
+
+  FM_DISK_STATE_NAME="${FM_CONFIG_DISK_NAMES[${index}]}"
+  FM_DISK_STATE_SOURCE="${FM_CONFIG_DISK_SOURCES[${index}]}"
+  FM_DISK_STATE_MOUNTPOINT="${FM_CONFIG_DISK_MOUNTPOINTS[${index}]}"
+  FM_DISK_STATE_MODE="${FM_CONFIG_DISK_MODES[${index}]}"
+  FM_DISK_STATE_DEVICE_PATH="$(fm_source_to_device_path "${FM_DISK_STATE_SOURCE}")"
+  FM_DISK_STATE_DEVICE_EXISTS="no"
+  FM_DISK_STATE_MOUNTED_TARGET=""
+  FM_DISK_STATE_CLASS="not_mounted"
+
+  if [[ -e "${FM_DISK_STATE_DEVICE_PATH}" ]]; then
+    FM_DISK_STATE_DEVICE_EXISTS="yes"
+    FM_DISK_STATE_MOUNTED_TARGET="$(
+      fm_find_mount_target_for_device "${FM_DISK_STATE_DEVICE_PATH}" || true
+    )"
+  fi
+
+  case "${FM_DISK_STATE_DEVICE_EXISTS}:${FM_DISK_STATE_MOUNTED_TARGET}" in
+    no:*)
+      FM_DISK_STATE_CLASS="device_missing"
+      ;;
+    yes:"${FM_DISK_STATE_MOUNTPOINT}")
+      FM_DISK_STATE_CLASS="mounted_expected"
+      ;;
+    yes:*)
+      if [[ -n "${FM_DISK_STATE_MOUNTED_TARGET}" ]]; then
+        FM_DISK_STATE_CLASS="mounted_elsewhere"
+      fi
+      ;;
+  esac
+}
+
+# 判断目标路径是否正好是一个独立挂载点，而不是仅仅位于某个已挂载父文件系统下。
+fm_is_exact_mountpoint() {
+  local mountpoint="$1"
+  local mounted_target
+  mounted_target="$(findmnt -rn -M "${mountpoint}" -o TARGET 2>/dev/null || true)"
+  mounted_target="$(fm_decode_findmnt_value "${mounted_target}")"
+  [[ "${mounted_target}" == "${mountpoint}" ]]
+}
+
+# 读取路径对应的设备号和 inode，用于识别两个目录是否指向同一底层实体。
+# 参数：1=待检测路径。
+# 返回：stdout 输出 "<device>:<inode>"；路径不可读时返回非零。
+fm_path_identity() {
+  local path="$1"
+  stat -Lc '%d:%i' "${path}" 2>/dev/null
+}
+
+# 判断两个路径是否指向同一底层目录，避免对已同步的 bind mount 重复执行挂载。
+# 参数：1=源路径；2=目标路径。
+# 返回：0=同一目录实体；1=不同或任一路径不可识别。
+fm_paths_share_same_inode() {
+  local source_path="$1"
+  local target_path="$2"
+  local source_identity=""
+  local target_identity=""
+
+  source_identity="$(fm_path_identity "${source_path}" || true)"
+  target_identity="$(fm_path_identity "${target_path}" || true)"
+
+  [[ -n "${source_identity}" && "${source_identity}" == "${target_identity}" ]]
+}
+
+# 描述业务名路径当前的 bind alias 状态，供 alias/reconcile 做幂等判断。
+# 参数：1=原始挂载路径；2=业务名路径。
+# 返回：stdout 输出 already_synced、needs_bind 或 occupied。
+fm_describe_bind_alias_state() {
+  local source_path="$1"
+  local alias_path="$2"
+
+  if ! fm_is_exact_mountpoint "${alias_path}"; then
+    printf 'needs_bind\n'
+    return 0
+  fi
+
+  if fm_paths_share_same_inode "${source_path}" "${alias_path}"; then
+    printf 'already_synced\n'
+    return 0
+  fi
+
+  printf 'occupied\n'
+}
+
+# 统一初始化 alias/backfill/reconcile 复用的结果变量，避免跨磁盘串状态。
+fm_reset_operation_result() {
+  FM_OPERATION_LAST_ACTION="unchanged"
+  FM_OPERATION_LAST_REASON=""
+}
+
+# 把当前磁盘配置渲染为 tmpfiles 规则，确保开机前挂载点目录已存在。
+fm_render_tmpfiles_entries() {
+  local i
+  for (( i = 0; i < ${#FM_CONFIG_DISK_MOUNTPOINTS[@]}; i += 1 )); do
+    printf 'd %s 0755 root root -\n' "${FM_CONFIG_DISK_MOUNTPOINTS[${i}]}"
+  done
+}
+
+# 生成 systemd mount/automount unit 名称，优先复用 systemd-escape 以兼容空格路径。
+fm_unit_name_for_path() {
+  local path="$1"
+  local suffix="$2"
+  if command -v systemd-escape >/dev/null 2>&1; then
+    systemd-escape --path "${path}" --suffix="${suffix}"
+    return 0
+  fi
+
+  local escaped="${path#/}"
+  escaped="${escaped//\//-}"
+  printf '%s.%s\n' "${escaped}" "${suffix}"
+}
+
+# 通过 id 检查当前进程是否已经具备 root 权限。
+fm_is_root() {
+  [[ "$(id -u)" -eq 0 ]]
+}
+
+# 在真实系统上优先走 sudo，在测试中允许显式关闭 sudo 以驱动假命令。
+fm_run_privileged() {
+  if fm_is_root || [[ "${FNOS_MANAGER_TEST_NO_SUDO:-0}" == "1" ]]; then
+    "$@"
+    return
+  fi
+
+  if ! command -v sudo >/dev/null 2>&1; then
+    fm_die "sudo is required for privileged operations"
+  fi
+
+  sudo "$@"
+}
+
+# 在任何入口里安全读取文件内容，文件不存在时返回空字符串。
+fm_read_file_or_empty() {
+  local path="$1"
+  if [[ -f "${path}" ]]; then
+    cat "${path}"
+    return 0
+  fi
+  return 0
+}
+
+# 从目标 fstab 中提取当前受管区块，便于 check 比较当前系统状态与本地渲染是否一致。
+fm_extract_managed_block() {
+  local path="$1"
+  [[ -f "${path}" ]] || return 0
+
+  awk -v begin="${FM_MANAGER_BLOCK_BEGIN}" -v end="${FM_MANAGER_BLOCK_END}" '
+    $0 == begin { in_block = 1 }
+    in_block { print }
+    $0 == end { in_block = 0 }
+  ' "${path}"
+}
+
+# 把新的受管区块写回目标 fstab 内容，保留非受管条目不变。
+fm_merge_managed_block() {
+  local source_file="$1"
+  local output_file="$2"
+  local block_content="$3"
+
+  if [[ ! -f "${source_file}" ]]; then
+    printf '%s\n' "${block_content}" > "${output_file}"
+    return 0
+  fi
+
+  awk -v begin="${FM_MANAGER_BLOCK_BEGIN}" -v end="${FM_MANAGER_BLOCK_END}" -v block="${block_content}" '
+    BEGIN {
+      in_block = 0
+      replaced = 0
+    }
+    $0 == begin {
+      if (!replaced) {
+        print block
+        replaced = 1
+      }
+      in_block = 1
+      next
+    }
+    $0 == end {
+      in_block = 0
+      next
+    }
+    !in_block {
+      print
+    }
+    END {
+      if (!replaced) {
+        if (NR > 0) {
+          print ""
+        }
+        print block
+      }
+    }
+  ' "${source_file}" > "${output_file}"
+}
+
+# 把普通文件安全替换到目标路径。真实系统写 /etc/fstab 时通过提权桥接完成写入。
+fm_install_file() {
+  local source_file="$1"
+  local target_file="$2"
+  local target_dir
+  target_dir="$(dirname "${target_file}")"
+
+  if [[ -w "${target_dir}" ]]; then
+    local temp_target
+    temp_target="$(mktemp "${target_file}.tmp.XXXXXX")"
+    cp "${source_file}" "${temp_target}"
+    chmod 0644 "${temp_target}"
+    mv "${temp_target}" "${target_file}"
+    return 0
+  fi
+
+  local temp_target="${target_file}.fnos-manager.tmp"
+  fm_run_privileged sh -c '
+    set -eu
+    cat "$1" > "$2"
+    chmod 0644 "$2"
+    mv "$2" "$3"
+  ' _ "${source_file}" "${temp_target}" "${target_file}"
+}

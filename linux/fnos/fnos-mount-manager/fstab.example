@@ -1,0 +1,7 @@
+# BEGIN FNOS MOUNT MANAGER
+# Managed by fnos-mount-manager
+# Source: disks.example.conf
+LABEL=book /vol00/bookDisk ntfs nofail,uid=1000,gid=1000,umask=022,iocharset=utf8,windows_names,big_writes,x-systemd.device-timeout=60,x-systemd.automount 0 0
+UUID=REPLACE_WITH_DEBUT_UUID /vol00/debutDisk ntfs nofail,uid=1000,gid=1000,umask=022,iocharset=utf8,windows_names,big_writes,x-systemd.device-timeout=60 0 0
+UUID=REPLACE_WITH_REMOVABLE_UUID /vol00/RemovableDisk ntfs nofail,uid=1000,gid=1000,umask=022,iocharset=utf8,windows_names,big_writes,x-systemd.device-timeout=60,x-systemd.automount 0 0
+# END FNOS MOUNT MANAGER

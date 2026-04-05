@@ -331,6 +331,26 @@ function runRootPwshQa(modeValue, sinceRef) {
   runCommand('root-qa-pwsh-changed', pnpmCommand.command, pnpmCommand.args)
 }
 
+function runRootFnosQa(modeValue, sinceRef) {
+  if (modeValue === 'all') {
+    console.log('[turbo:qa] run root qa:fnos (all)')
+    const pnpmCommand = buildPnpmCommand(['run', 'qa:fnos'])
+    runCommand('root-qa-fnos-all', pnpmCommand.command, pnpmCommand.args)
+    return
+  }
+
+  const fnosPathspecs = ['linux/fnos', 'package.json']
+
+  if (!hasPathChanges(fnosPathspecs, sinceRef)) {
+    console.log('[turbo:qa] skip root qa:fnos (no changes)')
+    return
+  }
+
+  console.log('[turbo:qa] run root qa:fnos (changed)')
+  const pnpmCommand = buildPnpmCommand(['run', 'qa:fnos'])
+  runCommand('root-qa-fnos-changed', pnpmCommand.command, pnpmCommand.args)
+}
+
 const sinceRef = mode === 'changed' ? resolveSinceRef() : null
 
 if (mode === 'changed' && sinceRef) {
@@ -344,6 +364,7 @@ if (mode === 'changed' && sinceRef) {
 try {
   runWorkspaceQa(mode, sinceRef)
   runRootPwshQa(mode, sinceRef)
+  runRootFnosQa(mode, sinceRef)
   console.log('[turbo:qa] done')
 } catch (error) {
   if (error instanceof CommandFailedError) {
