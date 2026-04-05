@@ -377,6 +377,24 @@ function runRootPwshQa(modeValue, sinceRef) {
   runPnpm('root-qa-pwsh-changed', ['run', 'qa:pwsh'], { env: qaEnv })
 }
 
+function runRootFnosQa(modeValue, sinceRef) {
+  const fnosPathspecs = ['linux/fnos', 'package.json']
+
+  if (modeValue === 'all') {
+    console.log('[qa] run root qa:fnos (all)')
+    runPnpm('root-qa-fnos-all', ['run', 'qa:fnos'])
+    return
+  }
+
+  if (!hasPathChanges(fnosPathspecs, sinceRef)) {
+    console.log('[qa] skip root qa:fnos (no changes)')
+    return
+  }
+
+  console.log('[qa] run root qa:fnos (changed)')
+  runPnpm('root-qa-fnos-changed', ['run', 'qa:fnos'])
+}
+
 const sinceRef = mode === 'changed' ? resolveSinceRef() : null
 
 if (mode === 'changed' && sinceRef) {
@@ -390,6 +408,7 @@ if (mode === 'changed' && sinceRef) {
 try {
   runWorkspaceQa(mode, sinceRef)
   runRootPwshQa(mode, sinceRef)
+  runRootFnosQa(mode, sinceRef)
   console.log('[qa] done')
 } catch (error) {
   if (error instanceof CommandFailedError) {

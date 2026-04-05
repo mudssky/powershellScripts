@@ -52,6 +52,36 @@ cd powershellScripts/linux
 - **可跳过**: 是
 - **说明**: 通过 Homebrew 安装开发工具，安装 bun、Docker 等
 
+## 5. 管理 FNOS 外接数据盘挂载
+
+- **脚本**: `linux/fnos/fnos-mount-manager/build.sh`
+- **执行方式**: `bash linux/fnos/fnos-mount-manager/build.sh`
+- **前置条件**: 仓库已 clone
+- **可跳过**: 否（仅在需要管理 FNOS 外接盘时）
+- **说明**: 构建 `bin/fnos-mount-manager` 与 `linux/fnos/fnos-mount-manager/fnos-mount-manager.sh` 两个单文件入口
+
+推荐工作流：
+
+```bash
+# 1. 复制示例配置
+cp linux/fnos/fnos-mount-manager/disks.example.conf linux/fnos/fnos-mount-manager/disks.local.conf
+
+# 2. 按当前机器修改 LABEL/UUID
+$EDITOR linux/fnos/fnos-mount-manager/disks.local.conf
+
+# 3. 构建脚本
+bash linux/fnos/fnos-mount-manager/build.sh
+
+# 4. 生成挂载区块预览
+bash linux/fnos/fnos-mount-manager/fnos-mount-manager.sh generate
+
+# 5. 检查漂移和已知冲突
+bash linux/fnos/fnos-mount-manager/fnos-mount-manager.sh check
+
+# 6. 应用到系统
+bash linux/fnos/fnos-mount-manager/fnos-mount-manager.sh apply
+```
+
 ---
 
 PowerShell 已就绪，继续执行跨平台安装：[docs/INSTALL.md](../docs/INSTALL.md)
