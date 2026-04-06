@@ -3,6 +3,7 @@
 当前项目的 shell 配置架构采用模块化片段系统（`.bashrc.d/`），源文件位于 `linux/.bashrc.d/`，通过 `linux/01manage-shell-snippet.sh` symlink 部署到 `~/.bashrc.d/`。`~/.bashrc` 和 `~/.zshrc` 均可加载这些片段。
 
 现状问题：
+
 1. 源文件在 `linux/` 下但 macOS 也在使用，命名产生语义歧义
 2. macOS `01install.sh` 未调用部署工具，全新 macOS 环境下 `~/.bashrc.d/` 可能为空
 3. `fzf-history.sh` 仅 Bash、`zoxide init` 硬编码 `bash`、`ls --color=auto` 与 BSD ls 不兼容、`/dev/tcp` 不支持 Zsh
@@ -13,6 +14,7 @@ macOS 确认使用 Zsh 作为默认 shell，不安装额外的 Bash。
 ## Goals / Non-Goals
 
 **Goals:**
+
 - 将共享 shell 片段提升为平台无关的 `shell/` 顶级目录
 - 支持 `shared.d/`（通用）+ `bash.d/`（Bash only）+ `zsh.d/`（Zsh only）三层分离
 - 修复所有片段的 Zsh 兼容性问题
@@ -20,6 +22,7 @@ macOS 确认使用 Zsh 作为默认 shell，不安装额外的 Bash。
 - 清理 macOS `.zshrc` 中与 `.bashrc.d/` 片段重复的配置
 
 **Non-Goals:**
+
 - 不引入 chezmoi/yadm 等 dotfile 管理器
 - 不修改 PowerShell profile 系统（`profile/` 目录）
 - 不为 macOS 安装 Bash 5
@@ -30,7 +33,7 @@ macOS 确认使用 Zsh 作为默认 shell，不安装额外的 Bash。
 
 ### 1. 目录结构设计
 
-```
+```text
 shell/
 ├── shared.d/           ← 原 linux/.bashrc.d/ 中通用片段（Bash/Zsh 通用）
 │   ├── aliases.sh
@@ -55,6 +58,7 @@ shell/
 ### 2. 部署策略
 
 `deploy.sh` 将：
+
 1. 创建 `~/.bashrc.d/` 目录
 2. symlink `shared.d/*.sh` 到 `~/.bashrc.d/`
 3. 检测当前 shell：
@@ -78,6 +82,7 @@ shell/
 ### 4. macOS `.zshrc` 清理
 
 清理 `macos/config/.zshrc` 中与 `shared.d/` 片段重复的部分：
+
 - `fnm` 初始化已在 `node.sh` 中 → 从 `.zshrc` 移除
 - `pyenv` 初始化不在 `shared.d/` 中 → 保留在 `.zshrc`（或新增 `shared.d/pyenv.sh`，但由于 Linux 侧未使用 pyenv 则保留在 `.zshrc`）
 - Homebrew PATH、Hammerspoon 配置、Ollama 配置 → 保留在 `.zshrc`（macOS 专属）
@@ -86,12 +91,14 @@ shell/
 ### 5. `linux/` 目录残留处理
 
 迁移后 `linux/` 目录保留：
+
 - `02installHomeBrew.sh` — Linux 系统安装脚本
 - `ubuntu/` — Ubuntu 专属配置和安装工具
 - `wsl2/` — WSL2 专属配置
 - `arch/` — Arch Linux 配置
 
 删除：
+
 - `linux/.bashrc.d/` — 已迁移至 `shell/shared.d/`
 - `linux/01manage-shell-snippet.sh` — 已迁移至 `shell/deploy.sh`
 

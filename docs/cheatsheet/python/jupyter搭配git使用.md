@@ -172,9 +172,9 @@ repos:
 1. **package.json scripts**
 
    方便手动运行同步或检查：
-1. nb:sync 用于双向同步，比较时间戳，更新旧的一方
-2. nb:check-sync 一致性检查（不修改文件），忽略元数据检查notebook和py文件是否匹配
-3. nb:hydrate 用于将 notebook_src 中的脚本同步回 notebooks 目录，保留元数据，适用于初次git clone ，只有py文件的情况
+2. nb:sync 用于双向同步，比较时间戳，更新旧的一方
+3. nb:check-sync 一致性检查（不修改文件），忽略元数据检查notebook和py文件是否匹配
+4. nb:hydrate 用于将 notebook_src 中的脚本同步回 notebooks 目录，保留元数据，适用于初次git clone ，只有py文件的情况
 
 可以在项目中创建 `.lab-config/overrides.json` 来固化jupyter lab配置
 
@@ -215,18 +215,18 @@ repos:
 ## 6. 开发工作流总结
 
 1. **打开编辑器**：
-    * 在 VS Code / Jupyter Lab 中打开 `notebooks/xxx.ipynb`。
+   * 在 VS Code / Jupyter Lab 中打开 `notebooks/xxx.ipynb`。
 2. **编写与运行**：
-    * 像平常一样交互式运行代码、查看图表。
-    * 使用 `import` 导入模块时，使用配置好的绝对路径（Python包名 或 Deno `@/`）。
+   * 像平常一样交互式运行代码、查看图表。
+   * 使用 `import` 导入模块时，使用配置好的绝对路径（Python包名 或 Deno `@/`）。
 3. **保存**：
-    * 按下 `Ctrl+S`。
-    * **Jupytext 自动触发**：瞬间更新 `notebook_src/xxx.py` (或 `.ts`)。
+   * 按下 `Ctrl+S`。
+   * **Jupytext 自动触发**：瞬间更新 `notebook_src/xxx.py` (或 `.ts`)。
 4. **提交 Git**：
-    * `git status` 会显示 `notebook_src/xxx.py` 有变更。
-    * `git diff` 查看清晰的代码改动。
-    * `git add notebook_src/` (如果采用流派二，同时也 add notebooks/)。
-    * `git commit`。
+   * `git status` 会显示 `notebook_src/xxx.py` 有变更。
+   * `git diff` 查看清晰的代码改动。
+   * `git add notebook_src/` (如果采用流派二，同时也 add notebooks/)。
+   * `git commit`。
 
 ## 7. 常见问题 (FAQ)
 

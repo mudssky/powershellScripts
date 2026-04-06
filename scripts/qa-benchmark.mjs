@@ -3,6 +3,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { spawnSync } from 'node:child_process'
+import { buildPnpmCommand } from './pnpm-command.mjs'
 
 const args = process.argv.slice(2)
 const outputDirArgIndex = args.findIndex((arg) => arg === '--output-dir')
@@ -66,9 +67,14 @@ function stripAnsi(input) {
 
 function runScenario(scenario) {
   const [command, commandArgs] = scenario.command
+  // 报告里保留逻辑命令名便于横向比较，真正执行时再解析为平台安全的 pnpm 调用方式。
+  const resolvedCommand =
+    command === 'pnpm'
+      ? buildPnpmCommand(commandArgs)
+      : { command, args: commandArgs }
 
   const start = process.hrtime.bigint()
-  const result = spawnSync(command, commandArgs, {
+  const result = spawnSync(resolvedCommand.command, resolvedCommand.args, {
     cwd,
     env: baseEnv,
     encoding: 'utf8',

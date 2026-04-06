@@ -2,6 +2,7 @@
 alwaysApply: false
 globs: profile/**/*
 ---
+
 # 📂 Project Specific Rules (Profile)
 
 ## 1. Criticality

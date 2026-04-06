@@ -35,7 +35,7 @@ func main() {
  // 直接使用第三方库
  color.Green("Hello from Go Script with Dependencies!")
  color.Red("This is running directly without manual compilation.")
- 
+
  fmt.Println("Running...")
 }
 ```
@@ -101,14 +101,14 @@ chmod +x script.sh
 
 1. **`#!/usr/bin/env bash`**: 告诉系统用 Bash 执行。
 2. **`#/// ...`**: 这一行对 Bash 来说是注释（以 `#` 开头），但对我们稍后的“自解析”逻辑至关重要。
-    * Bash 执行时，会忽略这行（因为是注释）。
-    * **但是**，我在代码里并没有直接用 Bash 执行 Go。
-    * **修正原理**：其实这里利用了一个更巧妙的技巧。
-    * Bash 脚本执行第一行 `#!/usr/bin/env bash`。
-    * 第二行代码 `D=$(mktemp -d)...` 被执行。它将**当前文件自身** (`$0`) 复制到临时目录，初始化 module，运行 `go mod tidy` (这一步会自动分析 import 下载依赖)，最后 `go run`。
-    * Go 编译器只会看到 `package main` 及其之后的内容吗？不，它会看到全文件。
-    * **注意**：Go 编译器允许 `//` 注释。上面的 Shell 命令被包裹在 Bash 也就是 Go 的注释里是不行的。
-    * **真正的黑魔法写法**是利用 Go 忽略 Shebang 和 `//` 的特性。
+   * Bash 执行时，会忽略这行（因为是注释）。
+   * **但是**，我在代码里并没有直接用 Bash 执行 Go。
+   * **修正原理**：其实这里利用了一个更巧妙的技巧。
+   * Bash 脚本执行第一行 `#!/usr/bin/env bash`。
+   * 第二行代码 `D=$(mktemp -d)...` 被执行。它将**当前文件自身** (`$0`) 复制到临时目录，初始化 module，运行 `go mod tidy` (这一步会自动分析 import 下载依赖)，最后 `go run`。
+   * Go 编译器只会看到 `package main` 及其之后的内容吗？不，它会看到全文件。
+   * **注意**：Go 编译器允许 `//` 注释。上面的 Shell 命令被包裹在 Bash 也就是 Go 的注释里是不行的。
+   * **真正的黑魔法写法**是利用 Go 忽略 Shebang 和 `//` 的特性。
 
 **修正后的完美 Polyglot 写法 (亲测可用)**：
 

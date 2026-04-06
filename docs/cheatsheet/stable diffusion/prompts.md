@@ -46,7 +46,7 @@
 
 **使用场景**:
 
-```
+```text
 (masterpiece:1.2), beautiful girl, (red dress:1.4), [forest background:0.7]
 // 重点突出“杰作”和“红裙”，同时弱化“森林背景”
 ```
@@ -81,7 +81,7 @@
 
 所有高级语法都可以自由组合，实现更精细的控制。
 
-```
+```text
 [(masterpiece|best quality):1.2], a fantasy creature, {[lion|eagle]:1.3}, [fire:ice:0.5] powers
 ```
 
@@ -99,7 +99,7 @@
 
 **常用负向词**:
 
-```
+```text
 (deformed, distorted, disfigured:1.3), low quality, worst quality, bad anatomy, ugly, extra limbs, missing limbs, mutated hands, extra fingers, signature, watermark, text, blurry
 ```
 
@@ -109,7 +109,7 @@
 
 ### **模板1: 写实风格融合人像**
 
-```
+```text
 // 正向提示词
 (photorealistic:1.2), masterpiece, close-up portrait of a woman, with [blonde|brunette] hair, wearing a {[leather|denim] jacket:1.2}, (cinematic lighting:1.1), soft smile, detailed skin texture
 
@@ -119,7 +119,7 @@
 
 ### **模板2: 奇幻混合生物**
 
-```
+```text
 // 正向提示词
 (epic fantasy art:1.2), masterpiece, a majestic [dragon|wolf] hybrid creature, glowing {[red|purple]:1.1} eyes, standing on a mountain peak, [day:night:0.4], dramatic storm clouds
 

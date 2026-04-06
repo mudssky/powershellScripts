@@ -27,6 +27,7 @@ Profile 核心模块加载（`core/loadModule.ps1`）当前同步加载 6 个 ps
 ### Decision 1: test.psm1 完全移出同步路径
 
 将 `test.psm1` 从 `$coreModules` 列表移除。理由：
+
 - Phase 4 已用 `Get-Command -Name $toolNames -CommandType Application` 替代 `Test-EXEProgram`
 - `wrapper.ps1` 中的 `Test-EXEProgram` 调用在 OnIdle 路径，OnIdle 会全量加载 psutils 覆盖
 - 替代方案「保留加载但标记为可选」增加复杂度无收益
@@ -41,6 +42,7 @@ Profile 核心模块加载（`core/loadModule.ps1`）当前同步加载 6 个 ps
 ### Decision 3: 代理缓存 TTL 从 5 分钟延长到 30 分钟
 
 理由：
+
 - 代理状态在 30 分钟内极少变化
 - 5 分钟 TTL 在频繁开终端时几乎每次都过期
 - 用户主动切换代理时通常会运行 `Set-Proxy` 手动覆盖

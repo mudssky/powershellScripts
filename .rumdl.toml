@@ -1,0 +1,29 @@
+# rumdl 配置 - 根目录（默认规则）
+# 从 .markdownlint.json 迁移而来
+
+[global]
+respect-gitignore = true
+exclude = [
+  "node_modules",
+  "dist",
+  "bin",
+  # 技能不需要校验
+  "SKILL.md"
+]
+disable = [
+  "MD013",   # line-length - 行宽限制过于严格
+  "MD033",   # no-inline-html - HTML 标签有用，保留
+  "MD034",   # no-bare-urls - 裸链接有时更简洁
+  "MD036",   # emphasis-as-heading - .claude/commands 等 AI 工具配置中大量使用强调作为标题
+  "MD040", # fenced-code-language - 允许无语言的代码块,skill等很多都不需要语言
+  "MD041",   # first-line-heading - 首行不强制为标题
+  "MD051",   # no-emphasis-as-heading - 允许强调符号作为标题
+  "MD057",   # no-relative-links-missing - 相对链接指向不存在文件，影响面太大
+]
+
+[MD024]
+allow_different_nesting = true
+
+# 前置标题级别检测时忽略 frontmatter
+[MD025]
+front_matter_title = ""

@@ -1,19 +1,23 @@
 ## 目标
+
 - 用 `docker-compose.yml` 统一管理并启动 `start-container.ps1` 中的各服务，功能等价覆盖：重启策略、日志、数据目录、健康检查、GPU 与现有副本集。
 - 在 Windows 11 + Docker Desktop 环境下可直接使用，路径与变量通过 `.env` 控制。
 
 ## 总体方案
+
 - 在 `config/dockerfiles/compose/` 新增一个统一的 `docker-compose.yml`，为每个服务设置 `profiles`（与 `ServiceName` 对齐）。
 - 新增 `.env` 文件，提供 `DATA_PATH`、`DEFAULT_USER`、`DEFAULT_PASSWORD`、`RESTART_POLICY` 等变量。
 - 改造 `start-container.ps1`：根据 `ServiceName` 注入变量后执行 `docker compose -f config/dockerfiles/compose/docker-compose.yml --profile <ServiceName> up -d`。
 - 保留并复用现有 `mongo-repl.compose.yml` 以支持 `mongodb-replica`；脚本遇到该服务时直接调用它。
 
 ## 目录结构
+
 - `config/dockerfiles/compose/docker-compose.yml`
 - `config/dockerfiles/compose/.env`
 - 复用：`config/dockerfiles/compose/mongo-repl.compose.yml`
 
 ## 参数映射
+
 - `DataPath` → `.env: DATA_PATH`，Compose 中用 `${DATA_PATH}/service/...`
 - `DefaultUser`、`DefaultPassword` → `.env: DEFAULT_USER/DEFAULT_PASSWORD`，分别映射到各服务的环境变量（如 MinIO、Mongo、Postgres）。
 - `RestartPolicy` → Compose `restart: ${RESTART_POLICY:-unless-stopped}`。
@@ -21,6 +25,7 @@
 - Postgres 健康检查 → Compose `healthcheck`。
 
 ## Compose 示例（可直接落地到统一文件）
+
 ```yaml
 version: "3.8"
 services:
@@ -250,11 +255,13 @@ services:
 ```
 
 ## GPU 服务支持
+
 - `kokoro-fastapi-gpu` 需要 NVIDIA 容器工具链。两种实现方式：
   - Compose v2 支持设备预留：在服务下添加 `deploy.resources.reservations.devices`（capabilities: [gpu]），或使用运行时环境变量组合；
   - 若本机 Compose 不支持 GPU 字段，则保留脚本对该服务的 `docker run --gpus all` 启动。
 
 ## `.env` 示例
+
 ```env
 DATA_PATH=C:/docker_data
 DEFAULT_USER=root
@@ -263,21 +270,25 @@ RESTART_POLICY=unless-stopped
 ```
 
 ## 脚本改造要点
+
 - 解析 `ServiceName` → 设置临时环境变量（或写入 `.env`），然后执行：
   - `docker compose -f config/dockerfiles/compose/docker-compose.yml --profile <ServiceName> up -d`
 - `ServiceName = mongodb-replica` 时：
   - 直接执行 `docker compose -p mongo-repl-dev -f config/dockerfiles/compose/mongo-repl.compose.yml up -d`
 
 ## 验证方案
+
 - 语法检查：`docker compose -f ... config`
 - 启动单服务：`docker compose -f ... --profile redis up -d`
 - 停止：`docker compose -f ... --profile redis down`
 - 检查日志与重启策略：`docker inspect <container>` 查看 `LogPath` 与 `RestartPolicy`。
 
 ## 风险与兼容性
+
 - Windows 路径：Docker Desktop 支持 `C:/...` 与 `C:\...`，统一用前者更稳妥。
 - GPU：不同 Compose 版本对 GPU 字段支持差异较大，必要时对 GPU 服务沿用 CLI 方式。
 - 网络：当前脚本未启用自定义网络，Compose 使用默认网络即可，后续如需隔离可增设。
 
 ## 下一步
+
 - 我将按上述方案新增统一 Compose 与 `.env`，并改造 `start-container.ps1` 为 Compose 包装器，逐个服务验证启动与等价行为。请确认后执行。

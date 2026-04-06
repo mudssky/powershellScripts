@@ -19,7 +19,7 @@
 
 ## 相关工具链接
 
-- RAG 评测：<https://github.com/explodinggradients/ragas>
-- LLM Evals 框架：<https://github.com/confident-ai/deepeval>
-- Prompt/回归测试：<https://github.com/promptfoo/promptfoo>
-- 评估与 Trace（LangSmith SDK）：<https://github.com/langchain-ai/langsmith-sdk>
+* RAG 评测：<https://github.com/explodinggradients/ragas>
+* LLM Evals 框架：<https://github.com/confident-ai/deepeval>
+* Prompt/回归测试：<https://github.com/promptfoo/promptfoo>
+* 评估与 Trace（LangSmith SDK）：<https://github.com/langchain-ai/langsmith-sdk>

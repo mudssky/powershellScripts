@@ -5,11 +5,13 @@ Coverage is currently 23.66% across 20 modules. Several modules either lack test
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Reach at least 50% command coverage with stable, deterministic tests.
 - Prioritize modules that provide frequently used utilities.
 - Avoid expanding the test runtime substantially.
 
 **Non-Goals:**
+
 - Achieve 100% coverage.
 - Test third-party tools or network services end-to-end.
 

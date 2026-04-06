@@ -7,7 +7,8 @@
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
     "DISABLE_ERROR_REPORTING": "1",
     "DISABLE_TELEMETRY": "1",
-    "MCP_TIMEOUT": "60000"
+    "MCP_TIMEOUT": "60000",
+    "CLAUDE_CODE_ATTRIBUTION_HEADER": "0"
   },
   "includeCoAuthoredBy": false,
   "permissions": {
@@ -19,7 +20,6 @@
       "KillShell",
       "NotebookEdit",
       "Read",
-      "Task",
       "TodoWrite",
       "WebFetch",
       "WebSearch",

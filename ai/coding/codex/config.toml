@@ -1,9 +1,71 @@
-model = "glm-4.6"
+# 指定供应商
+# model_provider = ""
+# 指定默认模型，思考强度，审查模型默认和会话模型一样
+model = "gpt-5.4"
+model_reasoning_effort = "xhigh"
+personality = "friendly"
+# 手动覆盖模型上下文窗口：gpt-5.4推荐设1050000（1M），解决长对话丢上下文
+model_context_window = 1050000
+# 自动上下文压缩阈值：达到该token数触发历史压缩，建议低于上下文窗口5%-10%
+# 避免上下文溢出，同时保留核心信息，1M窗口推荐900000
+model_auto_compact_token_limit = 900000
+# 单次工具输出token上限：限制大文件/命令输出占用的上下文，推荐40000
+tool_output_token_limit = 40000
+
+# 核心基础配置（full-auto模式默认等于 on-request + workspace-write
+# on-failure进一步开放权限，搭配网络权限开启，应该基本不用审批了
+approval_policy = "on-failure"
+sandbox_mode = "workspace-write"
+# sandbox_mode = "danger-full-access"
+[sandbox_workspace_write]
+network_access = true
+
+
+# 2. 收紧环境变量白名单，避免敏感变量触发审批
+[shell_environment_policy]
+include_only = ["PATH", "HOME"]
+
+[mcp_servers.context7]
+command = "bun"
+args = ["x", "@upstash/context7-mcp@latest"]
+env = { DEFAULT_MINIMUM_TOKENS = "10000" }
+
+[mcp_servers.serena]
+command = "uvx"
+args = [
+    "--from",
+    "git+https://github.com/oraios/serena",
+    "serena",
+    "start-mcp-server",
+    "--context",
+    "codex",
+]
+startup_timeout_sec = 30
+enabled = false
+
+
+[tui]
+status_line = [
+    "model-with-reasoning",
+    "context-remaining",
+    "current-dir",
+    "git-branch",
+    "used-tokens",
+    "codex-version",
+    "context-window-size",
+]
+
+[windows]
+sandbox = "elevated"
+
+[features]
+multi_agent = true
+
+[agents]
+max_threads = 12
+max_depth = 1
+
 [model_providers.z_ai]
 name = "z.ai - GLM Coding Plan"
 base_url = "https://open.bigmodel.cn/api/coding/paas/v4/"
 env_key = "Z_AI_API_KEY"
-
-[profiles.glm_4_6]
-model = "glm-4.6"
-model_provider = "z_ai"

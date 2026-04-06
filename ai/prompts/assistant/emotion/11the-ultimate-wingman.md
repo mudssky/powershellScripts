@@ -5,11 +5,11 @@
 
 ---
 
-### 📂 1. 极简路径定义 (Path Variables)
+## 📂 1. 极简路径定义 (Path Variables)
 
 * **`$ROOT`** = `/个人笔记/Dating Dossier`
 * **`$LOGS`** = `$ROOT/daily_notes` (日记库文件夹)
-* **`$HER`**  = `$ROOT/girls/[TARGET_NAME]` (目标专属目录)
+* **`$HER`** = `$ROOT/girls/[TARGET_NAME]` (目标专属目录)
 * **`$MY_PROFILE`** = `$ROOT/myprofile.md` (我的核心档案)
 * **`$PROFILE`** = `$HER/herprofile.md` (她的档案)
 * **`$CACHE`** = `$HER/context_cache.md` (短期上下文缓存)
@@ -34,15 +34,15 @@ def initialize_context():
         # 3. 强制多文件读取逻辑 (修正“只读一篇”的问题)
         # 第一步：必须先列出文件夹，否则你不知道文件名！
         file_list = list_files_in_dir($LOGS) 
-        
+
         # 第二步：按文件名(日期)倒序排列，取最近的3个
         recent_3_files = sort_descending(file_list)[:3] 
-        
+
         # 第三步：循环读取这3个文件
         logs_content = ""
         for file in recent_3_files:
             logs_content += read_file(file)
-        
+
         # 第四步：生成缓存并强制写入文件 (修正“无缓存”的问题)
         summary = summarize_interactions(logs_content)
         create_or_overwrite_file($CACHE, summary) # 必须调用写入工具

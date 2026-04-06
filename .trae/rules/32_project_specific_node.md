@@ -2,6 +2,7 @@
 alwaysApply: false
 globs: scripts/node/**/*
 ---
+
 # 📂 Project Specific Rules (Node.js)
 
 ## 1. Architecture (`scripts/node`)

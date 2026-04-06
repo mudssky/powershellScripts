@@ -9,11 +9,13 @@ Starship 已在 `apps-config.json` 的 homebrew 条目中注册（`supportOs: ["
 ## Goals / Non-Goals
 
 **Goals:**
+
 - 为 Bash 和 Zsh 提供 Starship prompt 初始化
 - 遵循现有片段系统的约定（`shared.d/` 放通用片段、`command -v` 守卫）
 - 确保加载顺序正确（在 PATH 等环境变量就绪后加载）
 
 **Non-Goals:**
+
 - 不引入 `starship.toml` 自定义配置（使用默认配置）
 - 不为 Bash/Zsh 实现类似 PowerShell 的缓存优化（Starship 原生 init 已足够快）
 - 不修改 PowerShell 侧的 Starship 集成

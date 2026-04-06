@@ -184,7 +184,9 @@ const Button: React.FC<IButtonProps> = ({ className, intent, size, ...props }) =
     {...props} 
   />
 );
-```*   `clsx`: 优雅地处理条件类名。
-*   `tailwind-merge`: 合并并解决 Tailwind 类名冲突（例如，`px-2` 和 `px-4` 同时存在时，它会保留最后一个）。
+```
+
+* `clsx`: 优雅地处理条件类名。
+* `tailwind-merge`: 合并并解决 Tailwind 类名冲突（例如，`px-2` 和 `px-4` 同时存在时，它会保留最后一个）。
 
 ---

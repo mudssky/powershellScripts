@@ -14,9 +14,11 @@
 ## Capabilities
 
 ### New Capabilities
+
 - `pwsh-format-performance`: 定义 PowerShell 格式化的快速执行路径、激进规则集与严格模式切换行为。
 
 ### Modified Capabilities
+
 - (none)
 
 ## Impact

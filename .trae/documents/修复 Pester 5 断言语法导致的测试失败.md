@@ -1,4 +1,5 @@
 ## 原因与定位
+
 - 报错来源：Terminal#398-463 显示 Pester 5 不再支持无短横线的 Legacy Should 语法。
 - 失败用例位置：
   - c:\home\env\powershellScripts\psutils\tests\profile_windows.Tests.ps1:18,19,31,32 使用了 `Should BeGreaterThan/BeLessThan`。
@@ -6,6 +7,7 @@
 - 现有配置：c:\home\env\powershellScripts\PesterConfiguration.ps1 已使用 Pester v5 的 `New-PesterConfiguration`。
 
 ## Plan
+
 - [ ] Impact Analysis (影响面分析):
   - 修改文件：`psutils/tests/profile_windows.Tests.ps1`, `psutils/tests/profile_unix.Tests.ps1`
   - 潜在风险：极低，仅断言语法修复，不改变测试逻辑与阈值
@@ -23,6 +25,7 @@
     - 总测试数与覆盖率稳定，无新增失败
 
 ## 变更预览（示例）
+
 - `c:\home\env\powershellScripts\psutils\tests\profile_windows.Tests.ps1`
   - 18: `$ms | Should -BeGreaterThan 0`
   - 19: `$ms | Should -BeLessThan 10000`
@@ -31,5 +34,6 @@
 - `c:\home\env\powershellScripts\psutils\tests\profile_unix.Tests.ps1` 同步替换上述 4 行。
 
 ## 备注
+
 - 参考：Pester v5 迁移指南 https://pester.dev/docs/v5/migrations/v3-to-v4
 - 本次仅为语法迁移，不调整性能阈值与测试结构。

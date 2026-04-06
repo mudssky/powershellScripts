@@ -167,12 +167,12 @@ fireEvent.change(screen.getByPlaceholderText('Email'), {
 ### 5. ⚠️ 避坑指南
 
 1. **Async Server Components (Page.tsx)**:
-    * **不要测！** Vitest 渲染 `async` 组件非常麻烦。
-    * **策略**：把 Page 里的内容拆分成 `<ClientView data={data} />`，然后去测 `<ClientView />`。
+   * **不要测！** Vitest 渲染 `async` 组件非常麻烦。
+   * **策略**：把 Page 里的内容拆分成 `<ClientView data={data} />`，然后去测 `<ClientView />`。
 2. **`window is not defined`**:
-    * 确保 `vitest.config.ts` 里设置了 `environment: 'jsdom'`。
+   * 确保 `vitest.config.ts` 里设置了 `environment: 'jsdom'`。
 3. **Alias (`@/components`) 报错**:
-    * 确保 `vitest.config.ts` 里加了 `plugins: [tsconfigPaths()]`。
+   * 确保 `vitest.config.ts` 里加了 `plugins: [tsconfigPaths()]`。
 
 ### 6. 配置备忘 (Setup)
 

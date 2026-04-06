@@ -13,9 +13,11 @@
 ## Capabilities
 
 ### New Capabilities
+
 - `workspace-qa-standardization`: 定义 workspace 子项目统一 QA 脚本契约、提交阶段检查策略与测试颜色环境基线。
 
 ### Modified Capabilities
+
 - (none)
 
 ## Impact

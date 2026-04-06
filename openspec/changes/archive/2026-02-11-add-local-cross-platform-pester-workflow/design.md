@@ -5,12 +5,14 @@ Current local Pester validation is fragmented: Windows developers may use host `
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Define a single, repeatable local workflow for Linux Pester execution via containers on both Windows and macOS.
 - Preserve host `pwsh` runs for platform-specific behavior checks.
 - Provide clear fast/full verification paths that map to existing Pester run modes.
 - Ensure host and container runs can execute concurrently without output collisions.
 
 **Non-Goals:**
+
 - Replacing CI matrix testing.
 - Rewriting existing Pester test cases or changing assertion semantics.
 - Supporting Windows PowerShell 5.1.
@@ -18,6 +20,7 @@ Current local Pester validation is fragmented: Windows developers may use host `
 ## Decisions
 
 ### 1) Standardize Linux local verification on containers
+
 - Decision: Use a Docker-based Linux test entrypoint (compose service + documented command) as the official Linux local path.
 - Rationale: Works consistently on Windows and macOS; avoids WSL-only coupling.
 - Alternatives considered:
@@ -25,18 +28,21 @@ Current local Pester validation is fragmented: Windows developers may use host `
   - Ad-hoc `docker run` snippets: rejected due to inconsistent parameters and discoverability.
 
 ### 2) Keep host verification as a first-class step
+
 - Decision: Keep host `pwsh` test commands as the primary way to validate host-specific behavior (especially `windowsOnly`-tagged tests on Windows).
 - Rationale: Linux containers cannot replace host platform semantics.
 - Alternatives considered:
   - Linux-only local strategy: rejected due to incomplete coverage of host behavior.
 
 ### 3) Define collision-safe output strategy
+
 - Decision: Require isolation for parallel host/container runs, either by separate work directories (worktree) or distinct result output paths.
 - Rationale: Current fixed result filename can collide during parallel runs.
 - Alternatives considered:
   - Serial-only execution: rejected because it slows local feedback.
 
 ### 4) Publish fast/full runbook aligned to existing modes
+
 - Decision: Reuse existing fast/full/serial concepts and map them to host + container commands.
 - Rationale: Reduces cognitive load and preserves existing team habits.
 

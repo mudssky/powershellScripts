@@ -14,9 +14,11 @@ Local Pester runs currently depend on each developer manually assembling platfor
 ## Capabilities
 
 ### New Capabilities
+
 - `local-cross-platform-pester-testing`: Standardizes local Pester validation across host and Linux container environments, including command conventions and output isolation requirements.
 
 ### Modified Capabilities
+
 - (none)
 
 ## Impact

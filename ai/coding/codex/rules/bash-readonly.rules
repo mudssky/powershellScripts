@@ -1,0 +1,14 @@
+# Direct, read-only shell commands for local inspection.
+# Do not put write operations, complex shell wrappers, or process-launching
+# commands in this file.
+
+prefix_rule(pattern=["rg"], decision="allow")
+prefix_rule(pattern=["grep"], decision="allow")
+prefix_rule(pattern=["ls"], decision="allow")
+prefix_rule(pattern=["find"], decision="allow")
+prefix_rule(pattern=["cat"], decision="allow")
+prefix_rule(pattern=["sed"], decision="allow")
+prefix_rule(pattern=["head"], decision="allow")
+prefix_rule(pattern=["tail"], decision="allow")
+prefix_rule(pattern=["pwd"], decision="allow")
+prefix_rule(pattern=["wc"], decision="allow")

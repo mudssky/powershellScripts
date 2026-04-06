@@ -6,6 +6,7 @@ topic: aliyun-oss-upload-script
 # 阿里云 OSS 单文件上传脚本选型
 
 ## What We're Building
+
 这次要明确的不是“先写哪段代码”，而是先决定这个阿里云上传脚本应该用什么形态落地，以及它在当前仓库里的合理边界。
 
 当前目标已经比较清楚：
@@ -18,6 +19,7 @@ topic: aliyun-oss-upload-script
 因此，这次要产出的应当是一个放在 `scripts/` 下的单文件上传脚本，并且它的设计前提是“最小可用、可直接执行、依赖透明”，而不是一步做到批量上传、分片续传或复杂容错。
 
 ## Why This Approach
+
 仓库里现有材料其实给了很强的方向性信号：
 
 - `scripts/python/README.md` 已经明确把 Python 方案定义为“跨平台自动化脚本”，并推荐 `PEP 723 + uv`。
@@ -39,12 +41,14 @@ topic: aliyun-oss-upload-script
 使用 `bash + curl + openssl` 实现 OSS 单文件上传，把脚本控制在单文件内，依赖限定为大多数 Linux / macOS 环境本就常见的命令行工具。
 
 **Pros:**
+
 - 最符合“只依赖系统工具”的要求。
 - 单文件脚本形态自然，放进 `scripts/` 即可直接使用。
 - 对当前“单文件、偶尔上传、失败手动重试”的目标最省事。
 - 后续写文档时也最容易和 `docs/跨平台单文件脚本最佳实践.md` 的结论保持一致。
 
 **Cons:**
+
 - 一旦需求升级，字符串拼接、签名和错误处理会更快变得难维护。
 - 对输入校验、结构化日志、复杂重试策略不友好。
 - 如果未来要支持目录上传、并发或 multipart upload，重构成本会明显上升。
@@ -56,11 +60,13 @@ topic: aliyun-oss-upload-script
 使用单文件 Python 脚本处理签名与 HTTP 请求，依赖尽量收敛到标准库，或者通过 `PEP 723 + uv` 管理第三方库。
 
 **Pros:**
+
 - 代码结构、参数处理和错误处理会更清晰。
 - 如果以后要演进到批量上传、重试、数据校验，扩展性更强。
 - 更容易补测试和做长期维护。
 
 **Cons:**
+
 - 与“只依赖系统工具”的前提不一致。
 - 对当前极简需求来说，运行时前提本身就成了额外成本。
 - 在 Linux / macOS 下，它并没有为这次最小能力带来决定性收益。
@@ -72,10 +78,12 @@ topic: aliyun-oss-upload-script
 保留一个 Bash 入口，但把核心签名或上传逻辑委托给 Python、Node 或其他实现，再由入口脚本做参数透传和环境适配。
 
 **Pros:**
+
 - 入口使用方式仍然像 shell 脚本。
 - 理论上可以兼顾 CLI 体验和更强的内部实现。
 
 **Cons:**
+
 - 同时承担两套运行时心智负担。
 - 与“单文件”和“少依赖”目标方向相反。
 - 对当前极简需求明显属于过度设计。
@@ -83,6 +91,7 @@ topic: aliyun-oss-upload-script
 **Best when:** 你已经确认未来会快速扩展能力，但短期内又必须保留 shell 入口兼容性。
 
 ## Recommendation
+
 推荐 **Approach A: 纯 Bash 方案**。
 
 原因并不复杂：当前任务最重要的不是语言表达能力，而是约束贴合度。你已经把需求主动收窄到了 `OSS + Linux/macOS + 极简上传 + 只依赖系统工具`，这几乎就是在为 Bash 方案创造最合适的落点。
@@ -96,6 +105,7 @@ topic: aliyun-oss-upload-script
 这次的关键不是“永远不用 Python”，而是“现在没有足够理由为了一个极简上传脚本提前引入 Python”。
 
 ## Key Decisions
+
 - 当前版本选择 `bash + curl + openssl`，不采用 Python 作为首发实现。
 - 首发目标限定为 `OSS` 单文件上传，不把目录上传、分片、续传、并发放进第一版范围。
 - 运行环境以 `Linux / macOS` 为主，不为 Windows 原生执行体验专门设计。
@@ -104,6 +114,7 @@ topic: aliyun-oss-upload-script
 - 未来只有在需求升级到“批量上传、目录同步、分片上传、重试恢复、复杂校验”等级时，才重新评估是否迁移到 Python。
 
 ## Resolved Questions
+
 - 上传目标是否是 OSS 对象存储？
   - 是，明确为 `OSS`，不考虑阿里云盘或其他泛化 OpenAPI。
 - 是否要求 Windows / Linux / macOS 三端统一？
@@ -116,7 +127,9 @@ topic: aliyun-oss-upload-script
   - 选择纯 Bash 方案。
 
 ## Open Questions
+
 - 暂无。
 
 ## Next Steps
+
 -> 进入 `/ce:plan`，把 Bash 版 OSS 上传脚本拆成可执行的实现计划，包括参数边界、最小依赖、脚本位置、文档位置，以及后续验证方式。

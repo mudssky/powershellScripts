@@ -12,7 +12,7 @@ A comprehensive cross-platform development environment toolkit centered around P
 
 This is a **pnpm monorepo** (`pnpm-workspace.yaml`) with Turborepo orchestration. The codebase spans multiple languages but has a clear layering:
 
-```
+```text
 Source scripts (scripts/pwsh/, scripts/node/src/, scripts/python/)
         |
         v
@@ -31,7 +31,7 @@ Shim generation (Manage-BinScripts.ps1, generate-bin.ts)
 
 ## Project Structure
 
-```
+```text
 root/
 ├── bin/                          # Auto-generated shims (gitignored, DO NOT edit)
 ├── scripts/
@@ -168,6 +168,7 @@ cd scripts/node && pnpm test
 ```
 
 Pester configuration is in `PesterConfiguration.ps1` with environment-driven modes:
+
 - `PWSH_TEST_MODE`: `full` (default) | `fast` | `serial` | `debug` | `qa`
 - `PWSH_TEST_VERBOSE`: set to `1` for detailed output
 - `PWSH_TEST_ENABLE_COVERAGE`: optional explicit coverage override (`true`/`false`)
@@ -198,6 +199,9 @@ pnpm check:pwsh:rs               # check mode (non-zero exit if changes needed)
 
 # Biome (JS/TS)
 pnpm format:biome
+
+# Markdown (via rumdl)
+pnpm format:md
 
 # Python (via uvx ruff)
 pnpm format:python
@@ -235,6 +239,7 @@ For pwsh-related changes under `scripts/pwsh/**`, `profile/**`, `psutils/**`, `t
 ### Per-workspace QA commands
 
 Each workspace package defines its own `qa` script:
+
 - **scripts/node**: `typecheck:fast && check && test:fast`
 - **projects/clis/json-diff-tool**: `typecheck:fast && check && test:fast`
 - **projects/clis/pwshfmt-rs**: `cargo check && cargo clippy && cargo test`
@@ -255,6 +260,7 @@ Rspack auto-discovers entries from `src/`: top-level `.ts` files and directories
 ### PowerShell
 
 - **Header template**:
+
   ```powershell
   #!/usr/bin/env pwsh
   [CmdletBinding(SupportsShouldProcess = $true)]
@@ -262,6 +268,7 @@ Rspack auto-discovers entries from `src/`: top-level `.ts` files and directories
   Set-StrictMode -Version Latest
   $ErrorActionPreference = 'Stop'
   ```
+
 - **Functions**: Must use `Verb-Noun` naming (e.g., `Get-SystemInfo`)
 - **Paths**: Always use `Join-Path`, never string concatenation like `"$root\bin"`
 - **Documentation**: Every script must have `.SYNOPSIS`, `.DESCRIPTION`, `.PARAMETER`, `.EXAMPLE`
@@ -298,8 +305,10 @@ Rspack auto-discovers entries from `src/`: top-level `.ts` files and directories
 ## Pre-commit Hooks
 
 Configured via Husky + lint-staged (`lint-staged.config.js`):
+
 - `*.{ps1,psm1,psd1}`: PowerShell formatting via `Format-PowerShellCode.ps1`
 - `*.{js,jsx,ts,tsx,css,html,json,jsonc}`: `biome check --write`
+- `*.md`: `rumdl check --fix` (Markdown lint + format)
 - `*.py`: `uvx ruff check --fix` + `uvx ruff format`
 - `*.lua`: `stylua`
 - `*.ipynb`: `nbstripout`
@@ -307,6 +316,7 @@ Configured via Husky + lint-staged (`lint-staged.config.js`):
 ## CI (GitHub Actions)
 
 **Workflow: `.github/workflows/test.yml`** (triggers on push/PR to master):
+
 1. **Pester tests**: Matrix across `ubuntu-latest`, `windows-latest`, `macos-latest`
 2. **Node Vitest**: Ubuntu only, uses pnpm cache, outputs JUnit XML report
 3. Both jobs publish test reports via `dorny/test-reporter`
@@ -326,6 +336,7 @@ The profile system (`profile/`) directly affects shell startup performance:
 ## PSUtils Module
 
 Module manifest at `psutils/psutils.psd1` with 18 nested sub-modules. Key patterns:
+
 - All functions are explicitly listed in `FunctionsToExport` (no wildcards)
 - Import: `Import-Module ./psutils/psutils.psd1`
 - Adding a function: create in `modules/*.psm1` -> add to `FunctionsToExport` in `.psd1` -> add test in `tests/`

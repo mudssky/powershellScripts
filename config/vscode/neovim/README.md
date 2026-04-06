@@ -24,7 +24,7 @@
 
 ## 📁 项目结构
 
-```
+```text
 neovim/
 ├── init.lua                 # 主配置文件入口
 ├── lua/
@@ -62,7 +62,7 @@ neovim/
 
 1. **安装 VSCode Neovim 插件**
 
-   ```
+   ```text
    在 VSCode 扩展市场搜索并安装 "VSCode Neovim"
    ```
 
@@ -71,10 +71,10 @@ neovim/
    ```powershell
    # 使用 Chocolatey
    choco install neovim
-   
+
    # 或使用 Scoop
    scoop install neovim
-   
+
    # 或使用 Winget
    winget install Neovim.Neovim
    ```
@@ -102,10 +102,10 @@ vim 默认的一些ctrl快捷键，不如vscode原生的好用，更习惯。
    ```powershell
    # 在当前目录运行脚本
    .\setup-neovim-config.ps1
-   
+
    # 或指定源文件路径
    .\setup-neovim-config.ps1 -SourceConfig "path\to\vscode_init.lua"
-   
+
    # 强制覆盖现有配置
    .\setup-neovim-config.ps1 -Force
    ```
@@ -116,7 +116,7 @@ vim 默认的一些ctrl快捷键，不如vscode原生的好用，更习惯。
    # 创建配置目录
    $configDir = "$env:LOCALAPPDATA\nvim"
    New-Item -ItemType Directory -Path $configDir -Force
-   
+
    # 创建软链接
    New-Item -ItemType SymbolicLink -Path "$configDir\init.lua" -Target "vscode_init.lua"
    ```
@@ -152,7 +152,7 @@ vim 默认的一些ctrl快捷键，不如vscode原生的好用，更习惯。
 
 **使用场景**:
 
-```
+```text
 1. 复制一段文本 (yy)
 2. 选择要替换的文本
 3. 按 gr 即可替换
@@ -170,7 +170,7 @@ vim 默认的一些ctrl快捷键，不如vscode原生的好用，更习惯。
 
 **示例**:
 
-```
+```text
 原文本: hello world
 按键: ysiw"     -> "hello" world
 按键: ds"        -> hello world
@@ -205,7 +205,7 @@ vim 默认的一些ctrl快捷键，不如vscode原生的好用，更习惯。
 
 **使用示例**:
 
-```
+```text
 daf  -> 删除整个函数
 vif  -> 选中函数内容
 cio  -> 修改代码块内容
@@ -286,7 +286,7 @@ cio  -> 修改代码块内容
 
 1. **文件导航**
 
-   ```
+   ```text
    <leader>ff  -> 快速打开文件
    <leader>fg  -> 全局搜索内容
    <leader>fs  -> 搜索符号
@@ -294,7 +294,7 @@ cio  -> 修改代码块内容
 
 2. **代码编辑**
 
-   ```
+   ```text
    s + 字符     -> 快速跳转
    ys + 动作 + 符号 -> 添加包围符号
    gcc         -> 切换注释
@@ -303,7 +303,7 @@ cio  -> 修改代码块内容
 
 3. **代码导航**
 
-   ```
+   ```text
    gd          -> 跳转到定义
    gr          -> 查看引用
    gi          -> 跳转到实现
@@ -311,7 +311,7 @@ cio  -> 修改代码块内容
 
 4. **界面管理**
 
-   ```
+   ```text
    <leader>e   -> 切换文件树
    <leader>t   -> 切换终端
    <leader>g   -> 切换 Git 面板
@@ -321,7 +321,7 @@ cio  -> 修改代码块内容
 
 #### 1. 文本对象组合
 
-```
+```text
 daf    -> 删除整个函数
 vif    -> 选择函数内容
 cio    -> 修改代码块内容
@@ -330,7 +330,7 @@ yao    -> 复制整个代码块
 
 #### 2. 包围符号操作
 
-```
+```text
 # 给单词添加引号
 ysiw"   -> "word"
 
@@ -346,7 +346,7 @@ ds"     -> "word" 变成 word
 
 #### 3. 快速跳转技巧
 
-```
+```text
 # 跳转到指定字符
 s + t   -> 跳转到下一个 't'
 
@@ -438,11 +438,13 @@ end
 ## 📚 参考资源
 
 ### 官方文档
+
 - [VSCode Neovim 插件文档](https://github.com/vscode-neovim/vscode-neovim)
 - [Neovim 官方文档](https://neovim.io/doc/)
 - [Lazy.nvim 文档](https://lazy.folke.io/)
 
 ### 插件文档
+
 - [Flash.nvim 文档](https://github.com/folke/flash.nvim)
 - [nvim-surround 文档](https://github.com/kylechui/nvim-surround)
 - [Comment.nvim 文档](https://github.com/numToStr/Comment.nvim)
@@ -456,6 +458,7 @@ end
 欢迎提交 Issue 和 Pull Request 来改进这个配置！
 
 ### 贡献指南
+
 1. Fork 本项目
 2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
 3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)

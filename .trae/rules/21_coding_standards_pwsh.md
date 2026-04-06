@@ -2,6 +2,7 @@
 alwaysApply: false
 globs: *.ps1,*.psm1
 ---
+
 # 🛡️ Coding Standards (PowerShell)
 
 ## 1. Naming Conventions

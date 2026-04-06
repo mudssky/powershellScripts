@@ -61,6 +61,7 @@ rule-loader install --target claude --yes
 | `--yes` | `-y` | 自动确认变更 (跳过 Diff 确认) | `false` |
 
 **特性**:
+
 * **智能合并**: 读取现有配置，合并新增的 Hooks，避免覆盖用户已有配置。
 * **Diff 预览**: 在应用更改前显示 JSON Diff，让用户确认。
 * **多目标支持**: 支持同时配置多个 AI 助手。

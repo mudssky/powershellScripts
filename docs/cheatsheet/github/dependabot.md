@@ -121,7 +121,7 @@ open-pull-requests-limit: 10
       # 忽略 React 的主版本更新 (如 18 -> 19)
       - dependency-name: "react"
         update-types: ["version-update:semver-major"]
-      
+
       # 完全忽略某个包
       - dependency-name: "problematic-package"
 ```

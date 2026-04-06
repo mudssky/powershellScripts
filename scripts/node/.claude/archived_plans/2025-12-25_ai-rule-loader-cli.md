@@ -7,6 +7,7 @@
 将现有的 `load-trae-rules.ts` 脚本改造为专业的 CLI 工具，用于加载 AI 编码工具（如 Trae、Claude Code）的项目规则。
 
 **核心需求**：
+
 1. 命令行接口：使用 Commander.js 提供友好的参数设计
 2. 正确解析 Trae 规则：
    - 支持 `globs` 复数字段（逗号分隔或数组）
@@ -18,9 +19,11 @@
 ### 架构决策
 
 #### 1. 设计定位
+
 这是一个**专门为 AI 编码工具设计的规则加载器**，**不需要**支持 ESLint、Biome 等传统代码检查工具。
 
 **专注范围**：
+
 - 加载 Trae 风格的 Markdown 规则文件
 - 输出对 Claude/Cursor 等 AI 工具友好的格式
 - 支持按文件类型匹配规则
@@ -29,7 +32,7 @@
 
 采用单文件打包模式，在 `src` 下创建独立目录：
 
-```
+```text
 scripts/node/
 ├── src/
 │   ├── rule-loader/              # AI 规则加载器工具（单文件打包入口）
@@ -44,6 +47,7 @@ scripts/node/
 ```
 
 **为什么这样设计**：
+
 - 符合项目的 Rspack 自动打包流程（每个目录 → 单个 .cjs 文件）
 - 模块化结构便于维护，但打包为单文件便于分发
 - 保留原脚本确保向后兼容
@@ -76,6 +80,7 @@ interface TraeRule {
 #### 4. 关键逻辑实现
 
 **处理 `globs` 复数字段**：
+
 ```typescript
 function extractMatchPatterns(metadata: TraeRuleMetadata): string[] | undefined {
   const patterns = metadata.globs ?? metadata.glob;
@@ -89,12 +94,14 @@ function extractMatchPatterns(metadata: TraeRuleMetadata): string[] | undefined 
 ```
 
 **默认 alwaysApply 逻辑**：
+
 ```typescript
 // 无 frontmatter 或未指定 alwaysApply 时，默认为 true
 const alwaysApply = metadata.alwaysApply ?? true;
 ```
 
 **宽松 YAML 解析**：
+
 - 支持无引号的 glob 模式（如 `*.js,*.ts`）
 - 布尔值自动转换（true/false）
 - 逗号分隔自动转换为数组
@@ -111,6 +118,7 @@ rule-loader [选项]
 ```
 
 **使用示例**：
+
 ```bash
 # 加载所有规则（Markdown 格式）
 rule-loader
@@ -126,7 +134,7 @@ rule-loader --format json
 
 保持与原脚本完全一致的输出格式：
 
-```
+```text
 === 🚨 CRITICAL GLOBAL RULES (MUST FOLLOW) ===
 
 ### GLOBAL RULE (00_core_constitution.md):
@@ -150,6 +158,7 @@ Claude, please READ the specific rule file using `Read` tool if your task matche
 | minimatch 类型定义重复 | 项目已提供类型定义，@types/minimatch 仅为 stub |
 
 **依赖关系**：
+
 - 需要安装：`commander`、`minimatch`
 - 已有依赖：`fast-glob`、`gray-matter`
 - 可选依赖：`@types/minimatch`（已废弃，minimatch 自带类型）
@@ -291,6 +300,7 @@ Claude, please READ the specific rule file using `Read` tool if your task matche
 ### 需要修改的文件 (共 2 个)
 
 1. `package.json` - 添加依赖：
+
    ```json
    {
      "dependencies": {
@@ -314,6 +324,7 @@ Claude, please READ the specific rule file using `Read` tool if your task matche
 **当前进度**: ✅ **所有步骤已完成！**
 
 **完成情况总结**:
+
 - ✅ Step 1-7: 环境准备和所有代码实现
 - ✅ Step 8.1-8.5: 构建验证、功能测试、类型检查、代码风格检查、单元测试（49 个测试全部通过）
 - ✅ Step 9.1-9.3: 完成验证（输出格式、frontmatter 处理、构建产物）

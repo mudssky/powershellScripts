@@ -3,6 +3,7 @@
 ## 1. 常用 CLI 命令
 
 **服务管理 (Systemd)**
+
 ```bash
 systemctl start nginx       # 启动
 systemctl stop nginx        # 停止
@@ -13,6 +14,7 @@ systemctl enable nginx      # 开机自启
 ```
 
 **Nginx 二进制命令**
+
 ```bash
 nginx -t                    # 测试配置文件语法是否正确 (非常重要！)
 nginx -T                    # 测试配置并打印出解析后的完整配置
@@ -24,16 +26,18 @@ nginx -V                    # 查看版本及编译参数 (查看安装了哪些
 ```
 
 **文件路径 (常见默认值)**
-*   **主配置文件**: `/etc/nginx/nginx.conf`
-*   **子配置文件目录**: `/etc/nginx/conf.d/` 或 `/etc/nginx/sites-enabled/`
-*   **日志目录**: `/var/log/nginx/`
-*   **默认 Web 根目录**: `/usr/share/nginx/html` 或 `/var/www/html`
+
+* **主配置文件**: `/etc/nginx/nginx.conf`
+* **子配置文件目录**: `/etc/nginx/conf.d/` 或 `/etc/nginx/sites-enabled/`
+* **日志目录**: `/var/log/nginx/`
+* **默认 Web 根目录**: `/usr/share/nginx/html` 或 `/var/www/html`
 
 ---
 
 ## 2. 基础 HTTP 服务配置
 
 **静态网站服务器**
+
 ```nginx
 server {
     listen 80;
@@ -57,6 +61,7 @@ server {
 ## 3. 反向代理 (Reverse Proxy)
 
 **基础反向代理 (转发到后端应用)**
+
 ```nginx
 server {
     listen 80;
@@ -64,7 +69,7 @@ server {
 
     location / {
         proxy_pass http://localhost:3000; # 转发目标
-        
+
         # 传递客户端真实 IP 和头部信息
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -75,6 +80,7 @@ server {
 ```
 
 **WebSocket 代理支持**
+
 ```nginx
 location /ws/ {
     proxy_pass http://localhost:8080;
@@ -89,12 +95,13 @@ location /ws/ {
 ## 4. 负载均衡 (Load Balancing)
 
 **配置 Upstream**
+
 ```nginx
 upstream backend_servers {
     # 负载均衡策略 (默认是轮询)
     # ip_hash;                 # 根据 IP 哈希 (保持会话)
     # least_conn;              # 最少连接数优先
-    
+
     server 10.0.0.1:8080 weight=3; # 权重越高，流量越大
     server 10.0.0.2:8080;
     server 10.0.0.3:8080 backup;   # 备用节点 (仅当其他节点挂掉时启用)
@@ -115,6 +122,7 @@ server {
 ## 5. SSL/HTTPS 配置
 
 **启用 HTTPS 并强制跳转**
+
 ```nginx
 # 1. 强制 HTTP 跳转到 HTTPS
 server {
@@ -135,7 +143,7 @@ server {
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers HIGH:!aNULL:!MD5;
     ssl_prefer_server_ciphers on;
-    
+
     location / {
         root /var/www/html;
     }
@@ -147,6 +155,7 @@ server {
 ## 6. 重定向与重写 (Redirect & Rewrite)
 
 **常用跳转**
+
 ```nginx
 # 301 永久重定向 (SEO 友好)
 return 301 https://new-domain.com$request_uri;
@@ -156,6 +165,7 @@ return 302 /maintenance.html;
 ```
 
 **Rewrite 规则**
+
 ```nginx
 # 将 /old-page.html 重写为 /new-page
 rewrite ^/old-page\.html$ /new-page permanent;
@@ -172,13 +182,14 @@ if ($host ~* ^www\.(.*)) {
 
 优先级从高到低：
 
-1.  `=`  : 精确匹配 (停止搜索)
-2.  `^~` : 前缀匹配 (如果匹配，停止搜索正则)
-3.  `~`  : 正则匹配 (区分大小写)
-4.  `~*` : 正则匹配 (不区分大小写)
-5.  `/`  : 通用前缀匹配
+1. `=` : 精确匹配 (停止搜索)
+2. `^~` : 前缀匹配 (如果匹配，停止搜索正则)
+3. `~` : 正则匹配 (区分大小写)
+4. `~*` : 正则匹配 (不区分大小写)
+5. `/` : 通用前缀匹配
 
 **示例：**
+
 ```nginx
 location = / {
     # 只匹配 /
@@ -203,11 +214,13 @@ location / {
 
 **隐藏版本号**
 在 `http` 块中添加：
+
 ```nginx
 server_tokens off;
 ```
 
 **IP 黑白名单**
+
 ```nginx
 location /admin/ {
     allow 192.168.1.0/24; # 允许内网
@@ -216,11 +229,12 @@ location /admin/ {
 ```
 
 **跨域设置 (CORS)**
+
 ```nginx
 location /api/ {
     add_header 'Access-Control-Allow-Origin' '*';
     add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS';
-    
+
     if ($request_method = 'OPTIONS') {
         return 204;
     }
@@ -228,6 +242,7 @@ location /api/ {
 ```
 
 **禁止特定文件访问**
+
 ```nginx
 location ~ /\.ht {
     deny all;
@@ -253,15 +268,17 @@ location ~ /\.ht {
 
 ## 10. 常见陷阱
 
-1.  **root vs alias**:
-    *   `root`: 会将 location 路径**追加**到 root 路径后。
-    *   `alias`: 会用 alias 路径**替换** location 路径。
-    ```nginx
-    # 请求 /static/img.png -> /var/www/static/img.png
-    location /static/ { root /var/www; } 
+1. **root vs alias**:
+   * `root`: 会将 location 路径**追加**到 root 路径后。
+   * `alias`: 会用 alias 路径**替换** location 路径。
 
-    # 请求 /static/img.png -> /var/www/images/img.png
-    location /static/ { alias /var/www/images/; }
-    ```
-2.  **缺少分号**: 每行指令必须以 `;` 结尾。
-3.  **if 是邪恶的**: 尽量避免在 `location` 中使用 `if`，除非你非常清楚自己在做什么（通常用 `try_files` 或 `rewrite` 替代）。
+     ```nginx
+     # 请求 /static/img.png -> /var/www/static/img.png
+     location /static/ { root /var/www; }
+
+     # 请求 /static/img.png -> /var/www/images/img.png
+     location /static/ { alias /var/www/images/; }
+     ```
+
+2. **缺少分号**: 每行指令必须以 `;` 结尾。
+3. **if 是邪恶的**: 尽量避免在 `location` 中使用 `if`，除非你非常清楚自己在做什么（通常用 `try_files` 或 `rewrite` 替代）。

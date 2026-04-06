@@ -19,7 +19,7 @@
 
 ## 相关工具链接
 
-- 文档解析/清洗：<https://github.com/Unstructured-IO/unstructured>，<https://github.com/apache/tika>
-- 向量数据库：<https://github.com/pgvector/pgvector>，<https://github.com/qdrant/qdrant>，<https://github.com/milvus-io/milvus>，<https://github.com/weaviate/weaviate>，<https://github.com/chroma-core/chroma>
-- 关键词检索（BM25）：<https://github.com/elastic/elasticsearch>，<https://github.com/opensearch-project/OpenSearch>
-- Embedding/重排序（含 BGE）：<https://github.com/FlagOpen/FlagEmbedding>
+* 文档解析/清洗：<https://github.com/Unstructured-IO/unstructured>，<https://github.com/apache/tika>
+* 向量数据库：<https://github.com/pgvector/pgvector>，<https://github.com/qdrant/qdrant>，<https://github.com/milvus-io/milvus>，<https://github.com/weaviate/weaviate>，<https://github.com/chroma-core/chroma>
+* 关键词检索（BM25）：<https://github.com/elastic/elasticsearch>，<https://github.com/opensearch-project/OpenSearch>
+* Embedding/重排序（含 BGE）：<https://github.com/FlagOpen/FlagEmbedding>

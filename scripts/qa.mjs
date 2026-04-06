@@ -2,6 +2,7 @@
 
 import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
+import { buildPnpmCommand } from './pnpm-command.mjs'
 
 // 传统版 QA 编排器。
 // 这个入口复用各 workspace 包自身定义的 `qa` 脚本，不依赖 Turbo 任务图；
@@ -19,10 +20,6 @@ class CommandFailedError extends Error {
     this.spawnError = spawnError
   }
 }
-
-const pnpmExecPath = process.env.npm_execpath
-const runPnpmWithNode =
-  typeof pnpmExecPath === 'string' && pnpmExecPath.toLowerCase().includes('pnpm')
 
 const args = process.argv.slice(2)
 let mode = 'changed'
@@ -105,13 +102,8 @@ function runCommand(step, command, args, options = {}) {
 }
 
 function runPnpm(step, pnpmArgs, options = {}) {
-  if (runPnpmWithNode) {
-    runCommand(step, process.execPath, [pnpmExecPath, ...pnpmArgs], options)
-    return
-  }
-
-  const command = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
-  runCommand(step, command, pnpmArgs, options)
+  const pnpmCommand = buildPnpmCommand(pnpmArgs)
+  runCommand(step, pnpmCommand.command, pnpmCommand.args, options)
 }
 
 function runCapture(command, args) {
@@ -385,6 +377,24 @@ function runRootPwshQa(modeValue, sinceRef) {
   runPnpm('root-qa-pwsh-changed', ['run', 'qa:pwsh'], { env: qaEnv })
 }
 
+function runRootFnosQa(modeValue, sinceRef) {
+  const fnosPathspecs = ['linux/fnos', 'package.json']
+
+  if (modeValue === 'all') {
+    console.log('[qa] run root qa:fnos (all)')
+    runPnpm('root-qa-fnos-all', ['run', 'qa:fnos'])
+    return
+  }
+
+  if (!hasPathChanges(fnosPathspecs, sinceRef)) {
+    console.log('[qa] skip root qa:fnos (no changes)')
+    return
+  }
+
+  console.log('[qa] run root qa:fnos (changed)')
+  runPnpm('root-qa-fnos-changed', ['run', 'qa:fnos'])
+}
+
 const sinceRef = mode === 'changed' ? resolveSinceRef() : null
 
 if (mode === 'changed' && sinceRef) {
@@ -398,6 +408,7 @@ if (mode === 'changed' && sinceRef) {
 try {
   runWorkspaceQa(mode, sinceRef)
   runRootPwshQa(mode, sinceRef)
+  runRootFnosQa(mode, sinceRef)
   console.log('[qa] done')
 } catch (error) {
   if (error instanceof CommandFailedError) {

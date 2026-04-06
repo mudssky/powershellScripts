@@ -11,11 +11,13 @@
 ## Goals / Non-Goals
 
 **Goals:**
+
 - 将空改动 `format:pwsh` 耗时降到亚秒级到低秒级范围。
 - 将常见少量改动场景耗时显著降低，消除数十秒级长尾。
 - 保持现有命令入口稳定，新增可选严格模式以便需要时使用完整规则。
 
 **Non-Goals:**
+
 - 不追求与历史默认 `Invoke-Formatter` 输出逐字节一致。
 - 不在此次变更中引入新的第三方格式化工具。
 - 不重构与 PowerShell 格式化无关的测试或业务脚本。
@@ -71,6 +73,7 @@
 测试日期：2026-02-11
 
 测试口径：
+
 - 空改动：`pnpm format:pwsh`（无 PowerShell 改动）
 - 少量改动：对 `config/software/gitea/__sync.ps1` 注入一个换行后执行 `pnpm format:pwsh`
 - 重文件场景：复制 `psutils/modules/help.psm1` 到临时文件并执行

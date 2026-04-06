@@ -24,6 +24,7 @@ model_generator data.xlsx
 ```
 
 **参数:**
+
 - `FILE_PATH`: 输入文件路径 (.xlsx, .csv, .tsv)
 - `--name, -n`: 生成的类名 (默认: DataModel)
 - `--sheet, -s`: Excel Sheet 名称或索引 (默认: 0)

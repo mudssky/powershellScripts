@@ -117,7 +117,7 @@ git branch -D prepare-monorepo
 
 1. **智能移动文件**：
     你可以对 Claude 说：*"请帮我把当前目录下除了 .git 以外的所有文件都移动到 `packages/old-app` 目录下，并更新相关的 import 路径（如果需要）"*。
-    * Claude 能帮你处理复杂的 `git mv` 命令，甚至修正因移动文件导致的简单配置文件路径错误（如 `tsconfig.json` 或 `package.json` 中的路径）。
+   * Claude 能帮你处理复杂的 `git mv` 命令，甚至修正因移动文件导致的简单配置文件路径错误（如 `tsconfig.json` 或 `package.json` 中的路径）。
 
 2. **解决冲突**：
     如果在合并到 Monorepo 时出现配置文件（如根目录的 `.gitignore` 或 `package.json`）冲突，你可以让 Claude 在 Monorepo 目录下帮你解决合并冲突。

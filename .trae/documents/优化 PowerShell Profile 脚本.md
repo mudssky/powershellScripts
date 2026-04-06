@@ -1,13 +1,16 @@
 ## Impact Analysis (影响面分析)
+
 - 修改文件: `c:\home\env\powershellScripts\profile\profile.ps1`
 - 可能修改: `c:\home\env\powershellScripts\profile\wrapper.ps1`
 - 潜在风险: 初始化逻辑与代理环境变量变更会影响现有会话；缓存策略调整可能影响 starship/zoxide 初始化行为
 
 ## Step 1: Context Gathering（上下文确认）
+
 - 阅读并确认 `loadModule.ps1` 引入的 `psutils` 模块提供的函数（`Test-ExeProgram`, `Set-CustomAlias`, `Get-CustomAlias`, `Invoke-WithCache`）可用
 - 检查 `env.ps1` 是否存在且内容为空，按模板加载（仅在文件存在时）
 
 ## Step 2: Implementation（实现优化）
+
 - 修正别名函数日志属性错误：`$alias.name` → `$alias.aliasName`
 - 修正描述错误：`df` 的说明改为准确的 duf 描述
 - 路径语义与可读性：`Split-Path -Parent $PSScriptRoot` 明确父路径赋值给 `POWERSHELL_SCRIPTS_ROOT`
@@ -19,6 +22,7 @@
 - 兼容性与规范：顶部增加 `#requires -Version 7.0`，路径拼接尽量使用 `Join-Path`
 
 ## Step 3: Verification（验证）
+
 - 启动新会话执行 `Initialize-Environment -Verbose`，确认无错误
 - 运行 `Show-MyProfileHelp` 检查别名/函数包装输出是否正确
 - 验证代理开关：切换 enableProxy 文件存在与否，确认环境变量正确设置/清空

@@ -5,7 +5,7 @@
     "deny": [],
     "ask": []
   },
-  "enabledMcpjsonServers": ["context7", "serena"],
+  "enabledMcpjsonServers": ["context7"],
   "disabledMcpjsonServers": [
     "git",
     "gitmcp",
@@ -14,19 +14,7 @@
     "mcp-feedback-enhanced",
     "Sequential Thinking",
     "Memory",
-    "shrimp-task-manager"
-  ],
-  "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "startup",
-        "hooks": [
-          {
-            "type": "command",
-            "command": " echo '以下是本项目的重要规范，请严格遵守' && rule-loader"
-          }
-        ]
-      }
-    ]
-  }
+    "shrimp-task-manager",
+    "serena"
+  ]
 }

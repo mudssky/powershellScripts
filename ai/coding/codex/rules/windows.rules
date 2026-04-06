@@ -1,0 +1,52 @@
+# Common Windows-only read/query commands for future Windows environments.
+# Keep this file conservative: read-only `cmd`, `powershell`, and `pwsh`
+# commands only. Do not add write operations like `Remove-*`, `Set-*`,
+# `Copy-Item`, `Move-Item`, `New-Item`, or broad `-Command` prefixes.
+
+# cmd.exe built-ins and common read/query helpers.
+prefix_rule(pattern=["cmd", "/c", "dir"], decision="allow")
+prefix_rule(pattern=["cmd", "/c", "type"], decision="allow")
+prefix_rule(pattern=["cmd", "/c", "where"], decision="allow")
+prefix_rule(pattern=["cmd", "/c", "echo"], decision="allow")
+prefix_rule(pattern=["cmd", "/c", "set"], decision="allow")
+prefix_rule(pattern=["cmd", "/c", "cd"], decision="allow")
+
+# PowerShell Core (`pwsh`) read/query commands.
+prefix_rule(pattern=["pwsh", "-Command", "Get-ChildItem"], decision="allow")
+prefix_rule(pattern=["pwsh", "-Command", "Get-Content"], decision="allow")
+prefix_rule(pattern=["pwsh", "-Command", "Get-Item"], decision="allow")
+prefix_rule(pattern=["pwsh", "-Command", "Get-Location"], decision="allow")
+prefix_rule(pattern=["pwsh", "-Command", "Get-Command"], decision="allow")
+prefix_rule(pattern=["pwsh", "-Command", "Get-Process"], decision="allow")
+prefix_rule(pattern=["pwsh", "-Command", "Test-Path"], decision="allow")
+prefix_rule(pattern=["pwsh", "-Command", "Resolve-Path"], decision="allow")
+prefix_rule(pattern=["pwsh", "-Command", "Select-String"], decision="allow")
+prefix_rule(pattern=["pwsh", "-NoLogo", "-NoProfile", "-Command", "Get-ChildItem"], decision="allow")
+prefix_rule(pattern=["pwsh", "-NoLogo", "-NoProfile", "-Command", "Get-Content"], decision="allow")
+prefix_rule(pattern=["pwsh", "-NoLogo", "-NoProfile", "-Command", "Get-Item"], decision="allow")
+prefix_rule(pattern=["pwsh", "-NoLogo", "-NoProfile", "-Command", "Get-Location"], decision="allow")
+prefix_rule(pattern=["pwsh", "-NoLogo", "-NoProfile", "-Command", "Get-Command"], decision="allow")
+prefix_rule(pattern=["pwsh", "-NoLogo", "-NoProfile", "-Command", "Get-Process"], decision="allow")
+prefix_rule(pattern=["pwsh", "-NoLogo", "-NoProfile", "-Command", "Test-Path"], decision="allow")
+prefix_rule(pattern=["pwsh", "-NoLogo", "-NoProfile", "-Command", "Resolve-Path"], decision="allow")
+prefix_rule(pattern=["pwsh", "-NoLogo", "-NoProfile", "-Command", "Select-String"], decision="allow")
+
+# Windows PowerShell compatibility.
+prefix_rule(pattern=["powershell", "-Command", "Get-ChildItem"], decision="allow")
+prefix_rule(pattern=["powershell", "-Command", "Get-Content"], decision="allow")
+prefix_rule(pattern=["powershell", "-Command", "Get-Item"], decision="allow")
+prefix_rule(pattern=["powershell", "-Command", "Get-Location"], decision="allow")
+prefix_rule(pattern=["powershell", "-Command", "Get-Command"], decision="allow")
+prefix_rule(pattern=["powershell", "-Command", "Get-Process"], decision="allow")
+prefix_rule(pattern=["powershell", "-Command", "Test-Path"], decision="allow")
+prefix_rule(pattern=["powershell", "-Command", "Resolve-Path"], decision="allow")
+prefix_rule(pattern=["powershell", "-Command", "Select-String"], decision="allow")
+prefix_rule(pattern=["powershell", "-NoLogo", "-NoProfile", "-Command", "Get-ChildItem"], decision="allow")
+prefix_rule(pattern=["powershell", "-NoLogo", "-NoProfile", "-Command", "Get-Content"], decision="allow")
+prefix_rule(pattern=["powershell", "-NoLogo", "-NoProfile", "-Command", "Get-Item"], decision="allow")
+prefix_rule(pattern=["powershell", "-NoLogo", "-NoProfile", "-Command", "Get-Location"], decision="allow")
+prefix_rule(pattern=["powershell", "-NoLogo", "-NoProfile", "-Command", "Get-Command"], decision="allow")
+prefix_rule(pattern=["powershell", "-NoLogo", "-NoProfile", "-Command", "Get-Process"], decision="allow")
+prefix_rule(pattern=["powershell", "-NoLogo", "-NoProfile", "-Command", "Test-Path"], decision="allow")
+prefix_rule(pattern=["powershell", "-NoLogo", "-NoProfile", "-Command", "Resolve-Path"], decision="allow")
+prefix_rule(pattern=["powershell", "-NoLogo", "-NoProfile", "-Command", "Select-String"], decision="allow")

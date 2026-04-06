@@ -44,7 +44,7 @@
 
 ### 整体架构图
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                        VSCode                               │
 │  ┌─────────────────────────────────────────────────────┐    │
@@ -78,7 +78,7 @@
 
 ### 数据流向
 
-```
+```text
 用户输入 → VSCode → VSCode Neovim 插件 → Neovim 实例 → 配置处理 → 功能执行
     ↑                                                              ↓
     └──────────────── VSCode 命令调用 ←─────────────────────────────┘
@@ -89,11 +89,13 @@
 ### 1. init.lua - 入口文件
 
 **职责**:
+
 - 设置全局配置
 - 加载核心模块
 - 初始化插件管理器
 
 **关键代码**:
+
 ```lua
 -- 设置 Nerd Font 支持
 vim.g.have_nerd_font = true
@@ -107,11 +109,13 @@ require("core.lazy").setup()
 ### 2. core/options.lua - 基础选项
 
 **职责**:
+
 - 配置 Neovim 基础选项
 - 设置编辑器行为
 - 优化性能参数
 
 **核心配置类别**:
+
 - **编辑器选项**: 行号、缩进、搜索等
 - **界面选项**: 颜色、字体、光标等
 - **性能选项**: 更新时间、历史记录等
@@ -120,11 +124,13 @@ require("core.lazy").setup()
 ### 3. core/keymaps.lua - 键位映射
 
 **职责**:
+
 - 定义全局键位映射
 - 设置 VSCode 命令调用
 - 配置模式特定的键位
 
 **映射策略**:
+
 - **基础 Vim 键位**: 保持 Vim 原生行为
 - **VSCode 集成**: 通过 `<cmd>call VSCodeNotify('command')<cr>` 调用
 - **智能映射**: 根据模式和上下文智能选择行为
@@ -132,11 +138,13 @@ require("core.lazy").setup()
 ### 4. core/lazy.lua - 插件管理
 
 **职责**:
+
 - 配置 lazy.nvim 插件管理器
 - 设置插件加载策略
 - 管理插件依赖关系
 
 **加载策略**:
+
 ```lua
 {
   spec = {
@@ -158,12 +166,14 @@ require("core.lazy").setup()
 ### 插件分类
 
 #### 1. 核心增强插件
+
 - **flash.nvim**: 快速跳转
 - **nvim-surround**: 包围符号操作
 - **Comment.nvim**: 智能注释
 - **mini.ai**: 增强文本对象
 
 #### 2. UI/UX 插件
+
 - **tokyonight.nvim**: 主题
 - **lualine.nvim**: 状态栏
 - **bufferline.nvim**: 缓冲区标签
@@ -173,12 +183,14 @@ require("core.lazy").setup()
 - **mini.icons**: 图标支持
 
 #### 3. 开发工具插件
+
 - **nvim-lspconfig**: LSP 客户端
 - **nvim-treesitter**: 语法高亮
 - **telescope.nvim**: 模糊查找
 - **toggleterm.nvim**: 终端管理
 
 #### 4. 辅助插件
+
 - **which-key.nvim**: 键位提示
 
 ### 插件配置模式
@@ -221,6 +233,7 @@ return M
 ```
 
 在插件配置中使用：
+
 ```lua
 cond = not utils.is_vscode(), -- 仅在非 VSCode 环境加载
 ```
@@ -240,6 +253,7 @@ cond = not utils.is_vscode(), -- 仅在非 VSCode 环境加载
 为了优化启动性能，采用多种延迟加载策略：
 
 #### 1. 事件触发加载
+
 ```lua
 event = "VeryLazy", -- 在 Neovim 完全启动后加载
 event = "BufReadPost", -- 在读取缓冲区后加载
@@ -247,6 +261,7 @@ event = "InsertEnter", -- 在进入插入模式时加载
 ```
 
 #### 2. 键位触发加载
+
 ```lua
 keys = {
   { "s", mode = { "n", "x", "o" } }, -- 按下 's' 键时加载
@@ -255,11 +270,13 @@ keys = {
 ```
 
 #### 3. 命令触发加载
+
 ```lua
 cmd = { "Telescope", "TelescopeBuiltin" }, -- 执行命令时加载
 ```
 
 #### 4. 文件类型触发加载
+
 ```lua
 ft = { "lua", "python", "javascript" }, -- 打开特定文件类型时加载
 ```
@@ -298,16 +315,19 @@ VSCode Neovim 插件通过以下方式实现集成：
 ### 命令调用机制
 
 #### 1. 调用 VSCode 命令
+
 ```lua
 vim.keymap.set('n', '<leader>ff', '<cmd>call VSCodeNotify("workbench.action.quickOpen")<cr>')
 ```
 
 #### 2. 带参数的命令调用
+
 ```lua
 vim.keymap.set('n', 'gd', '<cmd>call VSCodeNotify("editor.action.revealDefinition")<cr>')
 ```
 
 #### 3. 条件命令调用
+
 ```lua
 if vim.g.vscode then
   -- VSCode 环境下的键位映射
@@ -340,11 +360,13 @@ end
 ### 1. 启动时间优化
 
 #### 延迟加载
+
 - 使用 `event = "VeryLazy"` 延迟非关键插件
 - 通过 `keys`、`cmd`、`ft` 实现按需加载
 - 避免在启动时执行重型操作
 
 #### 禁用不必要的插件
+
 ```lua
 performance = {
   rtp = {
@@ -359,11 +381,13 @@ performance = {
 ### 2. 运行时性能优化
 
 #### 条件加载
+
 - 在 VSCode 环境下禁用 UI 插件
 - 根据文件类型加载相应插件
 - 使用 `cond` 函数实现智能加载
 
 #### 配置优化
+
 ```lua
 -- 优化更新时间
 vim.opt.updatetime = 250
@@ -379,12 +403,14 @@ vim.opt.smartcase = true
 ### 3. 内存使用优化
 
 #### 限制历史记录
+
 ```lua
 vim.opt.history = 1000
 vim.opt.undolevels = 1000
 ```
 
 #### 清理无用缓冲区
+
 ```lua
 -- 自动清理隐藏的缓冲区
 vim.opt.hidden = true
@@ -396,15 +422,17 @@ vim.opt.bufhidden = "wipe"
 ### 添加新插件
 
 1. **创建插件配置文件**
+
    ```bash
    touch lua/plugins/new-plugin.lua
    ```
 
 2. **编写插件配置**
+
    ```lua
    -- lua/plugins/new-plugin.lua
    local utils = require('utils')
-   
+
    return {
      "author/plugin-name",
      cond = not utils.is_vscode(), -- 根据需要设置条件
@@ -422,12 +450,14 @@ vim.opt.bufhidden = "wipe"
 
 1. **全局键位映射**
    在 `core/keymaps.lua` 中添加：
+
    ```lua
    vim.keymap.set('n', '<leader>new', '<cmd>echo "New command"<cr>', { desc = "New command" })
    ```
 
 2. **插件特定键位映射**
    在对应的插件配置文件中添加：
+
    ```lua
    keys = {
      { "<leader>new", "<cmd>PluginCommand<cr>", desc = "Plugin command" },
@@ -482,6 +512,7 @@ end
 ### 调试和故障排除
 
 #### 1. 启用调试模式
+
 ```lua
 vim.g.debug_mode = true
 
@@ -491,12 +522,14 @@ end
 ```
 
 #### 2. 检查插件状态
+
 ```vim
 :Lazy -- 查看插件管理器状态
 :checkhealth -- 检查 Neovim 健康状态
 ```
 
 #### 3. 性能分析
+
 ```vim
 :Lazy profile -- 查看插件加载时间
 ```

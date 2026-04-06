@@ -5,11 +5,13 @@ Current `pnpm test` runs `pwsh -Command "Invoke-Pester -Configuration ( ./Pester
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Provide a fast local test mode with no profile load and no coverage.
 - Keep CI/full mode unchanged in behavior and reporting.
 - Reduce test runtime by mocking or isolating slow environment queries.
 
 **Non-Goals:**
+
 - Changing production module behavior for users.
 - Redesigning the overall test suite structure beyond performance improvements.
 

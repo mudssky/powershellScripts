@@ -1,10 +1,10 @@
 # ADDED Requirements
 
-### Requirement: 统一入口加载
+## Requirement: 统一入口加载
 
 `profile.ps1` SHALL 作为所有平台（Windows/Linux/macOS）的统一 Profile 入口脚本。脚本 SHALL 通过 PowerShell 内置变量 `$IsWindows`/`$IsLinux`/`$IsMacOS` 识别当前平台并执行对应的平台特定逻辑。
 
-#### Scenario: Windows 平台加载
+### Scenario: Windows 平台加载
 
 - **WHEN** 在 Windows 平台执行 `profile.ps1`
 - **THEN** 脚本 SHALL 初始化 sccache（如已安装）、加载所有通用模块和别名、显示加载耗时

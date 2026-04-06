@@ -1,0 +1,7 @@
+# Docker queries and inspections only.
+# Keep builds, pushes, and other heavy operations out of this file.
+
+prefix_rule(pattern=["docker", "info"], decision="allow")
+prefix_rule(pattern=["docker", "image", "ls"], decision="allow")
+prefix_rule(pattern=["docker", "ps", "-a"], decision="allow")
+prefix_rule(pattern=["docker", "inspect"], decision="allow")

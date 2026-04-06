@@ -1,7 +1,9 @@
 ## 目标
+
 - 在项目根目录新增 `Setup-SshNoPasswd.ps1`（PowerShell 7+ 跨平台），一键完成 Windows/macOS/Linux 到目标主机的 SSH 免密登录配置，并为 VSCode 提供可用的 `~/.ssh/config` 条目。
 
 ## 功能概览
+
 - 自动检测本机系统（`$IsWindows/$IsLinux/$IsMacOS`）。
 - 若不存在密钥则生成（默认 `ed25519`，可选 `rsa`），路径默认 `~/.ssh/id_ed25519`。
 - 将本机公钥安全追加到目标主机 `~/.ssh/authorized_keys` 并设置权限（`700 ~/.ssh`、`600 authorized_keys`）。
@@ -12,6 +14,7 @@
 - 支持 `-DryRun`（仅展示预执行操作）、`-Verbose`（详细日志）。
 
 ## 参数设计
+
 - `-RemoteHost`：目标主机 IP/域名（必填）。
 - `-Username`：目标主机登录用户（必填）。
 - `-Port`：SSH 端口，默认 `22`。
@@ -22,9 +25,11 @@
 - `-DryRun`：仅打印预执行计划。
 
 ## 与现有脚本的关系
+
 - 现有 `Setup-VSCodeSSH.ps1` 使用 `RSA` 并偏向 Windows；新脚本将统一为跨平台与 `ed25519` 优先的实现，保留旧脚本不动，并在文档中推荐使用新脚本。
 
 ## Plan
+
 - [ ] **Impact Analysis (影响面分析)**
   - 修改/新增文件：`Setup-SshNoPasswd.ps1`、`docs/cheatsheet/vscode/ssh_nopasswd.md`（追加“一键脚本”章节）
   - 潜在风险：
@@ -51,10 +56,12 @@
   - 文档更新：在 `ssh_nopasswd.md` 追加“使用脚本”小节与常见报错排查
 
 ## 交付物
+
 - 新增：`Setup-SshNoPasswd.ps1`（根目录）
 - 文档：在 `docs/cheatsheet/vscode/ssh_nopasswd.md` 增补脚本用法示例
 
 ## 后续可选增强
+
 - 支持多主机批量配置（从 JSON/CSV 读取）
 - 支持自动检测并提示远端防火墙开放
 

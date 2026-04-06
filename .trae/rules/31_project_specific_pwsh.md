@@ -2,6 +2,7 @@
 alwaysApply: false
 globs: **/*.ps1, **/*.psm1
 ---
+
 # 📂 Project Specific Rules (PowerShell)
 
 ## 1. Architecture (`scripts/pwsh`)

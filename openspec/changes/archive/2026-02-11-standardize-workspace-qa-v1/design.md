@@ -5,6 +5,7 @@
 ## Goals / Non-Goals
 
 **Goals:**
+
 - 定义并落地统一包级 QA 脚本接口：`typecheck:fast`、`check`、`test:fast`、`qa`。
 - 让 `qa` 在各包中具备一致语义：只做快速、可重复、无交互检查。
 - 对提交阶段采用 `biome check --write`，使格式与 lint 在 commit 前同步收敛。
@@ -12,6 +13,7 @@
 - 为 V2 引入 Turbo 保留稳定接口，并在不破坏既有命令的前提下新增 Turbo 命令族。
 
 **Non-Goals:**
+
 - V1 阶段不强制把既有 `qa`/`qa:all` 命令迁移为 `turbo run`。
 - 不改造非 workspace 包（如 `config/software/mpv/mpv_scripts`）的 QA 体系。
 - 不在本次统一全量测试策略（如 e2e、覆盖率门槛、慢测拆分）。

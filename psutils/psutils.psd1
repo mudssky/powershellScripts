@@ -83,6 +83,7 @@
         'modules\install.psm1',
         'modules\linux.psm1',
         'modules\network.psm1',
+        'modules\oss.psm1',
         'modules\os.psm1',
         'modules\proxy.psm1',
         'modules\pwsh.psm1',
@@ -123,6 +124,8 @@
         'Set-SSHKeyAuth',
         # 网络工具模块 (network.psm1)
         'Test-PortOccupation', 'Get-PortProcess', 'Wait-ForURL',
+        # OSS 工具模块 (oss.psm1)
+        'New-OssContext', 'Test-OssObject', 'Get-OssObjectInfo', 'Get-OssObjectList', 'Publish-OssObject', 'Publish-OssDirectory',
         # 操作系统模块 (os.psm1)
         'Get-OperatingSystem', 'Test-Administrator',
         # 代理管理模块 (proxy.psm1)

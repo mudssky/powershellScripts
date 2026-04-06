@@ -93,9 +93,9 @@ source ~/.profile
 . ~/.profile
 ```
 
-# Linux环境变量配置Cheatsheet
+## Linux环境变量配置Cheatsheet
 
-## 基本操作
+### 基本操作
 
 | 操作 | 命令 | 示例 |
 |------|------|------|
@@ -106,7 +106,7 @@ source ~/.profile
 | 临时删除环境变量 | `unset VAR_NAME` | `unset TEMP_VAR` |
 | 重新加载配置文件 | `source ~/.bashrc` 或 `. ~/.bashrc` | `source ~/.bashrc` |
 
-## 配置文件
+### 配置文件
 
 | 文件 | 作用范围 | 加载时机 |
 |------|----------|----------|
@@ -118,44 +118,44 @@ source ~/.profile
 | `~/.bashrc` | 当前用户 | 启动非登录shell时 |
 | `~/.bash_login` | 当前用户 | 用户登录时（如果~/.bash_profile不存在） |
 
-## 常用环境变量配置示例
+### 常用环境变量配置示例
 
-### Java环境变量
+#### Java环境变量
 
 ```bash
 export JAVA_HOME=/usr/lib/jvm/java-11-openjdk
 export PATH=$PATH:$JAVA_HOME/bin
 ```
 
-### Python环境变量
+#### Python环境变量
 
 ```bash
 export PYTHONPATH=$PYTHONPATH:/path/to/python/modules
 export PATH=$PATH:/path/to/python/bin
 ```
 
-### Node.js环境变量
+#### Node.js环境变量
 
 ```bash
 export NODE_ENV=production
 export PATH=$PATH:/path/to/node/bin
 ```
 
-### Go环境变量
+#### Go环境变量
 
 ```bash
 export GOPATH=$HOME/go
 export PATH=$PATH:$GOPATH/bin
 ```
 
-### 自定义环境变量
+#### 自定义环境变量
 
 ```bash
 export MY_APP_HOME=/path/to/my/app
 export MY_APP_CONFIG=$MY_APP_HOME/config
 ```
 
-## 检查环境变量配置
+### 检查环境变量配置
 
 ```bash
 # 检查PATH中是否包含某个目录
@@ -169,7 +169,7 @@ else
 fi
 ```
 
-## 最佳实践
+### 最佳实践
 
 1. **用户级配置优先**：优先在用户配置文件中设置环境变量，避免影响其他用户
 2. **使用~/.bashrc**：对于日常使用的环境变量，建议在~/.bashrc中设置

@@ -1,6 +1,6 @@
 # AI Index & 助手指南 (AI-INDEX)
 
-### 1. 脚本管理 (PowerShell)
+## 1. 脚本管理 (PowerShell)
 
 - **新增脚本**: 在 `scripts/pwsh/<分类>/` 下创建 `.ps1` 文件。
 - **同步 Shim**: 运行 `.\Manage-BinScripts.ps1 -Action sync`。

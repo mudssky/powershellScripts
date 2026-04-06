@@ -79,16 +79,19 @@ export DISABLE_AUTOUPDATER=1  # 禁用包管理器更新通知
 # 项目指导原则
 
 ## 代码风格
+
 - 使用 TypeScript 严格模式
 - 遵循 ESLint 规则
 - 组件使用 PascalCase 命名
 
 ## 测试要求
+
 - 所有功能必须有单元测试
 - 测试覆盖率不低于 80%
 - 使用 Jest 作为测试框架
 
 ## 部署流程
+
 1. 运行测试套件
 2. 构建项目
 3. 部署到 staging 环境
@@ -163,7 +166,7 @@ export DISABLE_AUTOUPDATER=1  # 禁用包管理器更新通知
 
 ### 1. **基础项目配置结构**
 
-```
+```text
 your-project/
 ├── .claude/
 │   ├── settings.json      # 项目级配置
@@ -234,18 +237,21 @@ your-project/
 # 项目：React TypeScript 应用
 
 ## 技术栈
+
 - React 18+ with TypeScript
 - Vite as build tool
 - Tailwind CSS for styling
 - React Query for data fetching
 
 ## 代码规范
+
 - 使用 TypeScript 严格模式
 - 组件文件使用 PascalCase
 - 工具函数使用 camelCase
 - 常量使用 UPPER_SNAKE_CASE
 
 ## 开发流程
+
 1. 创建功能分支
 2. 编写代码和测试
 3. 运行 `npm run test` 和 `npm run lint`
@@ -253,6 +259,7 @@ your-project/
 5. 创建 PR
 
 ## 常用命令
+
 - `npm run dev` - 启动开发服务器
 - `npm run build` - 构建生产版本
 - `npm run test` - 运行测试
@@ -260,13 +267,14 @@ your-project/
 - `npm run type-check` - TypeScript 类型检查
 
 ## 项目结构
+
 src/
 ├── components/    # React 组件
-├── hooks/         # 自定义 hooks
-├── utils/         # 工具函数
-├── types/         # TypeScript 类型定义
-├── services/      # API 服务
-└── pages/         # 页面组件
+├── hooks/ # 自定义 hooks
+├── utils/ # 工具函数
+├── types/ # TypeScript 类型定义
+├── services/ # API 服务
+└── pages/ # 页面组件
 ```
 
 ### 4. **团队协作配置**
@@ -285,7 +293,7 @@ src/
    ```bash
    # .env.example (提交到版本控制)
    ANTHROPIC_API_KEY=your_api_key_here
- 
+
    # .env.local (不提交到版本控制)
    ANTHROPIC_API_KEY=sk-ant-actual_key
    ```

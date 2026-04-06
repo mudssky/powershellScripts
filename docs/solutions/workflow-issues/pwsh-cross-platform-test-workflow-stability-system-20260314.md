@@ -60,15 +60,19 @@ tags: [powershell, pester, cross-platform, linux, docker, coverage, performance,
 ## What Didn't Work
 
 **Attempted Solution 1:** 继续让 Linux `full` 本地承担 coverage。  
+
 - **Why it failed:** 容器内的 Pester coverage 收尾会因路径归一化异常崩溃，让聚合入口出现“非断言类假红”。
 
 **Attempted Solution 2:** 继续在 `proxy.Tests` 中假设容器里存在 `curl`。  
+
 - **Why it failed:** Linux 容器环境与 Windows / 交互式 shell 不同，测试会直接因为命令存在性假设失败，而不是因为代理逻辑本身失败。
 
 **Attempted Solution 3:** 使用 `--kill-others-on-fail` 做聚合。  
+
 - **Why it failed:** 首个失败会杀掉另一侧执行，削弱了 `test:pwsh:all` 的诊断价值，开发者拿不到完整的 host / linux 结论。
 
 **Attempted Solution 4:** 继续在高频探测路径里使用重型命令发现。  
+
 - **Why it failed:** `Get-Command -CommandType Application` 和 `Get-Module -ListAvailable` 在缺失命令/模块场景下成本过高，把少数热点测试拖成了整套 full 回归的主耗时来源。
 
 ## Solution

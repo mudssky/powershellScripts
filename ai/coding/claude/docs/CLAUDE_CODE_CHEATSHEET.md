@@ -84,21 +84,25 @@ Claude Code 支持三级配置，优先级从高到低：**Enterprise > User > P
 # 项目名称指南
 
 ## 🛠 技术栈
+
 - **Framework**: Next.js 14 (App Router)
 - **State**: Zustand
 - **Style**: Tailwind CSS
 
 ## 📏 代码规范
+
 - 组件命名使用 PascalCase (e.g., `UserProfile.tsx`)
 - 所有的异步操作必须使用 try/catch 处理错误
 - 禁止使用 `any`，必须定义完整 TypeScript 接口
 
 ## 🏗 构建与部署
+
 - Build: `npm run build`
 - Test: `npm run test`
 - Lint: `npm run lint`
 
 ## 📂 目录结构
+
 - src/components: 通用 UI 组件
 - src/features: 业务功能模块
 ```

@@ -30,6 +30,7 @@ git worktree list --porcelain
 ```
 
 解析输出，构建 worktree 列表。每个 worktree 条目包含：
+
 - `worktree <path>` — 文件系统路径
 - `HEAD <sha>` — 当前 commit
 - `branch refs/heads/<name>` — 分支名
@@ -58,23 +59,29 @@ git worktree list --porcelain
 对每个 worktree 收集以下信息：
 
 1. **相对于基准分支的领先/落后数**：对每个 feature worktree 执行：
+
    ```bash
    git rev-list --left-right --count <base>...<branch>
    ```
+
    输出格式：`<ahead>\t<behind>`（left = 基准领先数，right = 分支领先数）。
    - "ahead" = 该分支独有的 commit 数（基准没有的）
    - "behind" = 基准独有的 commit 数（需要同步的）
 
 2. **工作区状态**：对每个 worktree 执行：
+
    ```bash
    git -C <worktree-path> status --porcelain
    ```
+
    输出为空 = clean；非空 = dirty。
 
 3. **重复 commit 诊断（Health）**：对每个有领先 commit 的 feature worktree 执行：
+
    ```bash
    git cherry <base> <branch>
    ```
+
    统计输出中 `+`（unique）和 `-`（duplicate）的数量：
    - 无重复（dup=0）→ 显示 `✔`
    - 有重复但占少数（dup/total ≤ 50%）→ 显示 `ℹ dup/total 重复`
@@ -83,7 +90,7 @@ git worktree list --porcelain
 
 以表格形式展示：
 
-```
+```text
 ┌─ Worktree Status ──────────────────────────────────────────────────────┐
 │                                                                        │
 │  Branch     Path                          vs <base>     Health         │
@@ -111,6 +118,7 @@ git worktree list --porcelain
 展示状态表格后，根据 worktree 数量动态构建选项，使用 **AskUserQuestion** 让用户选择下一步操作。
 
 选项生成规则：
+
 - 对每个 feature worktree 生成两个选项：
   - `rebase <branch>`：将 `<branch>` rebase 到基准分支（拉代码）
   - `merge <branch>`：将 `<branch>` 合并回基准分支
@@ -131,6 +139,7 @@ git worktree list --porcelain
 | 取消 | 不执行任何操作 |
 
 用户选择后，跳转到对应的 Step 执行：
+
 - `rebase <branch>` → Step 4（单分支同步）
 - `merge <branch>` → Step 7（合并回主分支）
 - `rebase --all` → Step 6（批量同步）
@@ -145,9 +154,11 @@ git worktree list --porcelain
 检查指定的分支名是否存在于 worktree 列表中。如果不存在，报错并列出所有可用的 worktree 分支供用户选择。
 
 如果指定了 `--from <base>`，验证该基准分支在本地是否存在：
+
 ```bash
 git rev-parse --verify <base>
 ```
+
 如果不存在，报错提示。
 
 ### 4.2 检查工作区状态
@@ -172,11 +183,13 @@ git -C <base-worktree-path> status --porcelain
 在执行 rebase 之前，先从远程拉取基准分支的最新代码，确保同步到远程最新状态。
 
 首先检查基准分支是否有远程跟踪分支：
+
 ```bash
 git -C <base-worktree-path> rev-parse --abbrev-ref --symbolic-full-name @{upstream} 2>/dev/null
 ```
 
 如果有远程跟踪分支，执行 pull：
+
 ```bash
 git -C <base-worktree-path> pull --rebase
 ```
@@ -190,6 +203,7 @@ git -C <base-worktree-path> pull --rebase
 ### 4.4 检查是否已是最新
 
 检查基准分支是否有该分支没有的 commit：
+
 ```bash
 git rev-list --count <branch>..<base>
 ```
@@ -206,6 +220,7 @@ git rev-list --count <branch>..<base>
 **4.5.1 保存当前 HEAD**
 
 保存诊断前的 HEAD SHA，用于策略失败时回滚：
+
 ```bash
 ORIGINAL_HEAD=$(git -C <worktree-path> rev-parse HEAD)
 ```
@@ -217,6 +232,7 @@ git cherry <base> <branch>
 ```
 
 统计输出中 `+`（unique）和 `-`（duplicate）的数量：
+
 - `total` = 总 commit 数（`+` 和 `-` 的总和）
 - `unique` = `+` 的数量（feature 分支真正独有的 commit）
 - `dup` = `-` 的数量（patch-id 已在 base 中的 commit）
@@ -261,11 +277,13 @@ git -C <worktree-path> reset --hard <base>
 **策略 B：reset + cherry-pick（大量重复 + 少量独有）**
 
 1. Reset 到 base：
+
    ```bash
    git -C <worktree-path> reset --hard <base>
    ```
 
 2. 按 `git cherry` 输出顺序，逐个 cherry-pick unique commit（`+` 标记的）：
+
    ```bash
    git -C <worktree-path> cherry-pick <sha>
    ```
@@ -277,12 +295,14 @@ git -C <worktree-path> reset --hard <base>
 **策略 C：rebase（标准路径）**
 
 展示将要应用的 commit：
+
 ```bash
 git log --oneline <branch>..<base>
 ```
 
 显示格式：
-```
+
+```text
 将 rebase <branch> onto <base>
 
 落后 <N> 个 commit:
@@ -292,6 +312,7 @@ git log --oneline <branch>..<base>
 ```
 
 执行 rebase：
+
 ```bash
 git -C <worktree-path> rebase <base>
 ```
@@ -304,6 +325,7 @@ git -C <worktree-path> rebase <base>
 当 rebase 产生冲突时：
 
 1. 列出冲突文件：
+
    ```bash
    git -C <worktree-path> diff --name-only --diff-filter=U
    ```
@@ -329,6 +351,7 @@ git -C <worktree-path> rebase <base>
 当 reset + cherry-pick 策略中 cherry-pick 产生冲突时：
 
 1. 列出冲突文件：
+
    ```bash
    git -C <worktree-path> diff --name-only --diff-filter=U
    ```
@@ -366,7 +389,8 @@ git -C <worktree-path> rev-parse --abbrev-ref --symbolic-full-name @{upstream} 2
 ```
 
 报告格式：
-```
+
+```text
 ✔ <branch> 已同步到 <base>
 
   同步策略:    reset | reset+cherry-pick | rebase
@@ -409,20 +433,26 @@ git -C <worktree-path> rev-parse --abbrev-ref --symbolic-full-name @{upstream} 2
 在逐个处理 feature 分支之前，先更新基准分支（仅执行一次）。
 
 1. 检查基准 worktree 工作区状态：
+
    ```bash
    git -C <base-worktree-path> status --porcelain
    ```
+
    如果有未提交改动，**中止整个批量同步**：
    > ❌ 基准分支 `<base>` 工作区有未提交改动，无法更新。请先 commit 或 stash 后重试。
 
 2. 检查是否有远程跟踪分支并拉取：
+
    ```bash
    git -C <base-worktree-path> rev-parse --abbrev-ref --symbolic-full-name @{upstream} 2>/dev/null
    ```
+
    如果有，执行：
+
    ```bash
    git -C <base-worktree-path> pull --rebase
    ```
+
    - 成功：显示 `ℹ 已更新基准分支 <base> 到最新`，继续。
    - 失败：**中止整个批量同步**，提示用户手动处理。
 
@@ -444,7 +474,7 @@ git -C <worktree-path> rev-parse --abbrev-ref --symbolic-full-name @{upstream} 2
 
 所有分支处理完毕后，显示汇总表格：
 
-```
+```text
 ┌─ Sync Summary ──────────────────────────────────────────────────────┐
 │                                                                     │
 │  Branch       Status              Strategy          Detail          │
@@ -492,11 +522,13 @@ git -C <main-worktree-path> status --porcelain
 在合并之前，先从远程拉取基准分支的最新代码。
 
 检查基准分支是否有远程跟踪分支：
+
 ```bash
 git -C <main-worktree-path> rev-parse --abbrev-ref --symbolic-full-name @{upstream} 2>/dev/null
 ```
 
 如果有远程跟踪分支，执行：
+
 ```bash
 git -C <main-worktree-path> pull --rebase
 ```
@@ -509,6 +541,7 @@ git -C <main-worktree-path> pull --rebase
 ### 7.4 检查是否需要先同步
 
 检查 feature 分支是否落后于主分支：
+
 ```bash
 git rev-list --count <branch>..<base>
 ```
@@ -529,12 +562,14 @@ git rev-list --count <branch>..<base>
 ### 7.5 合并预览
 
 展示将要合并到主分支的 commit：
+
 ```bash
 git log --oneline <base>..<branch>
 ```
 
 显示格式：
-```
+
+```text
 将 merge <branch> into <base>
 
 包含 <N> 个 commit:
@@ -546,6 +581,7 @@ git log --oneline <base>..<branch>
 ### 7.6 执行 Merge
 
 在**主 worktree** 目录中执行 merge：
+
 ```bash
 git -C <main-worktree-path> merge <branch>
 ```
@@ -555,6 +591,7 @@ git -C <main-worktree-path> merge <branch>
 **如果 merge 成功** → 跳转 Step 7.7（成功报告）
 
 **如果 merge 失败（冲突）** → 类似 Step 4.7 的冲突处理流程，但操作目录改为主 worktree：
+
 1. 列出冲突文件：`git -C <main-worktree-path> diff --name-only --diff-filter=U`
 2. 提供三个选项：Claude 协助解决 / 手动解决后 `git -C <path> merge --continue` / 中止 `git -C <path> merge --abort`
 
@@ -566,7 +603,8 @@ git -C <main-worktree-path> log --oneline -1
 ```
 
 报告格式：
-```
+
+```text
 ✔ <branch> 已合并到 <base>
 
   新 HEAD:     <short-sha> <message>

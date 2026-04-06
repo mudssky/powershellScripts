@@ -99,7 +99,7 @@ respond "Hello, world!"
 example.com {
     # 设置网站根目录
     root * /var/www/html
-  
+
     # 启用文件服务器
     file_server
 }
@@ -137,10 +137,10 @@ example.com {
 ```caddy
 example.com {
     root * /var/www/public
-  
+
     # 启用 PHP-FPM
     php_fastcgi unix//run/php/php8.1-fpm.sock
-  
+
     file_server
 }
 ```
@@ -172,10 +172,10 @@ example.com {
     header {
         # 添加 Strict-Transport-Security 头，增强安全性
         Strict-Transport-Security "max-age=31536000;"
-      
+
         # 添加自定义头
         X-My-Header "Hello from Caddy"
-      
+
         # 移除不希望暴露的头
         -Server
     }
@@ -192,7 +192,7 @@ Caddy 默认开启了 `zstd` 和 `gzip` 压缩，您也可以精细化控制。
 example.com {
     # 开启压缩，并指定内容类型
     encode zstd gzip
-  
+
     file_server
 }
 ```
@@ -203,11 +203,11 @@ example.com {
 example.com {
     # 永久重定向 (301)
     redir /old-page /new-page
-  
+
     # 将所有 www 请求重定向到根域名
     @www host www.example.com
     redir @www https://example.com{uri}
-  
+
     # URL 重写，对用户透明
     # 常用于单页应用 (SPA)
     try_files {path} /index.html
@@ -217,4 +217,5 @@ example.com {
 ```
 
 ---
+
 更多高级用法和指令，请查阅 [Caddy 官方文档](https://caddyserver.com/docs/)。

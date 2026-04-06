@@ -26,10 +26,12 @@ dependencies: []
 **Approach:** 直接在 `Invoke-Benchmark.ps1` 内加入 `fzf` 和文本编号选择逻辑。
 
 **Pros:**
+
 - 改动面最小
 - 可以最快让 benchmark 可交互
 
 **Cons:**
+
 - 无法复用
 - 会继续复制 `fzf` 与降级逻辑
 
@@ -44,11 +46,13 @@ dependencies: []
 **Approach:** 在 `psutils/modules/selection.psm1` 中实现统一选择 API，通过 manifest 导出，并让 benchmark 脚本调用它。
 
 **Pros:**
+
 - 复用边界清晰
 - 可同时覆盖 `fzf` 与文本降级
 - 后续脚本迁移成本低
 
 **Cons:**
+
 - 需要同步修改 manifest 与测试
 - 首次抽象需要验证接口稳定性
 
@@ -63,6 +67,7 @@ dependencies: []
 ## Technical Details
 
 **Affected files:**
+
 - `psutils/modules/selection.psm1`
 - `psutils/psutils.psd1`
 - `scripts/pwsh/devops/Invoke-Benchmark.ps1`
@@ -71,10 +76,12 @@ dependencies: []
 - `docs/plans/2026-03-14-003-feat-interactive-selection-module-plan.md`
 
 **Related components:**
+
 - `scripts/pwsh/devops/Clean-DockerImages.ps1`
 - `psutils/modules/functions.psm1`
 
 **Database changes (if any):**
+
 - 无
 
 ## Resources
@@ -101,12 +108,14 @@ dependencies: []
 **By:** Codex
 
 **Actions:**
+
 - 读取执行计划、brainstorm 与相关引用文件。
 - 对齐 `Clean-DockerImages.ps1`、`functions.psm1`、`psutils.psd1` 与现有 Pester/QA 结构。
 - 创建功能分支 `feat/interactive-selection-module`。
 - 建立文件化 todo，作为本次执行记录。
 
 **Learnings:**
+
 - 现有 QA 会自动包含新增 `psutils/modules/*.psm1` 对应的 `psutils/tests/*.Tests.ps1`。
 - benchmark 脚本测试更适合放在根级 `tests/`，模块行为测试放在 `psutils/tests/`。
 
@@ -115,6 +124,7 @@ dependencies: []
 **By:** Codex
 
 **Actions:**
+
 - 新增 `psutils/modules/selection.psm1`，实现 `fzf` 优先、文本编号降级、单选/多选与对象显示映射。
 - 更新 `psutils/psutils.psd1`，将 `selection.psm1` 与 `Select-InteractiveItem` 接入标准导出面。
 - 改造 `scripts/pwsh/devops/Invoke-Benchmark.ps1`，在缺少 `Name` 时走交互选择，并支持测试用目录覆盖。
@@ -122,6 +132,7 @@ dependencies: []
 - 执行根目录 `pnpm qa`，确认格式化与 QA 测试全部通过。
 
 **Learnings:**
+
 - `Get-Command` 用于 `fzf` 探测会放大命令发现开销，改为轻量 PATH 探测后模块与测试都更稳定。
 - benchmark 集成测试需要为每个用例隔离独立的 `TestDrive` 子目录，否则会互相污染候选脚本列表。
 
