@@ -26,3 +26,7 @@ if [ -d "$HOME/.bashrc.d" ]; then
         fi
     done
 fi
+
+fpath+=~/.zfunc; autoload -Uz compinit; compinit
+
+zstyle ':completion:*' menu select
