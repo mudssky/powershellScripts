@@ -1,4 +1,5 @@
 ccline.exe
+.claude/settings.json
 .claude/shell-snapshots
 .claude/projects
 .claude/todos
@@ -14,6 +15,7 @@ ccline.exe
 .claude/ccline/ccline
 .claude/tasks
 .claude/transcripts
+.claude/backup
 .claude/backups
 .claude/ide
 .claude/sessions

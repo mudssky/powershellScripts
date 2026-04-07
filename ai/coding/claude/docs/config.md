@@ -2,6 +2,78 @@
 
 基于我获取的 Claude Code CLI 文档，我来为您详细解答配置文件的几种方式和项目开发中的配置方法。
 
+## 本仓库的推荐工作流
+
+> 这一节描述的是本仓库的 Claude 配置同步方式。它基于 Claude Code 官方的 settings 继承能力，但不会把真实 secrets 提交到仓库。
+
+### 配置分层
+
+本仓库把 Claude 配置拆成三层：
+
+1. `ai/coding/claude/config/settings.json`
+   可提交的共享模板，适合放团队共享的默认值，例如非敏感 `env`、权限、插件开关与状态栏设置。
+
+2. `ai/coding/claude/config/settings.local.json`
+   本机私有覆盖层，不提交 Git。适合放 `ANTHROPIC_API_KEY`、`ANTHROPIC_BASE_URL`、临时模型切换和个人偏好覆盖。
+
+3. `~/.claude/settings.json`
+   由 `ai/coding/claude/Sync-ClaudeConfig.ps1` 生成的最终生效配置。**不要手动编辑这个文件。**
+
+### 覆盖语义
+
+本仓库的 sync 脚本按以下规则合并 shared template 与 local override：
+
+- 标量：local 覆盖 shared
+- 对象：深度合并
+- 数组：拼接后按内容去重
+
+因此 `settings.local.json` 只需要声明差异字段，不需要复制整个 `env`、`permissions` 或 `enabledPlugins`。
+
+### 推荐文件示例
+
+共享模板 `ai/coding/claude/config/settings.json`：
+
+```json
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "env": {
+    "API_TIMEOUT_MS": "3000000",
+    "DISABLE_TELEMETRY": "1"
+  },
+  "permissions": {
+    "defaultMode": "acceptEdits"
+  }
+}
+```
+
+本机覆盖 `ai/coding/claude/config/settings.local.json`：
+
+```json
+{
+  "env": {
+    "ANTHROPIC_API_KEY": "sk-ant-...",
+    "ANTHROPIC_BASE_URL": "http://127.0.0.1:3456"
+  },
+  "model": "opus[1m]"
+}
+```
+
+### 同步方式
+
+运行：
+
+```powershell
+pwsh -NoProfile -File ./ai/coding/claude/Sync-ClaudeConfig.ps1
+```
+
+脚本会：
+
+- 读取 shared template
+- 读取可选的 `settings.local.json`
+- 生成 `~/.claude/settings.json`
+- 同步 `ai/coding/claude/.claude/` 中的受管共享资产
+- 在首次检测到旧的 `~/.claude -> repo/.claude` 软链接模式时自动备份并迁移
+
 ## Claude Code CLI 配置文件的几种方式
 
 ### 1. **环境变量配置**
