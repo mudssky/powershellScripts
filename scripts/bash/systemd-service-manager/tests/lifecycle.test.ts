@@ -46,15 +46,18 @@ describe('lifecycle commands', () => {
     )
 
     await runSource(workspace, ['start', 'service', 'api', '--project', projectRoot], {
+      SSM_TEST_EUID: '0',
       SSM_SYSTEMCTL_LOG: systemctlLog,
     })
     await runSource(workspace, ['enable', 'service', 'api', '--project', projectRoot], {
+      SSM_TEST_EUID: '0',
       SSM_SYSTEMCTL_LOG: systemctlLog,
     })
     const status = await runSource(
       workspace,
       ['status', 'service', 'api', '--project', projectRoot],
       {
+        SSM_TEST_EUID: '0',
         SSM_SYSTEMCTL_LOG: systemctlLog,
       },
     )
@@ -100,6 +103,7 @@ describe('lifecycle commands', () => {
       workspace,
       ['logs', 'service', 'user-agent', '--project', projectRoot, '--follow'],
       {
+        SSM_TEST_EUID: '0',
         SSM_JOURNALCTL_LOG: journalLog,
       },
     )
@@ -129,10 +133,52 @@ describe('lifecycle commands', () => {
     )
 
     const result = await runSource(workspace, ['start', 'api', '--project', projectRoot], {
+      SSM_TEST_EUID: '0',
       SSM_SYSTEMCTL_LOG: systemctlLog,
     })
 
     expect(result.exitCode).toBe(0)
+    expect(fs.readFileSync(systemctlLog, 'utf8')).toContain('start myapp-api.service')
+  })
+
+  it('auto-elevates system-scope start when not root', async () => {
+    const workspace = createWorkspace()
+    workspaces.push(workspace)
+
+    const sudoLog = path.join(workspace.root, 'sudo.log')
+    const systemctlLog = path.join(workspace.root, 'systemctl.log')
+
+    installMockCommand(
+      workspace,
+      'sudo',
+      [
+        '#!/usr/bin/env bash',
+        'printf "%s\\n" "$*" >>"${SSM_SUDO_LOG}"',
+        'if [[ "$1" == "--" ]]; then shift; fi',
+        'SSM_TEST_EUID=0 exec "$@"',
+      ].join('\n'),
+    )
+    installMockCommand(
+      workspace,
+      'systemctl',
+      '#!/usr/bin/env bash\nprintf "%s\\n" "$*" >>"${SSM_SYSTEMCTL_LOG}"\nexit 0\n',
+    )
+
+    const projectRoot = path.join(
+      workspace.managerHome,
+      'tests',
+      'fixtures',
+      'project-basic',
+    )
+
+    const result = await runSource(workspace, ['start', 'api', '--project', projectRoot], {
+      SSM_TEST_EUID: '1000',
+      SSM_SUDO_LOG: sudoLog,
+      SSM_SYSTEMCTL_LOG: systemctlLog,
+    })
+
+    expect(result.exitCode).toBe(0)
+    expect(fs.readFileSync(sudoLog, 'utf8')).toContain(workspace.sourceEntry)
     expect(fs.readFileSync(systemctlLog, 'utf8')).toContain('start myapp-api.service')
   })
 })

@@ -141,3 +141,37 @@ ssm_load_target_context() {
       ;;
   esac
 }
+
+# 判断当前命令是否需要在非 root 下自动提权。
+ssm_should_auto_elevate() {
+  local command="$1"
+
+  case "${command}" in
+    install | start | stop | restart | enable | disable)
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+
+  [[ "${SSM_CLI_DRY_RUN:-0}" == "1" ]] && return 1
+  [[ "${SSM_ELEVATED_BY_SCRIPT:-0}" == "1" ]] && return 1
+  ssm_is_root && return 1
+
+  local target_kind="${SSM_CLI_POSITIONAL_ARGS[0]:-}"
+  local target_name="${SSM_CLI_POSITIONAL_ARGS[1]:-}"
+  ssm_load_target_context "${target_kind}" "${target_name}"
+  [[ "${SSM_ACTIVE_SCOPE}" == "system" ]]
+}
+
+# 以脚本绝对路径重新执行自身，并交给 sudo 完成提权。
+ssm_reexec_with_sudo() {
+  local source_path="$1"
+  local argv0="$2"
+  shift 2
+  local script_path
+  script_path="$(ssm_resolve_executable_path "${source_path}" "${argv0}")"
+
+  command -v sudo >/dev/null 2>&1 || ssm_die "sudo is required for system-scope write operations"
+  exec env SSM_ELEVATED_BY_SCRIPT=1 sudo -- bash "${script_path}" "$@"
+}

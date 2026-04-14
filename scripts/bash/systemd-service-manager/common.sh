@@ -48,3 +48,50 @@ ssm_init_environment() {
   local script_path="$1"
   SSM_MANAGER_HOME="$(ssm_detect_manager_home "${script_path}")"
 }
+
+# 返回当前有效 uid；测试可通过环境变量覆写，避免依赖宿主用户身份。
+ssm_current_euid() {
+  if [[ -n "${SSM_TEST_EUID:-}" ]]; then
+    printf '%s\n' "${SSM_TEST_EUID}"
+    return 0
+  fi
+
+  id -u
+}
+
+# 判断当前是否已经具备 root 权限。
+ssm_is_root() {
+  [[ "$(ssm_current_euid)" == "0" ]]
+}
+
+# 把脚本入口解析成绝对路径，兼容 PATH 调用和显式路径调用。
+ssm_resolve_executable_path() {
+  local source_path="$1"
+  local argv0="$2"
+  local candidate="${source_path}"
+
+  if [[ "${candidate}" != */* ]]; then
+    candidate="${argv0}"
+  fi
+
+  if [[ "${candidate}" != */* ]]; then
+    candidate="$(command -v "${candidate}" 2>/dev/null || true)"
+  fi
+
+  [[ -n "${candidate}" ]] || ssm_die "Unable to resolve executable path for elevation"
+
+  if command -v realpath >/dev/null 2>&1; then
+    realpath "${candidate}" 2>/dev/null && return 0
+  fi
+
+  if command -v readlink >/dev/null 2>&1; then
+    readlink -f "${candidate}" 2>/dev/null && return 0
+  fi
+
+  if [[ "${candidate}" == /* ]]; then
+    printf '%s\n' "${candidate}"
+    return 0
+  fi
+
+  printf '%s/%s\n' "${PWD}" "${candidate}"
+}

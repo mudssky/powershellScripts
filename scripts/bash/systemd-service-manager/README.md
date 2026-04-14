@@ -26,6 +26,7 @@
 ## Notes
 
 - `start` / `stop` / `restart` / `status` / `logs` 这类命令依赖目标 unit 已经先执行过 `install`。
+- `install` / `start` / `stop` / `restart` / `enable` / `disable` 这类 system scope 写操作在非 root 下会自动通过 `sudo` 重新执行脚本本身，因此不要求你手工把 `sudo` 写在命令前。
 
 ## Build
 
