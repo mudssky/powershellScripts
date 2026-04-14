@@ -19,9 +19,13 @@ $ErrorActionPreference = 'Stop'
 function ConvertFrom-LongOptionList {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
         [string[]]$Arguments
     )
+
+    if ($null -eq $Arguments -or $Arguments.Count -eq 0) {
+        return @{}
+    }
 
     $result = @{}
     $index = 0

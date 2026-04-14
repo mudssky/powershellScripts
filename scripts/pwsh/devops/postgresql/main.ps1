@@ -48,6 +48,9 @@ function Invoke-PostgresToolkitCommand {
         [string[]]$RawArguments
     )
 
+    $options = ConvertFrom-LongOptionList -Arguments $RawArguments
+    $dryRun = $options.ContainsKey('dry_run')
+
     if ([string]::IsNullOrWhiteSpace($CommandName) -or $CommandName -eq 'help') {
         return [PSCustomObject]@{
             ExitCode = 0
@@ -55,7 +58,23 @@ function Invoke-PostgresToolkitCommand {
         }
     }
 
-    throw "未知命令: $CommandName"
+    $context = Resolve-PgContext -CliOptions $options
+    switch ($CommandName) {
+        'backup' {
+            $spec = New-PgBackupCommandSpec -CliOptions $options -Context $context
+            return Invoke-PgNativeCommand -Spec $spec -DryRun:$dryRun
+        }
+        'restore' {
+            $spec = New-PgRestoreCommandSpec -CliOptions $options -Context $context
+            return Invoke-PgNativeCommand -Spec $spec -DryRun:$dryRun
+        }
+        default {
+            return [PSCustomObject]@{
+                ExitCode = 0
+                Output   = Get-PostgresToolkitHelpText
+            }
+        }
+    }
 }
 
 if ($env:PWSH_TEST_SKIP_POSTGRES_TOOLKIT_MAIN -ne '1') {
