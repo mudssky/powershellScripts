@@ -123,4 +123,40 @@ describe('install command', () => {
     expect(result.exitCode).toBe(0)
     expect(result.stdout).toContain('myapp-api.service')
   })
+
+  it('can install and start a service in one step with --start', async () => {
+    const workspace = createWorkspace()
+    workspaces.push(workspace)
+
+    installMockCommand(
+      workspace,
+      'systemd-analyze',
+      '#!/usr/bin/env bash\nexit 0\n',
+    )
+    installMockCommand(
+      workspace,
+      'systemctl',
+      '#!/usr/bin/env bash\nprintf "%s\\n" "$*" >>"${SSM_SYSTEMCTL_LOG}"\nexit 0\n',
+    )
+
+    const projectRoot = path.join(
+      workspace.managerHome,
+      'tests',
+      'fixtures',
+      'project-basic',
+    )
+    const systemctlLog = path.join(workspace.root, 'systemctl.log')
+
+    const result = await runSource(
+      workspace,
+      ['install', 'api', '--project', projectRoot, '--start'],
+      {
+        SSM_SYSTEMCTL_LOG: systemctlLog,
+      },
+    )
+
+    expect(result.exitCode).toBe(0)
+    expect(fs.readFileSync(systemctlLog, 'utf8')).toContain('daemon-reload')
+    expect(fs.readFileSync(systemctlLog, 'utf8')).toContain('start myapp-api.service')
+  })
 })

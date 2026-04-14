@@ -20,7 +20,12 @@
 
 - `--project <path>`：指定项目根目录，默认使用当前目录。
 - `--dry-run`：只输出计划生成或安装的结果，不真正写入 systemd unit。
+- `--start`：给 `install` 使用，安装完成后立即启动目标 unit。
 - `--follow`：只给 `logs` 使用，持续跟随日志输出。
+
+## Notes
+
+- `start` / `stop` / `restart` / `status` / `logs` 这类命令依赖目标 unit 已经先执行过 `install`。
 
 ## Build
 
@@ -41,6 +46,7 @@ bash scripts/bash/systemd-service-manager/build.sh
 systemd-service-manager init
 systemd-service-manager list --project /path/to/app
 systemd-service-manager install service api --project /path/to/app
+systemd-service-manager install api --project /path/to/app --start
 systemd-service-manager install timer cleanup --project /path/to/app --dry-run
 systemd-service-manager logs service api --project /path/to/app --follow
 ```
