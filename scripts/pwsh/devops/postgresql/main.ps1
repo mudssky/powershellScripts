@@ -68,6 +68,30 @@ function Invoke-PostgresToolkitCommand {
             $spec = New-PgRestoreCommandSpec -CliOptions $options -Context $context
             return Invoke-PgNativeCommand -Spec $spec -DryRun:$dryRun
         }
+        'import-csv' {
+            $spec = New-PgImportCsvCommandSpec -CliOptions $options -Context $context
+            return Invoke-PgNativeCommand -Spec $spec -DryRun:$dryRun
+        }
+        'install-tools' {
+            $platform = if ($IsWindows) { 'windows' } elseif ($IsMacOS) { 'macos' } else { 'linux' }
+            $requestedTools = if ($options.ContainsKey('tool')) {
+                @([string]$options['tool'] -split ',')
+            }
+            else {
+                @('psql', 'pg_dump', 'pg_restore', 'pg_dumpall')
+            }
+            $missingTools = Get-MissingPgTools -Tools $requestedTools
+            if ($missingTools.Count -eq 0) {
+                return [PSCustomObject]@{
+                    ExitCode = 0
+                    Output   = '所有 PostgreSQL CLI 工具已可用。'
+                }
+            }
+
+            $packageManager = if ($options.ContainsKey('package_manager')) { [string]$options['package_manager'] } else { 'auto' }
+            $plan = Get-PgInstallPlan -Platform $platform -PackageManager $packageManager -Tools $missingTools
+            return Invoke-PgInstallPlan -Plan $plan -Apply:$($options.ContainsKey('apply'))
+        }
         default {
             return [PSCustomObject]@{
                 ExitCode = 0

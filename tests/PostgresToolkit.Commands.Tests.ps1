@@ -15,6 +15,11 @@ BeforeAll {
             'scripts/pwsh/devops/postgresql/commands/help.ps1'
             'scripts/pwsh/devops/postgresql/commands/backup.ps1'
             'scripts/pwsh/devops/postgresql/commands/restore.ps1'
+            'scripts/pwsh/devops/postgresql/commands/import-csv.ps1'
+            'scripts/pwsh/devops/postgresql/commands/install-tools.ps1'
+            'scripts/pwsh/devops/postgresql/platforms/windows.ps1'
+            'scripts/pwsh/devops/postgresql/platforms/macos.ps1'
+            'scripts/pwsh/devops/postgresql/platforms/linux.ps1'
             'scripts/pwsh/devops/postgresql/main.ps1'
         )) {
         . (Join-Path $script:RepoRoot $relativePath)
@@ -100,5 +105,43 @@ Describe 'New-PgRestoreCommandSpec' {
 
         $spec.FilePath | Should -Be 'pg_restore'
         $spec.ArgumentList | Should -Contain '--clean'
+    }
+}
+
+Describe 'New-PgImportCsvCommandSpec' {
+    It '生成带 header 的 \copy 语句' {
+        $csvPath = Join-Path $TestDrive 'users.csv'
+        Set-Content -Path $csvPath -Value "id,name`n1,Alice"
+
+        $spec = New-PgImportCsvCommandSpec -CliOptions @{
+            input  = $csvPath
+            table  = 'users'
+            header = $true
+        } -Context ([PSCustomObject]@{
+            Host     = '127.0.0.1'
+            Port     = 5432
+            User     = 'postgres'
+            Password = 'secret'
+            Database = 'app'
+        })
+
+        $spec.FilePath | Should -Be 'psql'
+        ($spec.ArgumentList -join ' ') | Should -Match '\\copy public.users'
+        ($spec.ArgumentList -join ' ') | Should -Match 'HEADER true'
+    }
+}
+
+Describe 'Get-PgInstallPlan' {
+    It 'Windows auto 策略优先返回 winget 命令' {
+        $plan = Get-PgInstallPlan -Platform 'windows' -PackageManager 'auto' -Tools @('psql', 'pg_dump')
+
+        $plan.PackageManager | Should -Be 'winget'
+        $plan.Commands[0] | Should -Match 'winget'
+    }
+
+    It 'Linux apt 策略返回 apt install 命令' {
+        $plan = Get-PgInstallPlan -Platform 'linux' -PackageManager 'apt' -Tools @('psql')
+
+        $plan.Commands[0] | Should -Match 'apt-get install'
     }
 }
