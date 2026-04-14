@@ -27,13 +27,13 @@ ssm_cmd_list() {
   local service_file
   for service_file in "$(ssm_config_root "${project_dir}")"/services/*.conf; do
     [[ -f "${service_file}" ]] || continue
-    printf '- %s\n' "$(basename "${service_file}" .conf)"
+    printf -- '- %s\n' "$(basename "${service_file}" .conf)"
   done
 
   printf 'Timers\n'
   local timer_file
   for timer_file in "$(ssm_config_root "${project_dir}")"/timers/*.conf; do
     [[ -f "${timer_file}" ]] || continue
-    printf '- %s\n' "$(basename "${timer_file}" .conf)"
+    printf -- '- %s\n' "$(basename "${timer_file}" .conf)"
   done
 }

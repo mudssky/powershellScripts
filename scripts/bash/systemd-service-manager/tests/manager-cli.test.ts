@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import fs from 'node:fs'
+import path from 'node:path'
 import {
   cleanupWorkspace,
   createWorkspace,
@@ -49,5 +51,33 @@ describe('systemd service manager cli', () => {
 
     expect(result.exitCode).not.toBe(0)
     expect(result.stderr + result.stdout).toContain('Unknown command')
+  })
+
+  it('lists declared services and timers from the built binary', async () => {
+    const workspace = createWorkspace()
+    workspaces.push(workspace)
+
+    const build = await runBuild(workspace)
+    expect(build.exitCode).toBe(0)
+
+    const projectRoot = path.join(workspace.root, 'demo-app')
+    fs.cpSync(
+      path.join(workspace.managerHome, 'tests', 'fixtures', 'project-basic'),
+      projectRoot,
+      { recursive: true },
+    )
+
+    const result = await runBuilt(workspace, 'bin', [
+      'list',
+      '--project',
+      projectRoot,
+    ])
+
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout).toContain('Services')
+    expect(result.stdout).toContain('- api')
+    expect(result.stdout).toContain('Timers')
+    expect(result.stdout).toContain('- cleanup')
+    expect(result.stdout).toContain('- restart-api')
   })
 })
