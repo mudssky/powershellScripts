@@ -7,7 +7,7 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 BIN_OUTPUT="${REPO_ROOT}/bin/systemd-service-manager"
-LOCAL_OUTPUT="${REPO_ROOT}/scripts/bash/systemd-service-manager.sh"
+LOCAL_OUTPUT="${REPO_ROOT}/scripts/bash/systemd-service-manager/systemd-service-manager.local.sh"
 
 MODULES=(
   "${SCRIPT_DIR}/common.sh"
