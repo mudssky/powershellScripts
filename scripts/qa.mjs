@@ -395,6 +395,30 @@ function runRootFnosQa(modeValue, sinceRef) {
   runPnpm('root-qa-fnos-changed', ['run', 'qa:fnos'])
 }
 
+function runRootSystemdServiceManagerQa(modeValue, sinceRef) {
+  const pathspecs = ['scripts/bash/systemd-service-manager', 'package.json']
+
+  if (modeValue === 'all') {
+    console.log('[qa] run root qa:systemd-service-manager (all)')
+    runPnpm('root-qa-systemd-service-manager-all', [
+      'run',
+      'qa:systemd-service-manager',
+    ])
+    return
+  }
+
+  if (!hasPathChanges(pathspecs, sinceRef)) {
+    console.log('[qa] skip root qa:systemd-service-manager (no changes)')
+    return
+  }
+
+  console.log('[qa] run root qa:systemd-service-manager (changed)')
+  runPnpm('root-qa-systemd-service-manager-changed', [
+    'run',
+    'qa:systemd-service-manager',
+  ])
+}
+
 const sinceRef = mode === 'changed' ? resolveSinceRef() : null
 
 if (mode === 'changed' && sinceRef) {
@@ -409,6 +433,7 @@ try {
   runWorkspaceQa(mode, sinceRef)
   runRootPwshQa(mode, sinceRef)
   runRootFnosQa(mode, sinceRef)
+  runRootSystemdServiceManagerQa(mode, sinceRef)
   console.log('[qa] done')
 } catch (error) {
   if (error instanceof CommandFailedError) {

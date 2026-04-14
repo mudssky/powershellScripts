@@ -12,3 +12,16 @@ bash scripts/bash/systemd-service-manager/build.sh
 
 - `bin/systemd-service-manager`
 - `scripts/bash/systemd-service-manager.sh`
+
+## Test
+
+```bash
+pnpm run test:systemd-service-manager
+```
+
+## Quality Gate
+
+```bash
+pnpm run qa:systemd-service-manager
+pnpm qa
+```

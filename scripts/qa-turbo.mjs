@@ -351,6 +351,34 @@ function runRootFnosQa(modeValue, sinceRef) {
   runCommand('root-qa-fnos-changed', pnpmCommand.command, pnpmCommand.args)
 }
 
+function runRootSystemdServiceManagerQa(modeValue, sinceRef) {
+  const pathspecs = ['scripts/bash/systemd-service-manager', 'package.json']
+
+  if (modeValue === 'all') {
+    console.log('[turbo:qa] run root qa:systemd-service-manager (all)')
+    const pnpmCommand = buildPnpmCommand(['run', 'qa:systemd-service-manager'])
+    runCommand(
+      'root-qa-systemd-service-manager-all',
+      pnpmCommand.command,
+      pnpmCommand.args,
+    )
+    return
+  }
+
+  if (!hasPathChanges(pathspecs, sinceRef)) {
+    console.log('[turbo:qa] skip root qa:systemd-service-manager (no changes)')
+    return
+  }
+
+  console.log('[turbo:qa] run root qa:systemd-service-manager (changed)')
+  const pnpmCommand = buildPnpmCommand(['run', 'qa:systemd-service-manager'])
+  runCommand(
+    'root-qa-systemd-service-manager-changed',
+    pnpmCommand.command,
+    pnpmCommand.args,
+  )
+}
+
 const sinceRef = mode === 'changed' ? resolveSinceRef() : null
 
 if (mode === 'changed' && sinceRef) {
@@ -365,6 +393,7 @@ try {
   runWorkspaceQa(mode, sinceRef)
   runRootPwshQa(mode, sinceRef)
   runRootFnosQa(mode, sinceRef)
+  runRootSystemdServiceManagerQa(mode, sinceRef)
   console.log('[turbo:qa] done')
 } catch (error) {
   if (error instanceof CommandFailedError) {
