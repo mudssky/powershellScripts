@@ -20,6 +20,8 @@ if [[ -z "${SSM_STANDALONE:-}" ]]; then
   source "${SCRIPT_DIR}/lib/schedule.sh"
   # shellcheck source=scripts/bash/systemd-service-manager/lib/validate.sh
   source "${SCRIPT_DIR}/lib/validate.sh"
+  # shellcheck source=scripts/bash/systemd-service-manager/commands/init.sh
+  source "${SCRIPT_DIR}/commands/init.sh"
   # shellcheck source=scripts/bash/systemd-service-manager/commands/list.sh
   source "${SCRIPT_DIR}/commands/list.sh"
   # shellcheck source=scripts/bash/systemd-service-manager/commands/install.sh
@@ -39,6 +41,9 @@ ssm_main() {
   case "${command}" in
     help | --help | -h | '')
       ssm_show_help
+      ;;
+    init)
+      ssm_cmd_init "$@"
       ;;
     list)
       ssm_cmd_list "$@"

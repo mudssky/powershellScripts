@@ -30,6 +30,14 @@ describe('config parsing', () => {
       projectRoot,
       { recursive: true },
     )
+    writeText(
+      path.join(projectRoot, 'deploy/systemd/project.env.local'),
+      ['APP_NAME=demo-local', ''].join('\n'),
+    )
+    writeText(
+      path.join(projectRoot, 'deploy/systemd/services/api.env.local'),
+      ['APP_PORT=3100', ''].join('\n'),
+    )
 
     const result = await runSource(
       workspace,
@@ -53,6 +61,14 @@ describe('config parsing', () => {
       path.join(workspace.managerHome, 'tests', 'fixtures', 'project-basic'),
       projectRoot,
       { recursive: true },
+    )
+    writeText(
+      path.join(projectRoot, 'deploy/systemd/project.env.local'),
+      ['APP_NAME=demo-local', ''].join('\n'),
+    )
+    writeText(
+      path.join(projectRoot, 'deploy/systemd/services/api.env.local'),
+      ['APP_PORT=3100', ''].join('\n'),
     )
 
     writeText(

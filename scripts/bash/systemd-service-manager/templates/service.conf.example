@@ -1,0 +1,9 @@
+DESCRIPTION=My API Service
+COMMAND=/usr/bin/env bash -lc 'node server.js'
+WORKDIR=/opt/myapp
+SCOPE=system
+RESTART=always
+RESTART_SEC=3s
+WANTED_BY=multi-user.target
+AFTER=network.target
+WANTS=network.target

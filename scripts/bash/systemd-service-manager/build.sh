@@ -18,6 +18,7 @@ MODULES=(
   "${SCRIPT_DIR}/lib/parser-timer.sh"
   "${SCRIPT_DIR}/lib/schedule.sh"
   "${SCRIPT_DIR}/lib/validate.sh"
+  "${SCRIPT_DIR}/commands/init.sh"
   "${SCRIPT_DIR}/commands/list.sh"
   "${SCRIPT_DIR}/commands/install.sh"
   "${SCRIPT_DIR}/main.sh"
