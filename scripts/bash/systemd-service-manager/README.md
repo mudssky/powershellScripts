@@ -13,6 +13,8 @@ bash scripts/bash/systemd-service-manager/build.sh
 - `bin/systemd-service-manager`
 - `scripts/bash/systemd-service-manager.sh`
 
+打包后的单文件产物内嵌了 `init` 所需模板，因此把脚本单独复制到其他目录后，仍可直接执行 `init` 生成 `deploy/systemd/` 骨架。
+
 ## Test
 
 ```bash
