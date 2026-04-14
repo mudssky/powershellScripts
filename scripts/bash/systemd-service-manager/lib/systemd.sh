@@ -68,25 +68,76 @@ ssm_is_unit_installed() {
 }
 
 # 把 service/timer 目标解析成 scope 与最终 unit 名，供 lifecycle 命令复用。
+ssm_resolve_target_spec() {
+  local project_dir="$1"
+  local target_kind="$2"
+  local target_name="$3"
+
+  if [[ -z "${target_kind}" ]]; then
+    ssm_die "Missing target name"
+  fi
+
+  case "${target_kind}" in
+    service | timer)
+      [[ -n "${target_name}" ]] || ssm_die "Missing target name"
+      SSM_RESOLVED_TARGET_KIND="${target_kind}"
+      SSM_RESOLVED_TARGET_NAME="${target_name}"
+      return 0
+      ;;
+  esac
+
+  if [[ -n "${target_name}" ]]; then
+    ssm_die "Unknown target kind: ${target_kind}"
+  fi
+
+  local inferred_name="${target_kind}"
+  local service_exists="false"
+  local timer_exists="false"
+
+  [[ -f "$(ssm_service_config_path "${project_dir}" "${inferred_name}")" ]] && service_exists="true"
+  [[ -f "$(ssm_timer_config_path "${project_dir}" "${inferred_name}")" ]] && timer_exists="true"
+
+  case "${service_exists}:${timer_exists}" in
+    true:false)
+      SSM_RESOLVED_TARGET_KIND="service"
+      SSM_RESOLVED_TARGET_NAME="${inferred_name}"
+      ;;
+    false:true)
+      SSM_RESOLVED_TARGET_KIND="timer"
+      SSM_RESOLVED_TARGET_NAME="${inferred_name}"
+      ;;
+    true:true)
+      ssm_die "Ambiguous target name: ${inferred_name}. Use 'service ${inferred_name}' or 'timer ${inferred_name}'"
+      ;;
+    false:false)
+      ssm_die "Cannot infer target kind for ${inferred_name}. Use 'service ${inferred_name}' or 'timer ${inferred_name}'"
+      ;;
+  esac
+}
+
 ssm_load_target_context() {
   local target_kind="$1"
   local target_name="$2"
   local project_dir
   project_dir="$(ssm_find_project_dir "${SSM_CLI_PROJECT_DIR:-}")"
 
-  case "${target_kind}" in
+  ssm_resolve_target_spec "${project_dir}" "${target_kind}" "${target_name}"
+
+  case "${SSM_RESOLVED_TARGET_KIND}" in
     service)
-      ssm_parse_service_config "${project_dir}" "${target_name}"
+      ssm_parse_service_config "${project_dir}" "${SSM_RESOLVED_TARGET_NAME}"
+      SSM_ACTIVE_NAME="${SSM_RESOLVED_TARGET_NAME}"
       SSM_ACTIVE_SCOPE="${SSM_SERVICE_SCOPE}"
-      SSM_ACTIVE_UNIT="$(ssm_service_unit_name "${target_name}")"
+      SSM_ACTIVE_UNIT="$(ssm_service_unit_name "${SSM_RESOLVED_TARGET_NAME}")"
       ;;
     timer)
-      ssm_parse_timer_config "${project_dir}" "${target_name}"
+      ssm_parse_timer_config "${project_dir}" "${SSM_RESOLVED_TARGET_NAME}"
+      SSM_ACTIVE_NAME="${SSM_RESOLVED_TARGET_NAME}"
       SSM_ACTIVE_SCOPE="${SSM_TIMER_SCOPE}"
-      SSM_ACTIVE_UNIT="$(ssm_timer_unit_name "${target_name}")"
+      SSM_ACTIVE_UNIT="$(ssm_timer_unit_name "${SSM_RESOLVED_TARGET_NAME}")"
       ;;
     *)
-      ssm_die "Unknown target kind: ${target_kind}"
+      ssm_die "Unknown target kind: ${SSM_RESOLVED_TARGET_KIND}"
       ;;
   esac
 }

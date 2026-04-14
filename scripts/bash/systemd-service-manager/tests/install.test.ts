@@ -94,4 +94,33 @@ describe('install command', () => {
       fs.readFileSync(path.join(workspace.root, 'systemctl.log'), 'utf8'),
     ).toContain('daemon-reload')
   })
+
+  it('infers service kind when omitted for install dry-run', async () => {
+    const workspace = createWorkspace()
+    workspaces.push(workspace)
+
+    installMockCommand(
+      workspace,
+      'systemd-analyze',
+      '#!/usr/bin/env bash\nexit 0\n',
+    )
+
+    const projectRoot = path.join(
+      workspace.managerHome,
+      'tests',
+      'fixtures',
+      'project-basic',
+    )
+
+    const result = await runSource(workspace, [
+      'install',
+      'api',
+      '--project',
+      projectRoot,
+      '--dry-run',
+    ])
+
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout).toContain('myapp-api.service')
+  })
 })

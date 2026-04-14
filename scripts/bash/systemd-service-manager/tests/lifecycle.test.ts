@@ -109,4 +109,30 @@ describe('lifecycle commands', () => {
       '--user -u myapp-user-agent.service -f',
     )
   })
+
+  it('infers service kind when omitted for start', async () => {
+    const workspace = createWorkspace()
+    workspaces.push(workspace)
+
+    const systemctlLog = path.join(workspace.root, 'systemctl.log')
+    installMockCommand(
+      workspace,
+      'systemctl',
+      '#!/usr/bin/env bash\nprintf "%s\\n" "$*" >>"${SSM_SYSTEMCTL_LOG}"\nexit 0\n',
+    )
+
+    const projectRoot = path.join(
+      workspace.managerHome,
+      'tests',
+      'fixtures',
+      'project-basic',
+    )
+
+    const result = await runSource(workspace, ['start', 'api', '--project', projectRoot], {
+      SSM_SYSTEMCTL_LOG: systemctlLog,
+    })
+
+    expect(result.exitCode).toBe(0)
+    expect(fs.readFileSync(systemctlLog, 'utf8')).toContain('start myapp-api.service')
+  })
 })

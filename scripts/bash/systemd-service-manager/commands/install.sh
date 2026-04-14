@@ -9,11 +9,11 @@ SSM_CMD_INSTALL_LOADED=1
 ssm_cmd_install() {
   local target_kind="${1:-}"
   local target_name="${2:-}"
-  [[ -n "${target_kind}" ]] || ssm_die "Missing install target kind"
-  [[ -n "${target_name}" ]] || ssm_die "Missing install target name"
+  [[ -n "${target_kind}" ]] || ssm_die "Missing install target"
 
   local project_dir
   project_dir="$(ssm_find_project_dir "${SSM_CLI_PROJECT_DIR:-}")"
+  ssm_resolve_target_spec "${project_dir}" "${target_kind}" "${target_name}"
   local render_dir
   render_dir="$(mktemp -d)"
   trap 'rm -rf '"'"${render_dir}"'"'' RETURN
@@ -21,13 +21,13 @@ ssm_cmd_install() {
   local source_file=""
   local scope="system"
 
-  case "${target_kind}" in
+  case "${SSM_RESOLVED_TARGET_KIND}" in
     service)
-      ssm_parse_service_config "${project_dir}" "${target_name}"
+      ssm_parse_service_config "${project_dir}" "${SSM_RESOLVED_TARGET_NAME}"
       ssm_require_safe_name "UNIT_PREFIX" "${UNIT_PREFIX}"
-      source_file="$(ssm_service_config_path "${project_dir}" "${target_name}")"
+      source_file="$(ssm_service_config_path "${project_dir}" "${SSM_RESOLVED_TARGET_NAME}")"
       scope="${SSM_SERVICE_SCOPE}"
-      local service_unit_file="${render_dir}/$(ssm_service_unit_name "${target_name}")"
+      local service_unit_file="${render_dir}/$(ssm_service_unit_name "${SSM_RESOLVED_TARGET_NAME}")"
       ssm_render_service_unit "${source_file}" >"${service_unit_file}"
       ssm_verify_unit_file "${service_unit_file}" || ssm_die "systemd-analyze verify failed for ${service_unit_file}"
       if [[ "${SSM_CLI_DRY_RUN}" == "1" ]]; then
@@ -39,16 +39,16 @@ ssm_cmd_install() {
       ssm_daemon_reload "${scope}"
       ;;
     timer)
-      ssm_parse_timer_config "${project_dir}" "${target_name}"
+      ssm_parse_timer_config "${project_dir}" "${SSM_RESOLVED_TARGET_NAME}"
       ssm_require_safe_name "UNIT_PREFIX" "${UNIT_PREFIX}"
-      source_file="$(ssm_timer_config_path "${project_dir}" "${target_name}")"
+      source_file="$(ssm_timer_config_path "${project_dir}" "${SSM_RESOLVED_TARGET_NAME}")"
       scope="${SSM_TIMER_SCOPE}"
       local schedule_block
       schedule_block="$(ssm_resolve_schedule "${SCHEDULE}")"
       local task_unit_name
-      task_unit_name="$(ssm_timer_task_unit_name "${target_name}")"
+      task_unit_name="$(ssm_timer_task_unit_name "${SSM_RESOLVED_TARGET_NAME}")"
       local task_unit_file="${render_dir}/${task_unit_name}"
-      local timer_unit_file="${render_dir}/$(ssm_timer_unit_name "${target_name}")"
+      local timer_unit_file="${render_dir}/$(ssm_timer_unit_name "${SSM_RESOLVED_TARGET_NAME}")"
       local task_exec_command=""
 
       if [[ "${TARGET_TYPE}" == "service" ]]; then

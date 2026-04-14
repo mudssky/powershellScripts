@@ -16,7 +16,7 @@ ssm_cmd_status() {
   enabled_state="$(ssm_systemctl "${SSM_ACTIVE_SCOPE}" is-enabled "${SSM_ACTIVE_UNIT}" 2>/dev/null || true)"
   active_state="$(ssm_systemctl "${SSM_ACTIVE_SCOPE}" is-active "${SSM_ACTIVE_UNIT}" 2>/dev/null || true)"
 
-  printf 'name=%s\n' "${target_name}"
+  printf 'name=%s\n' "${SSM_ACTIVE_NAME}"
   printf 'unit=%s\n' "${SSM_ACTIVE_UNIT}"
   printf 'scope=%s\n' "${SSM_ACTIVE_SCOPE}"
   printf 'installed=%s\n' "$(ssm_is_unit_installed "${SSM_ACTIVE_SCOPE}" "${SSM_ACTIVE_UNIT}")"
