@@ -62,8 +62,62 @@
 | `/run/systemd/system/` | 运行时动态生成 |
 | `/usr/lib/systemd/system/` | 发行版/软件包自带 |
 | `/lib/systemd/system/` | 同上（部分发行版） |
+| `~/.config/systemd/user/` | 当前用户自定义的 **user unit**（仅当前用户可见） |
+| `/etc/systemd/user/` | 系统范围提供的 **user unit**，供各用户实例加载 |
+| `/usr/lib/systemd/user/` | 发行版/软件包自带的 **user unit** |
 
 > ⚠️ 优先级：`/etc/` > `/run/` > `/usr/lib/`
+
+### 👥 系统服务 vs 用户服务
+
+systemd 实际上有两类常见运行域：
+
+- **系统服务（system service）**：由 PID 1 管理，常用 `systemctl <command>` 操作。
+- **用户服务（user service）**：由某个用户自己的 systemd 实例管理，常用 `systemctl --user <command>` 操作。
+
+| 维度 | 系统服务 | 用户服务 |
+|------|----------|----------|
+| 管理者 | 系统级 systemd（PID 1） | 当前用户的 systemd 实例 |
+| 常见 unit 路径 | `/etc/systemd/system/` | `~/.config/systemd/user/` |
+| 常见命令 | `systemctl start nginx` | `systemctl --user start my-agent` |
+| 日志查看 | `journalctl -u nginx` | `journalctl --user -u my-agent` |
+| 权限边界 | 通常需要 `sudo`；可在 unit 内再切换 `User=` | 默认只能代表当前用户运行 |
+| 生命周期 | 跟随系统启动/停止，不依赖用户登录 | 默认跟随用户会话；退出登录后通常会结束 |
+| 开机自启 | 适合系统启动后立即拉起 | 适合登录后或启用 lingering 后拉起 |
+| 典型资源范围 | 系统目录、低端口、设备、挂载、系统网络 | 用户家目录、桌面会话、个人开发工具 |
+
+### 🧭 典型使用场景
+
+**更适合系统服务的场景：**
+
+- Web API、数据库、反向代理、队列消费者等长期后台服务
+- 需要在**没人登录**时也持续运行的进程
+- 需要访问 `/var/lib`、`/var/log`、`/etc`、块设备、挂载点、系统网络配置的任务
+- 需要监听低端口（如 `80` / `443`）或和其他系统服务建立启动依赖的程序
+- 机器级定时任务，例如备份、日志轮转、磁盘巡检、系统同步
+
+**更适合用户服务的场景：**
+
+- 某个开发者自己的同步、代理、通知、常驻 CLI helper、个人守护进程
+- 配置和数据都放在用户家目录下，不希望引入 `sudo`
+- 每个用户都可能有自己的一份实例，互不干扰
+- 个人定时任务，例如同步 dotfiles、定时拉代码、清理下载目录
+
+### ⚠️ 用户服务最容易忽略的一点
+
+如果用户服务需要在**退出登录后继续运行**，通常还要启用 lingering：
+
+```bash
+sudo loginctl enable-linger <user>
+```
+
+否则很多发行版上，用户会话结束后，该用户的 systemd 实例也会被回收。
+
+### ✅ 选型建议
+
+- 你在做“机器上的正式服务”时，优先选 **系统服务**
+- 你在做“某个用户自己的后台工具”时，优先选 **用户服务**
+- 如果一个工具既想服务服务器部署，也想服务开发者本地常驻工具，最好同时支持两种模式
 
 ### 📝 Service Unit 文件模板
 
@@ -195,6 +249,15 @@ systemctl enable mybackup.timer       # 开机自启
 systemctl list-timers                 # 列出所有定时器
 systemctl list-timers --all           # 包含不活跃的
 systemd-analyze calendar "*-*-* 02:00:00"  # 验证日历表达式
+```
+
+用户级 timer 的命令形式相同，只是改为 `--user`：
+
+```bash
+systemctl --user start mybackup.timer
+systemctl --user enable mybackup.timer
+systemctl --user list-timers
+journalctl --user -u mybackup.service -f
 ```
 
 ---
@@ -363,6 +426,20 @@ sudo systemctl restart myapp
 
 # 🔄 创建 drop-in 覆盖（不修改原文件）
 sudo systemctl edit myapp                      # 创建 /etc/systemd/system/myapp.service.d/override.conf
+```
+
+```bash
+# 👤 创建一个新的用户服务（完整流程）
+mkdir -p ~/.config/systemd/user
+vim ~/.config/systemd/user/my-agent.service    # 1. 编写 user unit
+systemctl --user daemon-reload                 # 2. 重载用户级配置
+systemctl --user start my-agent                # 3. 启动测试
+systemctl --user status my-agent               # 4. 检查状态
+systemctl --user enable my-agent               # 5. 设置用户级自启
+journalctl --user -u my-agent -f               # 6. 查看实时日志
+
+# 如需退出登录后继续运行，再启用 lingering
+sudo loginctl enable-linger "$USER"
 ```
 
 ---
