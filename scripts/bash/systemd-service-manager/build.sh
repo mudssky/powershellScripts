@@ -24,6 +24,13 @@ MODULES=(
   "${SCRIPT_DIR}/commands/init.sh"
   "${SCRIPT_DIR}/commands/list.sh"
   "${SCRIPT_DIR}/commands/install.sh"
+  "${SCRIPT_DIR}/commands/start.sh"
+  "${SCRIPT_DIR}/commands/stop.sh"
+  "${SCRIPT_DIR}/commands/restart.sh"
+  "${SCRIPT_DIR}/commands/status.sh"
+  "${SCRIPT_DIR}/commands/logs.sh"
+  "${SCRIPT_DIR}/commands/enable.sh"
+  "${SCRIPT_DIR}/commands/disable.sh"
   "${SCRIPT_DIR}/main.sh"
 )
 

@@ -32,6 +32,20 @@ if [[ -z "${SSM_STANDALONE:-}" ]]; then
   source "${SCRIPT_DIR}/commands/list.sh"
   # shellcheck source=scripts/bash/systemd-service-manager/commands/install.sh
   source "${SCRIPT_DIR}/commands/install.sh"
+  # shellcheck source=scripts/bash/systemd-service-manager/commands/start.sh
+  source "${SCRIPT_DIR}/commands/start.sh"
+  # shellcheck source=scripts/bash/systemd-service-manager/commands/stop.sh
+  source "${SCRIPT_DIR}/commands/stop.sh"
+  # shellcheck source=scripts/bash/systemd-service-manager/commands/restart.sh
+  source "${SCRIPT_DIR}/commands/restart.sh"
+  # shellcheck source=scripts/bash/systemd-service-manager/commands/status.sh
+  source "${SCRIPT_DIR}/commands/status.sh"
+  # shellcheck source=scripts/bash/systemd-service-manager/commands/logs.sh
+  source "${SCRIPT_DIR}/commands/logs.sh"
+  # shellcheck source=scripts/bash/systemd-service-manager/commands/enable.sh
+  source "${SCRIPT_DIR}/commands/enable.sh"
+  # shellcheck source=scripts/bash/systemd-service-manager/commands/disable.sh
+  source "${SCRIPT_DIR}/commands/disable.sh"
 fi
 
 # 顶层分发仅保留 help 和错误分支，满足第一轮测试闭环。
@@ -56,6 +70,27 @@ ssm_main() {
       ;;
     install)
       ssm_cmd_install "$@"
+      ;;
+    start)
+      ssm_cmd_start "$@"
+      ;;
+    stop)
+      ssm_cmd_stop "$@"
+      ;;
+    restart)
+      ssm_cmd_restart "$@"
+      ;;
+    status)
+      ssm_cmd_status "$@"
+      ;;
+    logs)
+      ssm_cmd_logs "$@"
+      ;;
+    enable)
+      ssm_cmd_enable "$@"
+      ;;
+    disable)
+      ssm_cmd_disable "$@"
       ;;
     debug-schedule)
       [[ -n "${1:-}" ]] || ssm_die "Missing schedule expression"
