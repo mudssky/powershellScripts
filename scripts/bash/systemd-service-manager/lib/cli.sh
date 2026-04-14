@@ -11,18 +11,30 @@ ssm_show_help() {
 Usage: systemd-service-manager <command> [options]
 
 Commands:
-  init
-  list
-  install
-  uninstall
-  start
-  stop
-  restart
-  status
-  logs
-  enable
-  disable
-  help
+  init       初始化当前项目的 deploy/systemd 模板骨架
+  list       列出当前项目中声明的 services 与 timers
+  install    渲染并安装 service/timer unit 到 systemd
+  uninstall  删除当前工具生成的 unit 文件
+  start      启动指定 service 或 timer
+  stop       停止指定 service 或 timer
+  restart    重启指定 service 或 timer
+  status     查看指定 service 或 timer 的安装与运行状态
+  logs       查看指定 service 或 timer 的 journald 日志
+  enable     启用指定 service 或 timer 的自启动
+  disable    禁用指定 service 或 timer 的自启动
+  help       显示这份帮助信息
+
+Common options:
+  --project <path>  指定项目根目录，默认使用当前目录
+  --dry-run         只预览将执行的操作，不实际写入 unit
+  --follow          配合 logs 使用，持续跟随日志输出
+
+Examples:
+  systemd-service-manager init
+  systemd-service-manager list --project /path/to/app
+  systemd-service-manager install service api --project /path/to/app
+  systemd-service-manager install timer cleanup --project /path/to/app --dry-run
+  systemd-service-manager logs service api --project /path/to/app --follow
 EOF
 }
 

@@ -34,6 +34,10 @@ describe('systemd service manager cli', () => {
     expect(sourceHelp.stdout).toContain(
       'Usage: systemd-service-manager <command> [options]',
     )
+    expect(sourceHelp.stdout).toContain('init       初始化当前项目的 deploy/systemd 模板骨架')
+    expect(sourceHelp.stdout).toContain('install    渲染并安装 service/timer unit 到 systemd')
+    expect(sourceHelp.stdout).toContain('--project <path>  指定项目根目录')
+    expect(sourceHelp.stdout).toContain('--dry-run         只预览将执行的操作')
     expect(builtHelp.stdout).toBe(sourceHelp.stdout)
   })
 
