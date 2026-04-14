@@ -18,6 +18,12 @@ if [[ -z "${SSM_STANDALONE:-}" ]]; then
   source "${SCRIPT_DIR}/lib/parser-timer.sh"
   # shellcheck source=scripts/bash/systemd-service-manager/lib/schedule.sh
   source "${SCRIPT_DIR}/lib/schedule.sh"
+  # shellcheck source=scripts/bash/systemd-service-manager/lib/render-service.sh
+  source "${SCRIPT_DIR}/lib/render-service.sh"
+  # shellcheck source=scripts/bash/systemd-service-manager/lib/render-timer.sh
+  source "${SCRIPT_DIR}/lib/render-timer.sh"
+  # shellcheck source=scripts/bash/systemd-service-manager/lib/systemd.sh
+  source "${SCRIPT_DIR}/lib/systemd.sh"
   # shellcheck source=scripts/bash/systemd-service-manager/lib/validate.sh
   source "${SCRIPT_DIR}/lib/validate.sh"
   # shellcheck source=scripts/bash/systemd-service-manager/commands/init.sh
