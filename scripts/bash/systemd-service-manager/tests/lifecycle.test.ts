@@ -181,4 +181,44 @@ describe('lifecycle commands', () => {
     expect(fs.readFileSync(sudoLog, 'utf8')).toContain(workspace.sourceEntry)
     expect(fs.readFileSync(systemctlLog, 'utf8')).toContain('start myapp-api.service')
   })
+
+  it('status explains activating but not enabled units', async () => {
+    const workspace = createWorkspace()
+    workspaces.push(workspace)
+
+    const systemctlLog = path.join(workspace.root, 'systemctl.log')
+    installMockCommand(
+      workspace,
+      'systemctl',
+      [
+        '#!/usr/bin/env bash',
+        'printf "%s\\n" "$*" >>"${SSM_SYSTEMCTL_LOG}"',
+        'if [[ "$1" == "is-enabled" ]]; then printf "disabled\\n"; fi',
+        'if [[ "$1" == "is-active" ]]; then printf "activating\\n"; fi',
+        'exit 0',
+      ].join('\n'),
+    )
+
+    const projectRoot = path.join(
+      workspace.managerHome,
+      'tests',
+      'fixtures',
+      'project-basic',
+    )
+
+    const result = await runSource(
+      workspace,
+      ['status', 'api', '--project', projectRoot],
+      {
+        SSM_TEST_EUID: '0',
+        SSM_SYSTEMCTL_LOG: systemctlLog,
+      },
+    )
+
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout).toContain('enabled=disabled')
+    expect(result.stdout).toContain('active=activating')
+    expect(result.stdout).toContain('note=unit 已启动但未启用开机自启')
+    expect(result.stdout).toContain('note=unit 正在启动中')
+  })
 })

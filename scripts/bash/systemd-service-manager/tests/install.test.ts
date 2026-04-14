@@ -162,6 +162,8 @@ describe('install command', () => {
     )
 
     expect(result.exitCode).toBe(0)
+    expect(result.stdout).toContain('installed=myapp-api.service')
+    expect(result.stdout).toContain('started=myapp-api.service')
     expect(fs.readFileSync(systemctlLog, 'utf8')).toContain('daemon-reload')
     expect(fs.readFileSync(systemctlLog, 'utf8')).toContain('start myapp-api.service')
   })

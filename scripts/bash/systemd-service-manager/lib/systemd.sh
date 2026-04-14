@@ -142,6 +142,43 @@ ssm_load_target_context() {
   esac
 }
 
+# 读取当前 unit 的 installed/enabled/active 摘要，供状态展示和成功提示复用。
+ssm_collect_unit_summary() {
+  local scope="$1"
+  local unit_name="$2"
+
+  SSM_SUMMARY_INSTALLED="$(ssm_is_unit_installed "${scope}" "${unit_name}")"
+  SSM_SUMMARY_ENABLED="$(ssm_systemctl "${scope}" is-enabled "${unit_name}" 2>/dev/null || true)"
+  SSM_SUMMARY_ACTIVE="$(ssm_systemctl "${scope}" is-active "${unit_name}" 2>/dev/null || true)"
+
+  [[ -n "${SSM_SUMMARY_ENABLED}" ]] || SSM_SUMMARY_ENABLED="unknown"
+  [[ -n "${SSM_SUMMARY_ACTIVE}" ]] || SSM_SUMMARY_ACTIVE="unknown"
+}
+
+# 输出统一状态摘要，并附加人类可读提示。
+ssm_print_unit_summary() {
+  local name="$1"
+  local scope="$2"
+  local unit_name="$3"
+
+  ssm_collect_unit_summary "${scope}" "${unit_name}"
+
+  printf 'name=%s\n' "${name}"
+  printf 'unit=%s\n' "${unit_name}"
+  printf 'scope=%s\n' "${scope}"
+  printf 'installed=%s\n' "${SSM_SUMMARY_INSTALLED}"
+  printf 'enabled=%s\n' "${SSM_SUMMARY_ENABLED}"
+  printf 'active=%s\n' "${SSM_SUMMARY_ACTIVE}"
+
+  if [[ "${SSM_SUMMARY_ENABLED}" == "disabled" && "${SSM_SUMMARY_ACTIVE}" != "inactive" ]]; then
+    printf 'note=unit 已启动但未启用开机自启\n'
+  fi
+
+  if [[ "${SSM_SUMMARY_ACTIVE}" == "activating" ]]; then
+    printf 'note=unit 正在启动中\n'
+  fi
+}
+
 # 判断当前命令是否需要在非 root 下自动提权。
 ssm_should_auto_elevate() {
   local command="$1"

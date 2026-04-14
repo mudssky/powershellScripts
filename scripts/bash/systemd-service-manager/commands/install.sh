@@ -37,9 +37,12 @@ ssm_cmd_install() {
       mkdir -p "$(ssm_unit_dir_for_scope "${scope}")"
       cp "${service_unit_file}" "$(ssm_unit_dir_for_scope "${scope}")/"
       ssm_daemon_reload "${scope}"
+      printf 'installed=%s\n' "$(ssm_service_unit_name "${SSM_RESOLVED_TARGET_NAME}")"
       if [[ "${SSM_CLI_START_AFTER_INSTALL}" == "1" ]]; then
         ssm_systemctl "${scope}" start "$(ssm_service_unit_name "${SSM_RESOLVED_TARGET_NAME}")"
+        printf 'started=%s\n' "$(ssm_service_unit_name "${SSM_RESOLVED_TARGET_NAME}")"
       fi
+      ssm_print_unit_summary "${SSM_RESOLVED_TARGET_NAME}" "${scope}" "$(ssm_service_unit_name "${SSM_RESOLVED_TARGET_NAME}")"
       ;;
     timer)
       ssm_parse_timer_config "${project_dir}" "${SSM_RESOLVED_TARGET_NAME}"
@@ -81,9 +84,12 @@ ssm_cmd_install() {
       cp "${task_unit_file}" "$(ssm_unit_dir_for_scope "${scope}")/"
       cp "${timer_unit_file}" "$(ssm_unit_dir_for_scope "${scope}")/"
       ssm_daemon_reload "${scope}"
+      printf 'installed=%s\n' "$(ssm_timer_unit_name "${SSM_RESOLVED_TARGET_NAME}")"
       if [[ "${SSM_CLI_START_AFTER_INSTALL}" == "1" ]]; then
         ssm_systemctl "${scope}" start "$(ssm_timer_unit_name "${SSM_RESOLVED_TARGET_NAME}")"
+        printf 'started=%s\n' "$(ssm_timer_unit_name "${SSM_RESOLVED_TARGET_NAME}")"
       fi
+      ssm_print_unit_summary "${SSM_RESOLVED_TARGET_NAME}" "${scope}" "$(ssm_timer_unit_name "${SSM_RESOLVED_TARGET_NAME}")"
       ;;
     *)
       ssm_die "Unknown install target kind: ${target_kind}"
