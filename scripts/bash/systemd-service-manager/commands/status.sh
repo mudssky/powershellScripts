@@ -10,16 +10,5 @@ ssm_cmd_status() {
   local target_kind="${1:-}"
   local target_name="${2:-}"
   ssm_load_target_context "${target_kind}" "${target_name}"
-
-  local enabled_state=""
-  local active_state=""
-  enabled_state="$(ssm_systemctl "${SSM_ACTIVE_SCOPE}" is-enabled "${SSM_ACTIVE_UNIT}" 2>/dev/null || true)"
-  active_state="$(ssm_systemctl "${SSM_ACTIVE_SCOPE}" is-active "${SSM_ACTIVE_UNIT}" 2>/dev/null || true)"
-
-  printf 'name=%s\n' "${target_name}"
-  printf 'unit=%s\n' "${SSM_ACTIVE_UNIT}"
-  printf 'scope=%s\n' "${SSM_ACTIVE_SCOPE}"
-  printf 'installed=%s\n' "$(ssm_is_unit_installed "${SSM_ACTIVE_SCOPE}" "${SSM_ACTIVE_UNIT}")"
-  printf 'enabled=%s\n' "${enabled_state:-unknown}"
-  printf 'active=%s\n' "${active_state:-unknown}"
+  ssm_print_unit_summary "${SSM_ACTIVE_NAME}" "${SSM_ACTIVE_SCOPE}" "${SSM_ACTIVE_UNIT}"
 }

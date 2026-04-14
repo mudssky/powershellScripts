@@ -50,6 +50,7 @@ fi
 
 # 顶层分发仅保留 help 和错误分支，满足第一轮测试闭环。
 ssm_main() {
+  local -a original_args=("$@")
   ssm_init_environment "${BASH_SOURCE[0]}"
 
   local command="${1:-help}"
@@ -57,6 +58,10 @@ ssm_main() {
 
   ssm_parse_common_flags "$@"
   set -- "${SSM_CLI_POSITIONAL_ARGS[@]}"
+
+  if ssm_should_auto_elevate "${command}"; then
+    ssm_reexec_with_sudo "${BASH_SOURCE[0]}" "$0" "${original_args[@]}"
+  fi
 
   case "${command}" in
     help | --help | -h | '')

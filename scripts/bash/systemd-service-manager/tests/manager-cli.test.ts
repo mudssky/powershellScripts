@@ -40,6 +40,9 @@ describe('systemd service manager cli', () => {
     expect(sourceHelp.stdout).toContain('install    渲染并安装 service/timer unit 到 systemd')
     expect(sourceHelp.stdout).toContain('--project <path>  指定项目根目录')
     expect(sourceHelp.stdout).toContain('--dry-run         只预览将执行的操作')
+    expect(sourceHelp.stdout).toContain('--start           安装完成后立即启动目标 unit')
+    expect(sourceHelp.stdout).toContain('start 前需要目标 unit 已经 install')
+    expect(sourceHelp.stdout).toContain('system scope 的写操作在非 root 下会自动通过 sudo 重新执行')
     expect(builtHelp.stdout).toBe(sourceHelp.stdout)
   })
 

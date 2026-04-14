@@ -27,13 +27,25 @@ Commands:
 Common options:
   --project <path>  指定项目根目录，默认使用当前目录
   --dry-run         只预览将执行的操作，不实际写入 unit
+  --start           安装完成后立即启动目标 unit
   --follow          配合 logs 使用，持续跟随日志输出
+
+Target syntax:
+  <command> <service|timer> <name>   显式指定目标类型
+  <command> <name>                   当名字只在 service 或 timer 中命中一个时自动推断类型
+
+Notes:
+  start 前需要目标 unit 已经 install
+  system scope 的写操作在非 root 下会自动通过 sudo 重新执行
 
 Examples:
   systemd-service-manager init
   systemd-service-manager list --project /path/to/app
   systemd-service-manager install service api --project /path/to/app
+  systemd-service-manager install api --project /path/to/app
+  systemd-service-manager install api --project /path/to/app --start
   systemd-service-manager install timer cleanup --project /path/to/app --dry-run
+  systemd-service-manager start api --project /path/to/app
   systemd-service-manager logs service api --project /path/to/app --follow
 EOF
 }
@@ -43,6 +55,7 @@ ssm_parse_common_flags() {
   SSM_CLI_PROJECT_DIR=""
   SSM_CLI_DRY_RUN=0
   SSM_CLI_FOLLOW=0
+  SSM_CLI_START_AFTER_INSTALL=0
   SSM_CLI_POSITIONAL_ARGS=()
 
   while [[ "$#" -gt 0 ]]; do
@@ -54,6 +67,10 @@ ssm_parse_common_flags() {
         ;;
       --dry-run)
         SSM_CLI_DRY_RUN=1
+        shift
+        ;;
+      --start)
+        SSM_CLI_START_AFTER_INSTALL=1
         shift
         ;;
       --follow)
