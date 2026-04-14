@@ -120,3 +120,18 @@ export function runBuild(
 export function readText(filePath: string): string {
   return fs.readFileSync(filePath, 'utf8')
 }
+
+export function writeText(filePath: string, content: string): void {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true })
+  fs.writeFileSync(filePath, content, 'utf8')
+}
+
+export function installMockCommand(
+  workspace: Workspace,
+  name: string,
+  body: string,
+): void {
+  const scriptPath = path.join(workspace.mockBin, name)
+  writeText(scriptPath, body)
+  fs.chmodSync(scriptPath, 0o755)
+}

@@ -12,6 +12,14 @@ LOCAL_OUTPUT="${REPO_ROOT}/scripts/bash/systemd-service-manager.sh"
 MODULES=(
   "${SCRIPT_DIR}/common.sh"
   "${SCRIPT_DIR}/lib/cli.sh"
+  "${SCRIPT_DIR}/lib/project.sh"
+  "${SCRIPT_DIR}/lib/env.sh"
+  "${SCRIPT_DIR}/lib/parser-service.sh"
+  "${SCRIPT_DIR}/lib/parser-timer.sh"
+  "${SCRIPT_DIR}/lib/schedule.sh"
+  "${SCRIPT_DIR}/lib/validate.sh"
+  "${SCRIPT_DIR}/commands/list.sh"
+  "${SCRIPT_DIR}/commands/install.sh"
   "${SCRIPT_DIR}/main.sh"
 )
 
