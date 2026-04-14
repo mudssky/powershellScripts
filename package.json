@@ -39,6 +39,7 @@
     "test:pwsh:slowest": "pnpm test:pwsh:assertions:slowest",
     "test:pwsh:all:slowest": "node ./scripts/pester-duration-report.mjs --command \"pnpm test:pwsh:all\"",
     "benchmark": "pwsh -NoProfile -File ./scripts/pwsh/devops/Invoke-Benchmark.ps1",
+    "build:pwsh:postgresql": "pwsh -NoProfile -File ./scripts/pwsh/devops/postgresql/build/Build-PostgresToolkit.ps1",
     "scripts:install": "pwsh  -File ./install.ps1",
     "scoop:update": "scoop update -a",
     "choco:update": "choco upgrade all -y",
