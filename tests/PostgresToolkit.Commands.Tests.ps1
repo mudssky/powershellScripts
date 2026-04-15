@@ -2,6 +2,7 @@ Set-StrictMode -Version Latest
 
 BeforeAll {
     $script:RepoRoot = Join-Path $PSScriptRoot '..'
+    $script:OriginalSkipToolkitMain = [Environment]::GetEnvironmentVariable('PWSH_TEST_SKIP_POSTGRES_TOOLKIT_MAIN', 'Process')
     $env:PWSH_TEST_SKIP_POSTGRES_TOOLKIT_MAIN = '1'
 
     foreach ($relativePath in @(
@@ -23,6 +24,15 @@ BeforeAll {
             'scripts/pwsh/devops/postgresql/main.ps1'
         )) {
         . (Join-Path $script:RepoRoot $relativePath)
+    }
+}
+
+AfterAll {
+    if ($null -eq $script:OriginalSkipToolkitMain) {
+        Remove-Item Env:\PWSH_TEST_SKIP_POSTGRES_TOOLKIT_MAIN -ErrorAction SilentlyContinue
+    }
+    else {
+        [Environment]::SetEnvironmentVariable('PWSH_TEST_SKIP_POSTGRES_TOOLKIT_MAIN', $script:OriginalSkipToolkitMain, 'Process')
     }
 }
 
