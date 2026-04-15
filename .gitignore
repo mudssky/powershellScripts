@@ -42,3 +42,5 @@ bin/
 
 .env.local
 *.env.local
+
+docs/superpowers/plans
