@@ -3,6 +3,7 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { buildPnpmCommand } from './pnpm-command.mjs'
+import { shouldRunLinuxOnlyQa } from './qa-platform.mjs'
 
 // 传统版 QA 编排器。
 // 这个入口复用各 workspace 包自身定义的 `qa` 脚本，不依赖 Turbo 任务图；
@@ -378,6 +379,13 @@ function runRootPwshQa(modeValue, sinceRef) {
 }
 
 function runRootFnosQa(modeValue, sinceRef) {
+  if (!shouldRunLinuxOnlyQa()) {
+    console.log(
+      `[qa] skip root qa:fnos (linux only, current platform: ${process.platform})`,
+    )
+    return
+  }
+
   const fnosPathspecs = ['linux/fnos', 'package.json']
 
   if (modeValue === 'all') {
@@ -396,6 +404,13 @@ function runRootFnosQa(modeValue, sinceRef) {
 }
 
 function runRootSystemdServiceManagerQa(modeValue, sinceRef) {
+  if (!shouldRunLinuxOnlyQa()) {
+    console.log(
+      `[qa] skip root qa:systemd-service-manager (linux only, current platform: ${process.platform})`,
+    )
+    return
+  }
+
   const pathspecs = ['scripts/bash/systemd-service-manager', 'package.json']
 
   if (modeValue === 'all') {
