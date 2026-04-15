@@ -14,6 +14,7 @@
 - `.env.example`：开发环境变量示例。
 - `.env.production.example`：生产环境变量示例。
 - `tensorzero.toml`：生产级网关配置示例，包含百炼接入、降级、重试和限流规则。
+- `newapi.toml`：面向 NewAPI 的替代配置，沿用同样的降级、重试和限流思路。
 - `.env.local`：本地私有环境变量覆盖文件，可选。
 
 ## 环境变量
@@ -21,6 +22,7 @@
 建议先在 `ai/gateway/tensorzero/.env.local` 中配置以下值：
 
 ```dotenv
+TENSORZERO_CONFIG_FILE=tensorzero.toml
 TENSORZERO_GATEWAY_IMAGE=tensorzero/gateway
 TENSORZERO_UI_IMAGE=tensorzero/ui
 TENSORZERO_CLICKHOUSE_IMAGE=clickhouse/clickhouse-server:lts
@@ -28,6 +30,7 @@ TENSORZERO_VALKEY_IMAGE=valkey/valkey:8-alpine
 TENSORZERO_GATEWAY_PORT=34400
 TENSORZERO_UI_PORT=34401
 DASHSCOPE_API_KEY=sk-xxxx
+NEWAPI_API_KEY=sk-xxxx
 TENSORZERO_CLICKHOUSE_DB=tensorzero
 TENSORZERO_CLICKHOUSE_USER=tensorzero
 TENSORZERO_CLICKHOUSE_PASSWORD=change-me
@@ -38,7 +41,9 @@ TENSORZERO_VALKEY_URL=redis://valkey:6379/0
 
 其中：
 
+- `TENSORZERO_CONFIG_FILE`：要加载的配置文件名，默认 `tensorzero.toml`；如果要切到 NewAPI 版，改成 `newapi.toml`。
 - `DASHSCOPE_API_KEY`：阿里百炼 API Key，供 `tensorzero.toml` 里的 OpenAI 兼容提供方配置使用。
+- `NEWAPI_API_KEY`：供 `newapi.toml` 使用的 NewAPI 密钥。
 - `TENSORZERO_GATEWAY_PORT`：宿主机访问 TensorZero Gateway 的端口，默认 `34400`。
 - `TENSORZERO_UI_PORT`：宿主机访问 TensorZero UI 的端口，默认 `34401`。
 - `TENSORZERO_CLICKHOUSE_*`：ClickHouse 初始化账号、密码和数据库。
@@ -46,6 +51,27 @@ TENSORZERO_VALKEY_URL=redis://valkey:6379/0
 - `TENSORZERO_VALKEY_URL`：自定义限流状态后端；启用 `rate_limiting.rules` 时必须存在。
 
 如果你要准备生产环境，可以复制 `./.env.production.example` 再按实际环境改值。
+
+如果你想切到 NewAPI 版配置，只需要把 `.env.local` 里的：
+
+```dotenv
+TENSORZERO_CONFIG_FILE=newapi.toml
+```
+
+然后补好：
+
+```dotenv
+NEWAPI_API_KEY=sk-xxxx
+```
+
+同时直接编辑 `newapi.toml` 里的：
+
+```toml
+api_base = "https://newapi.example.com/v1"
+model_name = "qwen-plus"
+```
+
+把它改成你的 NewAPI 地址和默认模型。
 
 ## 启动方式
 
@@ -94,13 +120,24 @@ curl http://127.0.0.1:34400/inference `
 
 ## 配置说明
 
-`tensorzero.toml` 当前提供的是一套生产向示例：
+`tensorzero.toml` 当前提供的是一套面向阿里百炼的生产向示例：
 
 - `qwen_plus_prod`：主模型，直连阿里百炼 `qwen-plus`
 - `qwen_flash_fallback`：降级模型，直连阿里百炼 `qwen-flash`
 - `chat_prod`：默认生产聊天函数，优先主模型，失败后顺序降级
 - `retries` + `timeouts`：在 provider 和 variant 两层分别约束重试和超时
 - `rate_limiting.rules`：示例化地展示全局总量保护与按 `tenant_id` 的细粒度限流
+
+`newapi.toml` 则是一个更简洁的 NewAPI 版本：
+
+- `newapi_chat`：单模型模板，通过 `api_base` 指向你的 NewAPI
+- `chat_simple`：最小聊天函数，不带降级和复杂实验路由
+- `retries` + `timeouts`：只保留一层轻量保护，避免配置过重
+
+注意：
+
+- TensorZero 的 OpenAI-compatible provider 需要显式配置 `model_name`，所以 `newapi.toml` 不能像 LiteLLM 一样用单个配置文件真正做任意模型 `*` 透传。
+- 如果你要切到另一个 NewAPI 模型，最简单的做法是直接改 `newapi.toml` 的 `model_name`；如果你要同时支持多个模型，就复制一份 `models.*` 和 `functions.*` 配置块。
 
 注意：
 

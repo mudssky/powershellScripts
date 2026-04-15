@@ -1,0 +1,27 @@
+[gateway]
+# 关闭匿名使用分析，并限制全局出站超时，避免上游 NewAPI 抖动时长期占住连接。
+disable_pseudonymous_usage_analytics = true
+global_outbound_http_timeout_ms = 30_000
+
+# TensorZero 对 OpenAI-compatible provider 需要显式配置 `model_name`，
+# 不能像 LiteLLM 那样通过一个 TOML 真正做 `*` 模型透传。
+# 这里保留一个最小模板：把下面的 `api_base` 和 `model_name` 改成你要走的 NewAPI 地址与模型。
+[models.newapi_chat]
+routing = ["newapi"]
+
+[models.newapi_chat.providers.newapi]
+type = "openai"
+api_base = "https://newapi.example.com/v1"
+model_name = "qwen-plus"
+api_key_location = "env::NEWAPI_API_KEY"
+# 保留一层轻量重试与超时，避免偶发 429 / 5xx 直接透传给上层调用方。
+retries = { num_retries = 1, max_delay_s = 4 }
+timeouts = { non_streaming.total_ms = 15_000, streaming.ttft_ms = 3_000 }
+
+[functions.chat_simple]
+# 最小聊天函数，不做降级与复杂路由，适合作为 NewAPI 的简洁接入模板。
+type = "chat"
+
+[functions.chat_simple.variants.newapi]
+type = "chat_completion"
+model = "newapi_chat"
