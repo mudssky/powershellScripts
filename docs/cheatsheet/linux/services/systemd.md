@@ -161,6 +161,158 @@ WantedBy=multi-user.target    # enable 时链接到该 target
 Alias=myapp.service           # 别名
 ```
 
+### ⚠️ ExecStart / Command 配置要点
+
+`systemd` 里的 `ExecStart=` 和你在交互 shell 里敲命令，不是同一个运行环境。
+
+最常见的坑有这些：
+
+- `systemd` 默认**不会读取**你的 `.bashrc`、`.zshrc`、`profile`，所以不要假设交互 shell 里的 `PATH` 一定存在。
+- `ExecStart=` 的**第一个可执行程序**最好是绝对路径，例如 `/usr/bin/node`、`/usr/bin/env`、`/usr/bin/bash`。
+- 如果你想继续写裸命令，例如 `zread`、`pm2`、`pnpm`，建议写成 `/usr/bin/env <command> ...`，并显式提供 `PATH`。
+- 需要切目录时优先用 `WorkingDirectory=`，不要把 `cd /path && ...` 全塞进 `ExecStart=`。
+- 需要环境变量时，优先用 `Environment=` 或 `EnvironmentFile=`，而不是把一大串 `export` 硬塞进命令。
+- 如果确实需要 shell 特性（如 `&&`、变量展开、`eval`），再用 `/usr/bin/env bash -lc '...'` 包一层。
+- 不是所有命令都适合做 `Type=simple` 常驻服务。像“打开浏览器”“交互选择版本”“依赖 TTY”的命令，在终端里能跑，不代表在 systemd 里会持续驻留。
+
+一个非常实用的判断标准：
+
+- 命令在终端里启动后会**长期前台占用**，适合 `Type=simple`
+- 命令启动后会**立即退出**、拉起子进程、弹浏览器、弹菜单，通常不适合作为常驻服务入口
+
+### 📦 npm / fnm 安装的命令如何部署为 systemd 服务
+
+很多 Node CLI 工具是通过 `npm -g` / `pnpm add -g` / `fnm` 安装的。  
+这类命令在终端里能直接运行，往往只是因为当前 shell 已经提前配置好了 `PATH`。
+
+systemd 下更推荐下面两种写法。
+
+#### 方案 A：固定稳定 PATH（推荐）
+
+适合长期运行的 `system service`。
+
+关键思路：
+
+- `ExecStart=` 用 `/usr/bin/env <command>`
+- `Environment=` 明确给出稳定的 `PATH`
+- 不要使用 `/run/user/.../fnm_multishells/...` 这类会话级临时路径
+
+示例：
+
+```ini
+[Service]
+Type=simple
+User=administrator
+Group=administrator
+WorkingDirectory=/home/administrator/projects/myapp
+Environment="HOME=/home/administrator"
+Environment="PATH=/home/administrator/.local/share/fnm/node-versions/v24.11.0/installation/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/usr/bin/env zread browse --host 0.0.0.0 --port 19681
+Restart=always
+RestartSec=3s
+```
+
+这条线的优点是最稳定、最容易排障。
+
+#### 方案 B：启动前动态执行 `fnm env`
+
+适合你确实希望跟随 `.node-version` / `.nvmrc` 切换版本的场景。
+
+示例：
+
+```ini
+[Service]
+Type=simple
+User=administrator
+Group=administrator
+WorkingDirectory=/home/administrator/projects/myapp
+Environment="HOME=/home/administrator"
+ExecStart=/usr/bin/env bash -lc 'eval "$(/home/linuxbrew/.linuxbrew/bin/fnm env --shell bash)"; fnm use --silent-if-unchanged >/dev/null; exec zread browse --host 0.0.0.0 --port 19681'
+Restart=always
+RestartSec=3s
+```
+
+这条线更灵活，但也更依赖 shell 包装和 `fnm` 本身的行为。
+
+#### 方案 C：命令依赖 TTY 时，用 `script` 提供 PTY
+
+少数 CLI 命令在普通终端里能正常工作，但放进 systemd 这种**无交互、无 TTY**环境后，会出现：
+
+- 进程启动后立即退出
+- `systemctl start` 返回成功，但端口没有监听
+- `journalctl` 里看到 `status=0/SUCCESS`，同时 service 又不断 `Restart=always`
+
+这类命令有时不是完全不能后台运行，而是**需要一个伪终端（PTY）**。
+
+此时可以用 `/usr/bin/script` 包一层：
+
+```ini
+[Service]
+Type=simple
+User=administrator
+Group=administrator
+WorkingDirectory=/home/administrator/projects/myapp
+Environment="HOME=/home/administrator"
+Environment="PATH=/home/administrator/.local/share/fnm/node-versions/v24.11.0/installation/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="TERM=xterm-256color"
+Environment="BROWSER=/bin/true"
+ExecStart=/usr/bin/script -q -c "zread browse --host 0.0.0.0 --port 19681" /dev/null
+Restart=always
+RestartSec=3s
+```
+
+设计意图：
+
+- `/usr/bin/script`：分配一个 PTY
+- `-q`：静默模式
+- `-c "..."`：执行真正的 CLI 命令
+- `/dev/null`：不额外保留 typescript 输出文件
+- `TERM=xterm-256color`：给依赖终端能力的程序一个基础终端类型
+- `BROWSER=/bin/true`：避免这类“浏览/打开”命令真的去弹浏览器
+
+这个方案是**兼容手段**，不是首选默认方案。
+
+推荐优先级仍然是：
+
+1. 原生命令本身就支持稳定的 `serve` / `server` / `daemon` 模式
+2. 用稳定 `PATH` 或 `fnm env` 解决 Node / fnm 环境
+3. 只有确认问题根因是“缺少 TTY”时，才上 `script -q -c '...' /dev/null`
+
+#### 什么时候不该继续硬拗
+
+如果一个 npm CLI 的命令语义更像：
+
+- 打开浏览器
+- 展示交互菜单
+- 做一次性生成 / 导出
+- 启动后立即退出，但后台可能短暂拉起别的东西
+
+那它可能并不适合作为 systemd 常驻服务入口。
+
+优先顺序建议是：
+
+1. 看工具是否有明确的 `serve` / `server` / `daemon` 子命令
+2. 如果没有，再评估是否应该换成静态文件服务、反向代理，或其他真正适合常驻的服务方案
+3. 只有在充分验证后，才考虑用 `script -q -c '...' /dev/null` 这类 PTY 包装兼容手段
+
+### 🧪 验证 npm / fnm 服务配置是否真的生效
+
+不要只看 `systemctl start` 是否返回成功，至少还要一起检查：
+
+```bash
+systemctl status myapp.service --no-pager -l
+journalctl -u myapp.service -n 100 --no-pager -l
+ss -lntp '( sport = :19681 )'
+curl -I http://127.0.0.1:19681
+```
+
+常见信号：
+
+- `status=127`：通常是命令找不到，优先检查 `PATH` 和 `ExecStart=` 第一个程序
+- `Active: activating (auto-restart)`：通常是进程启动后又退出了，不能只看“start 成功”
+- `curl: (7) Failed to connect`：通常说明端口并没有真的监听
+- `code=exited, status=0/SUCCESS` 但服务不断重启：通常说明命令是“一次性命令”，不是适合常驻的服务入口
+
 ### 🏷️ Service Type 类型
 
 | Type | 说明 |
