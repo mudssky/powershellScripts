@@ -67,6 +67,46 @@ ssm_is_unit_installed() {
   [[ -f "$(ssm_unit_dir_for_scope "${scope}")/${unit_name}" ]] && printf 'true' || printf 'false'
 }
 
+# 读取当前 unit 的原始 active 状态，供 install 决定 start 还是 restart。
+ssm_unit_activity_state() {
+  local scope="$1"
+  local unit_name="$2"
+  ssm_systemctl "${scope}" is-active "${unit_name}" 2>/dev/null || true
+}
+
+# 判断当前状态是否属于“已经在运行或正在启动”的集合。
+ssm_is_running_like_state() {
+  local state="$1"
+  case "${state}" in
+    active | activating | reloading)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+# 把生成好的 unit 写入目标目录，并返回 created/updated/unchanged 状态。
+ssm_write_unit_file() {
+  local source_file="$1"
+  local destination_file="$2"
+  mkdir -p "$(dirname "${destination_file}")"
+
+  if [[ -f "${destination_file}" ]]; then
+    if cmp -s "${source_file}" "${destination_file}"; then
+      SSM_WRITE_STATUS="unchanged"
+      return 0
+    fi
+    cp "${source_file}" "${destination_file}"
+    SSM_WRITE_STATUS="updated"
+    return 0
+  fi
+
+  cp "${source_file}" "${destination_file}"
+  SSM_WRITE_STATUS="installed"
+}
+
 # 把 service/timer 目标解析成 scope 与最终 unit 名，供 lifecycle 命令复用。
 ssm_resolve_target_spec() {
   local project_dir="$1"

@@ -37,6 +37,7 @@ Target syntax:
 Notes:
   start 前需要目标 unit 已经 install
   system scope 的写操作在非 root 下会自动通过 sudo 重新执行
+  install --start 在目标已运行时会自动使用 restart，让新配置立即生效
 
 Examples:
   systemd-service-manager init

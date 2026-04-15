@@ -30,22 +30,34 @@ ssm_cmd_install() {
       ssm_collect_env_entries_for_service "${project_dir}" "${SSM_RESOLVED_TARGET_NAME}"
       local env_block
       env_block="$(ssm_render_environment_lines)"
-      local service_unit_file="${render_dir}/$(ssm_service_unit_name "${SSM_RESOLVED_TARGET_NAME}")"
+      local service_unit_name
+      service_unit_name="$(ssm_service_unit_name "${SSM_RESOLVED_TARGET_NAME}")"
+      local service_unit_file="${render_dir}/${service_unit_name}"
+      local destination_unit_file
+      destination_unit_file="$(ssm_unit_dir_for_scope "${scope}")/${service_unit_name}"
+      local previous_active_state
+      previous_active_state="$(ssm_unit_activity_state "${scope}" "${service_unit_name}")"
       ssm_render_service_unit "${source_file}" "${env_block}" >"${service_unit_file}"
       ssm_verify_unit_file "${service_unit_file}" || ssm_die "systemd-analyze verify failed for ${service_unit_file}"
       if [[ "${SSM_CLI_DRY_RUN}" == "1" ]]; then
         printf '%s\n' "$(basename "${service_unit_file}")"
         return 0
       fi
-      mkdir -p "$(ssm_unit_dir_for_scope "${scope}")"
-      cp "${service_unit_file}" "$(ssm_unit_dir_for_scope "${scope}")/"
+      ssm_write_unit_file "${service_unit_file}" "${destination_unit_file}"
       ssm_daemon_reload "${scope}"
-      printf 'installed=%s\n' "$(ssm_service_unit_name "${SSM_RESOLVED_TARGET_NAME}")"
+      printf '%s=%s\n' "${SSM_WRITE_STATUS}" "${service_unit_name}"
       if [[ "${SSM_CLI_START_AFTER_INSTALL}" == "1" ]]; then
-        ssm_systemctl "${scope}" start "$(ssm_service_unit_name "${SSM_RESOLVED_TARGET_NAME}")"
-        printf 'started=%s\n' "$(ssm_service_unit_name "${SSM_RESOLVED_TARGET_NAME}")"
+        if ssm_is_running_like_state "${previous_active_state}"; then
+          ssm_systemctl "${scope}" restart "${service_unit_name}"
+          printf 'restarted=%s\n' "${service_unit_name}"
+        else
+          ssm_systemctl "${scope}" start "${service_unit_name}"
+          printf 'started=%s\n' "${service_unit_name}"
+        fi
+      elif [[ "${SSM_WRITE_STATUS}" == "updated" ]] && ssm_is_running_like_state "${previous_active_state}"; then
+        printf 'note=配置已更新，运行中的 unit 需要 restart 才会生效\n'
       fi
-      ssm_print_unit_summary "${SSM_RESOLVED_TARGET_NAME}" "${scope}" "$(ssm_service_unit_name "${SSM_RESOLVED_TARGET_NAME}")"
+      ssm_print_unit_summary "${SSM_RESOLVED_TARGET_NAME}" "${scope}" "${service_unit_name}"
       ;;
     timer)
       ssm_parse_timer_config "${project_dir}" "${SSM_RESOLVED_TARGET_NAME}"
@@ -60,7 +72,15 @@ ssm_cmd_install() {
       local task_unit_name
       task_unit_name="$(ssm_timer_task_unit_name "${SSM_RESOLVED_TARGET_NAME}")"
       local task_unit_file="${render_dir}/${task_unit_name}"
-      local timer_unit_file="${render_dir}/$(ssm_timer_unit_name "${SSM_RESOLVED_TARGET_NAME}")"
+      local timer_unit_name
+      timer_unit_name="$(ssm_timer_unit_name "${SSM_RESOLVED_TARGET_NAME}")"
+      local timer_unit_file="${render_dir}/${timer_unit_name}"
+      local destination_task_unit_file
+      destination_task_unit_file="$(ssm_unit_dir_for_scope "${scope}")/${task_unit_name}"
+      local destination_timer_unit_file
+      destination_timer_unit_file="$(ssm_unit_dir_for_scope "${scope}")/${timer_unit_name}"
+      local previous_active_state
+      previous_active_state="$(ssm_unit_activity_state "${scope}" "${timer_unit_name}")"
       local task_exec_command=""
 
       if [[ "${TARGET_TYPE}" == "service" ]]; then
@@ -86,16 +106,25 @@ ssm_cmd_install() {
         return 0
       fi
 
-      mkdir -p "$(ssm_unit_dir_for_scope "${scope}")"
-      cp "${task_unit_file}" "$(ssm_unit_dir_for_scope "${scope}")/"
-      cp "${timer_unit_file}" "$(ssm_unit_dir_for_scope "${scope}")/"
+      ssm_write_unit_file "${task_unit_file}" "${destination_task_unit_file}"
+      local task_write_status="${SSM_WRITE_STATUS}"
+      ssm_write_unit_file "${timer_unit_file}" "${destination_timer_unit_file}"
+      local timer_write_status="${SSM_WRITE_STATUS}"
       ssm_daemon_reload "${scope}"
-      printf 'installed=%s\n' "$(ssm_timer_unit_name "${SSM_RESOLVED_TARGET_NAME}")"
+      printf '%s=%s\n' "${timer_write_status}" "${timer_unit_name}"
+      printf '%s=%s\n' "${task_write_status}" "${task_unit_name}"
       if [[ "${SSM_CLI_START_AFTER_INSTALL}" == "1" ]]; then
-        ssm_systemctl "${scope}" start "$(ssm_timer_unit_name "${SSM_RESOLVED_TARGET_NAME}")"
-        printf 'started=%s\n' "$(ssm_timer_unit_name "${SSM_RESOLVED_TARGET_NAME}")"
+        if ssm_is_running_like_state "${previous_active_state}"; then
+          ssm_systemctl "${scope}" restart "${timer_unit_name}"
+          printf 'restarted=%s\n' "${timer_unit_name}"
+        else
+          ssm_systemctl "${scope}" start "${timer_unit_name}"
+          printf 'started=%s\n' "${timer_unit_name}"
+        fi
+      elif [[ "${timer_write_status}" == "updated" ]] && ssm_is_running_like_state "${previous_active_state}"; then
+        printf 'note=配置已更新，运行中的 unit 需要 restart 才会生效\n'
       fi
-      ssm_print_unit_summary "${SSM_RESOLVED_TARGET_NAME}" "${scope}" "$(ssm_timer_unit_name "${SSM_RESOLVED_TARGET_NAME}")"
+      ssm_print_unit_summary "${SSM_RESOLVED_TARGET_NAME}" "${scope}" "${timer_unit_name}"
       ;;
     *)
       ssm_die "Unknown install target kind: ${target_kind}"

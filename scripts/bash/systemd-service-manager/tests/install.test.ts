@@ -97,6 +97,7 @@ describe('install command', () => {
     expect(
       fs.readFileSync(path.join(workspace.root, 'systemctl.log'), 'utf8'),
     ).toContain('daemon-reload')
+    expect(result.stdout).toContain('installed=myapp-cleanup.timer')
   })
 
   it('renders merged environment and default user/group into service units', async () => {
@@ -156,6 +157,44 @@ describe('install command', () => {
     )
     expect(unitText).toContain('Environment="APP_PORT=3100"')
     expect(unitText).toContain('Environment="APP_NAME=dataflow"')
+  })
+
+  it('prints unchanged when the rendered unit content is identical', async () => {
+    const workspace = createWorkspace()
+    workspaces.push(workspace)
+
+    installMockCommand(
+      workspace,
+      'systemd-analyze',
+      '#!/usr/bin/env bash\nexit 0\n',
+    )
+    installMockCommand(
+      workspace,
+      'systemctl',
+      '#!/usr/bin/env bash\nexit 0\n',
+    )
+
+    const projectRoot = path.join(
+      workspace.managerHome,
+      'tests',
+      'fixtures',
+      'project-basic',
+    )
+
+    const first = await runSource(
+      workspace,
+      ['install', 'api', '--project', projectRoot],
+      { SSM_TEST_EUID: '0' },
+    )
+    const second = await runSource(
+      workspace,
+      ['install', 'api', '--project', projectRoot],
+      { SSM_TEST_EUID: '0' },
+    )
+
+    expect(first.exitCode).toBe(0)
+    expect(second.exitCode).toBe(0)
+    expect(second.stdout).toContain('unchanged=myapp-api.service')
   })
 
   it('renders merged environment into timer task units', async () => {
@@ -277,6 +316,49 @@ describe('install command', () => {
     expect(result.stdout).toContain('started=myapp-api.service')
     expect(fs.readFileSync(systemctlLog, 'utf8')).toContain('daemon-reload')
     expect(fs.readFileSync(systemctlLog, 'utf8')).toContain('start myapp-api.service')
+  })
+
+  it('restarts instead of start when install --start targets an already active unit', async () => {
+    const workspace = createWorkspace()
+    workspaces.push(workspace)
+
+    const systemctlLog = path.join(workspace.root, 'systemctl.log')
+    installMockCommand(
+      workspace,
+      'systemd-analyze',
+      '#!/usr/bin/env bash\nexit 0\n',
+    )
+    installMockCommand(
+      workspace,
+      'systemctl',
+      [
+        '#!/usr/bin/env bash',
+        'printf "%s\\n" "$*" >>"${SSM_SYSTEMCTL_LOG}"',
+        'if [[ "$1" == "is-active" ]]; then printf "active\\n"; fi',
+        'if [[ "$1" == "is-enabled" ]]; then printf "enabled\\n"; fi',
+        'exit 0',
+      ].join('\n'),
+    )
+
+    const projectRoot = path.join(
+      workspace.managerHome,
+      'tests',
+      'fixtures',
+      'project-basic',
+    )
+
+    const result = await runSource(
+      workspace,
+      ['install', 'api', '--project', projectRoot, '--start'],
+      {
+        SSM_TEST_EUID: '0',
+        SSM_SYSTEMCTL_LOG: systemctlLog,
+      },
+    )
+
+    expect(result.exitCode).toBe(0)
+    expect(fs.readFileSync(systemctlLog, 'utf8')).toContain('restart myapp-api.service')
+    expect(result.stdout).toContain('restarted=myapp-api.service')
   })
 
   it('auto-elevates system-scope install when not root', async () => {
