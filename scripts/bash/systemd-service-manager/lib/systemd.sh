@@ -169,12 +169,21 @@ ssm_load_target_context() {
       SSM_ACTIVE_NAME="${SSM_RESOLVED_TARGET_NAME}"
       SSM_ACTIVE_SCOPE="${SSM_SERVICE_SCOPE}"
       SSM_ACTIVE_UNIT="$(ssm_service_unit_name "${SSM_RESOLVED_TARGET_NAME}")"
+      SSM_ACTIVE_DESCRIPTION="${DESCRIPTION:-}"
+      SSM_ACTIVE_COMMAND="${COMMAND:-}"
+      SSM_ACTIVE_TARGET_TYPE="service"
       ;;
     timer)
       ssm_parse_timer_config "${project_dir}" "${SSM_RESOLVED_TARGET_NAME}"
       SSM_ACTIVE_NAME="${SSM_RESOLVED_TARGET_NAME}"
       SSM_ACTIVE_SCOPE="${SSM_TIMER_SCOPE}"
       SSM_ACTIVE_UNIT="$(ssm_timer_unit_name "${SSM_RESOLVED_TARGET_NAME}")"
+      SSM_ACTIVE_DESCRIPTION="${DESCRIPTION:-}"
+      SSM_ACTIVE_COMMAND="${COMMAND:-}"
+      SSM_ACTIVE_TARGET_TYPE="${TARGET_TYPE:-timer}"
+      SSM_ACTIVE_TARGET_NAME_REF="${TARGET_NAME:-}"
+      SSM_ACTIVE_ACTION="${ACTION:-}"
+      SSM_ACTIVE_SCHEDULE="${SCHEDULE:-}"
       ;;
     *)
       ssm_die "Unknown target kind: ${SSM_RESOLVED_TARGET_KIND}"
@@ -204,6 +213,24 @@ ssm_print_unit_summary() {
   ssm_collect_unit_summary "${scope}" "${unit_name}"
 
   printf 'name=%s\n' "${name}"
+  if [[ -n "${SSM_ACTIVE_DESCRIPTION:-}" ]]; then
+    printf 'description=%s\n' "${SSM_ACTIVE_DESCRIPTION}"
+  fi
+  if [[ -n "${SSM_ACTIVE_COMMAND:-}" ]]; then
+    printf 'command=%s\n' "${SSM_ACTIVE_COMMAND}"
+  fi
+  if [[ -n "${SSM_ACTIVE_TARGET_TYPE:-}" && "${SSM_ACTIVE_TARGET_TYPE}" != "service" ]]; then
+    printf 'target_type=%s\n' "${SSM_ACTIVE_TARGET_TYPE}"
+  fi
+  if [[ -n "${SSM_ACTIVE_TARGET_NAME_REF:-}" ]]; then
+    printf 'target_name=%s\n' "${SSM_ACTIVE_TARGET_NAME_REF}"
+  fi
+  if [[ -n "${SSM_ACTIVE_ACTION:-}" ]]; then
+    printf 'action=%s\n' "${SSM_ACTIVE_ACTION}"
+  fi
+  if [[ -n "${SSM_ACTIVE_SCHEDULE:-}" ]]; then
+    printf 'schedule=%s\n' "${SSM_ACTIVE_SCHEDULE}"
+  fi
   printf 'unit=%s\n' "${unit_name}"
   printf 'scope=%s\n' "${scope}"
   printf 'installed=%s\n' "${SSM_SUMMARY_INSTALLED}"
