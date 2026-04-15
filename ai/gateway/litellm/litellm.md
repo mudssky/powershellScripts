@@ -1,279 +1,104 @@
-最简单理解：
+# LiteLLM 网关说明
 
-**LiteLLM = 用一套统一的 OpenAI 风格接口，去调用很多不同的大模型提供商**。
-比如 OpenAI、Azure OpenAI、Anthropic、Bedrock、Ollama、vLLM 等。
+这个目录用于启动一个基于 LiteLLM Proxy 的统一模型网关，当前配置会把客户端传入的模型名透传到 NewAPI。
 
-它常见有两种用法：
+相关文件职责如下：
 
-1. **Python 里直接调用 LiteLLM SDK**
-2. **启动 LiteLLM Proxy，当成统一网关来用**
+- `newapi.yaml`：LiteLLM 代理配置，定义模型透传和 `master_key`。
+- `compose.yaml`：LiteLLM 容器模板，定义镜像、端口、挂载和默认环境变量。
+- `start.ps1`：统一入口，封装常用 `docker compose` 操作。
+- `../.env.local`：本地私有环境变量，保存 `NEWAPI_KEY`、`NEWAPI_API_BASE`、`LITELLM_MASTER_KEY`、可选 `DATABASE_URL`。
 
----
+## 环境变量
 
-# 1）直接在 Python 里用 LiteLLM
+建议先在 `ai/gateway/.env.local` 中配置以下值：
 
-## 安装
+```dotenv
+NEWAPI_KEY=sk-xxxx
+NEWAPI_API_BASE=https://example.com
+LITELLM_MASTER_KEY=sk-litellm-123456
+DATABASE_URL=postgresql://postgres:12345678@host.docker.internal:5432/litellm
+```
+
+说明：
+
+- `NEWAPI_KEY`：NewAPI 的访问密钥。
+- `NEWAPI_API_BASE`：NewAPI 的 OpenAI 兼容接口地址。
+- `LITELLM_MASTER_KEY`：LiteLLM Proxy 对外暴露的网关密钥。
+- `DATABASE_URL`：LiteLLM 的数据库连接串；如果未配置，会回退到默认的宿主机 PostgreSQL 地址。
+
+## 启动方式
+
+推荐直接使用 `start.ps1`：
 
 ```powershell
-pip install litellm
+./ai/gateway/litellm/start.ps1
 ```
 
-如果你用的是 OpenAI，先在 Windows PowerShell 里设置环境变量：
+默认等价于：
 
 ```powershell
-$env:OPENAI_API_KEY="你的_openai_key"
+docker compose --env-file ai/gateway/.env.local `
+  -f ai/gateway/litellm/compose.yaml `
+  --project-directory ai/gateway/litellm `
+  up -d
 ```
 
----
-
-## 最小可运行示例
-
-```python
-from litellm import completion
-
-resp = completion(
-    model="openai/gpt-4o",
-    messages=[
-        {"role": "system", "content": "你是一个 helpful assistant"},
-        {"role": "user", "content": "用一句话解释什么是 LiteLLM"}
-    ]
-)
-
-print(resp.choices[0].message.content)
-```
-
----
-
-## 流式输出
-
-```python
-from litellm import completion
-
-response = completion(
-    model="openai/gpt-4o",
-    messages=[{"role": "user", "content": "写一个简短的自我介绍"}],
-    stream=True
-)
-
-for chunk in response:
-    content = chunk.choices[0].delta.content
-    if content:
-        print(content, end="")
-```
-
----
-
-## 异步调用
-
-```python
-import asyncio
-from litellm import acompletion
-
-async def main():
-    resp = await acompletion(
-        model="openai/gpt-4o",
-        messages=[{"role": "user", "content": "你好，介绍一下异步调用"}]
-    )
-    print(resp.choices[0].message.content)
-
-asyncio.run(main())
-```
-
----
-
-## Embedding 示例
-
-```python
-from litellm import embedding
-
-resp = embedding(
-    model="text-embedding-3-small",
-    input=["你好，LiteLLM"]
-)
-
-print(len(resp.data[0]["embedding"]))
-```
-
----
-
-# 2）用 LiteLLM Proxy 当统一模型网关
-
-这种方式很适合：
-
-- 你有多个模型供应商
-- 想统一 API
-- 想让 Java / Node.js / Python 都走同一个入口
-- 想加鉴权、限流、日志、路由
-
----
-
-## 安装 Proxy
+## 常用命令
 
 ```powershell
-pip install "litellm[proxy]"
+./ai/gateway/litellm/start.ps1
+./ai/gateway/litellm/start.ps1 up
+./ai/gateway/litellm/start.ps1 down
+./ai/gateway/litellm/start.ps1 restart
+./ai/gateway/litellm/start.ps1 logs --tail 100
+./ai/gateway/litellm/start.ps1 ps
+./ai/gateway/litellm/start.ps1 pull
 ```
 
----
+这些命令分别对应：
 
-## 写一个最小 `config.yaml`
+- `up`：后台启动或重建 LiteLLM 容器。
+- `down`：停止并移除当前 compose 管理的资源。
+- `restart`：重启 LiteLLM 容器。
+- `logs`：默认跟随 LiteLLM 日志，可透传额外参数如 `--tail 100`。
+- `ps`：查看当前容器状态。
+- `pull`：拉取最新镜像，不自动重启。
 
-```yaml
-model_list:
-  - model_name: gpt-4o
-    litellm_params:
-      model: openai/gpt-4o
-      api_key: "os.environ/OPENAI_API_KEY"
+## 直接使用原生命令
 
-general_settings:
-  master_key: sk-1234
-```
-
-这里要注意：
-
-- `model_name`：你暴露给客户端看的模型名
-- `litellm_params.model`：真实后端模型名
-
----
-
-## 启动代理
-
-先设置环境变量：
+如果你想直接执行 `docker compose`，建议保持和脚本一致的参数：
 
 ```powershell
-$env:OPENAI_API_KEY="你的_openai_key"
+docker compose --env-file ai/gateway/.env.local `
+  -f ai/gateway/litellm/compose.yaml `
+  --project-directory ai/gateway/litellm `
+  logs -f litellm
 ```
 
-再启动：
+这样可以确保 `DATABASE_URL` 默认值与 `.env.local` 中的变量覆盖行为一致。
 
-```powershell
-litellm --config config.yaml
-```
+## 访问方式
 
-默认一般会跑在：
+默认端口映射如下：
 
 ```text
-http://0.0.0.0:4000
+http://127.0.0.1:34000
 ```
 
----
-
-## 用 curl 调代理
+OpenAI 兼容接口示例：
 
 ```powershell
-curl http://127.0.0.1:4000/v1/chat/completions `
+curl http://127.0.0.1:34000/v1/chat/completions `
   -H "Content-Type: application/json" `
-  -H "Authorization: Bearer sk-1234" `
-  -d "{\"model\":\"gpt-4o\",\"messages\":[{\"role\":\"user\",\"content\":\"你好，介绍一下你自己\"}]}"
+  -H "Authorization: Bearer sk-litellm-123456" `
+  -d "{\"model\":\"gpt-4o\",\"messages\":[{\"role\":\"user\",\"content\":\"你好\"}]}"
 ```
 
----
+## 配置说明
 
-## 用 OpenAI SDK 调 LiteLLM Proxy
+当前 `newapi.yaml` 的关键点：
 
-```powershell
-pip install openai
-```
-
-```python
-from openai import OpenAI
-
-client = OpenAI(
-    api_key="sk-1234",
-    base_url="http://127.0.0.1:4000"
-)
-
-resp = client.chat.completions.create(
-    model="gpt-4o",
-    messages=[{"role": "user", "content": "LiteLLM Proxy 是什么？"}]
-)
-
-print(resp.choices[0].message.content)
-```
-
----
-
-# 3）模型名怎么写？
-
-LiteLLM 里通常是这种格式：
-
-```text
-provider/model
-```
-
-常见例子：
-
-- `openai/gpt-4o`
-- `bedrock/anthropic.claude-instant-v1`
-- `azure/你的部署名`
-- `openai/某个兼容 OpenAI 协议的模型`
-
-如果你接的是 **OpenAI 兼容接口**（比如某些自建网关、vLLM），一般还需要：
-
-- `api_base`
-- `api_key`
-- `openai/` 前缀
-
-例如：
-
-```yaml
-model_list:
-  - model_name: local-model
-    litellm_params:
-      model: openai/facebook/opt-125m
-      api_base: http://127.0.0.1:8000/v1
-      api_key: "none"
-```
-
----
-
-# 4）常见问题
-
-## 1. 报 401 / Unauthorized
-
-通常是：
-
-- 环境变量没设置成功
-- Proxy 的 `master_key` 不匹配
-- 真实供应商 key 错了
-
----
-
-## 2. 报 model not found
-
-通常是：
-
-- 你请求的 `model` 和 `config.yaml` 里的 `model_name` 不一致
-- 或者 `litellm_params.model` 写错了
-
----
-
-## 3. 想切换供应商怎么办？
-
-通常只需要改：
-
-- `model=...`
-- 对应的 API Key 环境变量
-- 如果是私有服务，再加 `api_base`
-
-这正是 LiteLLM 的核心价值。
-
----
-
-# 5）建议你这样入门
-
-如果你是第一次用，建议按这个顺序：
-
-### 方案 A：只想在 Python 里快速调用
-
-直接用：
-
-- `pip install litellm`
-- `completion(...)`
-
-### 方案 B：你想做统一网关
-
-直接用：
-
-- `pip install "litellm[proxy]"`
-- 写 `config.yaml`
-- `litellm --config config.yaml`
+- `model_name: "*"` 允许客户端传入任意模型名。
+- `model: "openai/{{ model }}"` 会把客户端的模型名透传给下游 NewAPI。
+- `api_base`、`api_key`、`master_key` 都从容器环境变量读取，便于本地通过 `.env.local` 管理敏感值。
