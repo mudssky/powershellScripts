@@ -1,9 +1,9 @@
 [CmdletBinding()]
 param(
-    # 默认执行 up，对齐“直接运行脚本即可启动”的现有使用习惯。
+    # 默认执行 up，对齐同目录其它网关脚本的启动体验。
     [string]$Action = 'up',
 
-    # 透传少量 compose 原生命令参数，避免为日志条数等小需求再扩脚本分支。
+    # 允许透传 compose 原生命令参数，例如 `logs --tail 100`。
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$ExtraArgs = @()
 )
@@ -14,11 +14,12 @@ $ErrorActionPreference = 'Stop'
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $composeFile = Join-Path $scriptDir 'compose.yaml'
 $envFile = Join-Path $scriptDir '.env.local'
+$defaultLogService = 'tensorzero-gateway'
 
 function Show-Usage {
     <#
     .SYNOPSIS
-    输出 LiteLLM compose 包装脚本的用法说明。
+    输出 TensorZero compose 包装脚本的用法说明。
     #>
     @'
 用法:
@@ -26,13 +27,7 @@ function Show-Usage {
 
 默认行为:
   ./start.ps1         -> docker compose up -d
-  ./start.ps1 logs    -> docker compose logs -f litellm
-
-示例:
-  ./start.ps1
-  ./start.ps1 restart
-  ./start.ps1 logs --tail 100
-  ./start.ps1 pull
+  ./start.ps1 logs    -> docker compose logs -f tensorzero-gateway
 '@ | Write-Host
 }
 
@@ -55,17 +50,16 @@ function Assert-DockerComposeReady {
     }
 
     if (-not (Test-Path -LiteralPath $envFile)) {
-        Write-Warning "未找到环境变量文件: $envFile。脚本会继续执行，但 NEWAPI_* 与 LITELLM_MASTER_KEY 可能为空。"
+        Write-Warning "未找到环境变量文件: $envFile。脚本会继续执行，并使用 compose.yaml 中的默认值。"
     }
 }
 
 function Get-ComposeBaseArgs {
     <#
     .SYNOPSIS
-    生成统一的 compose 基础参数。
+    生成统一的 compose 基础参数，避免从不同工作目录运行时出现路径漂移。
     .OUTPUTS
     System.String[]
-    返回 `docker` 后续应接收的 compose 参数数组。
     #>
     $args = @(
         'compose'
@@ -75,7 +69,6 @@ function Get-ComposeBaseArgs {
         $scriptDir
     )
 
-    # `--env-file` 既用于 compose 插值，也用于让文档中的原生命令与脚本行为保持一致。
     if (Test-Path -LiteralPath $envFile) {
         $args += @('--env-file', $envFile)
     }
@@ -86,9 +79,9 @@ function Get-ComposeBaseArgs {
 function Invoke-DockerCompose {
     <#
     .SYNOPSIS
-    以统一参数调用 docker compose，并把底层退出码透传给调用方。
+    调用 docker compose，并把底层退出码原样返回。
     .PARAMETER ComposeArgs
-    compose 子命令参数，不包含最前面的 `docker`。
+    compose 子命令参数数组。
     #>
     param(
         [Parameter(Mandatory = $true)]
@@ -128,12 +121,12 @@ switch ($normalizedAction) {
         $composeArgs += $ExtraArgs
     }
     'restart' {
-        $composeArgs += @('restart', 'litellm')
+        # TensorZero 是一组协作服务，默认重启整个栈比只重启 gateway 更符合日常运维习惯。
+        $composeArgs += @('restart')
         $composeArgs += $ExtraArgs
     }
     'logs' {
-        # 默认跟随单个 LiteLLM 服务日志，符合最常见的排查场景。
-        $composeArgs += @('logs', '-f', 'litellm')
+        $composeArgs += @('logs', '-f', $defaultLogService)
         $composeArgs += $ExtraArgs
     }
     'ps' {
@@ -141,7 +134,7 @@ switch ($normalizedAction) {
         $composeArgs += $ExtraArgs
     }
     'pull' {
-        $composeArgs += @('pull', 'litellm')
+        $composeArgs += @('pull')
         $composeArgs += $ExtraArgs
     }
     default {

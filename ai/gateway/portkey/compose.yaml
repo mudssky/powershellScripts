@@ -1,0 +1,7 @@
+services:
+  portkey:
+    container_name: portkey
+    image: ${PORTKEY_IMAGE:-portkeyai/gateway:latest}
+    restart: unless-stopped
+    ports:
+      - "${PORTKEY_HOST_PORT:-34200}:8787"

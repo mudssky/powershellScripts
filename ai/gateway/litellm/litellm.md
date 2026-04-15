@@ -1,31 +1,39 @@
 # LiteLLM 网关说明
 
-这个目录用于启动一个基于 LiteLLM Proxy 的统一模型网关，当前配置会把客户端传入的模型名透传到 NewAPI。
+这个目录用于启动一个基于 LiteLLM Proxy 的生产级 Qwen 网关，默认直连阿里百炼的 OpenAI 兼容接口。
 
 相关文件职责如下：
 
-- `newapi.yaml`：LiteLLM 代理配置，定义模型透传和 `master_key`。
+- `qwen.yaml`：LiteLLM 生产配置，定义主模型、降级模型、限流、重试和超时策略。
 - `compose.yaml`：LiteLLM 容器模板，定义镜像、端口、挂载和默认环境变量。
 - `start.ps1`：统一入口，封装常用 `docker compose` 操作。
-- `../.env.local`：本地私有环境变量，保存 `NEWAPI_KEY`、`NEWAPI_API_BASE`、`LITELLM_MASTER_KEY`、可选 `DATABASE_URL`。
+- `.env.example`：开发环境变量示例。
+- `.env.production.example`：生产环境变量示例。
+- `.env.local`：本地私有环境变量，保存 `DASHSCOPE_API_KEY`、`DASHSCOPE_API_BASE`、`LITELLM_MASTER_KEY`、可选 `DATABASE_URL`。
 
 ## 环境变量
 
-建议先在 `ai/gateway/.env.local` 中配置以下值：
+建议先在 `ai/gateway/litellm/.env.local` 中配置以下值：
 
 ```dotenv
-NEWAPI_KEY=sk-xxxx
-NEWAPI_API_BASE=https://example.com
+LITELLM_IMAGE=docker.litellm.ai/berriai/litellm:main-latest
+LITELLM_HOST_PORT=34000
+DASHSCOPE_API_KEY=sk-xxxx
+DASHSCOPE_API_BASE=https://dashscope.aliyuncs.com/compatible-mode/v1
 LITELLM_MASTER_KEY=sk-litellm-123456
 DATABASE_URL=postgresql://postgres:12345678@host.docker.internal:5432/litellm
 ```
 
 说明：
 
-- `NEWAPI_KEY`：NewAPI 的访问密钥。
-- `NEWAPI_API_BASE`：NewAPI 的 OpenAI 兼容接口地址。
+- `LITELLM_IMAGE`：LiteLLM 镜像，可用于生产环境固定到经过验证的标签。
+- `LITELLM_HOST_PORT`：宿主机暴露端口，默认 `34000`。
+- `DASHSCOPE_API_KEY`：阿里百炼 API Key。
+- `DASHSCOPE_API_BASE`：阿里百炼 OpenAI 兼容接口地址；中国内地默认可用 `https://dashscope.aliyuncs.com/compatible-mode/v1`。
 - `LITELLM_MASTER_KEY`：LiteLLM Proxy 对外暴露的网关密钥。
 - `DATABASE_URL`：LiteLLM 的数据库连接串；如果未配置，会回退到默认的宿主机 PostgreSQL 地址。
+
+如果你想准备生产环境变量，可直接复制 `./.env.production.example` 再按实际环境改值。
 
 ## 启动方式
 
@@ -38,7 +46,7 @@ DATABASE_URL=postgresql://postgres:12345678@host.docker.internal:5432/litellm
 默认等价于：
 
 ```powershell
-docker compose --env-file ai/gateway/.env.local `
+docker compose --env-file ai/gateway/litellm/.env.local `
   -f ai/gateway/litellm/compose.yaml `
   --project-directory ai/gateway/litellm `
   up -d
@@ -70,7 +78,7 @@ docker compose --env-file ai/gateway/.env.local `
 如果你想直接执行 `docker compose`，建议保持和脚本一致的参数：
 
 ```powershell
-docker compose --env-file ai/gateway/.env.local `
+docker compose --env-file ai/gateway/litellm/.env.local `
   -f ai/gateway/litellm/compose.yaml `
   --project-directory ai/gateway/litellm `
   logs -f litellm
@@ -92,13 +100,15 @@ OpenAI 兼容接口示例：
 curl http://127.0.0.1:34000/v1/chat/completions `
   -H "Content-Type: application/json" `
   -H "Authorization: Bearer sk-litellm-123456" `
-  -d "{\"model\":\"gpt-4o\",\"messages\":[{\"role\":\"user\",\"content\":\"你好\"}]}"
+  -d "{\"model\":\"qwen-chat\",\"messages\":[{\"role\":\"user\",\"content\":\"你好\"}]}"
 ```
 
 ## 配置说明
 
-当前 `newapi.yaml` 的关键点：
+当前 `qwen.yaml` 的关键点：
 
-- `model_name: "*"` 允许客户端传入任意模型名。
-- `model: "openai/{{ model }}"` 会把客户端的模型名透传给下游 NewAPI。
-- `api_base`、`api_key`、`master_key` 都从容器环境变量读取，便于本地通过 `.env.local` 管理敏感值。
+- `qwen-chat`：主模型，默认走百炼 `qwen-plus`。
+- `qwen-chat-fallback`：降级模型，默认走百炼 `qwen-flash`。
+- `rpm`：在部署层做第一道限流保护，避免上游配额被瞬时打爆。
+- `num_retries` + `timeout`：对临时失败、超时和抖动做统一收敛。
+- `fallbacks` + `cooldown_time`：主模型异常时自动切到降级模型，并对异常部署做短暂冷却。
