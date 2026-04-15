@@ -15,11 +15,12 @@ ssm_cmd_list() {
   if [[ "${SSM_DEBUG_DUMP_CONFIG:-}" == "1" ]]; then
     if [[ -f "$(ssm_service_config_path "${project_dir}" "api")" ]]; then
       ssm_parse_service_config "${project_dir}" "api"
+      ssm_collect_env_entries_for_service "${project_dir}" "api"
     fi
     printf 'project=%s\n' "${SSM_PROJECT_NAME}"
     printf 'scope=%s\n' "${SSM_SERVICE_SCOPE:-${DEFAULT_SCOPE:-system}}"
-    printf 'APP_PORT=%s\n' "${APP_PORT:-}"
-    printf 'APP_NAME=%s\n' "${APP_NAME:-}"
+    printf 'APP_PORT=%s\n' "$(ssm_get_env_entry_value "APP_PORT")"
+    printf 'APP_NAME=%s\n' "$(ssm_get_env_entry_value "APP_NAME")"
     return 0
   fi
 

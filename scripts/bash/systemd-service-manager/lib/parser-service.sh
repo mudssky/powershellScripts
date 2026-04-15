@@ -16,10 +16,19 @@ ssm_parse_service_config() {
 
   ssm_load_project_config "${project_dir}"
   ssm_load_key_value_file "${service_file}"
-  ssm_load_service_env "${project_dir}" "${service_name}"
 
   [[ -n "${COMMAND:-}" ]] || ssm_die "Missing COMMAND in ${service_file}"
 
   SSM_SERVICE_NAME="${service_name}"
   SSM_SERVICE_SCOPE="${SCOPE:-${DEFAULT_SCOPE:-system}}"
+  SSM_SERVICE_RUN_USER="$(ssm_read_key_value_from_file "${service_file}" "USER")"
+  SSM_SERVICE_RUN_GROUP="$(ssm_read_key_value_from_file "${service_file}" "GROUP")"
+
+  if [[ -z "${SSM_SERVICE_RUN_USER}" ]]; then
+    SSM_SERVICE_RUN_USER="${DEFAULT_USER:-}"
+  fi
+
+  if [[ -z "${SSM_SERVICE_RUN_GROUP}" ]]; then
+    SSM_SERVICE_RUN_GROUP="${DEFAULT_GROUP:-}"
+  fi
 }

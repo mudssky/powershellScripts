@@ -16,7 +16,6 @@ ssm_parse_timer_config() {
 
   ssm_load_project_config "${project_dir}"
   ssm_load_key_value_file "${timer_file}"
-  ssm_load_timer_env "${project_dir}" "${timer_name}"
 
   [[ -n "${TARGET_TYPE:-}" ]] || ssm_die "Missing TARGET_TYPE in ${timer_file}"
   [[ -n "${SCHEDULE:-}" ]] || ssm_die "Missing SCHEDULE in ${timer_file}"
@@ -34,4 +33,14 @@ ssm_parse_timer_config() {
 
   SSM_TIMER_NAME="${timer_name}"
   SSM_TIMER_SCOPE="${SCOPE:-${DEFAULT_SCOPE:-system}}"
+  SSM_TIMER_RUN_USER="$(ssm_read_key_value_from_file "${timer_file}" "USER")"
+  SSM_TIMER_RUN_GROUP="$(ssm_read_key_value_from_file "${timer_file}" "GROUP")"
+
+  if [[ -z "${SSM_TIMER_RUN_USER}" ]]; then
+    SSM_TIMER_RUN_USER="${DEFAULT_USER:-}"
+  fi
+
+  if [[ -z "${SSM_TIMER_RUN_GROUP}" ]]; then
+    SSM_TIMER_RUN_GROUP="${DEFAULT_GROUP:-}"
+  fi
 }
