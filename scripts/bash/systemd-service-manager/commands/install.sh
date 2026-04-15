@@ -27,8 +27,11 @@ ssm_cmd_install() {
       ssm_require_safe_name "UNIT_PREFIX" "${UNIT_PREFIX}"
       source_file="$(ssm_service_config_path "${project_dir}" "${SSM_RESOLVED_TARGET_NAME}")"
       scope="${SSM_SERVICE_SCOPE}"
+      ssm_collect_env_entries_for_service "${project_dir}" "${SSM_RESOLVED_TARGET_NAME}"
+      local env_block
+      env_block="$(ssm_render_environment_lines)"
       local service_unit_file="${render_dir}/$(ssm_service_unit_name "${SSM_RESOLVED_TARGET_NAME}")"
-      ssm_render_service_unit "${source_file}" >"${service_unit_file}"
+      ssm_render_service_unit "${source_file}" "${env_block}" >"${service_unit_file}"
       ssm_verify_unit_file "${service_unit_file}" || ssm_die "systemd-analyze verify failed for ${service_unit_file}"
       if [[ "${SSM_CLI_DRY_RUN}" == "1" ]]; then
         printf '%s\n' "$(basename "${service_unit_file}")"
@@ -49,6 +52,9 @@ ssm_cmd_install() {
       ssm_require_safe_name "UNIT_PREFIX" "${UNIT_PREFIX}"
       source_file="$(ssm_timer_config_path "${project_dir}" "${SSM_RESOLVED_TARGET_NAME}")"
       scope="${SSM_TIMER_SCOPE}"
+      ssm_collect_env_entries_for_timer "${project_dir}" "${SSM_RESOLVED_TARGET_NAME}"
+      local env_block
+      env_block="$(ssm_render_environment_lines)"
       local schedule_block
       schedule_block="$(ssm_resolve_schedule "${SCHEDULE}")"
       local task_unit_name
@@ -69,7 +75,7 @@ ssm_cmd_install() {
         task_exec_command="${COMMAND}"
       fi
 
-      ssm_render_task_service_unit "${source_file}" "${task_exec_command}" >"${task_unit_file}"
+      ssm_render_task_service_unit "${source_file}" "${task_exec_command}" "${env_block}" >"${task_unit_file}"
       ssm_render_timer_unit "${source_file}" "${task_unit_name}" "${schedule_block}" >"${timer_unit_file}"
       ssm_verify_unit_file "${task_unit_file}" || ssm_die "systemd-analyze verify failed for ${task_unit_file}"
       ssm_verify_unit_file "${timer_unit_file}" || ssm_die "systemd-analyze verify failed for ${timer_unit_file}"

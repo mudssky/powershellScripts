@@ -8,6 +8,7 @@ SSM_RENDER_SERVICE_LOADED=1
 # 渲染常驻 service unit，保持最小字段集合和统一 managed header。
 ssm_render_service_unit() {
   local source_file="$1"
+  local env_block="${2:-}"
   cat <<EOF
 # Managed by systemd-service-manager
 # Source: ${source_file}
@@ -19,9 +20,10 @@ ${WANTS:+Wants=${WANTS}}
 [Service]
 Type=simple
 WorkingDirectory=${WORKDIR:-${DEFAULT_WORKDIR:-/tmp}}
+${env_block}
 ExecStart=${COMMAND}
-${USER:+User=${USER}}
-${GROUP:+Group=${GROUP}}
+${SSM_SERVICE_RUN_USER:+User=${SSM_SERVICE_RUN_USER}}
+${SSM_SERVICE_RUN_GROUP:+Group=${SSM_SERVICE_RUN_GROUP}}
 Restart=${RESTART:-on-failure}
 RestartSec=${RESTART_SEC:-5s}
 
@@ -34,6 +36,7 @@ EOF
 ssm_render_task_service_unit() {
   local source_file="$1"
   local exec_command="$2"
+  local env_block="${3:-}"
   cat <<EOF
 # Managed by systemd-service-manager
 # Source: ${source_file}
@@ -43,8 +46,9 @@ Description=${DESCRIPTION:-${SSM_TIMER_NAME}}
 [Service]
 Type=oneshot
 WorkingDirectory=${WORKDIR:-${DEFAULT_WORKDIR:-/tmp}}
+${env_block}
 ExecStart=${exec_command}
-${USER:+User=${USER}}
-${GROUP:+Group=${GROUP}}
+${SSM_TIMER_RUN_USER:+User=${SSM_TIMER_RUN_USER}}
+${SSM_TIMER_RUN_GROUP:+Group=${SSM_TIMER_RUN_GROUP}}
 EOF
 }

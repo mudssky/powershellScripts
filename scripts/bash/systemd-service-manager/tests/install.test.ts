@@ -6,6 +6,7 @@ import {
   createWorkspace,
   installMockCommand,
   runSource,
+  writeText,
 } from './test-utils'
 
 const workspaces: ReturnType<typeof createWorkspace>[] = []
@@ -96,6 +97,116 @@ describe('install command', () => {
     expect(
       fs.readFileSync(path.join(workspace.root, 'systemctl.log'), 'utf8'),
     ).toContain('daemon-reload')
+  })
+
+  it('renders merged environment and default user/group into service units', async () => {
+    const workspace = createWorkspace()
+    workspaces.push(workspace)
+
+    installMockCommand(
+      workspace,
+      'systemd-analyze',
+      '#!/usr/bin/env bash\nexit 0\n',
+    )
+    installMockCommand(
+      workspace,
+      'systemctl',
+      '#!/usr/bin/env bash\nexit 0\n',
+    )
+
+    const projectRoot = path.join(
+      workspace.managerHome,
+      'tests',
+      'fixtures',
+      'project-basic',
+    )
+
+    writeText(
+      path.join(projectRoot, 'deploy/systemd/project.env.local'),
+      ['HOME=/home/administrator', 'APP_NAME=dataflow', ''].join('\n'),
+    )
+    writeText(
+      path.join(projectRoot, 'deploy/systemd/services/api.env.local'),
+      [
+        'PATH=/home/administrator/.local/share/fnm/node-versions/v24.11.0/installation/bin:/usr/bin:/bin',
+        'APP_PORT=3100',
+        '',
+      ].join('\n'),
+    )
+
+    const result = await runSource(
+      workspace,
+      ['install', 'api', '--project', projectRoot],
+      {
+        SSM_TEST_EUID: '0',
+      },
+    )
+
+    expect(result.exitCode).toBe(0)
+
+    const unitText = fs.readFileSync(
+      path.join(workspace.fakeSystemDir, 'myapp-api.service'),
+      'utf8',
+    )
+    expect(unitText).toContain('User=myapp')
+    expect(unitText).toContain('Group=myapp')
+    expect(unitText).toContain('Environment="HOME=/home/administrator"')
+    expect(unitText).toContain(
+      'Environment="PATH=/home/administrator/.local/share/fnm/node-versions/v24.11.0/installation/bin:/usr/bin:/bin"',
+    )
+    expect(unitText).toContain('Environment="APP_PORT=3100"')
+    expect(unitText).toContain('Environment="APP_NAME=dataflow"')
+  })
+
+  it('renders merged environment into timer task units', async () => {
+    const workspace = createWorkspace()
+    workspaces.push(workspace)
+
+    installMockCommand(
+      workspace,
+      'systemd-analyze',
+      '#!/usr/bin/env bash\nexit 0\n',
+    )
+    installMockCommand(
+      workspace,
+      'systemctl',
+      '#!/usr/bin/env bash\nexit 0\n',
+    )
+
+    const projectRoot = path.join(
+      workspace.managerHome,
+      'tests',
+      'fixtures',
+      'project-basic',
+    )
+
+    writeText(
+      path.join(projectRoot, 'deploy/systemd/timers/cleanup.env.local'),
+      [
+        'PATH=/home/administrator/.local/share/fnm/node-versions/v24.11.0/installation/bin:/usr/bin:/bin',
+        'HOME=/home/administrator',
+        '',
+      ].join('\n'),
+    )
+
+    const result = await runSource(
+      workspace,
+      ['install', 'cleanup', '--project', projectRoot],
+      {
+        SSM_TEST_EUID: '0',
+      },
+    )
+
+    expect(result.exitCode).toBe(0)
+
+    const unitText = fs.readFileSync(
+      path.join(workspace.fakeSystemDir, 'myapp-task-cleanup.service'),
+      'utf8',
+    )
+    expect(unitText).toContain('Environment="HOME=/home/administrator"')
+    expect(unitText).toContain(
+      'Environment="PATH=/home/administrator/.local/share/fnm/node-versions/v24.11.0/installation/bin:/usr/bin:/bin"',
+    )
   })
 
   it('infers service kind when omitted for install dry-run', async () => {
