@@ -1,0 +1,15 @@
+model_list:
+  # 万能透传：客户端传什么模型名，就转发什么到 NewAPI
+  - model_name: "*"
+    litellm_params:
+      model: "openai/{{ model }}"  # 透传模型名
+      api_base: "os.environ/NEWAPI_API_BASE"  # 从环境变量读 NewAPI 地址
+      api_key: "os.environ/NEWAPI_KEY"        # 从环境变量读密钥
+# database_url: "sqlite:///./litellm.db"
+# 可选：LiteLLM 网关鉴权（防止滥用）
+general_settings:
+  master_key: "os.environ/LITELLM_MASTER_KEY"
+  # disable_frontend: true  # 关闭前端页面（纯API模式）
+  proxy_batch_write_at: 60 # 每60秒写入一次数据库
+  database_connection_pool_limit: 10 # 每个 Worker 进程的数据库连接池上限
+  # database_url: "postgresql://admin:12345678@localhost:5432/litellm"
