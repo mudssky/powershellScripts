@@ -113,7 +113,8 @@
     - macOS: `${DATA_PATH}/redis:/data` -> `/Volumes/Data/docker_data/redis:/data`
 
 .PARAMETER DefaultUser
-    默认用户名，默认为"root"
+    默认用户名。未显式传入时，`postgre` / `paradedb` 默认使用"postgres"，
+    其他服务默认使用"root"。
 
 .PARAMETER DefaultPassword
     默认密码，默认为"12345678"
@@ -573,6 +574,74 @@ function Get-ComposeServiceNames {
     $result | Sort-Object -Unique
 }
 
+function Get-ServiceDefaultUser {
+    <#
+    .SYNOPSIS
+        返回服务级默认用户名。
+
+    .DESCRIPTION
+        为 PostgreSQL 系服务提供更符合约定的默认用户名，
+        同时保持其他服务继续沿用通用的 `root` 默认值。
+
+    .PARAMETER ServiceName
+        需要解析默认用户名的服务名。
+
+    .OUTPUTS
+        System.String
+        服务在未显式传入用户名时应使用的默认用户名。
+    #>
+    param([string]$ServiceName)
+
+    if ($ServiceName -in @('postgre', 'paradedb')) {
+        return 'postgres'
+    }
+
+    return 'root'
+}
+
+function Resolve-ServiceDefaultUser {
+    <#
+    .SYNOPSIS
+        按优先级解析服务最终使用的默认用户名。
+
+    .DESCRIPTION
+        解析顺序为显式命令行参数、现有环境变量、服务级默认值，
+        保证 PostgreSQL 系服务在未覆写时回落到 `postgres`。
+
+    .PARAMETER ServiceName
+        当前要启动的服务名。
+
+    .PARAMETER CliDefaultUser
+        通过命令行显式传入的默认用户名。
+
+    .PARAMETER EnvironmentDefaultUser
+        已经从 shell、`.env`、`.env.local` 或 `-Env` 注入的 `DEFAULT_USER`。
+
+    .OUTPUTS
+        System.String
+        解析后的最终默认用户名。
+    #>
+    param(
+        [string]$ServiceName,
+        [string]$CliDefaultUser,
+        [string]$EnvironmentDefaultUser
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($CliDefaultUser)) {
+        return $CliDefaultUser
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($EnvironmentDefaultUser)) {
+        return $EnvironmentDefaultUser
+    }
+
+    return Get-ServiceDefaultUser -ServiceName $ServiceName
+}
+
+# 测试加载脚本时跳过主流程，避免 dot-source 触发真实 Docker 调用。
+if ($env:PWSH_TEST_SKIP_START_CONTAINER_MAIN -eq '1') {
+    return
+}
 
 try {
     # 计算项目根目录路径 (动态查找)
@@ -613,16 +682,18 @@ try {
     }
 
     $plainPwd = (Get-PlainTextFromSecure -Secure $DefaultPassword)
+    $cliDefaultUser = if ($PSBoundParameters.ContainsKey('DefaultUser')) { $DefaultUser } else { $null }
+    $resolvedDefaultUser = Resolve-ServiceDefaultUser -ServiceName $ServiceName -CliDefaultUser $cliDefaultUser -EnvironmentDefaultUser ${env:DEFAULT_USER}
 
     # 显式参数强制覆盖 (优先级 > 文件)
     if ($PSBoundParameters.ContainsKey('DataPath')) { ${env:DATA_PATH} = $DataPath }
-    if ($PSBoundParameters.ContainsKey('DefaultUser')) { ${env:DEFAULT_USER} = $DefaultUser }
+    if ($PSBoundParameters.ContainsKey('DefaultUser')) { ${env:DEFAULT_USER} = $resolvedDefaultUser }
     if ($PSBoundParameters.ContainsKey('DefaultPassword') -or $AskPass) { ${env:DEFAULT_PASSWORD} = $plainPwd }
     if ($PSBoundParameters.ContainsKey('RestartPolicy')) { ${env:RESTART_POLICY} = $RestartPolicy }
 
     # 注入默认值，但优先保留已存在的环境变量 (来自 .env, .env.local 或 Shell)
     if ([string]::IsNullOrWhiteSpace(${env:DATA_PATH})) { ${env:DATA_PATH} = $DataPath }
-    if ([string]::IsNullOrWhiteSpace(${env:DEFAULT_USER})) { ${env:DEFAULT_USER} = $DefaultUser }
+    if ([string]::IsNullOrWhiteSpace(${env:DEFAULT_USER})) { ${env:DEFAULT_USER} = $resolvedDefaultUser }
     if ([string]::IsNullOrWhiteSpace(${env:DEFAULT_PASSWORD})) { ${env:DEFAULT_PASSWORD} = $plainPwd }
     
     if ([string]::IsNullOrWhiteSpace(${env:RESTART_POLICY})) { ${env:RESTART_POLICY} = $RestartPolicy }
