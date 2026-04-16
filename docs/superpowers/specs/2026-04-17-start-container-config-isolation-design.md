@@ -63,6 +63,28 @@
 - `Sources`：每个键最终命中的来源标识
 - `Trace`：可选调试信息，记录候选值和覆盖顺序
 
+为兼顾脚本内调用与命令行易用性，解析器提供两套入口：
+
+- CLI 友好的简洁入口：`-ConfigFile`
+- 脚本内高级入口：`-Sources`
+
+其中：
+
+- `-ConfigFile` 面向命令行与简单脚本场景，允许多次传入，解析器根据扩展名自动识别 `.env` / `.env.local` 与 `.json`
+- `-Sources` 面向内部脚本与高级调用场景，允许显式声明来源类型、名称与数据
+
+默认行为采用“自动发现 + 显式覆盖并存”的模式：
+
+- 未显式传入 `-ConfigFile` 时，自动在当前工作目录或调用方指定基准目录查找 `.env` 与 `.env.local`
+- 显式传入 `-ConfigFile` 时，仅解析用户指定的文件列表，不再额外自动发现默认文件
+- `-Sources` 作为高级入口，不参与默认自动发现逻辑
+
+这样可以保证：
+
+- 命令行场景足够顺手，不需要手写 hashtable
+- 脚本内仍保留完全可编排的来源声明能力
+- 默认行为与仓库现有 `.env` / `.env.local` 习惯保持一致
+
 第一版 JSON 只支持顶层 key-value 对象，例如：
 
 ```json
@@ -74,6 +96,48 @@
 ```
 
 不支持嵌套展开、数组映射或变量插值。
+
+### 1.1 解析器命令形态示例
+
+命令行推荐用法：
+
+```powershell
+Resolve-ConfigSources
+```
+
+上面等价于自动查找当前目录下的 `.env` 与 `.env.local`。
+
+显式指定文件时：
+
+```powershell
+Resolve-ConfigSources -ConfigFile .env -ConfigFile .env.local
+```
+
+混合 JSON 配置时：
+
+```powershell
+Resolve-ConfigSources -ConfigFile .env -ConfigFile .env.local -ConfigFile ./config/start-container.json
+```
+
+脚本内高级调用时，可使用结构化来源：
+
+```powershell
+$config = Resolve-ConfigSources -Sources @(
+    @{ Type = 'EnvFile'; Path = '.env' },
+    @{ Type = 'EnvFile'; Path = '.env.local' },
+    @{ Type = 'Hashtable'; Name = 'CliEnv'; Data = $Env },
+    @{ Type = 'Hashtable'; Name = 'Defaults'; Data = @{
+        DEFAULT_USER = 'postgres'
+        DEFAULT_PASSWORD = '12345678'
+    }}
+) -IncludeTrace
+```
+
+其中：
+
+- 命令行主推 `-ConfigFile` 与默认自动发现
+- 脚本内部主推 `-Sources`
+- `Trace` 仅在需要排查来源时启用
 
 ### 2. `psutils` 作用域环境执行器
 
