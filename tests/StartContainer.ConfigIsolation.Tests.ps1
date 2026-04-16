@@ -66,3 +66,33 @@ Describe 'Resolve-ServiceComposeConfiguration' {
         $result.Sources.DEFAULT_USER | Should -Be 'ProcessEnv'
     }
 }
+
+Describe 'Invoke-DockerCompose' {
+    It 'does not leak scoped env values after a dry run' {
+        Remove-Item Env:\DEFAULT_USER -ErrorAction SilentlyContinue
+
+        $null = Invoke-DockerCompose `
+            -File (Join-Path $TestDrive 'demo-compose.yml') `
+            -Project 'demo-project' `
+            -Profiles @('paradedb') `
+            -Action 'up -d' `
+            -Environment @{ DEFAULT_USER = 'postgres' } `
+            -DryRun
+
+        Test-Path Env:\DEFAULT_USER | Should -Be $false
+    }
+}
+
+Describe 'Get-DatabaseStateWarningMessage' {
+    It 'returns a warning when a ParadeDB data directory already contains PG_VERSION' {
+        $dataPath = Join-Path $TestDrive 'docker-data'
+        $databasePath = [System.IO.Path]::Combine($dataPath, 'paradedb', 'data')
+        New-Item -ItemType Directory -Path $databasePath -Force | Out-Null
+        Set-Content -Path (Join-Path $databasePath 'PG_VERSION') -Value '17'
+
+        $message = Get-DatabaseStateWarningMessage -ServiceName 'paradedb' -DataPath $dataPath
+
+        $message | Should -Match '仅影响新初始化实例'
+        $message | Should -Match 'paradedb'
+    }
+}

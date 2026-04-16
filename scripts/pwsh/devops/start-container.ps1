@@ -708,6 +708,40 @@ function Resolve-ServiceComposeConfiguration {
     return Resolve-ConfigSources -Sources $sources -BasePath $ComposeDir -IncludeTrace
 }
 
+function Get-DatabaseStateWarningMessage {
+    [CmdletBinding()]
+    param(
+        [string]$ServiceName,
+        [string]$DataPath
+    )
+
+    $candidateFiles = switch ($ServiceName) {
+        'postgre' {
+            @(
+                [System.IO.Path]::Combine($DataPath, 'postgresql', 'data', 'PG_VERSION'),
+                [System.IO.Path]::Combine($DataPath, 'postgresql', 'PG_VERSION')
+            )
+        }
+        'paradedb' {
+            @(
+                [System.IO.Path]::Combine($DataPath, 'paradedb', 'data', 'PG_VERSION'),
+                [System.IO.Path]::Combine($DataPath, 'paradedb', 'PG_VERSION')
+            )
+        }
+        default {
+            @()
+        }
+    }
+
+    foreach ($candidate in $candidateFiles) {
+        if (Test-Path -LiteralPath $candidate) {
+            return "检测到已初始化的 $ServiceName 数据目录 ($candidate)。当前用户名、密码、库名配置仅影响新初始化实例；已有数据目录不会自动迁移内部角色、密码或默认库。"
+        }
+    }
+
+    return $null
+}
+
 # 测试加载脚本时跳过主流程，避免 dot-source 触发真实 Docker 调用。
 if ($env:PWSH_TEST_SKIP_START_CONTAINER_MAIN -eq '1') {
     return
@@ -795,6 +829,8 @@ try {
         }
 
         if ($Update) {
+            $databaseWarning = Get-DatabaseStateWarningMessage -ServiceName $ServiceName -DataPath $composeEnvironment.DATA_PATH
+            if (-not [string]::IsNullOrWhiteSpace($databaseWarning)) { Write-Warning $databaseWarning }
             Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'pull' -Environment $composeEnvironment -DryRun:$DryRun
             Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'up -d' -Environment $composeEnvironment -DryRun:$DryRun
             if (-not $DryRun -and $ServiceName) {
@@ -810,6 +846,8 @@ try {
         if ($PullAlways) {
             $modeForUp = Test-DockerAvailable
             if ($modeForUp -eq 'sub') {
+                $databaseWarning = Get-DatabaseStateWarningMessage -ServiceName $ServiceName -DataPath $composeEnvironment.DATA_PATH
+                if (-not [string]::IsNullOrWhiteSpace($databaseWarning)) { Write-Warning $databaseWarning }
                 Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'up -d' -ExtraArgs @('--pull', 'always') -Environment $composeEnvironment -DryRun:$DryRun
                 if (-not $DryRun -and $ServiceName) {
                     foreach ($tp in $targetProfiles) {
@@ -820,6 +858,8 @@ try {
                 }
             }
             else {
+                $databaseWarning = Get-DatabaseStateWarningMessage -ServiceName $ServiceName -DataPath $composeEnvironment.DATA_PATH
+                if (-not [string]::IsNullOrWhiteSpace($databaseWarning)) { Write-Warning $databaseWarning }
                 Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'pull' -Environment $composeEnvironment -DryRun:$DryRun
                 Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'up -d' -Environment $composeEnvironment -DryRun:$DryRun
                 if (-not $DryRun -and $ServiceName) {
@@ -858,6 +898,8 @@ try {
         if ($ServiceName -eq 'beszel-suite' -or $ServiceName -eq 'rustdesk') { $isValidService = $true }
 
         if ($isValidService) {
+            $databaseWarning = Get-DatabaseStateWarningMessage -ServiceName $ServiceName -DataPath $composeEnvironment.DATA_PATH
+            if (-not [string]::IsNullOrWhiteSpace($databaseWarning)) { Write-Warning $databaseWarning }
             Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'up -d' -Environment $composeEnvironment -DryRun:$DryRun
             if (-not $DryRun) {
                 foreach ($tp in $targetProfiles) {
