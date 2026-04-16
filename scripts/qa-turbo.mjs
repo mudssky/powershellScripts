@@ -2,6 +2,7 @@
 
 import { spawnSync } from 'node:child_process'
 import { buildPnpmCommand } from './pnpm-command.mjs'
+import { shouldRunLinuxOnlyQa } from './qa-platform.mjs'
 
 // Turbo 版 QA 编排器。
 // 这个入口把 workspace QA 拆成可缓存、可并行的任务链，优先服务速度和 affected 场景；
@@ -332,6 +333,13 @@ function runRootPwshQa(modeValue, sinceRef) {
 }
 
 function runRootFnosQa(modeValue, sinceRef) {
+  if (!shouldRunLinuxOnlyQa()) {
+    console.log(
+      `[turbo:qa] skip root qa:fnos (linux only, current platform: ${process.platform})`,
+    )
+    return
+  }
+
   if (modeValue === 'all') {
     console.log('[turbo:qa] run root qa:fnos (all)')
     const pnpmCommand = buildPnpmCommand(['run', 'qa:fnos'])
@@ -351,6 +359,41 @@ function runRootFnosQa(modeValue, sinceRef) {
   runCommand('root-qa-fnos-changed', pnpmCommand.command, pnpmCommand.args)
 }
 
+function runRootSystemdServiceManagerQa(modeValue, sinceRef) {
+  if (!shouldRunLinuxOnlyQa()) {
+    console.log(
+      `[turbo:qa] skip root qa:systemd-service-manager (linux only, current platform: ${process.platform})`,
+    )
+    return
+  }
+
+  const pathspecs = ['scripts/bash/systemd-service-manager', 'package.json']
+
+  if (modeValue === 'all') {
+    console.log('[turbo:qa] run root qa:systemd-service-manager (all)')
+    const pnpmCommand = buildPnpmCommand(['run', 'qa:systemd-service-manager'])
+    runCommand(
+      'root-qa-systemd-service-manager-all',
+      pnpmCommand.command,
+      pnpmCommand.args,
+    )
+    return
+  }
+
+  if (!hasPathChanges(pathspecs, sinceRef)) {
+    console.log('[turbo:qa] skip root qa:systemd-service-manager (no changes)')
+    return
+  }
+
+  console.log('[turbo:qa] run root qa:systemd-service-manager (changed)')
+  const pnpmCommand = buildPnpmCommand(['run', 'qa:systemd-service-manager'])
+  runCommand(
+    'root-qa-systemd-service-manager-changed',
+    pnpmCommand.command,
+    pnpmCommand.args,
+  )
+}
+
 const sinceRef = mode === 'changed' ? resolveSinceRef() : null
 
 if (mode === 'changed' && sinceRef) {
@@ -365,6 +408,7 @@ try {
   runWorkspaceQa(mode, sinceRef)
   runRootPwshQa(mode, sinceRef)
   runRootFnosQa(mode, sinceRef)
+  runRootSystemdServiceManagerQa(mode, sinceRef)
   console.log('[turbo:qa] done')
 } catch (error) {
   if (error instanceof CommandFailedError) {

@@ -1,0 +1,44 @@
+model_list:
+  - model_name: qwen-chat
+    litellm_params:
+      # 主力模型默认走阿里百炼的 qwen-plus，优先保证效果。
+      model: "openai/qwen-plus"
+      api_base: "os.environ/DASHSCOPE_API_BASE"
+      api_key: "os.environ/DASHSCOPE_API_KEY"
+      # 使用每分钟请求数作为网关侧的第一层限流保护，实际数值应按百炼配额再调整。
+      rpm: 300
+      timeout: 20
+
+  - model_name: qwen-chat-fallback
+    litellm_params:
+      # 降级模型使用 qwen-flash，在主模型限流或超时时承担兜底流量。
+      model: "openai/qwen-flash"
+      api_base: "os.environ/DASHSCOPE_API_BASE"
+      api_key: "os.environ/DASHSCOPE_API_KEY"
+      rpm: 600
+      timeout: 15
+
+litellm_settings:
+  # 生产环境默认关闭遥测，并在网关层统一控制重试与超时。
+  telemetry: false
+  drop_params: true
+  num_retries: 2
+  request_timeout: 25
+
+router_settings:
+  # 开启前置检查，避免已知不可用的部署继续接流量。
+  enable_pre_call_checks: true
+  # 主模型失败后自动切到降级模型。
+  fallbacks:
+    - qwen-chat:
+        - qwen-chat-fallback
+  # 连续失败后将主模型暂时冷却，避免放大上游故障。
+  allowed_fails: 2
+  cooldown_time: 30
+  num_retries: 2
+  timeout: 20000
+
+general_settings:
+  master_key: "os.environ/LITELLM_MASTER_KEY"
+  proxy_batch_write_at: 60
+  database_connection_pool_limit: 10

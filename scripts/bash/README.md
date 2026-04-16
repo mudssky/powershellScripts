@@ -169,3 +169,21 @@ ALIYUN_SECURITY_TOKEN=your-sts-token
 - Windows 原生执行体验
 
 如果需求升级到这些范围，建议直接改用 Python 或官方 SDK，而不是继续把 Bash 逻辑堆厚。
+
+## systemd-service-manager
+
+用于按项目目录管理 systemd `service` / `timer`，适合“像 pm2 一样做基础管理，但最终运行时仍由 systemd 承担”的场景。
+
+### 当前能力
+
+- `init` 生成 `deploy/systemd/` 项目骨架
+- `install` 渲染并安装 service / timer unit
+- `start`、`stop`、`restart`、`status`、`logs`
+- `enable`、`disable`
+- 默认 `system` scope，也支持 `user` scope
+
+### 测试
+
+```bash
+pnpm run test:systemd-service-manager
+```

@@ -1,0 +1,88 @@
+services:
+  clickhouse:
+    container_name: tensorzero-clickhouse
+    image: ${TENSORZERO_CLICKHOUSE_IMAGE:-clickhouse/clickhouse-server:lts}
+    restart: unless-stopped
+    environment:
+      # 这组变量用于初始化 TensorZero 观测数据所在的 ClickHouse 数据库与账号。
+      CLICKHOUSE_DB: ${TENSORZERO_CLICKHOUSE_DB:-tensorzero}
+      CLICKHOUSE_USER: ${TENSORZERO_CLICKHOUSE_USER:-tensorzero}
+      CLICKHOUSE_PASSWORD: ${TENSORZERO_CLICKHOUSE_PASSWORD:-change-me}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    volumes:
+      - tensorzero-clickhouse-data:/var/lib/clickhouse
+    healthcheck:
+      # 使用容器内的 clickhouse-client 做健康检查，确保 gateway / UI 在数据库可用后再启动。
+      test: ["CMD-SHELL", "clickhouse-client --user=$$CLICKHOUSE_USER --password=$$CLICKHOUSE_PASSWORD --query 'SELECT 1'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  valkey:
+    container_name: tensorzero-valkey
+    image: ${TENSORZERO_VALKEY_IMAGE:-valkey/valkey:8-alpine}
+    restart: unless-stopped
+    command:
+      - "valkey-server"
+      - "--appendonly"
+      - "yes"
+    volumes:
+      - tensorzero-valkey-data:/data
+    healthcheck:
+      # Valkey 是自定义限流的状态后端，健康检查通过后再让 gateway 接流量。
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  tensorzero-gateway:
+    container_name: tensorzero-gateway
+    image: ${TENSORZERO_GATEWAY_IMAGE:-tensorzero/gateway}
+    restart: unless-stopped
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    command:
+      # 通过环境变量切换 tensorzero.toml / newapi.toml，避免每次切换都改 compose。
+      - "--config-file"
+      - "/app/config/${TENSORZERO_CONFIG_FILE:-tensorzero.toml}"
+    environment:
+      # TensorZero 通过 OpenAI 兼容提供方接入百炼，这里直接注入百炼 API Key。
+      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
+      # ClickHouse URL 负责推理与反馈等观测数据的落库。
+      TENSORZERO_CLICKHOUSE_URL: ${TENSORZERO_CLICKHOUSE_URL:-http://tensorzero:change-me@clickhouse:8123/tensorzero}
+      # Valkey URL 负责自定义限流状态存储。
+      TENSORZERO_VALKEY_URL: ${TENSORZERO_VALKEY_URL:-redis://valkey:6379/0}
+    volumes:
+      - ./:/app/config:ro
+    ports:
+      - "${TENSORZERO_GATEWAY_PORT:-34400}:3000"
+    extra_hosts:
+      # 预留宿主机访问能力，便于后续把 ClickHouse 或其它依赖迁到宿主机服务。
+      - "host.docker.internal:host-gateway"
+
+  tensorzero-ui:
+    container_name: tensorzero-ui
+    image: ${TENSORZERO_UI_IMAGE:-tensorzero/ui}
+    restart: unless-stopped
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      tensorzero-gateway:
+        condition: service_started
+    environment:
+      # UI 通过内部 service 名访问 gateway，避免依赖宿主机回环地址。
+      TENSORZERO_GATEWAY_URL: ${TENSORZERO_GATEWAY_URL:-http://tensorzero-gateway:3000}
+      TENSORZERO_CLICKHOUSE_URL: ${TENSORZERO_CLICKHOUSE_URL:-http://tensorzero:change-me@clickhouse:8123/tensorzero}
+    volumes:
+      - ./:/app/config:ro
+    ports:
+      - "${TENSORZERO_UI_PORT:-34401}:4000"
+
+volumes:
+  tensorzero-clickhouse-data:
+  tensorzero-valkey-data:

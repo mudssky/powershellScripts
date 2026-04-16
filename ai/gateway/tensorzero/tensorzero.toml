@@ -1,0 +1,61 @@
+[gateway]
+# 关闭匿名使用分析，并收紧全局出站超时，避免慢请求长期占住连接。
+disable_pseudonymous_usage_analytics = true
+global_outbound_http_timeout_ms = 30_000
+
+[models.qwen_plus_prod]
+# 主模型默认走阿里百炼 qwen-plus。
+routing = ["bailian"]
+
+[models.qwen_plus_prod.providers.bailian]
+type = "openai"
+api_base = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+model_name = "qwen-plus"
+api_key_location = "env::DASHSCOPE_API_KEY"
+# 提供方级别的重试与超时，用于处理百炼偶发抖动和慢请求。
+retries = { num_retries = 2, max_delay_s = 8 }
+timeouts = { non_streaming.total_ms = 15_000, streaming.ttft_ms = 3_000 }
+
+[models.qwen_flash_fallback]
+# 降级模型改用 qwen-flash，优先保可用性与成本。
+routing = ["bailian"]
+
+[models.qwen_flash_fallback.providers.bailian]
+type = "openai"
+api_base = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+model_name = "qwen-flash"
+api_key_location = "env::DASHSCOPE_API_KEY"
+retries = { num_retries = 1, max_delay_s = 4 }
+timeouts = { non_streaming.total_ms = 10_000, streaming.ttft_ms = 2_500 }
+
+[functions.chat_prod]
+# 生产默认聊天函数，优先尝试 qwen-plus，再按顺序降级到 qwen-flash。
+type = "chat"
+
+[functions.chat_prod.experimentation]
+type = "static_weights"
+candidate_variants = { qwen_plus_primary = 1.0 }
+fallback_variants = ["qwen_flash_backup"]
+
+[functions.chat_prod.variants.qwen_plus_primary]
+type = "chat_completion"
+model = "qwen_plus_prod"
+retries = { num_retries = 2, max_delay_s = 8 }
+
+[functions.chat_prod.variants.qwen_flash_backup]
+type = "chat_completion"
+model = "qwen_flash_fallback"
+retries = { num_retries = 1, max_delay_s = 4 }
+
+[[rate_limiting.rules]]
+# 全局总量保护：避免整套网关被突发流量打满。
+always = true
+model_inferences_per_minute = 120
+
+[[rate_limiting.rules]]
+# 按 tenant_id 做细粒度限流，适合多租户或多业务线共用网关。
+priority = 0
+tokens_per_hour = 1_000_000
+scope = [
+  { tag_key = "tenant_id", tag_value = "tensorzero::each" }
+]

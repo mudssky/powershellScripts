@@ -1,0 +1,413 @@
+import fs from 'node:fs'
+import path from 'node:path'
+import { afterEach, describe, expect, it } from 'vitest'
+import {
+  cleanupWorkspace,
+  createWorkspace,
+  installMockCommand,
+  runSource,
+  writeText,
+} from './test-utils'
+
+const workspaces: ReturnType<typeof createWorkspace>[] = []
+
+afterEach(() => {
+  while (workspaces.length > 0) {
+    const workspace = workspaces.pop()
+    if (workspace) {
+      cleanupWorkspace(workspace)
+    }
+  }
+})
+
+describe('install command', () => {
+  it('prints generated unit names in dry-run mode without writing files', async () => {
+    const workspace = createWorkspace()
+    workspaces.push(workspace)
+
+    installMockCommand(
+      workspace,
+      'systemd-analyze',
+      '#!/usr/bin/env bash\nexit 0\n',
+    )
+
+    const projectRoot = path.join(
+      workspace.managerHome,
+      'tests',
+      'fixtures',
+      'project-basic',
+    )
+
+    const result = await runSource(workspace, [
+      'install',
+      'service',
+      'api',
+      '--project',
+      projectRoot,
+      '--dry-run',
+    ], {
+      SSM_TEST_EUID: '0',
+    })
+
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout).toContain('myapp-api.service')
+    expect(fs.readdirSync(workspace.fakeSystemDir)).toHaveLength(0)
+  })
+
+  it('writes service and timer units to the selected scope', async () => {
+    const workspace = createWorkspace()
+    workspaces.push(workspace)
+
+    installMockCommand(
+      workspace,
+      'systemd-analyze',
+      '#!/usr/bin/env bash\nexit 0\n',
+    )
+    installMockCommand(
+      workspace,
+      'systemctl',
+      '#!/usr/bin/env bash\nprintf "%s\\n" "$*" >>"${SSM_SYSTEMCTL_LOG}"\nexit 0\n',
+    )
+
+    const projectRoot = path.join(
+      workspace.managerHome,
+      'tests',
+      'fixtures',
+      'project-basic',
+    )
+
+    const result = await runSource(
+      workspace,
+      ['install', 'timer', 'cleanup', '--project', projectRoot],
+      {
+        SSM_TEST_EUID: '0',
+        SSM_SYSTEMCTL_LOG: path.join(workspace.root, 'systemctl.log'),
+      },
+    )
+
+    expect(result.exitCode).toBe(0)
+    expect(
+      fs.existsSync(path.join(workspace.fakeSystemDir, 'myapp-cleanup.timer')),
+    ).toBe(true)
+    expect(
+      fs.existsSync(
+        path.join(workspace.fakeSystemDir, 'myapp-task-cleanup.service'),
+      ),
+    ).toBe(true)
+    expect(
+      fs.readFileSync(path.join(workspace.root, 'systemctl.log'), 'utf8'),
+    ).toContain('daemon-reload')
+    expect(result.stdout).toContain('installed=myapp-cleanup.timer')
+  })
+
+  it('renders merged environment and default user/group into service units', async () => {
+    const workspace = createWorkspace()
+    workspaces.push(workspace)
+
+    installMockCommand(
+      workspace,
+      'systemd-analyze',
+      '#!/usr/bin/env bash\nexit 0\n',
+    )
+    installMockCommand(
+      workspace,
+      'systemctl',
+      '#!/usr/bin/env bash\nexit 0\n',
+    )
+
+    const projectRoot = path.join(
+      workspace.managerHome,
+      'tests',
+      'fixtures',
+      'project-basic',
+    )
+
+    writeText(
+      path.join(projectRoot, 'deploy/systemd/project.env.local'),
+      ['HOME=/home/administrator', 'APP_NAME=dataflow', ''].join('\n'),
+    )
+    writeText(
+      path.join(projectRoot, 'deploy/systemd/services/api.env.local'),
+      [
+        'PATH=/home/administrator/.local/share/fnm/node-versions/v24.11.0/installation/bin:/usr/bin:/bin',
+        'APP_PORT=3100',
+        '',
+      ].join('\n'),
+    )
+
+    const result = await runSource(
+      workspace,
+      ['install', 'api', '--project', projectRoot],
+      {
+        SSM_TEST_EUID: '0',
+      },
+    )
+
+    expect(result.exitCode).toBe(0)
+
+    const unitText = fs.readFileSync(
+      path.join(workspace.fakeSystemDir, 'myapp-api.service'),
+      'utf8',
+    )
+    expect(unitText).toContain('User=myapp')
+    expect(unitText).toContain('Group=myapp')
+    expect(unitText).toContain('Environment="HOME=/home/administrator"')
+    expect(unitText).toContain(
+      'Environment="PATH=/home/administrator/.local/share/fnm/node-versions/v24.11.0/installation/bin:/usr/bin:/bin"',
+    )
+    expect(unitText).toContain('Environment="APP_PORT=3100"')
+    expect(unitText).toContain('Environment="APP_NAME=dataflow"')
+  })
+
+  it('prints unchanged when the rendered unit content is identical', async () => {
+    const workspace = createWorkspace()
+    workspaces.push(workspace)
+
+    installMockCommand(
+      workspace,
+      'systemd-analyze',
+      '#!/usr/bin/env bash\nexit 0\n',
+    )
+    installMockCommand(
+      workspace,
+      'systemctl',
+      '#!/usr/bin/env bash\nexit 0\n',
+    )
+
+    const projectRoot = path.join(
+      workspace.managerHome,
+      'tests',
+      'fixtures',
+      'project-basic',
+    )
+
+    const first = await runSource(
+      workspace,
+      ['install', 'api', '--project', projectRoot],
+      { SSM_TEST_EUID: '0' },
+    )
+    const second = await runSource(
+      workspace,
+      ['install', 'api', '--project', projectRoot],
+      { SSM_TEST_EUID: '0' },
+    )
+
+    expect(first.exitCode).toBe(0)
+    expect(second.exitCode).toBe(0)
+    expect(second.stdout).toContain('unchanged=myapp-api.service')
+  })
+
+  it('renders merged environment into timer task units', async () => {
+    const workspace = createWorkspace()
+    workspaces.push(workspace)
+
+    installMockCommand(
+      workspace,
+      'systemd-analyze',
+      '#!/usr/bin/env bash\nexit 0\n',
+    )
+    installMockCommand(
+      workspace,
+      'systemctl',
+      '#!/usr/bin/env bash\nexit 0\n',
+    )
+
+    const projectRoot = path.join(
+      workspace.managerHome,
+      'tests',
+      'fixtures',
+      'project-basic',
+    )
+
+    writeText(
+      path.join(projectRoot, 'deploy/systemd/timers/cleanup.env.local'),
+      [
+        'PATH=/home/administrator/.local/share/fnm/node-versions/v24.11.0/installation/bin:/usr/bin:/bin',
+        'HOME=/home/administrator',
+        '',
+      ].join('\n'),
+    )
+
+    const result = await runSource(
+      workspace,
+      ['install', 'cleanup', '--project', projectRoot],
+      {
+        SSM_TEST_EUID: '0',
+      },
+    )
+
+    expect(result.exitCode).toBe(0)
+
+    const unitText = fs.readFileSync(
+      path.join(workspace.fakeSystemDir, 'myapp-task-cleanup.service'),
+      'utf8',
+    )
+    expect(unitText).toContain('Environment="HOME=/home/administrator"')
+    expect(unitText).toContain(
+      'Environment="PATH=/home/administrator/.local/share/fnm/node-versions/v24.11.0/installation/bin:/usr/bin:/bin"',
+    )
+  })
+
+  it('infers service kind when omitted for install dry-run', async () => {
+    const workspace = createWorkspace()
+    workspaces.push(workspace)
+
+    installMockCommand(
+      workspace,
+      'systemd-analyze',
+      '#!/usr/bin/env bash\nexit 0\n',
+    )
+
+    const projectRoot = path.join(
+      workspace.managerHome,
+      'tests',
+      'fixtures',
+      'project-basic',
+    )
+
+    const result = await runSource(workspace, [
+      'install',
+      'api',
+      '--project',
+      projectRoot,
+      '--dry-run',
+    ], {
+      SSM_TEST_EUID: '0',
+    })
+
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout).toContain('myapp-api.service')
+  })
+
+  it('can install and start a service in one step with --start', async () => {
+    const workspace = createWorkspace()
+    workspaces.push(workspace)
+
+    installMockCommand(
+      workspace,
+      'systemd-analyze',
+      '#!/usr/bin/env bash\nexit 0\n',
+    )
+    installMockCommand(
+      workspace,
+      'systemctl',
+      '#!/usr/bin/env bash\nprintf "%s\\n" "$*" >>"${SSM_SYSTEMCTL_LOG}"\nexit 0\n',
+    )
+
+    const projectRoot = path.join(
+      workspace.managerHome,
+      'tests',
+      'fixtures',
+      'project-basic',
+    )
+    const systemctlLog = path.join(workspace.root, 'systemctl.log')
+
+    const result = await runSource(
+      workspace,
+      ['install', 'api', '--project', projectRoot, '--start'],
+      {
+        SSM_TEST_EUID: '0',
+        SSM_SYSTEMCTL_LOG: systemctlLog,
+      },
+    )
+
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout).toContain('installed=myapp-api.service')
+    expect(result.stdout).toContain('started=myapp-api.service')
+    expect(fs.readFileSync(systemctlLog, 'utf8')).toContain('daemon-reload')
+    expect(fs.readFileSync(systemctlLog, 'utf8')).toContain('start myapp-api.service')
+  })
+
+  it('restarts instead of start when install --start targets an already active unit', async () => {
+    const workspace = createWorkspace()
+    workspaces.push(workspace)
+
+    const systemctlLog = path.join(workspace.root, 'systemctl.log')
+    installMockCommand(
+      workspace,
+      'systemd-analyze',
+      '#!/usr/bin/env bash\nexit 0\n',
+    )
+    installMockCommand(
+      workspace,
+      'systemctl',
+      [
+        '#!/usr/bin/env bash',
+        'printf "%s\\n" "$*" >>"${SSM_SYSTEMCTL_LOG}"',
+        'if [[ "$1" == "is-active" ]]; then printf "active\\n"; fi',
+        'if [[ "$1" == "is-enabled" ]]; then printf "enabled\\n"; fi',
+        'exit 0',
+      ].join('\n'),
+    )
+
+    const projectRoot = path.join(
+      workspace.managerHome,
+      'tests',
+      'fixtures',
+      'project-basic',
+    )
+
+    const result = await runSource(
+      workspace,
+      ['install', 'api', '--project', projectRoot, '--start'],
+      {
+        SSM_TEST_EUID: '0',
+        SSM_SYSTEMCTL_LOG: systemctlLog,
+      },
+    )
+
+    expect(result.exitCode).toBe(0)
+    expect(fs.readFileSync(systemctlLog, 'utf8')).toContain('restart myapp-api.service')
+    expect(result.stdout).toContain('restarted=myapp-api.service')
+  })
+
+  it('auto-elevates system-scope install when not root', async () => {
+    const workspace = createWorkspace()
+    workspaces.push(workspace)
+
+    installMockCommand(
+      workspace,
+      'sudo',
+      [
+        '#!/usr/bin/env bash',
+        'printf "%s\\n" "$*" >>"${SSM_SUDO_LOG}"',
+        'if [[ "$1" == "--" ]]; then shift; fi',
+        'SSM_TEST_EUID=0 exec "$@"',
+      ].join('\n'),
+    )
+    installMockCommand(
+      workspace,
+      'systemd-analyze',
+      '#!/usr/bin/env bash\nexit 0\n',
+    )
+    installMockCommand(
+      workspace,
+      'systemctl',
+      '#!/usr/bin/env bash\nprintf "%s\\n" "$*" >>"${SSM_SYSTEMCTL_LOG}"\nexit 0\n',
+    )
+
+    const projectRoot = path.join(
+      workspace.managerHome,
+      'tests',
+      'fixtures',
+      'project-basic',
+    )
+    const sudoLog = path.join(workspace.root, 'sudo.log')
+    const systemctlLog = path.join(workspace.root, 'systemctl.log')
+
+    const result = await runSource(
+      workspace,
+      ['install', 'api', '--project', projectRoot, '--start'],
+      {
+        SSM_TEST_EUID: '1000',
+        SSM_SUDO_LOG: sudoLog,
+        SSM_SYSTEMCTL_LOG: systemctlLog,
+      },
+    )
+
+    expect(result.exitCode).toBe(0)
+    expect(fs.readFileSync(sudoLog, 'utf8')).toContain(workspace.sourceEntry)
+    expect(fs.readFileSync(systemctlLog, 'utf8')).toContain('daemon-reload')
+    expect(fs.readFileSync(systemctlLog, 'utf8')).toContain('start myapp-api.service')
+  })
+})

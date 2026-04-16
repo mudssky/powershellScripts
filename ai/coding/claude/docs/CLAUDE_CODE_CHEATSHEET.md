@@ -24,6 +24,27 @@ claude -p "检查当前目录下的未提交更改并总结"
 
 Claude Code 支持三级配置，优先级从高到低：**Enterprise > User > Project > Env Vars**。
 
+### 本仓库的落地约定
+
+如果你在这个仓库里维护 Claude 配置，不要直接把真实 secrets 写进 `ai/coding/claude/.claude/settings.json`，也不要把 `~/.claude/settings.json` 当成长期手改入口。
+
+本仓库采用的是：
+
+- `ai/coding/claude/config/settings.json`
+  可提交的共享模板
+- `ai/coding/claude/config/settings.local.json`
+  本机私有覆盖，不提交 Git
+- `~/.claude/settings.json`
+  由 `ai/coding/claude/Sync-ClaudeConfig.ps1` 生成的最终文件
+
+其中：
+
+- 非敏感默认值放 shared template
+- `ANTHROPIC_API_KEY`、`ANTHROPIC_BASE_URL` 一类 provider / secrets 放 local override
+- 生成后的 `~/.claude/settings.json` 视为纯产物，可被 sync 直接覆盖
+
+如果只记一条规则：**共享配置改 `config/settings.json`，个人差异改 `config/settings.local.json`，不要直接改 `~/.claude/settings.json`。**
+
 ### 1. 项目级配置 (`.claude/settings.json`)
 
 *提交到 Git，用于统一团队规范*
