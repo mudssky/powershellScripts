@@ -151,6 +151,62 @@ $config = Resolve-ConfigSources -Sources @(
 
 该能力与现有 PostgreSQL 工具中的临时环境恢复模式保持一致，但上提为公共基础设施。
 
+### 2.1 作用域环境执行器推荐接口
+
+第一版推荐保持最小接口：
+
+```powershell
+Invoke-WithScopedEnvironment -Variables @{
+    DEFAULT_USER = 'postgres'
+    DEFAULT_PASSWORD = '12345678'
+    COMPOSE_PROJECT_NAME = 'dev-paradedb'
+} -ScriptBlock {
+    docker compose -f $composePath -p $projectName --profile paradedb up -d
+}
+```
+
+推荐行为如下：
+
+- 仅修改 `Process` 级环境变量
+- 使用 `try/finally` 保证恢复
+- 原本不存在的变量在退出时删除
+- 原本存在的变量在退出时恢复旧值
+- `ScriptBlock` 抛错时不吞异常，只在恢复后继续抛出
+- 支持嵌套调用
+
+第一版不承担以下职责：
+
+- 不直接解析 `.env`、`.json` 或 `-ConfigFile`
+- 不直接封装 `docker compose`
+- 不默认输出敏感值
+
+### 2.2 在 `start-container.ps1` 中的典型使用方式
+
+`start-container.ps1` 中推荐的接法为：
+
+```powershell
+$config = Resolve-ConfigSources -ConfigFile .env -ConfigFile .env.local
+
+$composeEnv = @{
+    DATA_PATH            = $config.Values.DATA_PATH
+    DEFAULT_USER         = $config.Values.DEFAULT_USER
+    DEFAULT_PASSWORD     = $config.Values.DEFAULT_PASSWORD
+    COMPOSE_PROJECT_NAME = $config.Values.COMPOSE_PROJECT_NAME
+}
+
+Invoke-WithScopedEnvironment -Variables $composeEnv -ScriptBlock {
+    Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'up -d'
+}
+```
+
+如需调试，可在后续实现中支持 `-Verbose` 输出键名列表，但不输出敏感值本身。例如：
+
+- `Applying scoped environment keys: DEFAULT_USER, DEFAULT_PASSWORD, COMPOSE_PROJECT_NAME`
+
+不应输出：
+
+- `DEFAULT_PASSWORD=12345678`
+
 ### 3. `start-container.ps1` 的接入方式
 
 `start-container.ps1` 改为“解析本次调用配置，再局部执行 compose”的模式：
