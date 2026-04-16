@@ -285,10 +285,14 @@ services:
       TZ: "Asia/Shanghai"
     ports: ["5432:5432"]
     volumes:
-      # 官方文档建议将数据持久化到 /var/lib/postgresql 目录。
-      - "${DATA_PATH}/paradedb:/var/lib/postgresql"
+      # ParadeDB/PG17 默认使用 PGDATA=/var/lib/postgresql/data，直接挂载该目录可避免父目录嵌套挂载生成匿名 volume。
+      - "${DATA_PATH}/paradedb/data:/var/lib/postgresql/data"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DEFAULT_USER:-postgres} -d ${POSTGRES_DB:-paradedb}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${DEFAULT_USER:-postgres} -d ${POSTGRES_DB:-paradedb}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 3
