@@ -44,3 +44,5 @@ bin/
 *.env.local
 
 docs/superpowers/plans
+
+vitest-report.xml
