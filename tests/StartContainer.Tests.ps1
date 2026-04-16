@@ -68,8 +68,8 @@ Describe 'Resolve-ServiceDefaultUser' {
         Resolve-ServiceDefaultUser -ServiceName 'paradedb' -CliDefaultUser 'custom-user' -EnvironmentDefaultUser '' | Should -Be 'custom-user'
     }
 
-    It '环境变量中已有 DEFAULT_USER 时保持原值' {
-        Resolve-ServiceDefaultUser -ServiceName 'postgre' -CliDefaultUser '' -EnvironmentDefaultUser 'env-user' | Should -Be 'env-user'
+    It '普通服务在环境变量中已有 DEFAULT_USER 时保持原值' {
+        Resolve-ServiceDefaultUser -ServiceName 'minio' -CliDefaultUser '' -EnvironmentDefaultUser 'env-user' | Should -Be 'env-user'
     }
 }
 

@@ -231,6 +231,9 @@ param (
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+$script:StartContainerConfigModulePath = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..\psutils\modules\config.psm1'))
+Import-Module $script:StartContainerConfigModulePath -Force
+
 function Get-PlainTextFromSecure {
     param([SecureString]$Secure)
     if ($null -eq $Secure) { return "" }
@@ -261,9 +264,6 @@ function Get-DefaultProjectName {
         [string]$ProjectNameInput
     )
     $name = $ProjectNameInput
-    if ([string]::IsNullOrWhiteSpace($name)) {
-        if (-not [string]::IsNullOrWhiteSpace(${env:COMPOSE_PROJECT_NAME})) { $name = ${env:COMPOSE_PROJECT_NAME} }
-    }
     if ([string]::IsNullOrWhiteSpace($name)) {
         if (-not [string]::IsNullOrWhiteSpace($ServiceName)) { $name = ("dev-" + $ServiceName) } else { $name = "compose" }
     }
@@ -304,7 +304,8 @@ function Invoke-DockerCompose {
         [string[]]$Services,
         [string]$Action,
         [string[]]$ExtraArgs,
-        [switch]$DryRun
+        [switch]$DryRun,
+        [hashtable]$Environment
     )
     $mode = $null
     if (-not $DryRun) { $mode = Test-DockerAvailable } else { $mode = 'sub' }
@@ -316,11 +317,23 @@ function Invoke-DockerCompose {
     if ($Action) { $dcArgs += ($Action -split ' ') }
     if ($Services) { $dcArgs += $Services }
     if ($ExtraArgs) { $dcArgs += $ExtraArgs }
-    if ($DryRun) {
-        if ($mode -eq 'sub') { Write-Output ("docker " + ($dcArgs -join ' ')) } else { Write-Output (("docker-compose " + ($dcArgs -join ' '))) }
-        return
+    $invokeCompose = {
+        if ($DryRun) {
+            if ($mode -eq 'sub') { "docker " + ($dcArgs -join ' ') } else { "docker-compose " + ($dcArgs -join ' ') }
+        }
+        elseif ($mode -eq 'sub') {
+            & docker @dcArgs
+        }
+        else {
+            & docker-compose @dcArgs
+        }
     }
-    if ($mode -eq 'sub') { & docker @dcArgs } else { & docker-compose @dcArgs }
+
+    if ($Environment -and $Environment.Count -gt 0) {
+        return Invoke-WithScopedEnvironment -Variables $Environment -ScriptBlock $invokeCompose
+    }
+
+    return & $invokeCompose
 }
 
 function Get-NetworkExists {
@@ -638,6 +651,63 @@ function Resolve-ServiceDefaultUser {
     return Get-ServiceDefaultUser -ServiceName $ServiceName
 }
 
+function Get-ServiceConfigDefaults {
+    [CmdletBinding()]
+    param(
+        [string]$ServiceName,
+        [string]$DataPath,
+        [string]$DefaultUser,
+        [string]$DefaultPassword,
+        [string]$RestartPolicy,
+        [string]$ProjectName
+    )
+
+    $resolvedDefaultUser = if ([string]::IsNullOrWhiteSpace($DefaultUser)) {
+        Get-ServiceDefaultUser -ServiceName $ServiceName
+    }
+    else {
+        $DefaultUser
+    }
+
+    return @{
+        DATA_PATH            = $DataPath
+        DEFAULT_USER         = $resolvedDefaultUser
+        DEFAULT_PASSWORD     = $DefaultPassword
+        RESTART_POLICY       = $RestartPolicy
+        COMPOSE_PROJECT_NAME = $ProjectName
+    }
+}
+
+function Resolve-ServiceComposeConfiguration {
+    [CmdletBinding()]
+    param(
+        [string]$ServiceName,
+        [string]$ComposeDir,
+        [hashtable]$CliEnv,
+        [string]$DataPath,
+        [string]$DefaultUser,
+        [string]$DefaultPassword,
+        [string]$RestartPolicy,
+        [string]$ProjectName
+    )
+
+    $sources = @(
+        @{ Type = 'Hashtable'; Name = 'ServiceDefaults'; Data = (Get-ServiceConfigDefaults -ServiceName $ServiceName -DataPath $DataPath -DefaultUser $DefaultUser -DefaultPassword $DefaultPassword -RestartPolicy $RestartPolicy -ProjectName $ProjectName) }
+    )
+
+    if ($ServiceName -notin @('postgre', 'paradedb')) {
+        $sources += @{ Type = 'ProcessEnv'; Name = 'ProcessEnv' }
+    }
+
+    $sources += @(
+        @{ Type = 'EnvFile'; Name = '.env'; Path = (Join-Path $ComposeDir '.env') }
+        @{ Type = 'EnvFile'; Name = '.env.local'; Path = (Join-Path $ComposeDir '.env.local') }
+        @{ Type = 'Hashtable'; Name = 'CliEnv'; Data = $CliEnv }
+    )
+
+    return Resolve-ConfigSources -Sources $sources -BasePath $ComposeDir -IncludeTrace
+}
+
 # 测试加载脚本时跳过主流程，避免 dot-source 触发真实 Docker 调用。
 if ($env:PWSH_TEST_SKIP_START_CONTAINER_MAIN -eq '1') {
     return
@@ -670,35 +740,25 @@ try {
     $composePath = Join-Path $composeDir 'docker-compose.yml'
     $mongoReplComposePath = Join-Path $composeDir 'mongo-repl.compose.yml'
 
-    # 依次加载 .env 和 .env.local (后者覆盖前者)
-    Import-EnvFile -FilePath (Join-Path $composeDir '.env')
-    Import-EnvFile -FilePath (Join-Path $composeDir '.env.local')
-
-    # 处理通过 -Env 参数传入的额外变量 (优先级最高)
-    if ($Env) { foreach ($k in $Env.Keys) { ${env:$k} = [string]$Env[$k] } }
-
     if ($AskPass) {
         $DefaultPassword = Read-Host -AsSecureString -Prompt "请输入默认密码 (DefaultPassword)"
     }
 
     $plainPwd = (Get-PlainTextFromSecure -Secure $DefaultPassword)
     $cliDefaultUser = if ($PSBoundParameters.ContainsKey('DefaultUser')) { $DefaultUser } else { $null }
-    $resolvedDefaultUser = Resolve-ServiceDefaultUser -ServiceName $ServiceName -CliDefaultUser $cliDefaultUser -EnvironmentDefaultUser ${env:DEFAULT_USER}
-
-    # 显式参数强制覆盖 (优先级 > 文件)
-    if ($PSBoundParameters.ContainsKey('DataPath')) { ${env:DATA_PATH} = $DataPath }
-    if ($PSBoundParameters.ContainsKey('DefaultUser')) { ${env:DEFAULT_USER} = $resolvedDefaultUser }
-    if ($PSBoundParameters.ContainsKey('DefaultPassword') -or $AskPass) { ${env:DEFAULT_PASSWORD} = $plainPwd }
-    if ($PSBoundParameters.ContainsKey('RestartPolicy')) { ${env:RESTART_POLICY} = $RestartPolicy }
-
-    # 注入默认值，但优先保留已存在的环境变量 (来自 .env, .env.local 或 Shell)
-    if ([string]::IsNullOrWhiteSpace(${env:DATA_PATH})) { ${env:DATA_PATH} = $DataPath }
-    if ([string]::IsNullOrWhiteSpace(${env:DEFAULT_USER})) { ${env:DEFAULT_USER} = $resolvedDefaultUser }
-    if ([string]::IsNullOrWhiteSpace(${env:DEFAULT_PASSWORD})) { ${env:DEFAULT_PASSWORD} = $plainPwd }
-    
-    if ([string]::IsNullOrWhiteSpace(${env:RESTART_POLICY})) { ${env:RESTART_POLICY} = $RestartPolicy }
-    $projectName = Get-DefaultProjectName -ServiceName $ServiceName -ProjectName $ProjectName
-    if ([string]::IsNullOrWhiteSpace(${env:COMPOSE_PROJECT_NAME})) { ${env:COMPOSE_PROJECT_NAME} = $projectName }
+    $projectName = Get-DefaultProjectName -ServiceName $ServiceName -ProjectNameInput $ProjectName
+    $cliEnv = if ($Env) { @{} + $Env } else { @{} }
+    $composeConfig = Resolve-ServiceComposeConfiguration `
+        -ServiceName $ServiceName `
+        -ComposeDir $composeDir `
+        -CliEnv $cliEnv `
+        -DataPath $DataPath `
+        -DefaultUser $cliDefaultUser `
+        -DefaultPassword $plainPwd `
+        -RestartPolicy $RestartPolicy `
+        -ProjectName $projectName
+    $composeEnvironment = $composeConfig.Values
+    $projectName = [string]$composeEnvironment.COMPOSE_PROJECT_NAME
 
     if ($List) {
         if (Test-Path $composePath) {
@@ -735,8 +795,8 @@ try {
         }
 
         if ($Update) {
-            Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'pull' -DryRun:$DryRun
-            Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'up -d' -DryRun:$DryRun
+            Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'pull' -Environment $composeEnvironment -DryRun:$DryRun
+            Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'up -d' -Environment $composeEnvironment -DryRun:$DryRun
             if (-not $DryRun -and $ServiceName) {
                 # 简单检查每个服务
                 foreach ($tp in $targetProfiles) {
@@ -750,7 +810,7 @@ try {
         if ($PullAlways) {
             $modeForUp = Test-DockerAvailable
             if ($modeForUp -eq 'sub') {
-                Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'up -d' -ExtraArgs @('--pull', 'always') -DryRun:$DryRun
+                Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'up -d' -ExtraArgs @('--pull', 'always') -Environment $composeEnvironment -DryRun:$DryRun
                 if (-not $DryRun -and $ServiceName) {
                     foreach ($tp in $targetProfiles) {
                         [void](Wait-ServiceHealthy -Service $tp -Project $projectName)
@@ -760,8 +820,8 @@ try {
                 }
             }
             else {
-                Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'pull' -DryRun:$DryRun
-                Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'up -d' -DryRun:$DryRun
+                Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'pull' -Environment $composeEnvironment -DryRun:$DryRun
+                Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'up -d' -Environment $composeEnvironment -DryRun:$DryRun
                 if (-not $DryRun -and $ServiceName) {
                     foreach ($tp in $targetProfiles) {
                         [void](Wait-ServiceHealthy -Service $tp -Project $projectName)
@@ -776,20 +836,20 @@ try {
             if ($ServiceName) {
                 # 针对组合服务，需要找出实际的服务名（通常与profile同名）
                 # 这里假设 profile 名即为 service 名，或者在 docker-compose 中 profile 和 service 是一一对应的
-                Invoke-DockerCompose -File $composePath -Project $projectName -Action 'stop' -Services $targetProfiles -DryRun:$DryRun
-                Invoke-DockerCompose -File $composePath -Project $projectName -Action 'rm -f -s' -Services $targetProfiles -DryRun:$DryRun
+                Invoke-DockerCompose -File $composePath -Project $projectName -Action 'stop' -Services $targetProfiles -Environment $composeEnvironment -DryRun:$DryRun
+                Invoke-DockerCompose -File $composePath -Project $projectName -Action 'rm -f -s' -Services $targetProfiles -Environment $composeEnvironment -DryRun:$DryRun
             }
             else {
-                Invoke-DockerCompose -File $composePath -Project $projectName -Action 'down' -DryRun:$DryRun
+                Invoke-DockerCompose -File $composePath -Project $projectName -Action 'down' -Environment $composeEnvironment -DryRun:$DryRun
             }
             return
         }
         if ($Pull) {
-            Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'pull' -DryRun:$DryRun
+            Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'pull' -Environment $composeEnvironment -DryRun:$DryRun
             return
         }
         if ($Build) {
-            Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'build' -DryRun:$DryRun
+            Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'build' -Environment $composeEnvironment -DryRun:$DryRun
             return
         }
         
@@ -798,7 +858,7 @@ try {
         if ($ServiceName -eq 'beszel-suite' -or $ServiceName -eq 'rustdesk') { $isValidService = $true }
 
         if ($isValidService) {
-            Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'up -d' -DryRun:$DryRun
+            Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'up -d' -Environment $composeEnvironment -DryRun:$DryRun
             if (-not $DryRun) {
                 foreach ($tp in $targetProfiles) {
                     [void](Wait-ServiceHealthy -Service $tp -Project $projectName)
