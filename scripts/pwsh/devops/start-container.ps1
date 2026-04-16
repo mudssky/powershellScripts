@@ -16,7 +16,7 @@
     [ValidateSet("minio", "redis", "postgre", "etcd", "nacos", "rabbitmq", "mongodb", 
         "one-api", "mongodb-replica", "kokoro-fastapi", "kokoro-fastapi-cpu", 
         "cadvisor", "prometheus", "noco", "n8n", "crawl4ai", "pageSpy", "new-api", 
-        "qdrant", "your-new-service")]
+        "qdrant", "paradedb", "your-new-service")]
     ```
 
     ### 2. 更新服务列表文档
@@ -84,6 +84,7 @@
     - prometheus: 监控系统
     - noco: 无代码平台
     - qdrant: 向量数据库
+    - paradedb: 基于 PostgreSQL 17 的 ParadeDB 搜索数据库
     - rustdesk-hbbs: RustDesk HBBS服务器（ID注册和心跳服务）
     - rustdesk-hbbr: RustDesk HBBR服务器（中继服务）
     - rustdesk: 同时启动 RustDesk HBBS 和 HBBR
@@ -170,6 +171,7 @@ param (
         "pageSpy", 
         "new-api", 
         "qdrant", 
+        "paradedb",
         "rustdesk-hbbs", 
         "rustdesk-hbbr", 
         "rustfs", 
