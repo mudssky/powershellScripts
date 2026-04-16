@@ -102,7 +102,15 @@
     - no: 不自动重启
 
 .PARAMETER DataPath
-    数据存储目录，默认为"C:/docker_data"
+    数据存储目录。未显式传入时，会按当前系统自动选择默认值：
+    - Windows: `C:\docker_data`
+    - Linux: `/var/lib/docker_data`
+    - macOS: `/Volumes/Data/docker_data`
+
+    volume路径示例（遵循当前默认值）：
+    - Windows: `${DATA_PATH}/redis:/data` -> `C:\docker_data\redis:/data`
+    - Linux: `${DATA_PATH}/redis:/data` -> `/var/lib/docker_data/redis:/data`
+    - macOS: `${DATA_PATH}/redis:/data` -> `/Volumes/Data/docker_data/redis:/data`
 
 .PARAMETER DefaultUser
     默认用户名，默认为"root"
@@ -117,6 +125,21 @@
 .EXAMPLE
     .\start-container.ps1 -ServiceName mongodb -RestartPolicy always -DataPath "D:/data"
     启动MongoDB服务并自定义重启策略和数据目录
+
+.EXAMPLE
+    # Windows 默认 volume 根路径
+    .\start-container.ps1 -ServiceName redis
+    等效数据目录示例：C:\docker_data\redis
+
+.EXAMPLE
+    # Linux 默认 volume 根路径
+    ./start-container.ps1 -ServiceName redis
+    等效数据目录示例：/var/lib/docker_data/redis
+
+.EXAMPLE
+    # macOS 默认 volume 根路径
+    ./start-container.ps1 -ServiceName redis
+    等效数据目录示例：/Volumes/Data/docker_data/redis
 
 .EXAMPLE
     .\start-container.ps1 -List
