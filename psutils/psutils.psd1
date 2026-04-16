@@ -104,7 +104,7 @@
         # 命令探测模块 (commandDiscovery.psm1)
         'Find-ExecutableCommand',
         # 配置管理模块 (config.psm1)
-        'Resolve-ConfigSources',
+        'Resolve-ConfigSources', 'Invoke-WithScopedEnvironment',
         # 环境管理模块 (env.psm1)
         'Get-Dotenv', 'Install-Dotenv', 'Import-EnvPath', 'Set-EnvPath', 'Add-EnvPath', 'Get-EnvParam', 'Remove-FromEnvPath', 'Sync-PathFromBash',
         # 错误处理模块 (error.psm1)

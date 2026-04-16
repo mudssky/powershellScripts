@@ -202,3 +202,44 @@ function Resolve-ConfigSources {
         Trace   = $trace
     }
 }
+
+function Invoke-WithScopedEnvironment {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [hashtable]$Variables,
+
+        [Parameter(Mandatory)]
+        [scriptblock]$ScriptBlock
+    )
+
+    $previousValues = @{}
+    $missingKeys = New-Object 'System.Collections.Generic.HashSet[string]'
+
+    foreach ($entry in $Variables.GetEnumerator()) {
+        $existingValue = [Environment]::GetEnvironmentVariable($entry.Key, 'Process')
+        if ($null -eq $existingValue) {
+            $missingKeys.Add($entry.Key) | Out-Null
+        }
+        else {
+            $previousValues[$entry.Key] = $existingValue
+        }
+
+        [Environment]::SetEnvironmentVariable($entry.Key, [string]$entry.Value, 'Process')
+    }
+
+    try {
+        return & $ScriptBlock
+    }
+    finally {
+        foreach ($entry in $Variables.GetEnumerator()) {
+            if ($missingKeys.Contains($entry.Key)) {
+                [Environment]::SetEnvironmentVariable($entry.Key, $null, 'Process')
+                Remove-Item -Path ("Env:{0}" -f $entry.Key) -ErrorAction SilentlyContinue
+            }
+            else {
+                [Environment]::SetEnvironmentVariable($entry.Key, $previousValues[$entry.Key], 'Process')
+            }
+        }
+    }
+}

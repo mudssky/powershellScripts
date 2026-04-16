@@ -52,3 +52,41 @@ DEFAULT_USER=from-env-local
         $result.Sources.DEFAULT_USER | Should -Be 'CliEnv'
     }
 }
+
+Describe 'Invoke-WithScopedEnvironment' {
+    AfterEach {
+        Remove-Item Env:\CONFIG_TEST_NEW -ErrorAction SilentlyContinue
+        Remove-Item Env:\CONFIG_TEST_EXISTING -ErrorAction SilentlyContinue
+    }
+
+    It 'restores overwritten values and removes newly-added values on success' {
+        $env:CONFIG_TEST_EXISTING = 'before'
+
+        $result = Invoke-WithScopedEnvironment -Variables @{
+            CONFIG_TEST_EXISTING = 'inside'
+            CONFIG_TEST_NEW      = 'created'
+        } -ScriptBlock {
+            [pscustomobject]@{
+                Existing = $env:CONFIG_TEST_EXISTING
+                NewValue = $env:CONFIG_TEST_NEW
+            }
+        }
+
+        $result.Existing | Should -Be 'inside'
+        $result.NewValue | Should -Be 'created'
+        $env:CONFIG_TEST_EXISTING | Should -Be 'before'
+        Test-Path Env:\CONFIG_TEST_NEW | Should -Be $false
+    }
+
+    It 'restores values after an exception and rethrows the error' {
+        $env:CONFIG_TEST_EXISTING = 'before'
+
+        {
+            Invoke-WithScopedEnvironment -Variables @{ CONFIG_TEST_EXISTING = 'inside' } -ScriptBlock {
+                throw 'boom'
+            }
+        } | Should -Throw 'boom'
+
+        $env:CONFIG_TEST_EXISTING | Should -Be 'before'
+    }
+}
