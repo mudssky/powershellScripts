@@ -24,6 +24,267 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+# region shared-config
+function Read-ConfigEnvFile {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
+
+    $pairs = @{}
+    foreach ($line in Get-Content -LiteralPath $Path) {
+        if ([string]::IsNullOrWhiteSpace($line) -or $line.TrimStart().StartsWith('#')) {
+            continue
+        }
+
+        if ($line -notmatch '^\s*([^=]+)=(.*)$') {
+            throw '无效 env 行'
+        }
+
+        $pairs[$Matches[1].Trim()] = $Matches[2].Trim()
+    }
+
+    return $pairs
+}
+# endregion shared-config
+
+# region shared-config
+function Get-ConfigSourceDescriptor {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [hashtable]$Source,
+
+        [Parameter(Mandatory)]
+        [string]$BasePath
+    )
+
+    $sourcePath = if ($Source.ContainsKey('Path')) { [string]$Source['Path'] } else { '' }
+    $sourceName = if ($Source.ContainsKey('Name')) { [string]$Source['Name'] } else { '' }
+    $sourceData = if ($Source.ContainsKey('Data')) { $Source['Data'] } else { $null }
+
+    if (-not [string]::IsNullOrWhiteSpace($sourcePath) -and -not [System.IO.Path]::IsPathRooted($sourcePath)) {
+        $resolvedPath = Join-Path $BasePath $sourcePath
+    }
+    else {
+        $resolvedPath = $sourcePath
+    }
+
+    $type = [string]$Source.Type
+    $name = if ([string]::IsNullOrWhiteSpace($sourceName)) {
+        if ($type -eq 'ProcessEnv') {
+            'ProcessEnv'
+        }
+        elseif (-not [string]::IsNullOrWhiteSpace($resolvedPath)) {
+            [System.IO.Path]::GetFileName($resolvedPath)
+        }
+        else {
+            $type
+        }
+    }
+    else {
+        [string]$Source.Name
+    }
+
+    return @{
+        Type = $type
+        Name = $name
+        Path = $resolvedPath
+        Data = $sourceData
+    }
+}
+# endregion shared-config
+
+# region shared-config
+function ConvertTo-ConfigHashtable {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowNull()]
+        [object]$InputObject
+    )
+
+    if ($null -eq $InputObject) {
+        return @{}
+    }
+
+    if ($InputObject -is [hashtable]) {
+        return @{} + $InputObject
+    }
+
+    $result = @{}
+    foreach ($property in $InputObject.PSObject.Properties) {
+        $result[$property.Name] = $property.Value
+    }
+
+    return $result
+}
+# endregion shared-config
+
+# region shared-config
+function Read-ConfigSourceValues {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [hashtable]$Source,
+
+        [switch]$ErrorOnMissing
+    )
+
+    switch ($Source.Type) {
+        'Hashtable' {
+            return ConvertTo-ConfigHashtable -InputObject $Source.Data
+        }
+        'ProcessEnv' {
+            $values = @{}
+            Get-ChildItem Env: | ForEach-Object {
+                $values[$_.Name] = $_.Value
+            }
+
+            return $values
+        }
+        'EnvFile' {
+            if (-not (Test-Path -LiteralPath $Source.Path)) {
+                if ($ErrorOnMissing) {
+                    throw "配置文件不存在: $($Source.Path)"
+                }
+
+                return @{}
+            }
+
+            return Read-ConfigEnvFile -Path $Source.Path
+        }
+        'JsonFile' {
+            if (-not (Test-Path -LiteralPath $Source.Path)) {
+                if ($ErrorOnMissing) {
+                    throw "配置文件不存在: $($Source.Path)"
+                }
+
+                return @{}
+            }
+
+            $rawObject = Get-Content -LiteralPath $Source.Path -Raw | ConvertFrom-Json
+            return ConvertTo-ConfigHashtable -InputObject $rawObject
+        }
+        default {
+            throw "不支持的配置来源类型: $($Source.Type)"
+        }
+    }
+}
+# endregion shared-config
+
+# region shared-config
+function Resolve-DefaultEnvFiles {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$PrimaryBasePath,
+
+        [string]$FallbackBasePath
+    )
+
+    $candidateBases = @($PrimaryBasePath)
+    if (-not [string]::IsNullOrWhiteSpace($FallbackBasePath)) {
+        $candidateBases += $FallbackBasePath
+    }
+
+    foreach ($basePath in $candidateBases) {
+        if ([string]::IsNullOrWhiteSpace($basePath) -or -not (Test-Path -LiteralPath $basePath -PathType Container)) {
+            continue
+        }
+
+        $paths = New-Object 'System.Collections.Generic.List[string]'
+        foreach ($fileName in @('.env', '.env.local')) {
+            $candidatePath = Join-Path $basePath $fileName
+            if (Test-Path -LiteralPath $candidatePath -PathType Leaf) {
+                $paths.Add($candidatePath) | Out-Null
+            }
+        }
+
+        if ($paths.Count -gt 0) {
+            return [pscustomobject]@{
+                BasePath = $basePath
+                Paths    = @($paths)
+            }
+        }
+    }
+
+    return [pscustomobject]@{
+        BasePath = $null
+        Paths    = @()
+    }
+}
+# endregion shared-config
+
+# region shared-config
+function Resolve-ConfigSources {
+    [CmdletBinding()]
+    param(
+        [string[]]$ConfigFile,
+        [hashtable[]]$Sources,
+        [string]$BasePath = (Get-Location).Path,
+        [switch]$IncludeTrace,
+        [switch]$ErrorOnMissing
+    )
+
+    $resolvedSources = @()
+
+    if ($PSBoundParameters.ContainsKey('Sources') -and $Sources.Count -gt 0) {
+        foreach ($source in $Sources) {
+            $resolvedSources += Get-ConfigSourceDescriptor -Source $source -BasePath $BasePath
+        }
+    }
+    else {
+        $fileList = if ($PSBoundParameters.ContainsKey('ConfigFile') -and $ConfigFile.Count -gt 0) {
+            $ConfigFile
+        }
+        else {
+            (Resolve-DefaultEnvFiles -PrimaryBasePath $BasePath).Paths
+        }
+
+        foreach ($path in $fileList) {
+            $sourceType = if ($path -match '\.json$') { 'JsonFile' } else { 'EnvFile' }
+            $resolvedSources += Get-ConfigSourceDescriptor -Source @{
+                Type = $sourceType
+                Path = $path
+            } -BasePath $BasePath
+        }
+    }
+
+    $values = @{}
+    $sourcesMap = @{}
+    $trace = @{}
+
+    foreach ($source in $resolvedSources) {
+        $sourceValues = Read-ConfigSourceValues -Source $source -ErrorOnMissing:$ErrorOnMissing
+        foreach ($entry in $sourceValues.GetEnumerator()) {
+            $values[$entry.Key] = $entry.Value
+            $sourcesMap[$entry.Key] = $source.Name
+
+            if ($IncludeTrace) {
+                if (-not $trace.ContainsKey($entry.Key)) {
+                    $trace[$entry.Key] = [pscustomobject]@{
+                        Candidates = New-Object 'System.Collections.Generic.List[object]'
+                    }
+                }
+
+                $trace[$entry.Key].Candidates.Add([pscustomobject]@{
+                    Source = $source.Name
+                    Value  = $entry.Value
+                })
+            }
+        }
+    }
+
+    return [pscustomobject]@{
+        Values  = $values
+        Sources = $sourcesMap
+        Trace   = $trace
+    }
+}
+# endregion shared-config
+
 # region core/logging.ps1
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -256,48 +517,6 @@ $ErrorActionPreference = 'Stop'
 
 <#
 .SYNOPSIS
-    读取 PostgreSQL `.env` 风格连接配置。
-
-.DESCRIPTION
-    只支持简单的 `KEY=VALUE` 形式，不执行任何 shell 表达式，
-    用于安全读取 `PG*` 环境变量示例文件。
-
-.PARAMETER Path
-    `.env` 文件路径；为空时返回空 hashtable。
-
-.OUTPUTS
-    hashtable
-    返回按原始键名保存的环境变量字典。
-#>
-function Import-PgEnvFile {
-    [CmdletBinding()]
-    param(
-        [string]$Path
-    )
-
-    if ([string]::IsNullOrWhiteSpace($Path)) {
-        return @{}
-    }
-
-    $values = @{}
-    foreach ($line in Get-Content -Path $Path) {
-        if ([string]::IsNullOrWhiteSpace($line) -or $line.TrimStart().StartsWith('#')) {
-            continue
-        }
-
-        $parts = $line.Split('=', 2)
-        if ($parts.Count -ne 2) {
-            throw "无效 env 行: $line"
-        }
-
-        $values[$parts[0].Trim()] = $parts[1].Trim()
-    }
-
-    return $values
-}
-
-<#
-.SYNOPSIS
     解析 PostgreSQL 连接串为结构化字段。
 
 .DESCRIPTION
@@ -368,14 +587,75 @@ $ErrorActionPreference = 'Stop'
 
 <#
 .SYNOPSIS
+    解析 PostgreSQL toolkit 的默认 env 文件来源。
+
+.DESCRIPTION
+    按“当前工作目录优先，必要时回退脚本目录”的规则定位 `.env` 与 `.env.local`，
+    并且一旦首选目录命中任意默认文件，就不再跨目录补缺。
+
+.PARAMETER WorkingDirectory
+    当前工作目录，默认使用 `Get-Location`。
+
+.PARAMETER ScriptDirectory
+    脚本目录，默认使用当前脚本所在目录。
+
+.OUTPUTS
+    PSCustomObject
+    返回包含 `BasePath` 与 `Paths` 的默认 env 文件来源描述。
+#>
+function Resolve-PgDefaultEnvSource {
+    [CmdletBinding()]
+    param(
+        [string]$WorkingDirectory = (Get-Location).Path,
+        [string]$ScriptDirectory = $PSScriptRoot
+    )
+
+    return Resolve-DefaultEnvFiles -PrimaryBasePath $WorkingDirectory -FallbackBasePath $ScriptDirectory
+}
+
+<#
+.SYNOPSIS
+    解析一个或多个 PostgreSQL env 文件并按顺序合并。
+
+.DESCRIPTION
+    通过共享配置解析器复用严格 dotenv 语义，避免 PostgreSQL toolkit 继续维护独立 parser。
+
+.PARAMETER Paths
+    要解析的 env 文件路径列表。
+
+.OUTPUTS
+    hashtable
+    返回合并后的 `PG*` 变量字典。
+#>
+function Import-PgEnvFiles {
+    [CmdletBinding()]
+    param(
+        [string[]]$Paths
+    )
+
+    if ($null -eq $Paths -or $Paths.Count -eq 0) {
+        return @{}
+    }
+
+    return (Resolve-ConfigSources -ConfigFile $Paths).Values
+}
+
+<#
+.SYNOPSIS
     生成统一的 PostgreSQL 连接上下文。
 
 .DESCRIPTION
-    按“显式参数 > 连接串 > env-file > 当前进程环境变量”的优先级合并连接配置，
+    按“显式参数 > 连接串 > 显式 env-file > 当前进程环境变量 > 自动发现 env 文件”的优先级合并连接配置，
     让后续命令构建逻辑只依赖一个规范化对象。
 
 .PARAMETER CliOptions
     由 `ConvertFrom-LongOptionList` 返回的参数表。
+
+.PARAMETER WorkingDirectory
+    当前工作目录，默认使用 `Get-Location`。
+
+.PARAMETER ScriptDirectory
+    脚本目录，默认使用当前脚本所在目录。
 
 .OUTPUTS
     PSCustomObject
@@ -385,12 +665,26 @@ function Resolve-PgContext {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
-        [hashtable]$CliOptions
+        [hashtable]$CliOptions,
+
+        [string]$WorkingDirectory = (Get-Location).Path,
+
+        [string]$ScriptDirectory = $PSScriptRoot
     )
 
-    $envFilePath = if ($CliOptions.ContainsKey('env_file')) { [string]$CliOptions['env_file'] } else { $null }
+    $explicitEnvFilePath = if ($CliOptions.ContainsKey('env_file')) { [string]$CliOptions['env_file'] } else { $null }
     $connectionString = if ($CliOptions.ContainsKey('connection_string')) { [string]$CliOptions['connection_string'] } else { $null }
-    $envFileValues = Import-PgEnvFile -Path $envFilePath
+    $explicitEnvValues = if ([string]::IsNullOrWhiteSpace($explicitEnvFilePath)) { @{} } else { Read-ConfigEnvFile -Path $explicitEnvFilePath }
+    $defaultEnvSource = if ([string]::IsNullOrWhiteSpace($explicitEnvFilePath)) {
+        Resolve-PgDefaultEnvSource -WorkingDirectory $WorkingDirectory -ScriptDirectory $ScriptDirectory
+    }
+    else {
+        [pscustomobject]@{
+            BasePath = $null
+            Paths    = @()
+        }
+    }
+    $defaultEnvValues = Import-PgEnvFiles -Paths $defaultEnvSource.Paths
     $connectionValues = ConvertFrom-PgConnectionString -ConnectionString $connectionString
 
     $connectionHost = if ($connectionValues.ContainsKey('Host')) { $connectionValues['Host'] } else { $null }
@@ -399,25 +693,33 @@ function Resolve-PgContext {
     $connectionPassword = if ($connectionValues.ContainsKey('Password')) { $connectionValues['Password'] } else { $null }
     $connectionDatabase = if ($connectionValues.ContainsKey('Database')) { $connectionValues['Database'] } else { $null }
 
-    $envFileHost = if ($envFileValues.ContainsKey('PGHOST')) { $envFileValues['PGHOST'] } else { $null }
-    $envFilePort = if ($envFileValues.ContainsKey('PGPORT')) { $envFileValues['PGPORT'] } else { $null }
-    $envFileUser = if ($envFileValues.ContainsKey('PGUSER')) { $envFileValues['PGUSER'] } else { $null }
-    $envFilePassword = if ($envFileValues.ContainsKey('PGPASSWORD')) { $envFileValues['PGPASSWORD'] } else { $null }
-    $envFileDatabase = if ($envFileValues.ContainsKey('PGDATABASE')) { $envFileValues['PGDATABASE'] } else { $null }
+    $explicitEnvHost = if ($explicitEnvValues.ContainsKey('PGHOST')) { $explicitEnvValues['PGHOST'] } else { $null }
+    $explicitEnvPort = if ($explicitEnvValues.ContainsKey('PGPORT')) { $explicitEnvValues['PGPORT'] } else { $null }
+    $explicitEnvUser = if ($explicitEnvValues.ContainsKey('PGUSER')) { $explicitEnvValues['PGUSER'] } else { $null }
+    $explicitEnvPassword = if ($explicitEnvValues.ContainsKey('PGPASSWORD')) { $explicitEnvValues['PGPASSWORD'] } else { $null }
+    $explicitEnvDatabase = if ($explicitEnvValues.ContainsKey('PGDATABASE')) { $explicitEnvValues['PGDATABASE'] } else { $null }
 
-    $resolvedHost = if ($CliOptions.ContainsKey('host')) { [string]$CliOptions['host'] } elseif ($connectionHost) { $connectionHost } elseif ($envFileHost) { $envFileHost } else { $env:PGHOST }
-    $resolvedPort = if ($CliOptions.ContainsKey('port')) { [int]$CliOptions['port'] } elseif ($connectionPort) { [int]$connectionPort } elseif ($envFilePort) { [int]$envFilePort } elseif ($env:PGPORT) { [int]$env:PGPORT } else { 5432 }
-    $resolvedUser = if ($CliOptions.ContainsKey('user')) { [string]$CliOptions['user'] } elseif ($connectionUser) { $connectionUser } elseif ($envFileUser) { $envFileUser } else { $env:PGUSER }
-    $resolvedPassword = if ($CliOptions.ContainsKey('password')) { [string]$CliOptions['password'] } elseif ($connectionPassword) { $connectionPassword } elseif ($envFilePassword) { $envFilePassword } else { $env:PGPASSWORD }
-    $resolvedDatabase = if ($CliOptions.ContainsKey('database')) { [string]$CliOptions['database'] } elseif ($connectionDatabase) { $connectionDatabase } elseif ($envFileDatabase) { $envFileDatabase } else { $env:PGDATABASE }
+    $defaultEnvHost = if ($defaultEnvValues.ContainsKey('PGHOST')) { $defaultEnvValues['PGHOST'] } else { $null }
+    $defaultEnvPort = if ($defaultEnvValues.ContainsKey('PGPORT')) { $defaultEnvValues['PGPORT'] } else { $null }
+    $defaultEnvUser = if ($defaultEnvValues.ContainsKey('PGUSER')) { $defaultEnvValues['PGUSER'] } else { $null }
+    $defaultEnvPassword = if ($defaultEnvValues.ContainsKey('PGPASSWORD')) { $defaultEnvValues['PGPASSWORD'] } else { $null }
+    $defaultEnvDatabase = if ($defaultEnvValues.ContainsKey('PGDATABASE')) { $defaultEnvValues['PGDATABASE'] } else { $null }
+
+    $resolvedHost = if ($CliOptions.ContainsKey('host')) { [string]$CliOptions['host'] } elseif ($connectionHost) { $connectionHost } elseif ($explicitEnvHost) { $explicitEnvHost } elseif ($env:PGHOST) { $env:PGHOST } else { $defaultEnvHost }
+    $resolvedPort = if ($CliOptions.ContainsKey('port')) { [int]$CliOptions['port'] } elseif ($connectionPort) { [int]$connectionPort } elseif ($explicitEnvPort) { [int]$explicitEnvPort } elseif ($env:PGPORT) { [int]$env:PGPORT } elseif ($defaultEnvPort) { [int]$defaultEnvPort } else { 5432 }
+    $resolvedUser = if ($CliOptions.ContainsKey('user')) { [string]$CliOptions['user'] } elseif ($connectionUser) { $connectionUser } elseif ($explicitEnvUser) { $explicitEnvUser } elseif ($env:PGUSER) { $env:PGUSER } else { $defaultEnvUser }
+    $resolvedPassword = if ($CliOptions.ContainsKey('password')) { [string]$CliOptions['password'] } elseif ($connectionPassword) { $connectionPassword } elseif ($explicitEnvPassword) { $explicitEnvPassword } elseif ($env:PGPASSWORD) { $env:PGPASSWORD } else { $defaultEnvPassword }
+    $resolvedDatabase = if ($CliOptions.ContainsKey('database')) { [string]$CliOptions['database'] } elseif ($connectionDatabase) { $connectionDatabase } elseif ($explicitEnvDatabase) { $explicitEnvDatabase } elseif ($env:PGDATABASE) { $env:PGDATABASE } else { $defaultEnvDatabase }
 
     return [PSCustomObject]@{
-        Host     = $resolvedHost
-        Port     = $resolvedPort
-        User     = $resolvedUser
-        Password = $resolvedPassword
-        Database = $resolvedDatabase
-        EnvFile  = $envFilePath
+        Host         = $resolvedHost
+        Port         = $resolvedPort
+        User         = $resolvedUser
+        Password     = $resolvedPassword
+        Database     = $resolvedDatabase
+        EnvFile      = $explicitEnvFilePath
+        AutoEnvFiles = @($defaultEnvSource.Paths)
+        AutoEnvBase  = $defaultEnvSource.BasePath
     }
 }
 
@@ -664,6 +966,11 @@ Commands:
   install-tools
   help
 
+Connection Defaults:
+  If --env-file is provided, the toolkit reads only that file.
+  If --env-file is omitted, the toolkit auto-discovers .env and .env.local from the current working directory first, then falls back to the script directory only when the current working directory has neither file.
+  Connection precedence is: explicit options, --connection-string, explicit --env-file, current process PG* variables, then auto-discovered env files.
+
 Examples:
   ./Postgres-Toolkit.ps1 backup --database app --output ./app.dump --format custom
   ./Postgres-Toolkit.ps1 restore --input ./app.dump --target-database app_restore --clean
@@ -719,12 +1026,13 @@ function New-PgBackupCommandSpec {
         -LeftName '--schema-only' `
         -RightName '--data-only'
 
-    $arguments = @(
-        '-h', $Context.Host,
-        '-p', [string]$Context.Port,
-        '-U', $Context.User,
-        '-d', $Context.Database
-    )
+    $arguments = @()
+
+    # 仅附加已解析到的连接参数，避免 dry-run 在缺省值为空时生成非法参数对。
+    if (-not [string]::IsNullOrWhiteSpace($Context.Host)) { $arguments += @('-h', $Context.Host) }
+    if ($null -ne $Context.Port) { $arguments += @('-p', [string]$Context.Port) }
+    if (-not [string]::IsNullOrWhiteSpace($Context.User)) { $arguments += @('-U', $Context.User) }
+    if (-not [string]::IsNullOrWhiteSpace($Context.Database)) { $arguments += @('-d', $Context.Database) }
 
     $arguments += switch ($format) {
         'plain' { '-Fp' }
@@ -789,11 +1097,14 @@ function New-PgRestoreCommandSpec {
     $targetDatabase = if ($CliOptions.ContainsKey('target_database')) { [string]$CliOptions['target_database'] } else { $Context.Database }
 
     if ($inputKind -eq 'sql') {
-        $arguments = @(
-            '-h', $Context.Host,
-            '-p', [string]$Context.Port,
-            '-U', $Context.User,
-            '-d', $targetDatabase,
+        $arguments = @()
+
+        # 仅附加已解析到的连接参数，避免缺省值为空时生成非法参数对。
+        if (-not [string]::IsNullOrWhiteSpace($Context.Host)) { $arguments += @('-h', $Context.Host) }
+        if ($null -ne $Context.Port) { $arguments += @('-p', [string]$Context.Port) }
+        if (-not [string]::IsNullOrWhiteSpace($Context.User)) { $arguments += @('-U', $Context.User) }
+        if (-not [string]::IsNullOrWhiteSpace($targetDatabase)) { $arguments += @('-d', $targetDatabase) }
+        $arguments += @(
             '-v', 'ON_ERROR_STOP=1',
             '-f', $inputPath
         )
@@ -803,12 +1114,13 @@ function New-PgRestoreCommandSpec {
         }
     }
 
-    $arguments = @(
-        '-h', $Context.Host,
-        '-p', [string]$Context.Port,
-        '-U', $Context.User,
-        '-d', $targetDatabase
-    )
+    $arguments = @()
+
+    # 仅附加已解析到的连接参数，避免缺省值为空时生成非法参数对。
+    if (-not [string]::IsNullOrWhiteSpace($Context.Host)) { $arguments += @('-h', $Context.Host) }
+    if ($null -ne $Context.Port) { $arguments += @('-p', [string]$Context.Port) }
+    if (-not [string]::IsNullOrWhiteSpace($Context.User)) { $arguments += @('-U', $Context.User) }
+    if (-not [string]::IsNullOrWhiteSpace($targetDatabase)) { $arguments += @('-d', $targetDatabase) }
 
     if ($CliOptions.ContainsKey('clean')) { $arguments += '--clean' }
     if ($CliOptions.ContainsKey('if_exists')) { $arguments += '--if-exists' }
@@ -876,11 +1188,14 @@ function New-PgImportCsvCommandSpec {
     $truncateSql = if ($CliOptions.ContainsKey('truncate_first')) { "TRUNCATE TABLE $schema.$($CliOptions['table']); " } else { '' }
     $copySql = "$truncateSql\copy $schema.$($CliOptions['table'])$columns FROM '$($CliOptions['input'])' WITH (FORMAT csv, HEADER $header, DELIMITER '$delimiter'$nullString);"
 
-    $arguments = @(
-        '-h', $Context.Host,
-        '-p', [string]$Context.Port,
-        '-U', $Context.User,
-        '-d', $Context.Database,
+    $arguments = @()
+
+    # 仅附加已解析到的连接参数，避免缺省值为空时生成非法参数对。
+    if (-not [string]::IsNullOrWhiteSpace($Context.Host)) { $arguments += @('-h', $Context.Host) }
+    if ($null -ne $Context.Port) { $arguments += @('-p', [string]$Context.Port) }
+    if (-not [string]::IsNullOrWhiteSpace($Context.User)) { $arguments += @('-U', $Context.User) }
+    if (-not [string]::IsNullOrWhiteSpace($Context.Database)) { $arguments += @('-d', $Context.Database) }
+    $arguments += @(
         '-v', 'ON_ERROR_STOP=1',
         '-c', $copySql
     )

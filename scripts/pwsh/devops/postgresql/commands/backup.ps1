@@ -40,12 +40,13 @@ function New-PgBackupCommandSpec {
         -LeftName '--schema-only' `
         -RightName '--data-only'
 
-    $arguments = @(
-        '-h', $Context.Host,
-        '-p', [string]$Context.Port,
-        '-U', $Context.User,
-        '-d', $Context.Database
-    )
+    $arguments = @()
+
+    # 仅附加已解析到的连接参数，避免 dry-run 在缺省值为空时生成非法参数对。
+    if (-not [string]::IsNullOrWhiteSpace($Context.Host)) { $arguments += @('-h', $Context.Host) }
+    if ($null -ne $Context.Port) { $arguments += @('-p', [string]$Context.Port) }
+    if (-not [string]::IsNullOrWhiteSpace($Context.User)) { $arguments += @('-U', $Context.User) }
+    if (-not [string]::IsNullOrWhiteSpace($Context.Database)) { $arguments += @('-d', $Context.Database) }
 
     $arguments += switch ($format) {
         'plain' { '-Fp' }

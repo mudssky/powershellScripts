@@ -69,7 +69,12 @@ function Test-BundleCommandResolvable {
         return $true
     }
 
-    return $null -ne (Get-Command -Name $CommandName -ErrorAction SilentlyContinue)
+    $resolvedCommands = @(
+        Get-Command -Name $CommandName -All -ErrorAction SilentlyContinue |
+            Where-Object { $_.CommandType -ne [System.Management.Automation.CommandTypes]::Function }
+    )
+
+    return $resolvedCommands.Count -gt 0
 }
 
 <#

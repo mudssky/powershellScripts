@@ -38,11 +38,14 @@ function New-PgRestoreCommandSpec {
     $targetDatabase = if ($CliOptions.ContainsKey('target_database')) { [string]$CliOptions['target_database'] } else { $Context.Database }
 
     if ($inputKind -eq 'sql') {
-        $arguments = @(
-            '-h', $Context.Host,
-            '-p', [string]$Context.Port,
-            '-U', $Context.User,
-            '-d', $targetDatabase,
+        $arguments = @()
+
+        # 仅附加已解析到的连接参数，避免缺省值为空时生成非法参数对。
+        if (-not [string]::IsNullOrWhiteSpace($Context.Host)) { $arguments += @('-h', $Context.Host) }
+        if ($null -ne $Context.Port) { $arguments += @('-p', [string]$Context.Port) }
+        if (-not [string]::IsNullOrWhiteSpace($Context.User)) { $arguments += @('-U', $Context.User) }
+        if (-not [string]::IsNullOrWhiteSpace($targetDatabase)) { $arguments += @('-d', $targetDatabase) }
+        $arguments += @(
             '-v', 'ON_ERROR_STOP=1',
             '-f', $inputPath
         )
@@ -52,12 +55,13 @@ function New-PgRestoreCommandSpec {
         }
     }
 
-    $arguments = @(
-        '-h', $Context.Host,
-        '-p', [string]$Context.Port,
-        '-U', $Context.User,
-        '-d', $targetDatabase
-    )
+    $arguments = @()
+
+    # 仅附加已解析到的连接参数，避免缺省值为空时生成非法参数对。
+    if (-not [string]::IsNullOrWhiteSpace($Context.Host)) { $arguments += @('-h', $Context.Host) }
+    if ($null -ne $Context.Port) { $arguments += @('-p', [string]$Context.Port) }
+    if (-not [string]::IsNullOrWhiteSpace($Context.User)) { $arguments += @('-U', $Context.User) }
+    if (-not [string]::IsNullOrWhiteSpace($targetDatabase)) { $arguments += @('-d', $targetDatabase) }
 
     if ($CliOptions.ContainsKey('clean')) { $arguments += '--clean' }
     if ($CliOptions.ContainsKey('if_exists')) { $arguments += '--if-exists' }
