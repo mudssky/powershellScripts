@@ -1,8 +1,10 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "CommonJS",
-    "moduleResolution": "node",
+    // `tsgo` 基于新一代 TypeScript 时会把 `node` 解析成已移除的 `node10`；
+    // 这里改为 `bundler` + `preserve`，既能兼容 ESM 依赖（如 `inquirer`），也能保留仅做类型检查时需要的解析语义。
+    "module": "Preserve",
+    "moduleResolution": "Bundler",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,

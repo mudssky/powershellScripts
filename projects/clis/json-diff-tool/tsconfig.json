@@ -1,5 +1,8 @@
 {
   "compilerOptions": {
+    // `tsgo` 不会像旧的 `tsc` 组合那样总是隐式带上 Node 全局类型；
+    // 显式声明可避免 `process`、`console`、`NodeJS` 和 `node:` 内建模块在快检阶段丢失类型。
+    "types": ["node"],
     "target": "ES2020",
     "module": "commonjs",
     "lib": ["ES2020"],
