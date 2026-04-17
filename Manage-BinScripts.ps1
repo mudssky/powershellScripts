@@ -294,7 +294,7 @@ function Sync-BinScripts {
     Write-Host "重名策略: $DuplicateStrategy" -ForegroundColor Cyan
     
     # 1. 查找所有脚本
-    $allScripts = Find-ProjectScripts -RootPath $ProjectRoot -IgnoreList $IgnoreDirs
+    [object[]]$allScripts = Find-ProjectScripts -RootPath $ProjectRoot -IgnoreList $IgnoreDirs
     
     if ($allScripts.Count -eq 0) {
         Write-Warning "未找到任何 .ps1 脚本。"
@@ -302,7 +302,7 @@ function Sync-BinScripts {
     }
 
     # 2. 应用 Patterns 过滤
-    $targetScripts = if ($Patterns.Count -gt 0) {
+    [object[]]$targetScripts = if ($Patterns.Count -gt 0) {
         Write-Host "应用过滤模式: $($Patterns -join ', ')" -ForegroundColor Cyan
         $allScripts | Where-Object {
             $fullPath = $_
@@ -509,7 +509,7 @@ function Clean-BinScripts {
         return
     }
     
-    $binScripts = Get-ChildItem -Path $BinDir -Filter '*.ps1'
+    [object[]]$binScripts = Get-ChildItem -Path $BinDir -Filter '*.ps1'
     if ($binScripts.Count -eq 0) {
         Write-Host "bin目录为空。" -ForegroundColor Yellow
         return
@@ -530,5 +530,3 @@ switch ($Action) {
         Clean-BinScripts
     }
 }
-
-
