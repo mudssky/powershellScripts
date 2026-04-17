@@ -2,7 +2,7 @@ Set-StrictMode -Version Latest
 
 BeforeAll {
     $script:RepoRoot = Join-Path $PSScriptRoot '..'
-    . (Join-Path $script:RepoRoot 'scripts/pwsh/devops/postgresql/build/dependency-resolver.ps1')
+    . (Join-Path $script:RepoRoot 'scripts/pwsh/devops/build/dependency-resolver.ps1')
 }
 
 Describe 'Get-BundleFunctionIndex' {

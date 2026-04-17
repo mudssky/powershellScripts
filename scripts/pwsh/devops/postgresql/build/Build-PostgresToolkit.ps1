@@ -25,7 +25,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-. (Join-Path $PSScriptRoot 'dependency-resolver.ps1')
+. (Join-Path $PSScriptRoot '..' '..' 'build' 'dependency-resolver.ps1')
 
 <#
 .SYNOPSIS
