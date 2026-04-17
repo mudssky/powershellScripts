@@ -81,6 +81,35 @@ Describe 'Invoke-DockerCompose' {
 
         Test-Path Env:\DEFAULT_USER | Should -Be $false
     }
+
+    It 'does not leak scoped env values under WhatIf' {
+        Remove-Item Env:\DEFAULT_USER -ErrorAction SilentlyContinue
+
+        $result = $null
+        {
+            $result = Invoke-DockerCompose `
+                -File (Join-Path $TestDrive 'demo-compose.yml') `
+                -Project 'demo-project' `
+                -Profiles @('paradedb') `
+                -Action 'up -d' `
+                -Environment @{ DEFAULT_USER = 'postgres' } `
+                -WhatIf
+        } | Should -Not -Throw
+
+        $result | Should -BeNullOrEmpty
+        Test-Path Env:\DEFAULT_USER | Should -Be $false
+    }
+}
+
+Describe 'Initialize-DataPath' {
+    It 'does not create directories under WhatIf' {
+        $path = Join-Path $TestDrive 'whatif-data-path'
+
+        $resolved = Initialize-DataPath -Path $path -WhatIf
+
+        $resolved | Should -Be $path
+        Test-Path -LiteralPath $path | Should -Be $false
+    }
 }
 
 Describe 'Get-DatabaseStateWarningMessage' {

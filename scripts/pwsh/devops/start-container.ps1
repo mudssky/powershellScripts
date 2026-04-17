@@ -242,6 +242,7 @@ function Get-PlainTextFromSecure {
 }
 
 function Initialize-DataPath {
+    [CmdletBinding(SupportsShouldProcess = $true)]
     param(
         [string]$Path
     )
@@ -251,7 +252,14 @@ function Initialize-DataPath {
         elseif ($IsMacOS) { $Path = "/Volumes/Data/docker_data" }
     }
     try {
-        if (-not (Test-Path -LiteralPath $Path)) { New-Item -ItemType Directory -Path $Path -Force | Out-Null }
+        if (-not (Test-Path -LiteralPath $Path)) {
+            if ($PSCmdlet.ShouldProcess($Path, 'Create data directory')) {
+                New-Item -ItemType Directory -Path $Path -Force | Out-Null
+            }
+            else {
+                return $Path
+            }
+        }
         $resolved = (Resolve-Path -LiteralPath $Path).Path
         return $resolved
     }
@@ -297,6 +305,7 @@ function Test-DockerAvailable {
 }
 
 function Invoke-DockerCompose {
+    [CmdletBinding(SupportsShouldProcess = $true)]
     param(
         [string]$File,
         [string]$Project,
@@ -308,7 +317,7 @@ function Invoke-DockerCompose {
         [hashtable]$Environment
     )
     $mode = $null
-    if (-not $DryRun) { $mode = Test-DockerAvailable } else { $mode = 'sub' }
+    if (-not $DryRun -and -not $WhatIfPreference) { $mode = Test-DockerAvailable } else { $mode = 'sub' }
     $dcArgs = @()
     if ($mode -eq 'sub') { $dcArgs += 'compose' }
     if ($File) { $dcArgs += @('-f', $File) }
@@ -317,9 +326,10 @@ function Invoke-DockerCompose {
     if ($Action) { $dcArgs += ($Action -split ' ') }
     if ($Services) { $dcArgs += $Services }
     if ($ExtraArgs) { $dcArgs += $ExtraArgs }
+    $preview = if ($mode -eq 'sub') { "docker " + ($dcArgs -join ' ') } else { "docker-compose " + ($dcArgs -join ' ') }
     $invokeCompose = {
         if ($DryRun) {
-            if ($mode -eq 'sub') { "docker " + ($dcArgs -join ' ') } else { "docker-compose " + ($dcArgs -join ' ') }
+            $preview
         }
         elseif ($mode -eq 'sub') {
             & docker @dcArgs
@@ -327,6 +337,10 @@ function Invoke-DockerCompose {
         else {
             & docker-compose @dcArgs
         }
+    }
+
+    if (-not $DryRun -and -not $PSCmdlet.ShouldProcess($preview, 'Execute Docker Compose')) {
+        return
     }
 
     if ($Environment -and $Environment.Count -gt 0) {
@@ -365,10 +379,18 @@ function Import-EnvFile {
 }
 
 function New-NetworkIfMissing {
+    [CmdletBinding(SupportsShouldProcess = $true)]
     param([string]$Name)
     if ([string]::IsNullOrWhiteSpace($Name)) { return }
     $exists = Get-NetworkExists -Name $Name
-    if ([string]::IsNullOrWhiteSpace($exists)) { try { & docker network create $Name | Out-Null } catch {} }
+    if ([string]::IsNullOrWhiteSpace($exists)) {
+        try {
+            if ($PSCmdlet.ShouldProcess($Name, 'Create Docker network')) {
+                & docker network create $Name | Out-Null
+            }
+        }
+        catch {}
+    }
 }
 
 function Wait-ServiceHealthy {
@@ -392,16 +414,21 @@ function Wait-ServiceHealthy {
 }
 
 function Initialize-ServiceEnvironment {
+    [CmdletBinding(SupportsShouldProcess = $true)]
     param([string]$ServiceName, [string]$DataPath)
     if ($ServiceName -eq 'rustfs') {
         $rustfsDataPath = Join-Path $DataPath "rustfs/data"
         # Ensure parent directory exists first
         $parent = Split-Path $rustfsDataPath -Parent
         if (-not (Test-Path -LiteralPath $parent)) {
-            New-Item -ItemType Directory -Path $parent -Force | Out-Null
+            if ($PSCmdlet.ShouldProcess($parent, 'Create RustFS parent directory')) {
+                New-Item -ItemType Directory -Path $parent -Force | Out-Null
+            }
         }
         if (-not (Test-Path -LiteralPath $rustfsDataPath)) {
-            New-Item -ItemType Directory -Path $rustfsDataPath -Force | Out-Null
+            if ($PSCmdlet.ShouldProcess($rustfsDataPath, 'Create RustFS data directory')) {
+                New-Item -ItemType Directory -Path $rustfsDataPath -Force | Out-Null
+            }
         }
         
         if ($IsLinux) {
@@ -416,7 +443,9 @@ function Initialize-ServiceEnvironment {
 
                 if ($needsChown) {
                     Write-Host "Setting ownership of $rustfsDataPath to 10001:10001 for RustFS..." -ForegroundColor Cyan
-                    & sudo chown -R 10001:10001 $rustfsDataPath
+                    if ($PSCmdlet.ShouldProcess($rustfsDataPath, 'Set RustFS directory ownership to 10001:10001')) {
+                        & sudo chown -R 10001:10001 $rustfsDataPath
+                    }
                 }
             }
             catch {
@@ -816,7 +845,7 @@ try {
         if ([string]::IsNullOrWhiteSpace(${env:MONGO_USER})) { ${env:MONGO_USER} = $DefaultUser }
         if ([string]::IsNullOrWhiteSpace(${env:MONGO_PASSWORD})) { ${env:MONGO_PASSWORD} = $plainPwd }
         Invoke-DockerCompose -File $mongoReplComposePath -Project $projectName -Action 'up -d' -DryRun:$DryRun
-        if (-not $DryRun) { [void](Wait-ServiceHealthy -Service 'mongo1' -Project $projectName) }
+        if (-not $DryRun -and -not $WhatIfPreference) { [void](Wait-ServiceHealthy -Service 'mongo1' -Project $projectName) }
         return
     }
     if (Test-Path $composePath) {
@@ -833,7 +862,7 @@ try {
             if (-not [string]::IsNullOrWhiteSpace($databaseWarning)) { Write-Warning $databaseWarning }
             Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'pull' -Environment $composeEnvironment -DryRun:$DryRun
             Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'up -d' -Environment $composeEnvironment -DryRun:$DryRun
-            if (-not $DryRun -and $ServiceName) {
+            if (-not $DryRun -and -not $WhatIfPreference -and $ServiceName) {
                 # 简单检查每个服务
                 foreach ($tp in $targetProfiles) {
                     [void](Wait-ServiceHealthy -Service $tp -Project $projectName)
@@ -849,7 +878,7 @@ try {
                 $databaseWarning = Get-DatabaseStateWarningMessage -ServiceName $ServiceName -DataPath $composeEnvironment.DATA_PATH
                 if (-not [string]::IsNullOrWhiteSpace($databaseWarning)) { Write-Warning $databaseWarning }
                 Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'up -d' -ExtraArgs @('--pull', 'always') -Environment $composeEnvironment -DryRun:$DryRun
-                if (-not $DryRun -and $ServiceName) {
+                if (-not $DryRun -and -not $WhatIfPreference -and $ServiceName) {
                     foreach ($tp in $targetProfiles) {
                         [void](Wait-ServiceHealthy -Service $tp -Project $projectName)
                     }
@@ -862,7 +891,7 @@ try {
                 if (-not [string]::IsNullOrWhiteSpace($databaseWarning)) { Write-Warning $databaseWarning }
                 Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'pull' -Environment $composeEnvironment -DryRun:$DryRun
                 Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'up -d' -Environment $composeEnvironment -DryRun:$DryRun
-                if (-not $DryRun -and $ServiceName) {
+                if (-not $DryRun -and -not $WhatIfPreference -and $ServiceName) {
                     foreach ($tp in $targetProfiles) {
                         [void](Wait-ServiceHealthy -Service $tp -Project $projectName)
                     }
@@ -901,7 +930,7 @@ try {
             $databaseWarning = Get-DatabaseStateWarningMessage -ServiceName $ServiceName -DataPath $composeEnvironment.DATA_PATH
             if (-not [string]::IsNullOrWhiteSpace($databaseWarning)) { Write-Warning $databaseWarning }
             Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'up -d' -Environment $composeEnvironment -DryRun:$DryRun
-            if (-not $DryRun) {
+            if (-not $DryRun -and -not $WhatIfPreference) {
                 foreach ($tp in $targetProfiles) {
                     [void](Wait-ServiceHealthy -Service $tp -Project $projectName)
                 }
