@@ -2,6 +2,16 @@ Set-StrictMode -Version Latest
 
 BeforeAll {
     $script:RepoRoot = Join-Path $PSScriptRoot '..'
+    $script:ConfigSourceRoot = Join-Path $script:RepoRoot 'psutils' 'src' 'config'
+    foreach ($relativePath in @(
+            'convert.ps1'
+            'discovery.ps1'
+            'reader.ps1'
+            'resolver.ps1'
+        )) {
+        . (Join-Path $script:ConfigSourceRoot $relativePath)
+    }
+
     foreach ($relativePath in @(
             'scripts/pwsh/devops/postgresql/core/logging.ps1'
             'scripts/pwsh/devops/postgresql/core/process.ps1'
@@ -16,7 +26,15 @@ BeforeAll {
 }
 
 Describe 'Resolve-PgContext' {
-    It '显式参数优先于 env-file 与进程环境变量' {
+    BeforeEach {
+        Remove-Item Env:\PGHOST -ErrorAction SilentlyContinue
+        Remove-Item Env:\PGPORT -ErrorAction SilentlyContinue
+        Remove-Item Env:\PGUSER -ErrorAction SilentlyContinue
+        Remove-Item Env:\PGPASSWORD -ErrorAction SilentlyContinue
+        Remove-Item Env:\PGDATABASE -ErrorAction SilentlyContinue
+    }
+
+    It 'keeps explicit --env-file above process environment variables' {
         $envFile = Join-Path $TestDrive 'postgres.env'
         Set-Content -Path $envFile -Value @(
             'PGHOST=env-file-host'
@@ -32,17 +50,86 @@ Describe 'Resolve-PgContext' {
         $env:PGPASSWORD = 'process-password'
         $env:PGDATABASE = 'process-db'
 
-        $context = Resolve-PgContext -CliOptions @{
-            host     = 'cli-host'
-            database = 'cli-db'
-            env_file = $envFile
-        }
+        $context = Resolve-PgContext -CliOptions @{ env_file = $envFile } -WorkingDirectory $TestDrive -ScriptDirectory $TestDrive
 
-        $context.Host | Should -Be 'cli-host'
+        $context.Host | Should -Be 'env-file-host'
         $context.Port | Should -Be 5544
         $context.User | Should -Be 'env-file-user'
         $context.Password | Should -Be 'env-file-password'
-        $context.Database | Should -Be 'cli-db'
+        $context.Database | Should -Be 'env-file-db'
+    }
+
+    It 'uses current working directory defaults before the script directory' {
+        $workingDirectory = Join-Path $TestDrive 'cwd'
+        $scriptDirectory = Join-Path $TestDrive 'script'
+        New-Item -ItemType Directory -Path $workingDirectory -Force | Out-Null
+        New-Item -ItemType Directory -Path $scriptDirectory -Force | Out-Null
+        Set-Content -Path (Join-Path $workingDirectory '.env') -Value 'PGHOST=cwd-host'
+        Set-Content -Path (Join-Path $scriptDirectory '.env') -Value 'PGHOST=script-host'
+
+        $context = Resolve-PgContext -CliOptions @{} -WorkingDirectory $workingDirectory -ScriptDirectory $scriptDirectory
+
+        $context.Host | Should -Be 'cwd-host'
+    }
+
+    It 'falls back to the script directory only when the working directory has no default env files' {
+        $workingDirectory = Join-Path $TestDrive 'cwd-empty'
+        $scriptDirectory = Join-Path $TestDrive 'script-fallback'
+        New-Item -ItemType Directory -Path $workingDirectory -Force | Out-Null
+        New-Item -ItemType Directory -Path $scriptDirectory -Force | Out-Null
+        Set-Content -Path (Join-Path $scriptDirectory '.env') -Value @(
+            'PGHOST=script-host'
+            'PGDATABASE=script-db'
+        )
+
+        $context = Resolve-PgContext -CliOptions @{} -WorkingDirectory $workingDirectory -ScriptDirectory $scriptDirectory
+
+        $context.Host | Should -Be 'script-host'
+        $context.Database | Should -Be 'script-db'
+    }
+
+    It 'does not mix script-directory defaults into a partially populated working directory' {
+        $workingDirectory = Join-Path $TestDrive 'cwd-partial'
+        $scriptDirectory = Join-Path $TestDrive 'script-extra'
+        New-Item -ItemType Directory -Path $workingDirectory -Force | Out-Null
+        New-Item -ItemType Directory -Path $scriptDirectory -Force | Out-Null
+        Set-Content -Path (Join-Path $workingDirectory '.env') -Value 'PGHOST=cwd-host'
+        Set-Content -Path (Join-Path $scriptDirectory '.env.local') -Value 'PGUSER=script-user'
+
+        $context = Resolve-PgContext -CliOptions @{} -WorkingDirectory $workingDirectory -ScriptDirectory $scriptDirectory
+
+        $context.Host | Should -Be 'cwd-host'
+        $context.User | Should -BeNullOrEmpty
+    }
+
+    It 'keeps process environment variables above auto-discovered env defaults' {
+        $workingDirectory = Join-Path $TestDrive 'cwd-defaults'
+        New-Item -ItemType Directory -Path $workingDirectory -Force | Out-Null
+        Set-Content -Path (Join-Path $workingDirectory '.env') -Value @(
+            'PGHOST=file-host'
+            'PGUSER=file-user'
+        )
+
+        $env:PGHOST = 'process-host'
+        $env:PGUSER = 'process-user'
+
+        $context = Resolve-PgContext -CliOptions @{} -WorkingDirectory $workingDirectory -ScriptDirectory $workingDirectory
+
+        $context.Host | Should -Be 'process-host'
+        $context.User | Should -Be 'process-user'
+    }
+
+    It 'throws on invalid auto-discovered env lines' {
+        $workingDirectory = Join-Path $TestDrive 'cwd-invalid'
+        New-Item -ItemType Directory -Path $workingDirectory -Force | Out-Null
+        Set-Content -Path (Join-Path $workingDirectory '.env') -Value @(
+            'PGHOST=good'
+            'not valid'
+        )
+
+        {
+            Resolve-PgContext -CliOptions @{} -WorkingDirectory $workingDirectory -ScriptDirectory $workingDirectory
+        } | Should -Throw '无效 env 行'
     }
 }
 
