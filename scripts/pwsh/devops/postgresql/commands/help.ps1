@@ -33,6 +33,11 @@ Commands:
   install-tools
   help
 
+Connection Defaults:
+  If --env-file is provided, the toolkit reads only that file.
+  If --env-file is omitted, the toolkit auto-discovers .env and .env.local from the current working directory first, then falls back to the script directory only when the current working directory has neither file.
+  Connection precedence is: explicit options, --connection-string, explicit --env-file, current process PG* variables, then auto-discovered env files.
+
 Examples:
   ./Postgres-Toolkit.ps1 backup --database app --output ./app.dump --format custom
   ./Postgres-Toolkit.ps1 restore --input ./app.dump --target-database app_restore --clean

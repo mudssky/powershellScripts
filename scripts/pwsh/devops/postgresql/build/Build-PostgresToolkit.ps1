@@ -25,6 +25,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'dependency-resolver.ps1')
 
 <#
 .SYNOPSIS
@@ -118,6 +119,14 @@ $bundleParts = @(
 )
 
 $mainScriptPath = Join-Path $SourceRoot 'main.ps1'
+$repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..' '..' '..' '..' '..'))
+$sharedSourceRoots = @(
+    (Join-Path $repoRoot 'psutils' 'src' 'config')
+)
+$entryPaths = @($bundleParts | ForEach-Object { Join-Path $SourceRoot $_ })
+$entryPaths += $mainScriptPath
+$sharedFunctionIndex = Get-BundleFunctionIndex -RootPaths $sharedSourceRoots
+$sharedClosure = Get-BundleFunctionClosure -EntryPaths $entryPaths -FunctionIndex $sharedFunctionIndex
 $bundleContent = New-Object 'System.Collections.Generic.List[string]'
 
 $bundleContent.Add('#!/usr/bin/env pwsh')
@@ -145,6 +154,13 @@ $bundleContent.Add(')')
 $bundleContent.Add('')
 $bundleContent.Add('Set-StrictMode -Version Latest')
 $bundleContent.Add('$ErrorActionPreference = ''Stop''')
+
+foreach ($functionContent in $sharedClosure.Contents) {
+    $bundleContent.Add('')
+    $bundleContent.Add('# region shared-config')
+    $bundleContent.Add($functionContent)
+    $bundleContent.Add('# endregion shared-config')
+}
 
 foreach ($relativePath in $bundleParts) {
     $fullPath = Join-Path $SourceRoot $relativePath
