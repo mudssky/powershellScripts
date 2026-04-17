@@ -67,17 +67,17 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@biomejs/biome": "^2.4.10",
-    "@types/node": "^25.5.0",
-    "@typescript/native-preview": "7.0.0-dev.20260331.1",
+    "@biomejs/biome": "^2.4.12",
+    "@types/node": "^25.6.0",
+    "@typescript/native-preview": "7.0.0-dev.20260416.2",
     "concurrently": "^9.2.1",
     "execa": "^9.6.1",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
-    "rumdl": "^0.1.64",
-    "turbo": "^2.9.3",
-    "typescript": "^6.0.2",
-    "vitest": "^4.1.2"
+    "rumdl": "^0.1.72",
+    "turbo": "^2.9.6",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.4"
   },
   "packageManager": "pnpm@10.25.0+sha512.5e82639027af37cf832061bcc6d639c219634488e0f2baebe785028a793de7b525ffcd3f7ff574f5e9860654e098fe852ba8ac5dd5cefe1767d23a020a92f501"
 }
