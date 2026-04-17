@@ -1,5 +1,6 @@
 BeforeAll {
     $script:ConfigModulePath = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\modules\config.psm1'))
+    $script:ConfigSourceRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\src\config'))
     Import-Module $script:ConfigModulePath -Force
 }
 
@@ -21,6 +22,17 @@ DEFAULT_USER=from-env-local
         $result.Values.DEFAULT_PASSWORD | Should -Be 'from-env'
         $result.Sources.DEFAULT_USER | Should -Be '.env.local'
         $result.Trace.DEFAULT_USER.Candidates.Count | Should -Be 2
+    }
+
+    It 'throws on invalid dotenv lines instead of silently ignoring them' {
+        $basePath = Join-Path $TestDrive 'invalid-env'
+        New-Item -ItemType Directory -Path $basePath -Force | Out-Null
+        Set-Content -Path (Join-Path $basePath '.env') -Value @'
+GOOD_KEY=value
+this is not valid
+'@
+
+        { Resolve-ConfigSources -ConfigFile (Join-Path $basePath '.env') } | Should -Throw '无效 env 行'
     }
 
     It 'accepts explicit -ConfigFile input for env and json files' {
@@ -50,6 +62,43 @@ DEFAULT_USER=from-env-local
         $result.Values.DEFAULT_USER | Should -Be 'cli-user'
         $result.Values.DEFAULT_PASSWORD | Should -Be '12345678'
         $result.Sources.DEFAULT_USER | Should -Be 'CliEnv'
+    }
+}
+
+Describe 'Resolve-DefaultEnvFiles' {
+    BeforeAll {
+        . (Join-Path $script:ConfigSourceRoot 'discovery.ps1')
+    }
+
+    It 'prefers the primary base path when it contains any default env file' {
+        $primaryBase = Join-Path $TestDrive 'primary'
+        $fallbackBase = Join-Path $TestDrive 'fallback'
+        New-Item -ItemType Directory -Path $primaryBase -Force | Out-Null
+        New-Item -ItemType Directory -Path $fallbackBase -Force | Out-Null
+        Set-Content -Path (Join-Path $primaryBase '.env') -Value 'PRIMARY_KEY=1'
+        Set-Content -Path (Join-Path $fallbackBase '.env.local') -Value 'FALLBACK_KEY=1'
+
+        $result = Resolve-DefaultEnvFiles -PrimaryBasePath $primaryBase -FallbackBasePath $fallbackBase
+
+        $result.BasePath | Should -Be $primaryBase
+        $result.Paths | Should -HaveCount 1
+        $result.Paths[0] | Should -Be (Join-Path $primaryBase '.env')
+    }
+
+    It 'falls back only when the primary base path has no default env file at all' {
+        $primaryBase = Join-Path $TestDrive 'empty'
+        $fallbackBase = Join-Path $TestDrive 'fallback-only'
+        New-Item -ItemType Directory -Path $primaryBase -Force | Out-Null
+        New-Item -ItemType Directory -Path $fallbackBase -Force | Out-Null
+        Set-Content -Path (Join-Path $fallbackBase '.env') -Value 'FALLBACK_KEY=1'
+        Set-Content -Path (Join-Path $fallbackBase '.env.local') -Value 'FALLBACK_OVERRIDE=1'
+
+        $result = Resolve-DefaultEnvFiles -PrimaryBasePath $primaryBase -FallbackBasePath $fallbackBase
+
+        $result.BasePath | Should -Be $fallbackBase
+        $result.Paths | Should -HaveCount 2
+        $result.Paths[0] | Should -Be (Join-Path $fallbackBase '.env')
+        $result.Paths[1] | Should -Be (Join-Path $fallbackBase '.env.local')
     }
 }
 
