@@ -27,6 +27,26 @@ model_list:
       model: "openai/*"
       api_base: "os.environ/NEWAPI_API_BASE"  # 从环境变量读 NewAPI 地址
       api_key: "os.environ/NEWAPI_KEY"        # 从环境变量读密钥
+
+litellm_settings:
+  # 本地代理统一关闭遥测，避免开发环境把调用元数据发送到外部。
+  telemetry: false
+  # 对上游不识别的参数自动丢弃，减少不同模型间的参数兼容性噪音。
+  drop_params: true
+  # 默认重试 2 次，兼顾临时抖动恢复与整体响应时延。
+  num_retries: 2
+  # 统一请求超时为 60 秒，覆盖常规对话模型与较慢的推理模型。
+  request_timeout: 60
+
+router_settings:
+  # 开启前置检查，尽早发现不可用部署或无效模型名。
+  enable_pre_call_checks: true
+  # 路由层与 SDK 层保持一致的重试次数，避免出现双层策略不一致。
+  num_retries: 2
+  # Router 级超时以毫秒计；这里与 `request_timeout` 保持同一数量级。
+  timeout: 60000
+
+
 # database_url: "sqlite:///./litellm.db"
 # 可选：LiteLLM 网关鉴权（防止滥用）
 general_settings:
