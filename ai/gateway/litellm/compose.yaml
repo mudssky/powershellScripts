@@ -8,14 +8,19 @@ services:
     environment:
       # LiteLLM 官方镜像会把 PORT 透传给内部 uvicorn 启动参数，未显式设置时会报错。
       PORT: "4000"
+      # 当前镜像需要显式提供配置文件路径；仅挂载 /app/config.yaml 并不会自动加载 model_list。
+      CONFIG_FILE_PATH: "/app/config.yaml"
       # 通过 compose 插值保留当前默认数据库地址；start.ps1 会在存在 .env.local 时传入 --env-file 以支持本地覆盖。
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:12345678@host.docker.internal:5432/litellm}
-      # LiteLLM 运行时会从容器环境变量读取这些值，再由 qwen.yaml 中的 os.environ/... 引用。
+      # 当前本地配置走 NewAPI OpenAI 兼容接口；变量必须显式注入容器，LiteLLM 才能解析 os.environ/...。
+      NEWAPI_API_BASE: ${NEWAPI_API_BASE:-}
+      NEWAPI_KEY: ${NEWAPI_KEY:-}
+      # 保留旧变量，避免切回 qwen.yaml 等历史配置时还要额外补环境变量。
       DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
       DASHSCOPE_API_BASE: ${DASHSCOPE_API_BASE:-https://dashscope.aliyuncs.com/compatible-mode/v1}
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-}
     volumes:
-      - ./qwen.yaml:/app/config.yaml:ro
+      - ./litellm.local.yaml:/app/config.yaml:ro
     extra_hosts:
       # 在 Linux Docker Engine 场景补齐宿主机别名，保持默认 DATABASE_URL 可用。
       - "host.docker.internal:host-gateway"

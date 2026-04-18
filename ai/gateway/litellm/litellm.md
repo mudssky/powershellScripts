@@ -1,15 +1,16 @@
 # LiteLLM 网关说明
 
-这个目录用于启动一个基于 LiteLLM Proxy 的生产级 Qwen 网关，默认直连阿里百炼的 OpenAI 兼容接口。
+这个目录用于启动一个基于 LiteLLM Proxy 的 OpenAI 兼容网关，当前默认通过 NewAPI 转发请求到上游模型服务。
 
 相关文件职责如下：
 
-- `qwen.yaml`：LiteLLM 生产配置，定义主模型、降级模型、限流、重试和超时策略。
+- `litellm.local.yaml`：本地默认配置，定义 LiteLLM 的 wildcard 路由与上游 NewAPI 连接方式。
+- `qwen.yaml`：历史示例配置，保留了固定模型与降级策略写法，可作为按模型显式映射时的参考。
 - `compose.yaml`：LiteLLM 容器模板，定义镜像、端口、挂载和默认环境变量。
 - `start.ps1`：统一入口，封装常用 `docker compose` 操作。
 - `.env.example`：开发环境变量示例。
 - `.env.production.example`：生产环境变量示例。
-- `.env.local`：本地私有环境变量，保存 `DASHSCOPE_API_KEY`、`DASHSCOPE_API_BASE`、`LITELLM_MASTER_KEY`、可选 `DATABASE_URL`。
+- `.env.local`：本地私有环境变量，保存 `NEWAPI_API_BASE`、`NEWAPI_KEY`、`LITELLM_MASTER_KEY`、可选 `DATABASE_URL`。
 
 ## 环境变量
 
@@ -18,8 +19,8 @@
 ```dotenv
 LITELLM_IMAGE=docker.litellm.ai/berriai/litellm:main-latest
 LITELLM_HOST_PORT=34000
-DASHSCOPE_API_KEY=sk-xxxx
-DASHSCOPE_API_BASE=https://dashscope.aliyuncs.com/compatible-mode/v1
+NEWAPI_API_BASE=http://new-api.example.com/v1
+NEWAPI_KEY=sk-newapi-dev-xxxx
 LITELLM_MASTER_KEY=sk-litellm-123456
 DATABASE_URL=postgresql://postgres:12345678@host.docker.internal:5432/litellm
 ```
@@ -28,8 +29,8 @@ DATABASE_URL=postgresql://postgres:12345678@host.docker.internal:5432/litellm
 
 - `LITELLM_IMAGE`：LiteLLM 镜像，可用于生产环境固定到经过验证的标签。
 - `LITELLM_HOST_PORT`：宿主机暴露端口，默认 `34000`。
-- `DASHSCOPE_API_KEY`：阿里百炼 API Key。
-- `DASHSCOPE_API_BASE`：阿里百炼 OpenAI 兼容接口地址；中国内地默认可用 `https://dashscope.aliyuncs.com/compatible-mode/v1`。
+- `NEWAPI_API_BASE`：NewAPI 的 OpenAI 兼容接口地址，建议带上 `/v1`。
+- `NEWAPI_KEY`：LiteLLM 转发到 NewAPI 时使用的上游密钥。
 - `LITELLM_MASTER_KEY`：LiteLLM Proxy 对外暴露的网关密钥。
 - `DATABASE_URL`：LiteLLM 的数据库连接串；如果未配置，会回退到默认的宿主机 PostgreSQL 地址。
 
@@ -100,15 +101,51 @@ OpenAI 兼容接口示例：
 curl http://127.0.0.1:34000/v1/chat/completions `
   -H "Content-Type: application/json" `
   -H "Authorization: Bearer sk-litellm-123456" `
-  -d "{\"model\":\"qwen-chat\",\"messages\":[{\"role\":\"user\",\"content\":\"你好\"}]}"
+  -d "{\"model\":\"gemini-2.5-flash\",\"messages\":[{\"role\":\"user\",\"content\":\"你好\"}]}"
 ```
+
+## 模型查询
+
+如果你想查看 LiteLLM 当前暴露的路由名，可调用：
+
+```powershell
+curl "http://127.0.0.1:34000/models?return_wildcard_routes=true" `
+  -H "x-litellm-api-key: sk-litellm-123456"
+```
+
+当前 `litellm.local.yaml` 默认显式注册了 `gpt-5.4`、`gemini-3.1-pro`、`claude-opus-4-6` 三个主模型，并在末尾保留了一条 `*` fallback 路由。因此 `/models` 会返回显式模型加上一条通配兜底路由。默认会看到类似下面的结果：
+
+```json
+{
+  "data": [
+    {"id": "gpt-5.4", "object": "model"},
+    {"id": "gemini-3.1-pro", "object": "model"},
+    {"id": "claude-opus-4-6", "object": "model"},
+    {"id": "*", "object": "model"}
+  ],
+  "object": "list"
+}
+```
+
+如果你想获取 NewAPI 实际可用的模型名，请直接调用上游：
+
+```powershell
+curl "$env:NEWAPI_API_BASE/models" `
+  -H "Authorization: Bearer $env:NEWAPI_KEY"
+```
+
+说明：
+
+- 不要在当前配置下使用 `only_model_access_groups=true`，因为默认没有配置 model access groups，请求结果会是空数组。
+- 如果客户端直接传 `model=qwen-plus` 之类的名称，前提是该名称必须真实存在于 NewAPI 的 `/models` 返回结果中。
+- 显式注册之外的模型不会自动展开进 `/models` 列表；它们会通过 `*` fallback 透传到 NewAPI。
 
 ## 配置说明
 
-当前 `qwen.yaml` 的关键点：
+当前 `litellm.local.yaml` 的关键点：
 
-- `qwen-chat`：主模型，默认走百炼 `qwen-plus`。
-- `qwen-chat-fallback`：降级模型，默认走百炼 `qwen-flash`。
-- `rpm`：在部署层做第一道限流保护，避免上游配额被瞬时打爆。
-- `num_retries` + `timeout`：对临时失败、超时和抖动做统一收敛。
-- `fallbacks` + `cooldown_time`：主模型异常时自动切到降级模型，并对异常部署做短暂冷却。
+- `model_list`：显式注册 `gpt-5.4`、`gemini-3.1-pro`、`claude-opus-4-6` 三个主模型，并追加 `*` 作为最后兜底。
+- 显式模型优先：常用模型可以稳定出现在 `/models` 里，也方便客户端按固定名称接入。
+- `*` fallback：对 NewAPI 已存在但未显式注册的模型保留透传能力，减少频繁改本地配置的成本。
+- `litellm_params.model`：显式模型映射到 `openai/<模型名>`，fallback 映射到 `openai/*`，继续通过 NewAPI 的 OpenAI 兼容接口转发请求。
+- `master_key`：开启 LiteLLM 网关鉴权，避免任何能访问端口的客户端都直接调用上游。

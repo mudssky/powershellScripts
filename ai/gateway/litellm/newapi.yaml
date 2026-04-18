@@ -1,8 +1,30 @@
 model_list:
-  # 万能透传：客户端传什么模型名，就转发什么到 NewAPI
+  # 显式注册 OpenAI 系列模型，确保 `/models` 能直接返回可用模型名。
+  - model_name: "gpt-5.4"
+    litellm_params:
+      # `model_name` 保持与上游模型 id 一致，便于客户端直接按 `/models` 结果发起调用。
+      model: "openai/gpt-5.4"
+      api_base: "os.environ/NEWAPI_API_BASE"  # 从环境变量读 NewAPI 地址
+      api_key: "os.environ/NEWAPI_KEY"        # 从环境变量读密钥
+  # 显式注册 Gemini 系列模型，避免 wildcard 路由只返回 `*`。
+  - model_name: "gemini-3.1-pro"
+    litellm_params:
+      # 继续走 OpenAI 兼容入口，由 NewAPI 负责实际模型分发。
+      model: "openai/gemini-3.1-pro"
+      api_base: "os.environ/NEWAPI_API_BASE"  # 从环境变量读 NewAPI 地址
+      api_key: "os.environ/NEWAPI_KEY"        # 从环境变量读密钥
+  # 显式注册 Claude 系列模型，便于 LiteLLM 直接暴露固定模型列表。
+  - model_name: "claude-opus-4-6"
+    litellm_params:
+      # 使用上游真实模型 id，避免代理别名与 NewAPI 模型名脱节。
+      model: "openai/claude-opus-4-6"
+      api_base: "os.environ/NEWAPI_API_BASE"  # 从环境变量读 NewAPI 地址
+      api_key: "os.environ/NEWAPI_KEY"        # 从环境变量读密钥
+  # 把 wildcard 路由放在最后，优先命中显式模型，其余上游模型再走透传兜底。
   - model_name: "*"
     litellm_params:
-      model: "openai/{{ model }}"  # 透传模型名
+      # 对列表外但 NewAPI 已存在的模型保留透传能力，例如 `gpt-5.4-mini`。
+      model: "openai/*"
       api_base: "os.environ/NEWAPI_API_BASE"  # 从环境变量读 NewAPI 地址
       api_key: "os.environ/NEWAPI_KEY"        # 从环境变量读密钥
 # database_url: "sqlite:///./litellm.db"
@@ -10,6 +32,8 @@ model_list:
 general_settings:
   master_key: "os.environ/LITELLM_MASTER_KEY"
   # disable_frontend: true  # 关闭前端页面（纯API模式）
-  proxy_batch_write_at: 60 # 每60秒写入一次数据库
-  database_connection_pool_limit: 10 # 每个 Worker 进程的数据库连接池上限
-  # database_url: "postgresql://admin:12345678@localhost:5432/litellm"
+  # proxy_batch_write_at: 60 # 每60秒写入一次数据库
+  # database_connection_pool_limit: 10 # 每个 Worker 进程的数据库连接池上限
+  # virtual key
+  # litellm_key_header_name: "X-Litellm-Key"
+  # database_url: "postgresql://admin:12345678@in:5432/litellm"
