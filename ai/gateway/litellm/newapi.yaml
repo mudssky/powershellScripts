@@ -50,7 +50,12 @@ router_settings:
 # database_url: "sqlite:///./litellm.db"
 # 可选：LiteLLM 网关鉴权（防止滥用）
 general_settings:
+  # 对外访问 LiteLLM 网关时使用的主密钥；客户端通常通过 `Authorization: Bearer <key>` 携带它。
   master_key: "os.environ/LITELLM_MASTER_KEY"
+  # 把模型配置与相关元数据写入数据库，便于 UI 管理页读取模型列表与配置状态。
+  store_model_in_db: true
+  # 把请求消息与响应内容写入 spend logs，供 UI Request Logs 详情页查看完整 request/response。
+  store_prompts_in_spend_logs: true
   # disable_frontend: true  # 关闭前端页面（纯API模式）
   # proxy_batch_write_at: 60 # 每60秒写入一次数据库
   # database_connection_pool_limit: 10 # 每个 Worker 进程的数据库连接池上限
