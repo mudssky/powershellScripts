@@ -12,6 +12,8 @@
 - `.env.production.example`：生产环境变量示例。
 - `.env.local`：本地私有环境变量，保存 `NEWAPI_API_BASE`、`NEWAPI_KEY`、`LITELLM_MASTER_KEY`、可选 `DATABASE_URL`。
 
+固定常量如 `PORT=4000`、`CONFIG_FILE_PATH=/app/config.yaml` 保留在 `compose.yaml` 内部；环境差异值建议集中在 `.env.local`，再通过 `start.ps1` 追加的 `--env-file` 和 `compose.yaml` 的 `environment` 白名单注入到容器。
+
 ## 环境变量
 
 建议先在 `ai/gateway/litellm/.env.local` 中配置以下值：
@@ -33,6 +35,7 @@ DATABASE_URL=postgresql://postgres:12345678@host.docker.internal:5432/litellm
 - `NEWAPI_KEY`：LiteLLM 转发到 NewAPI 时使用的上游密钥。
 - `LITELLM_MASTER_KEY`：LiteLLM Proxy 对外暴露的网关密钥。
 - `DATABASE_URL`：LiteLLM 的数据库连接串；如果未配置，会回退到默认的宿主机 PostgreSQL 地址。
+- `DASHSCOPE_API_KEY` / `DASHSCOPE_API_BASE`：可选兼容项；只有切回 `qwen.yaml` 或其他百炼配置时才需要提供。
 
 如果你想准备生产环境变量，可直接复制 `./.env.production.example` 再按实际环境改值。
 
@@ -52,6 +55,11 @@ docker compose --env-file ai/gateway/litellm/.env.local `
   --project-directory ai/gateway/litellm `
   up -d
 ```
+
+说明：
+
+- 这里保留 `--env-file`，而不是把 `.env.local` 改成 `env_file` 主方案，是因为它同时负责 compose 插值，例如 `image`、`ports`、`environment` 中的 `${...}`。
+- `compose.yaml` 里的 `environment` 继续采用白名单注入，这样 `.env.local` 中与 LiteLLM 无关的变量不会自动进入容器。
 
 ## 常用命令
 
