@@ -65,3 +65,70 @@ Describe 'New-TailscaleDerpMapJson' {
         $node.InsecureForTests | Should -BeTrue
     }
 }
+
+Describe 'Convert-TailscalePrefsToRestoreArgs' {
+    It 'maps supported non-default prefs to a stable tailscale up argument list' {
+        $prefs = [pscustomobject]@{
+            ControlURL             = 'https://controlplane.tailscale.com'
+            CorpDNS                = $true
+            RouteAll               = $true
+            ExitNodeIP             = '100.64.0.1'
+            ExitNodeAllowLANAccess = $true
+            RunSSH                 = $true
+            ShieldsUp              = $false
+            Hostname               = 'demo-host'
+            AdvertiseRoutes        = @('10.0.0.0/24')
+            AdvertiseTags          = @('tag:lab')
+            NoSNAT                 = $true
+        }
+
+        $args = Convert-TailscalePrefsToRestoreArgs -Prefs $prefs
+
+        $args | Should -Contain '--accept-routes=true'
+        $args | Should -Contain '--exit-node=100.64.0.1'
+        $args | Should -Contain '--ssh=true'
+        $args | Should -Contain '--hostname=demo-host'
+        $args | Should -Contain '--snat-subnet-routes=false'
+    }
+
+    It 'throws when an unsupported non-default preference would be lost on restore' {
+        $prefs = [pscustomobject]@{
+            ControlURL             = 'https://controlplane.tailscale.com'
+            RunWebClient           = $true
+            CorpDNS                = $true
+            RouteAll               = $false
+            ExitNodeIP             = ''
+            NoSNAT                 = $false
+            AdvertiseRoutes        = $null
+            AdvertiseTags          = $null
+            ExitNodeAllowLANAccess = $false
+            RunSSH                 = $false
+            ShieldsUp              = $false
+            Hostname               = ''
+        }
+
+        {
+            Convert-TailscalePrefsToRestoreArgs -Prefs $prefs
+        } | Should -Throw '*RunWebClient*'
+    }
+}
+
+Describe 'Save-TailscaleDerpState / Read-TailscaleDerpState' {
+    It 'round-trips restore arguments and metadata through the managed state file' {
+        $statePath = Join-Path $TestDrive 'derp-state.json'
+        $state = [pscustomobject]@{
+            AppliedAt    = '2026-04-20T09:00:00Z'
+            ServerIp     = '203.0.113.10'
+            DerpJsonPath = '/tmp/derp.json'
+            DerpMapUri   = 'file:///tmp/derp.json'
+            RestoreArgs  = @('--accept-routes=true', '--ssh=true')
+            CliVersion   = '1.96.4'
+        }
+
+        Save-TailscaleDerpState -Path $statePath -State $state
+        $loaded = Read-TailscaleDerpState -Path $statePath
+
+        $loaded.ServerIp | Should -Be '203.0.113.10'
+        $loaded.RestoreArgs | Should -Be @('--accept-routes=true', '--ssh=true')
+    }
+}

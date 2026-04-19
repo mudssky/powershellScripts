@@ -181,6 +181,141 @@ function New-TailscaleDerpMapJson {
     return ($document | ConvertTo-Json -Depth 10)
 }
 
+function Get-TailscalePrefsBaselineDefaults {
+    <#
+    .SYNOPSIS
+        返回脚本当前支持恢复的 Tailscale prefs 默认基线。
+
+    .DESCRIPTION
+        这份默认值集合用于判断当前机器上是否存在脚本还不能安全恢复的非默认配置。
+
+    .OUTPUTS
+        System.Collections.Hashtable
+        返回脚本已知的 prefs 默认值字典。
+    #>
+    [CmdletBinding()]
+    param()
+
+    return @{
+        ControlURL             = 'https://controlplane.tailscale.com'
+        CorpDNS                = $true
+        RouteAll               = $false
+        ExitNodeIP             = ''
+        ExitNodeAllowLANAccess = $false
+        RunSSH                 = $false
+        ShieldsUp              = $false
+        Hostname               = ''
+        AdvertiseRoutes        = @()
+        AdvertiseTags          = @()
+        NoSNAT                 = $false
+        RunWebClient           = $false
+    }
+}
+
+function Convert-TailscalePrefsToRestoreArgs {
+    <#
+    .SYNOPSIS
+        把应用前的 Tailscale prefs 转成一组可重放的 `tailscale up` 参数。
+
+    .DESCRIPTION
+        该函数只接受脚本明确知道如何恢复的字段。遇到当前还不支持恢复且又处于非默认值的配置时，
+        会直接抛错，避免脚本修改了网络设置却无法恢复。
+
+    .PARAMETER Prefs
+        来自 Tailscale LocalAPI 的 prefs 对象。
+
+    .OUTPUTS
+        System.String[]
+        返回可直接重放到 `tailscale up` 的显式参数集合。
+    #>
+    [CmdletBinding()]
+    param([psobject]$Prefs)
+
+    $defaults = Get-TailscalePrefsBaselineDefaults
+    $restoreArgs = New-Object 'System.Collections.Generic.List[string]'
+    $runWebClient = if ($Prefs.PSObject.Properties.Name -contains 'RunWebClient') {
+        [bool]$Prefs.RunWebClient
+    }
+    else {
+        [bool]$defaults.RunWebClient
+    }
+
+    if ($runWebClient -ne [bool]$defaults.RunWebClient) {
+        throw '当前脚本暂不支持恢复非默认的 RunWebClient 配置，请先手动恢复默认状态后再应用自定义 DERP。'
+    }
+
+    $restoreArgs.Add("--login-server=$([string]$Prefs.ControlURL)")
+    $restoreArgs.Add("--accept-dns=$(([bool]$Prefs.CorpDNS).ToString().ToLowerInvariant())")
+    $restoreArgs.Add("--accept-routes=$(([bool]$Prefs.RouteAll).ToString().ToLowerInvariant())")
+    $restoreArgs.Add("--exit-node-allow-lan-access=$(([bool]$Prefs.ExitNodeAllowLANAccess).ToString().ToLowerInvariant())")
+    $restoreArgs.Add("--ssh=$(([bool]$Prefs.RunSSH).ToString().ToLowerInvariant())")
+    $restoreArgs.Add("--shields-up=$(([bool]$Prefs.ShieldsUp).ToString().ToLowerInvariant())")
+    # `NoSNAT=true` 代表关闭源地址转换，因此对应的恢复参数需要显式写成 `--snat-subnet-routes=false`。
+    $restoreArgs.Add("--snat-subnet-routes=$(((-not [bool]$Prefs.NoSNAT).ToString().ToLowerInvariant()))")
+
+    if (-not [string]::IsNullOrWhiteSpace([string]$Prefs.ExitNodeIP)) {
+        $restoreArgs.Add("--exit-node=$([string]$Prefs.ExitNodeIP)")
+    }
+    if (-not [string]::IsNullOrWhiteSpace([string]$Prefs.Hostname)) {
+        $restoreArgs.Add("--hostname=$([string]$Prefs.Hostname)")
+    }
+    if ($null -ne $Prefs.AdvertiseRoutes -and @($Prefs.AdvertiseRoutes).Count -gt 0) {
+        $restoreArgs.Add("--advertise-routes=$((@($Prefs.AdvertiseRoutes) -join ','))")
+    }
+    if ($null -ne $Prefs.AdvertiseTags -and @($Prefs.AdvertiseTags).Count -gt 0) {
+        $restoreArgs.Add("--advertise-tags=$((@($Prefs.AdvertiseTags) -join ','))")
+    }
+
+    return @($restoreArgs.ToArray())
+}
+
+function Save-TailscaleDerpState {
+    <#
+    .SYNOPSIS
+        把恢复所需的基线信息写入状态文件。
+
+    .PARAMETER Path
+        目标状态文件路径。
+
+    .PARAMETER State
+        要持久化的状态对象。
+    #>
+    [CmdletBinding()]
+    param(
+        [string]$Path,
+        [psobject]$State
+    )
+
+    $directory = Split-Path -Parent $Path
+    if (-not [string]::IsNullOrWhiteSpace($directory) -and -not (Test-Path -LiteralPath $directory)) {
+        New-Item -ItemType Directory -Path $directory -Force | Out-Null
+    }
+
+    $State | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $Path -Encoding utf8NoBOM
+}
+
+function Read-TailscaleDerpState {
+    <#
+    .SYNOPSIS
+        读取上一次成功应用后的受管状态快照。
+
+    .PARAMETER Path
+        状态文件路径。
+
+    .OUTPUTS
+        PSCustomObject
+        返回脚本保存的状态对象。
+    #>
+    [CmdletBinding()]
+    param([string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        throw "未找到受管状态文件: $Path"
+    }
+
+    return (Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json -Depth 20)
+}
+
 if ($env:PWSH_TEST_SKIP_TAILSCALE_DERP_MAIN -ne '1') {
     throw 'Main entry will be implemented in a later task.'
 }
