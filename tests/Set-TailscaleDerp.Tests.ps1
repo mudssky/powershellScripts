@@ -132,3 +132,92 @@ Describe 'Save-TailscaleDerpState / Read-TailscaleDerpState' {
         $loaded.RestoreArgs | Should -Be @('--accept-routes=true', '--ssh=true')
     }
 }
+
+Describe 'Invoke-TailscaleDerpApply' {
+    It 'builds a tailscale up command from restore args plus DERP flags' {
+        Mock -CommandName Invoke-TailscaleCli -MockWith {
+            param([string[]]$Arguments)
+
+            return [pscustomobject]@{
+                ExitCode  = 0
+                StdOut    = ''
+                StdErr    = ''
+                Arguments = $Arguments
+            }
+        }
+
+        $result = Invoke-TailscaleDerpApply `
+            -RestoreArgs @('--accept-routes=true', '--ssh=true') `
+            -DerpMapUri 'file:///tmp/derp.json'
+
+        $result.Arguments | Should -Be @(
+            'up',
+            '--accept-routes=true',
+            '--ssh=true',
+            '--derp-map-url=file:///tmp/derp.json',
+            '--tls-skip-verify'
+        )
+    }
+
+    It 'rewrites unknown-flag failures into a clear compatibility message' {
+        Mock -CommandName Invoke-TailscaleCli -MockWith {
+            throw 'unknown flag: --derp-map-url'
+        }
+
+        {
+            Invoke-TailscaleDerpApply `
+                -RestoreArgs @('--accept-routes=true') `
+                -DerpMapUri 'file:///tmp/derp.json'
+        } | Should -Throw '*当前 Tailscale CLI 不支持自定义 DERP flag*'
+    }
+}
+
+Describe 'Invoke-TailscaleDerpReset' {
+    It 'replays restore args without DERP-specific flags' {
+        Mock -CommandName Invoke-TailscaleCli -MockWith {
+            param([string[]]$Arguments)
+
+            return [pscustomobject]@{
+                ExitCode  = 0
+                Arguments = $Arguments
+            }
+        }
+
+        $result = Invoke-TailscaleDerpReset -RestoreArgs @('--accept-routes=true', '--ssh=true')
+        $result.Arguments | Should -Be @('up', '--accept-routes=true', '--ssh=true')
+    }
+
+    It 'does not delete managed files when the restore command fails' {
+        $statePath = Join-Path $TestDrive 'derp-state.json'
+        $derpJsonPath = Join-Path $TestDrive 'derp.json'
+        $state = [pscustomobject]@{
+            RestoreArgs  = @('--accept-routes=true')
+            DerpJsonPath = $derpJsonPath
+        }
+
+        Save-TailscaleDerpState -Path $statePath -State $state
+        Set-Content -LiteralPath $derpJsonPath -Value '{}'
+
+        Mock -CommandName Invoke-TailscaleCli -MockWith {
+            throw 'restore failed'
+        }
+
+        {
+            Invoke-SetTailscaleDerpCommand -Reset -ManagedStatePath $statePath -ManagedDerpJsonPath $derpJsonPath
+        } | Should -Throw '*restore failed*'
+
+        Test-Path -LiteralPath $statePath | Should -BeTrue
+        Test-Path -LiteralPath $derpJsonPath | Should -BeTrue
+    }
+}
+
+Describe 'Test-TailscaleDerpApplyPreconditions' {
+    It 'rejects apply when an active managed state file already exists' {
+        $statePath = Join-Path $TestDrive 'derp-state.json'
+        Set-Content -LiteralPath $statePath -Value '{}'
+
+        {
+            Test-TailscaleDerpApplyPreconditions -StatePath $statePath
+        } | Should -Throw '*先执行 -Reset*'
+    }
+}

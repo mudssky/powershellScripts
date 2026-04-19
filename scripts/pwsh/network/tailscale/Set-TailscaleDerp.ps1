@@ -316,6 +316,300 @@ function Read-TailscaleDerpState {
     return (Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json -Depth 20)
 }
 
+function Assert-TailscaleDerpServerIp {
+    <#
+    .SYNOPSIS
+        对用户输入的服务器地址做最小但明确的格式校验。
+
+    .PARAMETER ServerIp
+        待校验的 IPv4、IPv6 或主机名字符串。
+    #>
+    [CmdletBinding()]
+    param([string]$ServerIp)
+
+    if ([string]::IsNullOrWhiteSpace($ServerIp)) {
+        throw 'ServerIp 不能为空。'
+    }
+
+    $parsedAddress = $null
+    $isIpAddress = [System.Net.IPAddress]::TryParse($ServerIp, [ref]$parsedAddress)
+    $isHostNameLike = $ServerIp -match '^[A-Za-z0-9][A-Za-z0-9\.\-:]*$'
+    if (-not $isIpAddress -and -not $isHostNameLike) {
+        throw "无效的服务器地址: $ServerIp"
+    }
+}
+
+function Write-TailscaleDerpMapFile {
+    <#
+    .SYNOPSIS
+        把 DERP JSON 写入受管路径，并确保父目录存在。
+
+    .PARAMETER Path
+        目标 DERP JSON 路径。
+
+    .PARAMETER Json
+        要写入的 DERP JSON 文本。
+    #>
+    [CmdletBinding()]
+    param(
+        [string]$Path,
+        [string]$Json
+    )
+
+    $directory = Split-Path -Parent $Path
+    if (-not [string]::IsNullOrWhiteSpace($directory) -and -not (Test-Path -LiteralPath $directory)) {
+        New-Item -ItemType Directory -Path $directory -Force | Out-Null
+    }
+
+    Set-Content -LiteralPath $Path -Value $Json -Encoding utf8NoBOM
+}
+
+function Get-TailscalePrefsSnapshot {
+    <#
+    .SYNOPSIS
+        通过 Tailscale LocalAPI 读取当前 prefs 快照。
+
+    .OUTPUTS
+        PSCustomObject
+        返回从 `/localapi/v0/prefs` 读取并解析出的 prefs 对象。
+    #>
+    [CmdletBinding()]
+    param()
+
+    $rawOutput = @(tailscale debug localapi GET /localapi/v0/prefs 2>&1)
+    $jsonText = (@($rawOutput) | Where-Object { $_ -notmatch '^# doing request ' }) -join [Environment]::NewLine
+
+    return ($jsonText | ConvertFrom-Json -Depth 20)
+}
+
+function Get-TailscaleCliVersionLine {
+    <#
+    .SYNOPSIS
+        读取当前 Tailscale CLI 的首行版本信息。
+
+    .OUTPUTS
+        System.String
+        返回 `tailscale version` 的第一行输出。
+    #>
+    [CmdletBinding()]
+    param()
+
+    return [string](tailscale version | Select-Object -First 1)
+}
+
+function Invoke-TailscaleCli {
+    <#
+    .SYNOPSIS
+        执行 Tailscale CLI 并把参数与输出收口成结构化结果。
+
+    .PARAMETER Arguments
+        传给 `tailscale` 的参数数组。
+
+    .OUTPUTS
+        PSCustomObject
+        返回 `ExitCode`、`Arguments` 与 `Output` 等字段，便于测试断言。
+    #>
+    [CmdletBinding()]
+    param([string[]]$Arguments)
+
+    $output = @(& tailscale @Arguments 2>&1)
+    return [pscustomobject]@{
+        ExitCode  = $LASTEXITCODE
+        Arguments = @($Arguments)
+        Output    = @($output)
+    }
+}
+
+function Test-TailscaleDerpApplyPreconditions {
+    <#
+    .SYNOPSIS
+        在真正改动网络配置前检查当前是否允许再次应用。
+
+    .PARAMETER StatePath
+        受管状态文件路径。
+    #>
+    [CmdletBinding()]
+    param([string]$StatePath)
+
+    if (Test-Path -LiteralPath $StatePath) {
+        throw "检测到已有活动的自定义 DERP 状态文件: $StatePath。请先执行 -Reset 再应用新的服务器 IP。"
+    }
+}
+
+function Invoke-TailscaleDerpApply {
+    <#
+    .SYNOPSIS
+        在恢复参数基础上叠加 DERP flag 并执行 `tailscale up`。
+
+    .PARAMETER RestoreArgs
+        应用前基线对应的可恢复参数集合。
+
+    .PARAMETER DerpMapUri
+        指向 DERP JSON 的 `file://` URI。
+    #>
+    [CmdletBinding()]
+    param(
+        [string[]]$RestoreArgs,
+        [string]$DerpMapUri
+    )
+
+    $arguments = @('up') + @($RestoreArgs) + @(
+        "--derp-map-url=$DerpMapUri",
+        '--tls-skip-verify'
+    )
+
+    try {
+        return Invoke-TailscaleCli -Arguments $arguments
+    }
+    catch {
+        $message = $_.Exception.Message
+        if ($message -match 'unknown flag|flag provided but not defined') {
+            throw '当前 Tailscale CLI 不支持自定义 DERP flag（--derp-map-url / --tls-skip-verify）。请升级或切换到支持这些参数的构建后再试。'
+        }
+
+        throw
+    }
+}
+
+function Invoke-TailscaleDerpReset {
+    <#
+    .SYNOPSIS
+        按应用前快照回放恢复参数，撤销自定义 DERP 定制。
+
+    .PARAMETER RestoreArgs
+        应用前基线对应的可恢复参数集合。
+    #>
+    [CmdletBinding()]
+    param([string[]]$RestoreArgs)
+
+    return Invoke-TailscaleCli -Arguments (@('up') + @($RestoreArgs))
+}
+
+function Invoke-SetTailscaleDerpCommand {
+    <#
+    .SYNOPSIS
+        统一编排自定义 DERP 的应用与取消流程。
+
+    .DESCRIPTION
+        Apply 分支负责读取当前 prefs、写入受管 DERP JSON、应用 CLI 参数并保存恢复状态；
+        Reset 分支负责按状态文件中的恢复参数回放原始配置，只有恢复成功后才清理受管文件。
+
+    .PARAMETER ServerIp
+        Apply 模式下的服务器地址。
+
+    .PARAMETER Reset
+        Reset 模式开关。
+
+    .PARAMETER RegionId
+        DERP map 中使用的 RegionID。
+
+    .PARAMETER RegionCode
+        DERP map 中使用的 RegionCode。
+
+    .PARAMETER NodeName
+        DERP 节点名称。
+
+    .PARAMETER DerpPort
+        DERP 服务端口。
+
+    .PARAMETER StunPort
+        STUN 服务端口。
+
+    .PARAMETER OutputPath
+        可选 DERP JSON 输出路径。
+
+    .PARAMETER ManagedStatePath
+        仅供测试使用的状态文件路径覆盖。
+
+    .PARAMETER ManagedDerpJsonPath
+        仅供测试使用的 DERP JSON 路径覆盖。
+    #>
+    [CmdletBinding(SupportsShouldProcess = $true, DefaultParameterSetName = 'Apply')]
+    param(
+        [Parameter(ParameterSetName = 'Apply')]
+        [string]$ServerIp,
+
+        [Parameter(ParameterSetName = 'Reset')]
+        [switch]$Reset,
+
+        [int]$RegionId = 900,
+        [string]$RegionCode = 'cn-custom',
+        [string]$NodeName = 'cn-node',
+        [int]$DerpPort = 8443,
+        [int]$StunPort = 3478,
+        [string]$OutputPath,
+        [string]$ManagedStatePath,
+        [string]$ManagedDerpJsonPath
+    )
+
+    $managedPaths = Get-TailscaleDerpManagedPaths
+    $statePath = if (-not [string]::IsNullOrWhiteSpace($ManagedStatePath)) {
+        $ManagedStatePath
+    }
+    else {
+        $managedPaths.StatePath
+    }
+    $derpJsonPath = if (-not [string]::IsNullOrWhiteSpace($ManagedDerpJsonPath)) {
+        $ManagedDerpJsonPath
+    }
+    elseif (-not [string]::IsNullOrWhiteSpace($OutputPath)) {
+        $OutputPath
+    }
+    else {
+        $managedPaths.DerpJsonPath
+    }
+
+    if ($Reset.IsPresent) {
+        $state = Read-TailscaleDerpState -Path $statePath
+        $result = Invoke-TailscaleDerpReset -RestoreArgs @($state.RestoreArgs)
+        if ($result.ExitCode -ne 0) {
+            throw "恢复普通 Tailscale 配置失败: $($result.Output -join [Environment]::NewLine)"
+        }
+
+        Remove-Item -LiteralPath $statePath -Force -ErrorAction Stop
+        if (-not [string]::IsNullOrWhiteSpace([string]$state.DerpJsonPath)) {
+            Remove-Item -LiteralPath ([string]$state.DerpJsonPath) -Force -ErrorAction SilentlyContinue
+        }
+        elseif (Test-Path -LiteralPath $derpJsonPath) {
+            Remove-Item -LiteralPath $derpJsonPath -Force -ErrorAction SilentlyContinue
+        }
+
+        return $result
+    }
+
+    Assert-TailscaleDerpServerIp -ServerIp $ServerIp
+    Test-TailscaleDerpApplyPreconditions -StatePath $statePath
+
+    $prefs = Get-TailscalePrefsSnapshot
+    $restoreArgs = Convert-TailscalePrefsToRestoreArgs -Prefs $prefs
+    $derpJson = New-TailscaleDerpMapJson `
+        -ServerIp $ServerIp `
+        -RegionId $RegionId `
+        -RegionCode $RegionCode `
+        -NodeName $NodeName `
+        -DerpPort $DerpPort `
+        -StunPort $StunPort
+
+    Write-TailscaleDerpMapFile -Path $derpJsonPath -Json $derpJson
+    $derpMapUri = Convert-TailscalePathToFileUri -Path $derpJsonPath
+    $applyResult = Invoke-TailscaleDerpApply -RestoreArgs $restoreArgs -DerpMapUri $derpMapUri
+    if ($applyResult.ExitCode -ne 0) {
+        throw "应用自定义 DERP 失败: $($applyResult.Output -join [Environment]::NewLine)"
+    }
+
+    Save-TailscaleDerpState -Path $statePath -State ([pscustomobject]@{
+        AppliedAt     = (Get-Date).ToUniversalTime().ToString('o')
+        ServerIp      = $ServerIp
+        DerpJsonPath  = $derpJsonPath
+        DerpMapUri    = $derpMapUri
+        RestoreArgs   = @($restoreArgs)
+        BaselinePrefs = $prefs
+        CliVersion    = Get-TailscaleCliVersionLine
+    })
+
+    return $applyResult
+}
+
 if ($env:PWSH_TEST_SKIP_TAILSCALE_DERP_MAIN -ne '1') {
-    throw 'Main entry will be implemented in a later task.'
+    Invoke-SetTailscaleDerpCommand @PSBoundParameters
 }
