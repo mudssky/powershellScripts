@@ -127,3 +127,45 @@ sudo tailscale up \
 * **协议**: UDP
 * **端口**: `41641` (这是 Tailscale 默认首选端口，放行它能大幅减少掉线和延迟)
 * **方向**: 入站 (Inbound) 和 出站 (Outbound)
+
+---
+
+### 🧩 7. 自建 DERP 一键切换
+
+仓库内提供了一个跨平台 PowerShell 入口，可把当前设备切到你自己的 DERP 服务器，并在需要时恢复到应用前的普通 Tailscale 配置。
+
+#### 应用自建 DERP
+
+```powershell
+./scripts/pwsh/network/tailscale/Set-TailscaleDerp.ps1 -ServerIp 203.0.113.10
+```
+
+默认会生成受管 `derp.json`，并调用等价于：
+
+```powershell
+tailscale up --derp-map-url=file:///.../derp.json --tls-skip-verify
+```
+
+如果你需要自定义端口或 Region 元数据，也可以显式指定：
+
+```powershell
+./scripts/pwsh/network/tailscale/Set-TailscaleDerp.ps1 `
+  -ServerIp 203.0.113.10 `
+  -RegionId 900 `
+  -RegionCode cn-custom `
+  -NodeName cn-node `
+  -DerpPort 8443 `
+  -StunPort 3478
+```
+
+#### 取消并恢复默认行为
+
+```powershell
+./scripts/pwsh/network/tailscale/Set-TailscaleDerp.ps1 -Reset
+```
+
+这不会执行 `tailscale down`，而是按脚本保存的应用前基线配置执行恢复。
+
+#### 兼容性提醒
+
+如果当前 `tailscale` 客户端不支持 `--derp-map-url` 或 `--tls-skip-verify`，脚本会直接报错，并提示你升级或切换到支持这些 flag 的构建。
