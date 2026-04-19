@@ -20,6 +20,20 @@ model_list:
       model: "openai/claude-opus-4-6"
       api_base: "os.environ/NEWAPI_API_BASE"  # 从环境变量读 NewAPI 地址
       api_key: "os.environ/NEWAPI_KEY"        # 从环境变量读密钥
+  # 显式注册 GLM Coding Plan 主模型，便于 `/models` 稳定暴露官方模型名。
+  - model_name: "GLM-5.1"
+    litellm_params:
+      # 智谱 Coding Plan 走独立 OpenAI 兼容端点，继续复用 LiteLLM 的 OpenAI provider。
+      model: "openai/GLM-5.1"
+      api_base: "os.environ/Z_AI_CODING_API_BASE"  # 从环境变量读智谱 Coding Plan 地址
+      api_key: "os.environ/Z_AI_API_KEY"           # 从环境变量读智谱密钥
+  # 为其它官方 GLM 模型保留专属兜底，避免误落到最后的全局 `* -> NewAPI`。
+  - model_name: "GLM-*"
+    litellm_params:
+      # 由 LiteLLM 按请求中的官方模型名透传，例如 `GLM-4.7`。
+      model: "openai/GLM-*"
+      api_base: "os.environ/Z_AI_CODING_API_BASE"  # 从环境变量读智谱 Coding Plan 地址
+      api_key: "os.environ/Z_AI_API_KEY"           # 从环境变量读智谱密钥
   # 把 wildcard 路由放在最后，优先命中显式模型，其余上游模型再走透传兜底。
   - model_name: "*"
     litellm_params:

@@ -15,9 +15,12 @@ services:
       # 这样可以避免把 `.env.local` 中与 LiteLLM 无关的变量一并注入容器。
       # 通过 compose 插值保留当前默认数据库地址；start.ps1 会在存在 .env.local 时传入 --env-file 以支持本地覆盖。
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:12345678@host.docker.internal:5432/litellm}
-      # 当前本地配置走 NewAPI OpenAI 兼容接口；变量必须显式注入容器，LiteLLM 才能解析 os.environ/...。
+      # 当前本地配置同时走 NewAPI 与智谱 OpenAI 兼容接口；变量必须显式注入容器，LiteLLM 才能解析 os.environ/...。
       NEWAPI_API_BASE: ${NEWAPI_API_BASE:-}
       NEWAPI_KEY: ${NEWAPI_KEY:-}
+      # 智谱 GLM Coding Plan 走独立 OpenAI 兼容端点，默认指向官方专属地址。
+      Z_AI_CODING_API_BASE: ${Z_AI_CODING_API_BASE:-https://open.bigmodel.cn/api/coding/paas/v4}
+      Z_AI_API_KEY: ${Z_AI_API_KEY:-}
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-}
       # 保留旧变量，避免切回 qwen.yaml 等历史配置时还要额外补环境变量。
       DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}

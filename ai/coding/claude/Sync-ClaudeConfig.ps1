@@ -264,7 +264,67 @@ function Copy-DirectoryContents {
     }
 
     foreach ($item in Get-ChildItem -LiteralPath $SourcePath -Force) {
-        Copy-Item -LiteralPath $item.FullName -Destination (Join-Path $DestinationPath $item.Name) -Recurse -Force
+        Copy-FileSystemEntry -Item $item -DestinationPath (Join-Path $DestinationPath $item.Name)
+    }
+}
+
+function Copy-FileSystemEntry {
+    param(
+        [Parameter(Mandatory)]
+        [System.IO.FileSystemInfo]$Item,
+
+        [Parameter(Mandatory)]
+        [string]$DestinationPath
+    )
+
+    # 旧版 ~/.claude 整目录软链接里可能混入 runtime 生成的符号链接。
+    # 单独分流可避免 Copy-Item -Recurse 在失效链接上中断整个迁移。
+    if ($Item.Attributes.HasFlag([System.IO.FileAttributes]::ReparsePoint)) {
+        Copy-ReparsePointItem -Item $Item -DestinationPath $DestinationPath
+        return
+    }
+
+    if ($Item.PSIsContainer) {
+        if (-not (Test-Path -LiteralPath $DestinationPath)) {
+            New-Item -ItemType Directory -Path $DestinationPath -Force | Out-Null
+        }
+
+        Copy-DirectoryContents -SourcePath $Item.FullName -DestinationPath $DestinationPath
+        return
+    }
+
+    Copy-Item -LiteralPath $Item.FullName -Destination $DestinationPath -Force
+}
+
+function Copy-ReparsePointItem {
+    param(
+        [Parameter(Mandatory)]
+        [System.IO.FileSystemInfo]$Item,
+
+        [Parameter(Mandatory)]
+        [string]$DestinationPath
+    )
+
+    $linkTarget = Get-LinkTargetText -Item $Item
+    if ($Item.PSIsContainer) {
+        # 目录链接可能指向外部目录或形成环；迁移旧 ~/.claude 时跳过它们，
+        # 可以避免把整个备份流程拖进循环或无权限路径。
+        Write-Warning "备份时跳过目录链接：$($Item.FullName) -> $linkTarget"
+        return
+    }
+
+    try {
+        # 对文件链接优先复制当前可解析的内容，这样像 latest.log 之类的快捷入口
+        # 若仍然有效，就会在备份中落成普通文件；若链接已失效则只告警不失败。
+        Copy-Item -LiteralPath $Item.FullName -Destination $DestinationPath -Force -ErrorAction Stop
+    }
+    catch {
+        if ([string]::IsNullOrWhiteSpace($linkTarget)) {
+            Write-Warning "备份时跳过无法解析目标的链接：$($Item.FullName)"
+            return
+        }
+
+        Write-Warning "备份时跳过无法复制的链接：$($Item.FullName) -> $linkTarget。$($_.Exception.Message)"
     }
 }
 

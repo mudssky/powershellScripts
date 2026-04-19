@@ -77,3 +77,4 @@
 ## 参考
 
 - 相关文档：`../env.md`、`../apt.md`、`../server/caddy/caddy.md`、`../server/caddy/静态站点最佳实践.md`
+- 端口与容器暴露治理：`./container-port-exposure-hardening.md`
