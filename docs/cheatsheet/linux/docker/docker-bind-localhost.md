@@ -90,6 +90,32 @@ services:
 - `"5432:5432"` 通常会绑定到 `0.0.0.0` / `::`
 - `"127.0.0.1:5432:5432"` 只绑定到本机回环地址
 
+## 仓库内 `start-container.ps1` 怎么用
+
+如果你使用仓库里的统一入口，可以直接在 `config/dockerfiles/compose/.env.local` 中设置：
+
+```dotenv
+BIND_LOCALHOST=true
+```
+
+然后运行：
+
+```bash
+./scripts/pwsh/devops/start-container.ps1 -ServiceName postgre
+```
+
+也可以只对单次命令显式开启：
+
+```bash
+./scripts/pwsh/devops/start-container.ps1 -ServiceName gotify -BindLocalhost
+```
+
+如果你想临时覆盖 `.env.local` 中的开启状态，也可以显式关闭：
+
+```bash
+./scripts/pwsh/devops/start-container.ps1 -ServiceName derper -BindLocalhost:$false
+```
+
 ## 已有容器怎么改
 
 Docker 端口映射不是热修改项，通常需要重建容器。

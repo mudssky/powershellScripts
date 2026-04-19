@@ -88,3 +88,27 @@ Describe 'docker compose postgres defaults' {
         $postgreBlock | Should -Match 'pg_isready -U \$\{DEFAULT_USER:-postgres\}'
     }
 }
+
+Describe 'docker compose derper service' {
+    It 'derper service is available in the shared compose template' {
+        $composePath = Join-Path $script:RepoRoot 'config/dockerfiles/compose/docker-compose.yml'
+        $derperBlock = Get-ComposeServiceBlock -ComposePath $composePath -ServiceName 'derper'
+
+        $derperBlock | Should -Match 'image:\s+fredliang/derper'
+        $derperBlock | Should -Match 'DERP_ADDR:\s*"?\:8443"?'
+        $derperBlock | Should -Match 'DERP_STUN_PORT:\s*"?3478"?'
+        $derperBlock | Should -Match 'DERP_VERIFY_CLIENTS:\s*"?false"?'
+        $derperBlock | Should -Match '8443:8443'
+        $derperBlock | Should -Match '3478:3478/udp'
+        $derperBlock | Should -Match 'profiles:\s*\["derper"\]'
+    }
+}
+
+Describe 'Get-ComposeServiceNames' {
+    It 'lists derper after the compose file is updated' {
+        $composePath = Join-Path $script:RepoRoot 'config/dockerfiles/compose/docker-compose.yml'
+        $replicaComposePath = Join-Path $script:RepoRoot 'config/dockerfiles/compose/mongo-repl.compose.yml'
+
+        Get-ComposeServiceNames -ComposePath $composePath -ReplicaComposePath $replicaComposePath | Should -Contain 'derper'
+    }
+}

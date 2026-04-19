@@ -91,6 +91,7 @@
     - rustfs: RustFS对象存储服务
     - beszel: 轻量级服务器监控 Hub
     - gotify: 简单的消息推送服务器
+    - derper: Tailscale DERP/STUN 中继服务
     - open-webui: 适用于 LLM 的 WebUI
 
 .PARAMETER RestartPolicy
@@ -118,6 +119,11 @@
 
 .PARAMETER DefaultPassword
     默认密码，默认为"12345678"
+
+.PARAMETER BindLocalhost
+    控制宿主机端口是否只绑定到 `127.0.0.1`。
+    未显式传入时，脚本会读取 `config/dockerfiles/compose/.env.local` 中的 `BIND_LOCALHOST`；
+    若两者都未设置，则默认对外发布端口。
 
 .EXAMPLE
     .\start-container.ps1 -ServiceName redis
@@ -166,6 +172,14 @@
     .\start-container.ps1 -ServiceName new-api -PullAlways
     在 Compose v2 环境下通过 `up -d --pull always` 拉取并启动；在 legacy 环境自动回退为先拉取后启动
 
+.EXAMPLE
+    ./start-container.ps1 -ServiceName postgre -BindLocalhost
+    以 localhost 绑定模式启动 PostgreSQL，仅允许宿主机本机访问
+
+.EXAMPLE
+    ./start-container.ps1 -ServiceName derper -BindLocalhost:$false
+    即使 `.env.local` 中配置了 `BIND_LOCALHOST=true`，本次也显式恢复为对外发布端口
+
 .NOTES
     需要安装Docker
     脚本会自动创建必要的数据目录
@@ -202,6 +216,7 @@ param (
         "beszel", 
         "rustdesk", 
         "gotify",
+        "derper",
         "sillytavern",
         "open-webui"
     )]
@@ -222,6 +237,8 @@ param (
     [switch]$PullAlways,
     [string]$ProjectName,
     [string]$NetworkName,
+    [AllowNull()]
+    [Nullable[bool]]$BindLocalhost = $null,
     [hashtable]$Env,
     [switch]$UseEnvFile,
     [switch]$AskPass
@@ -280,6 +297,99 @@ function Get-DefaultProjectName {
     return $normalized
 }
 
+function ConvertTo-NullableBooleanPreference {
+    <#
+    .SYNOPSIS
+        将 CLI 或 env 中的布尔偏好统一解析为可空布尔值。
+
+    .DESCRIPTION
+        接受布尔值本身，以及 `true/false`、`1/0`、`yes/no`、`on/off` 这些字符串。
+        对非法值直接抛错，避免因为配置拼写错误导致端口暴露策略失真。
+
+    .PARAMETER Value
+        待解析的原始值，可为 `$null`、布尔值或字符串。
+
+    .PARAMETER SettingName
+        报错时使用的配置名称，便于定位问题来源。
+
+    .OUTPUTS
+        System.Nullable[System.Boolean]
+        返回解析后的布尔值；若未提供值则返回 `$null`。
+    #>
+    [CmdletBinding()]
+    param(
+        [AllowNull()]
+        [object]$Value,
+        [string]$SettingName
+    )
+
+    if ($null -eq $Value) {
+        return $null
+    }
+
+    if ($Value -is [bool]) {
+        return [bool]$Value
+    }
+
+    $normalized = ([string]$Value).Trim().ToLowerInvariant()
+    switch ($normalized) {
+        'true' { return $true }
+        '1' { return $true }
+        'yes' { return $true }
+        'on' { return $true }
+        'false' { return $false }
+        '0' { return $false }
+        'no' { return $false }
+        'off' { return $false }
+        default { throw "$SettingName 只能是 true/false、1/0、yes/no 或 on/off，当前值为: $Value" }
+    }
+}
+
+function Resolve-BindLocalhostPreference {
+    <#
+    .SYNOPSIS
+        解析本次 compose 调用是否启用 localhost 端口绑定。
+
+    .DESCRIPTION
+        优先使用 CLI 显式传入值；未传入时回退到 compose 配置来源中的 `BIND_LOCALHOST`；
+        两者都没有时默认返回 `$false`。
+
+    .PARAMETER CliBindLocalhost
+        通过命令行显式传入的绑定偏好；允许为 `$null` 以表示“不覆盖配置文件”。
+
+    .PARAMETER ComposeEnvironment
+        `Resolve-ServiceComposeConfiguration` 合并后的配置字典。
+
+    .OUTPUTS
+        System.Boolean
+        返回最终是否启用 localhost 绑定。
+    #>
+    [CmdletBinding()]
+    param(
+        [AllowNull()]
+        [Nullable[bool]]$CliBindLocalhost,
+        [hashtable]$ComposeEnvironment
+    )
+
+    if ($null -ne $CliBindLocalhost) {
+        return [bool]$CliBindLocalhost
+    }
+
+    $rawSetting = if ($ComposeEnvironment.ContainsKey('BIND_LOCALHOST')) {
+        $ComposeEnvironment.BIND_LOCALHOST
+    }
+    else {
+        $null
+    }
+
+    $resolved = ConvertTo-NullableBooleanPreference -Value $rawSetting -SettingName 'BIND_LOCALHOST'
+    if ($null -ne $resolved) {
+        return [bool]$resolved
+    }
+
+    return $false
+}
+
 $DataPath = Initialize-DataPath -Path $DataPath
 # 可以添加统一网络配置
 # $networkName = "dev-net"
@@ -308,6 +418,7 @@ function Invoke-DockerCompose {
     [CmdletBinding(SupportsShouldProcess = $true)]
     param(
         [string]$File,
+        [string[]]$AdditionalFiles,
         [string]$Project,
         [string[]]$Profiles,
         [string[]]$Services,
@@ -321,6 +432,13 @@ function Invoke-DockerCompose {
     $dcArgs = @()
     if ($mode -eq 'sub') { $dcArgs += 'compose' }
     if ($File) { $dcArgs += @('-f', $File) }
+    if ($AdditionalFiles) {
+        foreach ($additionalFile in $AdditionalFiles) {
+            if (-not [string]::IsNullOrWhiteSpace($additionalFile)) {
+                $dcArgs += @('-f', $additionalFile)
+            }
+        }
+    }
     if ($Project) { $dcArgs += @('-p', $Project) }
     if ($Profiles) { foreach ($p in $Profiles) { if (-not [string]::IsNullOrWhiteSpace($p)) { $dcArgs += @('--profile', $p) } } }
     if ($Action) { $dcArgs += ($Action -split ' ') }
@@ -513,6 +631,72 @@ function Get-LanIpAddress {
     }
 }
 
+function Get-ServiceAccessDisplayInfo {
+    <#
+    .SYNOPSIS
+        生成单个端口映射的用户可读访问信息。
+
+    .DESCRIPTION
+        统一处理 `0.0.0.0`、`::`、`127.0.0.1` 与 `::1` 这些常见绑定地址，
+        保证 localhost 模式下不再误导性输出局域网访问地址。
+
+    .PARAMETER HostIp
+        `docker port` 返回的宿主机监听地址。
+
+    .PARAMETER HostPort
+        `docker port` 返回的宿主机端口。
+
+    .PARAMETER ContainerPort
+        容器内部端口。
+
+    .PARAMETER Protocol
+        端口协议，例如 `tcp` 或 `udp`。
+
+    .PARAMETER LanIp
+        当前宿主机推断出的局域网 IPv4 地址。
+
+    .OUTPUTS
+        PSCustomObject
+        返回 `Local` 与 `Lan` 两个已格式化的访问地址。
+    #>
+    [CmdletBinding()]
+    param(
+        [string]$HostIp,
+        [string]$HostPort,
+        [string]$ContainerPort,
+        [string]$Protocol,
+        [string]$LanIp
+    )
+
+    $isBindAll = ($HostIp -eq '0.0.0.0' -or $HostIp -eq '::')
+    $isLoopback = ($HostIp -eq '127.0.0.1' -or $HostIp -eq '::1')
+    $displayHost = if ($isBindAll -or $isLoopback) { 'localhost' } else { $HostIp }
+
+    $formatUrl = {
+        param($ip, $port, $cPort, $proto)
+        $u = "${ip}:${port}"
+        if ($proto -eq 'tcp') {
+            if ($cPort -eq '80' -or $cPort -match '^(3000|5000|8000|8080|8888|9000|9999)$') {
+                return "http://$u"
+            }
+            elseif ($cPort -eq '443') {
+                return "https://$u"
+            }
+        }
+        return $u
+    }
+
+    $lanUrl = $null
+    if ($isBindAll -and -not [string]::IsNullOrWhiteSpace($LanIp) -and $LanIp -ne '127.0.0.1') {
+        $lanUrl = & $formatUrl -ip $LanIp -port $HostPort -cPort $ContainerPort -proto $Protocol
+    }
+
+    return [pscustomobject]@{
+        Local = (& $formatUrl -ip $displayHost -port $HostPort -cPort $ContainerPort -proto $Protocol)
+        Lan   = $lanUrl
+    }
+}
+
 function Show-ServiceAccessInfo {
     param(
         [string[]]$Services,
@@ -551,32 +735,17 @@ function Show-ServiceAccessInfo {
                         $proto = $Matches[2]
                         $hostIp = $Matches[3]
                         $hostPort = $Matches[4]
-                        
-                        $isBindAll = ($hostIp -eq '0.0.0.0' -or $hostIp -eq '::')
-                        if ($isBindAll) { $hostIp = 'localhost' }
-                        
-                        # Helper closure for formatting URL
-                        $formatUrl = {
-                            param($ip, $port, $cPort, $proto)
-                            $u = "${ip}:${port}"
-                            if ($proto -eq 'tcp') {
-                                if ($cPort -eq '80' -or $cPort -match '^(3000|5000|8000|8080|8888|9000|9999)$') {
-                                    return "http://$u"
-                                }
-                                elseif ($cPort -eq '443') {
-                                    return "https://$u"
-                                }
-                            }
-                            return $u
-                        }
-
-                        $localUrl = & $formatUrl -ip $hostIp -port $hostPort -cPort $containerPort -proto $proto
+                        $accessInfo = Get-ServiceAccessDisplayInfo `
+                            -HostIp $hostIp `
+                            -HostPort $hostPort `
+                            -ContainerPort $containerPort `
+                            -Protocol $proto `
+                            -LanIp $lanIp
                         Write-Host "  - Port $containerPort/$proto"
-                        Write-Host "    Local: $localUrl"
+                        Write-Host "    Local: $($accessInfo.Local)"
                         
-                        if ($isBindAll -and -not [string]::IsNullOrWhiteSpace($lanIp) -and $lanIp -ne '127.0.0.1') {
-                            $lanUrl = & $formatUrl -ip $lanIp -port $hostPort -cPort $containerPort -proto $proto
-                            Write-Host "    LAN:   $lanUrl"
+                        if (-not [string]::IsNullOrWhiteSpace($accessInfo.Lan)) {
+                            Write-Host "    LAN:   $($accessInfo.Lan)"
                         }
                     }
                     else {
@@ -614,6 +783,204 @@ function Get-ComposeServiceNames {
     $result = @($names | Sort-Object -Unique)
     if (Test-Path $ReplicaComposePath) { $result += 'mongodb-replica' }
     $result | Sort-Object -Unique
+}
+
+function Get-ComposeServiceDefinitionText {
+    <#
+    .SYNOPSIS
+        读取 compose 文件中的单个服务定义块。
+
+    .DESCRIPTION
+        按仓库当前受控的 YAML 缩进格式截取服务文本，
+        供端口重写和静态分析逻辑复用，避免为这类受限格式引入完整 YAML 解析依赖。
+
+    .PARAMETER ComposePath
+        基础 compose 文件路径。
+
+    .PARAMETER ServiceName
+        需要读取的服务名。
+
+    .OUTPUTS
+        System.String
+        服务定义对应的原始文本块。
+    #>
+    [CmdletBinding()]
+    param(
+        [string]$ComposePath,
+        [string]$ServiceName
+    )
+
+    $lines = Get-Content -LiteralPath $ComposePath
+    $startIndex = -1
+    for ($index = 0; $index -lt $lines.Count; $index++) {
+        if ($lines[$index] -match "^\s{2}$([regex]::Escape($ServiceName)):\s*$") {
+            $startIndex = $index
+            break
+        }
+    }
+
+    if ($startIndex -lt 0) {
+        throw "未找到 compose 服务块: $ServiceName"
+    }
+
+    $blockLines = New-Object 'System.Collections.Generic.List[string]'
+    for ($index = $startIndex; $index -lt $lines.Count; $index++) {
+        if ($index -gt $startIndex -and $lines[$index] -match '^\s{2}[A-Za-z0-9\-_]+:\s*$') {
+            break
+        }
+
+        $blockLines.Add($lines[$index])
+    }
+
+    return ($blockLines -join "`n")
+}
+
+function Get-ComposeServicePortMappings {
+    <#
+    .SYNOPSIS
+        提取 compose 服务块中可重写的端口映射。
+
+    .DESCRIPTION
+        仅支持仓库当前实际使用的两类 `ports:` 写法：
+        行内数组写法与多行字符串列表写法。若命中 `network_mode: host`，
+        会直接抛错，明确告知 localhost 绑定不适用于该服务。
+
+    .PARAMETER ComposePath
+        基础 compose 文件路径。
+
+    .PARAMETER ServiceName
+        需要提取端口映射的服务名。
+
+    .OUTPUTS
+        System.String[]
+        服务定义中的宿主机端口映射字符串。
+    #>
+    [CmdletBinding()]
+    param(
+        [string]$ComposePath,
+        [string]$ServiceName
+    )
+
+    $block = Get-ComposeServiceDefinitionText -ComposePath $ComposePath -ServiceName $ServiceName
+    if ($block -match '(?m)^\s{4}network_mode:\s*host\s*$') {
+        throw "服务 $ServiceName 使用 network_mode: host，-BindLocalhost 只支持 ports: 服务"
+    }
+
+    $blockLines = $block -split '\r?\n'
+    $inlinePortLine = $blockLines | Where-Object { $_ -match '^\s{4}ports:\s*\[(.+)\]\s*$' } | Select-Object -First 1
+    if ($null -ne $inlinePortLine) {
+        $inlineMatch = [regex]::Match($inlinePortLine, '^\s{4}ports:\s*\[(.+)\]\s*$')
+        return @(($inlineMatch.Groups[1].Value -split ',') | ForEach-Object {
+            $_.Trim().Trim('"').Trim("'")
+        } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    }
+
+    $portStartIndex = -1
+    for ($index = 0; $index -lt $blockLines.Count; $index++) {
+        if ($blockLines[$index] -match '^\s{4}ports:\s*$') {
+            $portStartIndex = $index
+            break
+        }
+    }
+
+    if ($portStartIndex -lt 0) {
+        return @()
+    }
+
+    $mappings = New-Object 'System.Collections.Generic.List[string]'
+    for ($index = $portStartIndex + 1; $index -lt $blockLines.Count; $index++) {
+        $line = $blockLines[$index]
+        if ($line -match '^\s{4}[A-Za-z0-9\-_]+:\s*$') {
+            break
+        }
+
+        if ($line -match '^\s{6}-\s*"?([^"\r\n]+)"?\s*$') {
+            $mappings.Add($Matches[1].Trim())
+            continue
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($line) -and $line -notmatch '^\s*$') {
+            throw "服务 $ServiceName 包含暂不支持的 ports: 行格式: $line"
+        }
+    }
+
+    return @($mappings.ToArray())
+}
+
+function Convert-PortMappingToLocalhost {
+    <#
+    .SYNOPSIS
+        将宿主机端口映射转换为 localhost 绑定形式。
+
+    .DESCRIPTION
+        仅接受当前仓库模板里使用的简单 `host:container` 与 `host:container/protocol` 格式，
+        避免在不明确的映射语法上做静默推断。
+
+    .PARAMETER Mapping
+        原始端口映射字符串。
+
+    .OUTPUTS
+        System.String
+        加上 `127.0.0.1:` 前缀后的端口映射。
+    #>
+    [CmdletBinding()]
+    param([string]$Mapping)
+
+    if ([string]::IsNullOrWhiteSpace($Mapping)) {
+        throw '端口映射不能为空'
+    }
+
+    if ($Mapping -match '^\d+:\d+(/\w+)?$') {
+        return "127.0.0.1:$Mapping"
+    }
+
+    throw "暂不支持的 ports 映射格式: $Mapping"
+}
+
+function New-LocalhostComposeOverrideFile {
+    <#
+    .SYNOPSIS
+        为目标服务生成一次性的 localhost override compose 文件。
+
+    .DESCRIPTION
+        通过追加一个临时 compose 文件覆写指定服务的 `ports:`，
+        让现有基础模板在不改默认暴露策略的前提下支持本次调用的 localhost 绑定。
+
+    .PARAMETER ComposePath
+        基础 compose 文件路径。
+
+    .PARAMETER ServiceNames
+        需要改写端口映射的服务名集合。
+
+    .OUTPUTS
+        System.String
+        临时 override compose 文件路径。
+    #>
+    [CmdletBinding()]
+    param(
+        [string]$ComposePath,
+        [string[]]$ServiceNames
+    )
+
+    $overrideLines = New-Object 'System.Collections.Generic.List[string]'
+    $overrideLines.Add('services:')
+
+    foreach ($serviceName in $ServiceNames) {
+        $portMappings = @(Get-ComposeServicePortMappings -ComposePath $ComposePath -ServiceName $serviceName)
+        if ($portMappings.Count -eq 0) {
+            throw "服务 $serviceName 没有可改写的 ports: 配置"
+        }
+
+        $overrideLines.Add("  ${serviceName}:")
+        $overrideLines.Add('    ports:')
+        foreach ($mapping in $portMappings) {
+            $overrideLines.Add("      - `"$((Convert-PortMappingToLocalhost -Mapping $mapping))`"")
+        }
+    }
+
+    $overridePath = Join-Path ([System.IO.Path]::GetTempPath()) ("start-container.localhost.override.{0}.yml" -f ([System.Guid]::NewGuid().ToString('N')))
+    Set-Content -LiteralPath $overridePath -Value ($overrideLines -join [Environment]::NewLine) -Encoding utf8NoBOM
+    return $overridePath
 }
 
 function Get-ServiceDefaultUser {
@@ -702,6 +1069,8 @@ function Get-ServiceConfigDefaults {
         DATA_PATH            = $DataPath
         DEFAULT_USER         = $resolvedDefaultUser
         DEFAULT_PASSWORD     = $DefaultPassword
+        # 默认保持当前对外发布行为，只有显式配置时才切到 localhost 绑定。
+        BIND_LOCALHOST       = $false
         RESTART_POLICY       = $RestartPolicy
         COMPOSE_PROJECT_NAME = $ProjectName
     }
@@ -821,6 +1190,7 @@ try {
         -RestartPolicy $RestartPolicy `
         -ProjectName $projectName
     $composeEnvironment = $composeConfig.Values
+    $bindLocalhostEnabled = Resolve-BindLocalhostPreference -CliBindLocalhost $BindLocalhost -ComposeEnvironment $composeEnvironment
     $projectName = [string]$composeEnvironment.COMPOSE_PROJECT_NAME
 
     if ($List) {
@@ -837,6 +1207,10 @@ try {
     Initialize-ServiceEnvironment -ServiceName $ServiceName -DataPath $DataPath
 
     if ($ServiceName -eq 'mongodb-replica' -and (Test-Path $mongoReplComposePath)) {
+        if ($bindLocalhostEnabled) {
+            Write-Warning 'mongodb-replica 当前仍使用独立 compose 分支，暂不支持 -BindLocalhost。'
+        }
+
         if ($PSBoundParameters.ContainsKey('DataPath')) { ${env:DOCKER_DATA_PATH} = $DataPath }
         if ($PSBoundParameters.ContainsKey('DefaultUser')) { ${env:MONGO_USER} = $DefaultUser }
         if ($PSBoundParameters.ContainsKey('DefaultPassword')) { ${env:MONGO_PASSWORD} = $plainPwd }
@@ -857,91 +1231,106 @@ try {
             $targetProfiles = @('rustdesk-hbbs', 'rustdesk-hbbr')
         }
 
-        if ($Update) {
-            $databaseWarning = Get-DatabaseStateWarningMessage -ServiceName $ServiceName -DataPath $composeEnvironment.DATA_PATH
-            if (-not [string]::IsNullOrWhiteSpace($databaseWarning)) { Write-Warning $databaseWarning }
-            Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'pull' -Environment $composeEnvironment -DryRun:$DryRun
-            Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'up -d' -Environment $composeEnvironment -DryRun:$DryRun
-            if (-not $DryRun -and -not $WhatIfPreference -and $ServiceName) {
-                # 简单检查每个服务
-                foreach ($tp in $targetProfiles) {
-                    [void](Wait-ServiceHealthy -Service $tp -Project $projectName)
-                }
-                Show-RustDeskInfo -ServiceName $ServiceName -DataPath $DataPath
-                Show-ServiceAccessInfo -Services $targetProfiles -ProjectName $projectName
-            }
-            return
-        }
-        if ($PullAlways) {
-            $modeForUp = Test-DockerAvailable
-            if ($modeForUp -eq 'sub') {
-                $databaseWarning = Get-DatabaseStateWarningMessage -ServiceName $ServiceName -DataPath $composeEnvironment.DATA_PATH
-                if (-not [string]::IsNullOrWhiteSpace($databaseWarning)) { Write-Warning $databaseWarning }
-                Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'up -d' -ExtraArgs @('--pull', 'always') -Environment $composeEnvironment -DryRun:$DryRun
-                if (-not $DryRun -and -not $WhatIfPreference -and $ServiceName) {
-                    foreach ($tp in $targetProfiles) {
-                        [void](Wait-ServiceHealthy -Service $tp -Project $projectName)
-                    }
-                    Show-RustDeskInfo -ServiceName $ServiceName -DataPath $DataPath
-                    Show-ServiceAccessInfo -Services $targetProfiles -ProjectName $projectName
-                }
-            }
-            else {
-                $databaseWarning = Get-DatabaseStateWarningMessage -ServiceName $ServiceName -DataPath $composeEnvironment.DATA_PATH
-                if (-not [string]::IsNullOrWhiteSpace($databaseWarning)) { Write-Warning $databaseWarning }
-                Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'pull' -Environment $composeEnvironment -DryRun:$DryRun
-                Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'up -d' -Environment $composeEnvironment -DryRun:$DryRun
-                if (-not $DryRun -and -not $WhatIfPreference -and $ServiceName) {
-                    foreach ($tp in $targetProfiles) {
-                        [void](Wait-ServiceHealthy -Service $tp -Project $projectName)
-                    }
-                    Show-RustDeskInfo -ServiceName $ServiceName -DataPath $DataPath
-                    Show-ServiceAccessInfo -Services $targetProfiles -ProjectName $projectName
-                }
-            }
-            return
-        }
-        if ($Down) {
-            if ($ServiceName) {
-                # 针对组合服务，需要找出实际的服务名（通常与profile同名）
-                # 这里假设 profile 名即为 service 名，或者在 docker-compose 中 profile 和 service 是一一对应的
-                Invoke-DockerCompose -File $composePath -Project $projectName -Action 'stop' -Services $targetProfiles -Environment $composeEnvironment -DryRun:$DryRun
-                Invoke-DockerCompose -File $composePath -Project $projectName -Action 'rm -f -s' -Services $targetProfiles -Environment $composeEnvironment -DryRun:$DryRun
-            }
-            else {
-                Invoke-DockerCompose -File $composePath -Project $projectName -Action 'down' -Environment $composeEnvironment -DryRun:$DryRun
-            }
-            return
-        }
-        if ($Pull) {
-            Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'pull' -Environment $composeEnvironment -DryRun:$DryRun
-            return
-        }
-        if ($Build) {
-            Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'build' -Environment $composeEnvironment -DryRun:$DryRun
-            return
-        }
-        
-        # 检查服务是否存在 (对于 suite，只要不是未定义即可，这里稍微放宽检查或者针对 suite 特殊处理)
-        $isValidService = ($available -contains $ServiceName)
-        if ($ServiceName -eq 'beszel-suite' -or $ServiceName -eq 'rustdesk') { $isValidService = $true }
+        $additionalComposeFiles = @()
+        $localhostOverridePath = $null
 
-        if ($isValidService) {
-            $databaseWarning = Get-DatabaseStateWarningMessage -ServiceName $ServiceName -DataPath $composeEnvironment.DATA_PATH
-            if (-not [string]::IsNullOrWhiteSpace($databaseWarning)) { Write-Warning $databaseWarning }
-            Invoke-DockerCompose -File $composePath -Project $projectName -Profiles $targetProfiles -Action 'up -d' -Environment $composeEnvironment -DryRun:$DryRun
-            if (-not $DryRun -and -not $WhatIfPreference) {
-                foreach ($tp in $targetProfiles) {
-                    [void](Wait-ServiceHealthy -Service $tp -Project $projectName)
-                }
-                Show-RustDeskInfo -ServiceName $ServiceName -DataPath $DataPath
-                Show-ServiceAccessInfo -Services $targetProfiles -ProjectName $projectName
+        try {
+            if ($bindLocalhostEnabled -and $ServiceName) {
+                $localhostOverridePath = New-LocalhostComposeOverrideFile -ComposePath $composePath -ServiceNames $targetProfiles
+                $additionalComposeFiles += $localhostOverridePath
             }
-            return
+
+            if ($Update) {
+                $databaseWarning = Get-DatabaseStateWarningMessage -ServiceName $ServiceName -DataPath $composeEnvironment.DATA_PATH
+                if (-not [string]::IsNullOrWhiteSpace($databaseWarning)) { Write-Warning $databaseWarning }
+                Invoke-DockerCompose -File $composePath -AdditionalFiles $additionalComposeFiles -Project $projectName -Profiles $targetProfiles -Action 'pull' -Environment $composeEnvironment -DryRun:$DryRun
+                Invoke-DockerCompose -File $composePath -AdditionalFiles $additionalComposeFiles -Project $projectName -Profiles $targetProfiles -Action 'up -d' -Environment $composeEnvironment -DryRun:$DryRun
+                if (-not $DryRun -and -not $WhatIfPreference -and $ServiceName) {
+                    # 简单检查每个服务
+                    foreach ($tp in $targetProfiles) {
+                        [void](Wait-ServiceHealthy -Service $tp -Project $projectName)
+                    }
+                    Show-RustDeskInfo -ServiceName $ServiceName -DataPath $DataPath
+                    Show-ServiceAccessInfo -Services $targetProfiles -ProjectName $projectName
+                }
+                return
+            }
+            if ($PullAlways) {
+                $modeForUp = Test-DockerAvailable
+                if ($modeForUp -eq 'sub') {
+                    $databaseWarning = Get-DatabaseStateWarningMessage -ServiceName $ServiceName -DataPath $composeEnvironment.DATA_PATH
+                    if (-not [string]::IsNullOrWhiteSpace($databaseWarning)) { Write-Warning $databaseWarning }
+                    Invoke-DockerCompose -File $composePath -AdditionalFiles $additionalComposeFiles -Project $projectName -Profiles $targetProfiles -Action 'up -d' -ExtraArgs @('--pull', 'always') -Environment $composeEnvironment -DryRun:$DryRun
+                    if (-not $DryRun -and -not $WhatIfPreference -and $ServiceName) {
+                        foreach ($tp in $targetProfiles) {
+                            [void](Wait-ServiceHealthy -Service $tp -Project $projectName)
+                        }
+                        Show-RustDeskInfo -ServiceName $ServiceName -DataPath $DataPath
+                        Show-ServiceAccessInfo -Services $targetProfiles -ProjectName $projectName
+                    }
+                }
+                else {
+                    $databaseWarning = Get-DatabaseStateWarningMessage -ServiceName $ServiceName -DataPath $composeEnvironment.DATA_PATH
+                    if (-not [string]::IsNullOrWhiteSpace($databaseWarning)) { Write-Warning $databaseWarning }
+                    Invoke-DockerCompose -File $composePath -AdditionalFiles $additionalComposeFiles -Project $projectName -Profiles $targetProfiles -Action 'pull' -Environment $composeEnvironment -DryRun:$DryRun
+                    Invoke-DockerCompose -File $composePath -AdditionalFiles $additionalComposeFiles -Project $projectName -Profiles $targetProfiles -Action 'up -d' -Environment $composeEnvironment -DryRun:$DryRun
+                    if (-not $DryRun -and -not $WhatIfPreference -and $ServiceName) {
+                        foreach ($tp in $targetProfiles) {
+                            [void](Wait-ServiceHealthy -Service $tp -Project $projectName)
+                        }
+                        Show-RustDeskInfo -ServiceName $ServiceName -DataPath $DataPath
+                        Show-ServiceAccessInfo -Services $targetProfiles -ProjectName $projectName
+                    }
+                }
+                return
+            }
+            if ($Down) {
+                if ($ServiceName) {
+                    # 针对组合服务，需要找出实际的服务名（通常与profile同名）
+                    # 这里假设 profile 名即为 service 名，或者在 docker-compose 中 profile 和 service 是一一对应的
+                    Invoke-DockerCompose -File $composePath -AdditionalFiles $additionalComposeFiles -Project $projectName -Action 'stop' -Services $targetProfiles -Environment $composeEnvironment -DryRun:$DryRun
+                    Invoke-DockerCompose -File $composePath -AdditionalFiles $additionalComposeFiles -Project $projectName -Action 'rm -f -s' -Services $targetProfiles -Environment $composeEnvironment -DryRun:$DryRun
+                }
+                else {
+                    Invoke-DockerCompose -File $composePath -AdditionalFiles $additionalComposeFiles -Project $projectName -Action 'down' -Environment $composeEnvironment -DryRun:$DryRun
+                }
+                return
+            }
+            if ($Pull) {
+                Invoke-DockerCompose -File $composePath -AdditionalFiles $additionalComposeFiles -Project $projectName -Profiles $targetProfiles -Action 'pull' -Environment $composeEnvironment -DryRun:$DryRun
+                return
+            }
+            if ($Build) {
+                Invoke-DockerCompose -File $composePath -AdditionalFiles $additionalComposeFiles -Project $projectName -Profiles $targetProfiles -Action 'build' -Environment $composeEnvironment -DryRun:$DryRun
+                return
+            }
+            
+            # 检查服务是否存在 (对于 suite，只要不是未定义即可，这里稍微放宽检查或者针对 suite 特殊处理)
+            $isValidService = ($available -contains $ServiceName)
+            if ($ServiceName -eq 'beszel-suite' -or $ServiceName -eq 'rustdesk') { $isValidService = $true }
+
+            if ($isValidService) {
+                $databaseWarning = Get-DatabaseStateWarningMessage -ServiceName $ServiceName -DataPath $composeEnvironment.DATA_PATH
+                if (-not [string]::IsNullOrWhiteSpace($databaseWarning)) { Write-Warning $databaseWarning }
+                Invoke-DockerCompose -File $composePath -AdditionalFiles $additionalComposeFiles -Project $projectName -Profiles $targetProfiles -Action 'up -d' -Environment $composeEnvironment -DryRun:$DryRun
+                if (-not $DryRun -and -not $WhatIfPreference) {
+                    foreach ($tp in $targetProfiles) {
+                        [void](Wait-ServiceHealthy -Service $tp -Project $projectName)
+                    }
+                    Show-RustDeskInfo -ServiceName $ServiceName -DataPath $DataPath
+                    Show-ServiceAccessInfo -Services $targetProfiles -ProjectName $projectName
+                }
+                return
+            }
+            else {
+                $suggest = @($available | Where-Object { $_ -like "*${ServiceName}*" })
+                if ($suggest.Count -gt 0) { throw "未找到服务: $ServiceName, 是否指: $($suggest -join ', ')" }
+            }
         }
-        else {
-            $suggest = @($available | Where-Object { $_ -like "*${ServiceName}*" })
-            if ($suggest.Count -gt 0) { throw "未找到服务: $ServiceName, 是否指: $($suggest -join ', ')" }
+        finally {
+            if (-not [string]::IsNullOrWhiteSpace($localhostOverridePath) -and (Test-Path -LiteralPath $localhostOverridePath)) {
+                Remove-Item -LiteralPath $localhostOverridePath -Force -ErrorAction SilentlyContinue
+            }
         }
     }
 

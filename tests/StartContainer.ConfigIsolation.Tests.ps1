@@ -67,6 +67,44 @@ Describe 'Resolve-ServiceComposeConfiguration' {
     }
 }
 
+Describe 'Resolve-BindLocalhostPreference' {
+    It 'reads BIND_LOCALHOST from .env.local when CLI does not override it' {
+        $composeDir = Join-Path $TestDrive 'compose-bind-localhost'
+        New-Item -ItemType Directory -Path $composeDir -Force | Out-Null
+        Set-Content -Path (Join-Path $composeDir '.env.local') -Value 'BIND_LOCALHOST=true'
+
+        $config = Resolve-ServiceComposeConfiguration `
+            -ServiceName 'redis' `
+            -ComposeDir $composeDir `
+            -CliEnv @{} `
+            -DataPath '/tmp/docker-data' `
+            -DefaultUser '' `
+            -DefaultPassword '12345678' `
+            -RestartPolicy 'unless-stopped' `
+            -ProjectName 'dev-redis'
+
+        $config.Values.BIND_LOCALHOST | Should -Be 'true'
+        $config.Sources.BIND_LOCALHOST | Should -Be '.env.local'
+        (Resolve-BindLocalhostPreference -CliBindLocalhost $null -ComposeEnvironment $config.Values) | Should -Be $true
+    }
+
+    It 'lets an explicit CLI false override .env.local true' {
+        $resolved = Resolve-BindLocalhostPreference `
+            -CliBindLocalhost $false `
+            -ComposeEnvironment @{ BIND_LOCALHOST = 'true' }
+
+        $resolved | Should -Be $false
+    }
+
+    It 'throws on invalid BIND_LOCALHOST values' {
+        {
+            Resolve-BindLocalhostPreference `
+                -CliBindLocalhost $null `
+                -ComposeEnvironment @{ BIND_LOCALHOST = 'sometimes' }
+        } | Should -Throw '*BIND_LOCALHOST*'
+    }
+}
+
 Describe 'Invoke-DockerCompose' {
     It 'does not leak scoped env values after a dry run' {
         Remove-Item Env:\DEFAULT_USER -ErrorAction SilentlyContinue
