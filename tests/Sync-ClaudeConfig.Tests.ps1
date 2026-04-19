@@ -176,6 +176,40 @@ Describe 'Sync-ClaudeConfig' {
         Test-Path -LiteralPath (Join-Path $script:GlobalClaudePath 'settings.json') | Should -BeTrue
     }
 
+    It 'migrates legacy symlink directories even when runtime data contains broken symbolic links' {
+        & $script:WriteTestJson -Path (Join-Path $script:SourceRoot 'config/settings.json') -Value @{
+            env = @{
+                API_TIMEOUT_MS = '3000'
+            }
+        }
+
+        $legacyManagedRoot = Join-Path $script:SourceRoot '.claude'
+        $brokenLinkPath = Join-Path $legacyManagedRoot 'debug/latest'
+        $missingDebugFile = Join-Path $legacyManagedRoot 'debug/missing-session.txt'
+
+        New-Item -ItemType Directory -Path (Join-Path $legacyManagedRoot 'debug') -Force | Out-Null
+        New-Item -ItemType Directory -Path (Split-Path -Parent $script:GlobalClaudePath) -Force | Out-Null
+
+        try {
+            # 这里故意创建一个失效符号链接，用来复现用户目录里已有运行态快捷入口时的迁移问题。
+            New-Item -ItemType SymbolicLink -Path $brokenLinkPath -Target $missingDebugFile | Out-Null
+            New-Item -ItemType SymbolicLink -Path $script:GlobalClaudePath -Target $legacyManagedRoot | Out-Null
+        }
+        catch {
+            Set-ItResult -Skipped -Because "当前环境无法稳定创建符号链接：$($_.Exception.Message)"
+            return
+        }
+
+        Set-Content -Path (Join-Path $script:GlobalClaudePath 'history.jsonl') -Value 'runtime-history' -Encoding utf8NoBOM
+
+        { & $script:SyncScriptPath -SourceRoot $script:SourceRoot -GlobalClaudePath $script:GlobalClaudePath -BackupRoot $script:BackupRoot } | Should -Not -Throw
+
+        $targetItem = Get-Item -LiteralPath $script:GlobalClaudePath -Force
+        $targetItem.Attributes.HasFlag([System.IO.FileAttributes]::ReparsePoint) | Should -BeFalse
+        Test-Path -LiteralPath (Join-Path $script:GlobalClaudePath 'history.jsonl') | Should -BeTrue
+        Test-Path -LiteralPath (Join-Path $script:GlobalClaudePath 'settings.json') | Should -BeTrue
+    }
+
     It 'removes stale managed files without deleting unmanaged files in the same directory' {
         & $script:WriteTestJson -Path (Join-Path $script:SourceRoot 'config/settings.json') -Value @{
             env = @{
