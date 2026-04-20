@@ -46,6 +46,32 @@ Describe 'Convert-TailscalePathToFileUri' {
     }
 }
 
+Describe 'Get-TailscaleCliCommandSpec' {
+    It 'uses the standalone macOS app binary in CLI mode when the resolved command is a symlink to it' {
+        $spec = Get-TailscaleCliCommandSpec `
+            -IsMacPlatform $true `
+            -MacAppPath '/Applications/Tailscale.app/Contents/MacOS/Tailscale' `
+            -MacAppExists $true `
+            -ResolvedCliPath '/usr/local/bin/tailscale' `
+            -ResolvedCliLinkTarget '/Applications/Tailscale.app/Contents/MacOS/Tailscale'
+
+        $spec.CommandPath | Should -Be '/Applications/Tailscale.app/Contents/MacOS/Tailscale'
+        $spec.Environment['TAILSCALE_BE_CLI'] | Should -Be '1'
+    }
+
+    It 'keeps the resolved command on macOS when it is not the crashing app symlink path' {
+        $spec = Get-TailscaleCliCommandSpec `
+            -IsMacPlatform $true `
+            -MacAppPath '/Applications/Tailscale.app/Contents/MacOS/Tailscale' `
+            -MacAppExists $true `
+            -ResolvedCliPath '/opt/homebrew/bin/tailscale' `
+            -ResolvedCliLinkTarget ''
+
+        $spec.CommandPath | Should -Be '/opt/homebrew/bin/tailscale'
+        $spec.Environment.Count | Should -Be 0
+    }
+}
+
 Describe 'New-TailscaleDerpMapJson' {
     It 'builds the expected single-region DERP map document' {
         $json = New-TailscaleDerpMapJson `
@@ -91,6 +117,65 @@ Describe 'Convert-TailscalePrefsToRestoreArgs' {
         $args | Should -Contain '--snat-subnet-routes=false'
     }
 
+    It 'omits unsupported flags when the current setting is already at its default value' {
+        $prefs = [pscustomobject]@{
+            ControlURL             = 'https://controlplane.tailscale.com'
+            CorpDNS                = $true
+            RouteAll               = $true
+            ExitNodeIP             = ''
+            ExitNodeAllowLANAccess = $false
+            RunSSH                 = $false
+            ShieldsUp              = $false
+            Hostname               = ''
+            AdvertiseRoutes        = @()
+            AdvertiseTags          = @()
+            NoSNAT                 = $false
+        }
+
+        $args = Convert-TailscalePrefsToRestoreArgs `
+            -Prefs $prefs `
+            -SupportedUpFlags @(
+                '--login-server',
+                '--accept-dns',
+                '--accept-routes',
+                '--exit-node-allow-lan-access',
+                '--ssh',
+                '--shields-up'
+            )
+
+        $args | Should -Not -Contain '--snat-subnet-routes=true'
+        $args | Should -Contain '--accept-routes=true'
+    }
+
+    It 'throws when an unsupported flag is required to preserve a non-default setting' {
+        $prefs = [pscustomobject]@{
+            ControlURL             = 'https://controlplane.tailscale.com'
+            CorpDNS                = $true
+            RouteAll               = $false
+            ExitNodeIP             = ''
+            ExitNodeAllowLANAccess = $false
+            RunSSH                 = $false
+            ShieldsUp              = $false
+            Hostname               = ''
+            AdvertiseRoutes        = @()
+            AdvertiseTags          = @()
+            NoSNAT                 = $true
+        }
+
+        {
+            Convert-TailscalePrefsToRestoreArgs `
+                -Prefs $prefs `
+                -SupportedUpFlags @(
+                    '--login-server',
+                    '--accept-dns',
+                    '--accept-routes',
+                    '--exit-node-allow-lan-access',
+                    '--ssh',
+                    '--shields-up'
+                )
+        } | Should -Throw '*snat-subnet-routes*当前 CLI/平台不支持*'
+    }
+
     It 'throws when an unsupported non-default preference would be lost on restore' {
         $prefs = [pscustomobject]@{
             ControlURL             = 'https://controlplane.tailscale.com'
@@ -113,6 +198,32 @@ Describe 'Convert-TailscalePrefsToRestoreArgs' {
     }
 }
 
+Describe 'Get-TailscaleUpSupportedFlags' {
+    It 'parses supported flag names from tailscale up help output even when pwsh injects stderr wrapper lines' {
+        Mock -CommandName Invoke-TailscaleCli -MockWith {
+            return [pscustomobject]@{
+                ExitCode    = 0
+                CommandPath = '/Applications/Tailscale.app/Contents/MacOS/Tailscale'
+                Output      = @(
+                    'Connect to Tailscale, logging in if needed'
+                    'System.Management.Automation.RemoteException'
+                    'FLAGS'
+                    '  --accept-dns, --accept-dns=false'
+                    '  --accept-routes, --accept-routes=false'
+                    'System.Management.Automation.RemoteException'
+                    '  --login-server value'
+                )
+            }
+        }
+
+        $flags = Get-TailscaleUpSupportedFlags
+
+        $flags | Should -Contain '--accept-dns'
+        $flags | Should -Contain '--accept-routes'
+        $flags | Should -Contain '--login-server'
+    }
+}
+
 Describe 'Save-TailscaleDerpState / Read-TailscaleDerpState' {
     It 'round-trips restore arguments and metadata through the managed state file' {
         $statePath = Join-Path $TestDrive 'derp-state.json'
@@ -130,6 +241,42 @@ Describe 'Save-TailscaleDerpState / Read-TailscaleDerpState' {
 
         $loaded.ServerIp | Should -Be '203.0.113.10'
         $loaded.RestoreArgs | Should -Be @('--accept-routes=true', '--ssh=true')
+    }
+}
+
+Describe 'Get-TailscalePrefsSnapshot' {
+    It 'parses JSON returned by the shared tailscale invocation helper' {
+        Mock -CommandName Invoke-TailscaleCli -MockWith {
+            return [pscustomobject]@{
+                ExitCode    = 0
+                CommandPath = '/Applications/Tailscale.app/Contents/MacOS/Tailscale'
+                Output      = @(
+                    '# doing request GET http://local-tailscaled.sock/localapi/v0/prefs'
+                    '{"ControlURL":"https://controlplane.tailscale.com","CorpDNS":true}'
+                )
+            }
+        }
+
+        $prefs = Get-TailscalePrefsSnapshot
+
+        $prefs.ControlURL | Should -Be 'https://controlplane.tailscale.com'
+        $prefs.CorpDNS | Should -BeTrue
+    }
+
+    It 'throws a clear error when the CLI returns non-JSON crash text instead of prefs JSON' {
+        Mock -CommandName Invoke-TailscaleCli -MockWith {
+            return [pscustomobject]@{
+                ExitCode    = 1
+                CommandPath = '/usr/local/bin/tailscale'
+                Output      = @(
+                    'Tailscale/BundleIdentifiers.swift:41: Fatal error: The current bundleIdentifier is unknown to the registry'
+                )
+            }
+        }
+
+        {
+            Get-TailscalePrefsSnapshot
+        } | Should -Throw '*未返回 JSON*BundleIdentifiers.swift*'
     }
 }
 
