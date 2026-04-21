@@ -24,11 +24,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      # pnpm 版本统一由 package.json 的 packageManager 决定，避免与 action 输入重复声明。
       - name: Install pnpm
         uses: pnpm/action-setup@v6
-        with:
-          # 显式固定 pnpm 版本，避免 CI 与本地解析 lockfile 时出现差异。
-          version: 10.25.0
 
       - name: Setup Node
         uses: actions/setup-node@v6
