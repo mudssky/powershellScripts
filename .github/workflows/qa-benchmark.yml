@@ -25,7 +25,10 @@ jobs:
           fetch-depth: 0
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v5
+        uses: pnpm/action-setup@v6
+        with:
+          # 显式固定 pnpm 版本，避免 CI 与本地解析 lockfile 时出现差异。
+          version: 10.25.0
 
       - name: Setup Node
         uses: actions/setup-node@v6
