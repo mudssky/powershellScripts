@@ -289,3 +289,54 @@ docker compose up --force-recreate rustfs-init
 - `APP_URL`
 
 把它们改成你本机浏览器可以直接访问的地址即可。
+
+另外还要确认当前 compose 没把 `S3_SET_ACL` 关掉。
+
+- 现在默认配置应当让 `S3_SET_ACL=1`
+- 原因是 LobeHub 在 `S3_SET_ACL=0` 时，会回退成基于 `S3_ENDPOINT` 生成预签名预览地址
+- 如果你的 `S3_ENDPOINT` 是 `http://host.docker.internal:9000`，那这个地址对容器可用，但对宿主机浏览器通常不可用
+- 典型现象就是上传成功后，前端马上拿到 `host.docker.internal` 开头的文件 URL，然后界面报错或显示 `Bad Gateway`
+
+还要注意一个更关键的上传链路差异：
+
+- 当前版本的附件上传会先调用 `upload.createS3PreSignedUrl`
+- 这个接口生成的浏览器直传目标，使用的也是 `S3_ENDPOINT`
+- 也就是说，`S3_ENDPOINT` 不只是“容器内访问 RustFS”的地址，它还会直接暴露给浏览器
+- 如果这里写成 `host.docker.internal`，浏览器通常会在上传前的 `OPTIONS/PUT` 阶段直接失败
+
+当前仓库默认建议改成：
+
+- `S3_ENDPOINT=http://macmini:9000`
+- `S3_PUBLIC_DOMAIN=http://macmini:9000`
+
+如果 `macmini` 是这台机器在 Tailscale / MagicDNS 里的稳定地址，推荐统一这样配置。
+
+同时要记得：
+
+- 浏览器侧会直接访问 `S3_ENDPOINT`
+- 容器侧也必须能解析 `macmini`
+- 当前 compose 使用了 `network_mode: service:network-service`
+- 因此主机名映射要加在 `network-service` 上，而不是 `lobe` 上
+
+当前默认做法就是：
+
+- `.env` 中 `S3_ENDPOINT=http://macmini:9000`
+- `.env` 中 `S3_PUBLIC_DOMAIN=http://macmini:9000`
+- `docker-compose.yml` 里的 `network-service.extra_hosts` 增加 `macmini:host-gateway`
+
+这样同一 Tailnet 里的其它客户端、宿主机浏览器和容器内服务都会统一使用 `macmini`，避免再出现上传直传地址和对外访问地址分裂的问题。
+
+排查时可以直接在宿主机执行：
+
+```bash
+python3 - <<'PY'
+import socket
+for host in ['host.docker.internal', 'localhost']:
+    try:
+        print(host, socket.gethostbyname(host))
+    except Exception as exc:
+        print(host, 'ERR', exc)
+PY
+```
+
+如果 `host.docker.internal` 在宿主机侧解析失败，而浏览器里看到的文件地址又正好是这个域名，根因基本就确定了。

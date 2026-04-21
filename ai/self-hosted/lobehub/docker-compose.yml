@@ -6,6 +6,10 @@ services:
     restart: always
     ports:
       - '${LOBE_PORT}:3210' # LobeChat
+    extra_hosts:
+      # `lobehub` 复用 `network-service` 的网络命名空间，
+      # 所以需要在这里补 `macmini -> host-gateway`，让容器内也能访问宿主机上的 RustFS。
+      - 'macmini:host-gateway'
     command: tail -f /dev/null
     networks:
       - lobe-network
@@ -57,7 +61,9 @@ services:
       - 'S3_ACCESS_KEY_ID=${RUSTFS_ACCESS_KEY}'
       - 'S3_SECRET_ACCESS_KEY=${RUSTFS_SECRET_KEY}'
       - 'LLM_VISION_IMAGE_USE_BASE64=1'
-      - 'S3_SET_ACL=0'
+      # 默认开启 ACL，让返回给浏览器的文件 URL 走 `S3_PUBLIC_DOMAIN`，
+      # 避免在宿主机浏览器里收到 `host.docker.internal` 这类仅容器内可解析的地址。
+      - 'S3_SET_ACL=${S3_SET_ACL:-1}'
       - 'SEARXNG_URL=http://searxng:8080'
       - 'REDIS_URL=${REDIS_URL}'
       - 'REDIS_PREFIX=lobechat'
