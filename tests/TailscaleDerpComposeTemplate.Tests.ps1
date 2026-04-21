@@ -6,6 +6,30 @@ BeforeAll {
     $script:TemplateDir = Join-Path $script:RepoRoot 'config/network/tailscale/derp'
 }
 
+function script:Convert-ToLfLineEndings {
+    <#
+    .SYNOPSIS
+        把文本统一为 LF 行尾。
+
+    .DESCRIPTION
+        GitHub Actions 在不同平台 checkout 后，原始文本断言可能拿到 LF 或 CRLF。
+        这里先把行尾归一化，避免 `(?m)^...$` 这类精确行匹配被 `\r` 干扰。
+
+    .PARAMETER Content
+        待归一化的原始文本。
+
+    .OUTPUTS
+        System.String
+        返回仅使用 LF 的文本。
+    #>
+    param(
+        [AllowEmptyString()]
+        [string]$Content
+    )
+
+    return $Content -replace "`r`n?", "`n"
+}
+
 function script:Get-ComposeServiceBlock {
     <#
     .SYNOPSIS
@@ -68,8 +92,17 @@ Describe 'Tailscale DERP template files' {
 }
 
 Describe 'Tailscale DERP Dockerfile' {
+    It 'matches the builder stage header even if the file text uses CRLF line endings' {
+        $dockerfile = @'
+ARG GO_BUILD_IMAGE=golang:1.26-alpine
+FROM ${GO_BUILD_IMAGE} AS build
+'@ -replace "`n", "`r`n"
+
+        (Convert-ToLfLineEndings -Content $dockerfile) | Should -Match '(?m)^FROM \$\{GO_BUILD_IMAGE\} AS build$'
+    }
+
     It 'uses a Go 1.26+ builder image that can be overridden via build args' {
-        $dockerfile = Get-Content -LiteralPath (Join-Path $script:TemplateDir 'Dockerfile.derper') -Raw
+        $dockerfile = Convert-ToLfLineEndings -Content (Get-Content -LiteralPath (Join-Path $script:TemplateDir 'Dockerfile.derper') -Raw)
 
         $dockerfile | Should -Match '(?m)^ARG GO_BUILD_IMAGE=golang:1\.26'
         $dockerfile | Should -Match '(?m)^FROM \$\{GO_BUILD_IMAGE\} AS build$'
