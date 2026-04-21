@@ -29,16 +29,17 @@ function Show-Usage {
     #>
     return @'
 用法:
-  ./start.ps1 [up|down|restart|logs|ps|pull|config|help] [-DryRun] [额外 compose 参数]
+  ./start.ps1 [up|down|restart|logs|ps|pull|build|config|help] [-DryRun] [额外 compose 参数]
 
 默认行为:
-  ./start.ps1         -> docker compose up -d --build
+  ./start.ps1         -> BUILDKIT_PROGRESS=plain docker compose build && docker compose up -d --no-build
   ./start.ps1 logs    -> docker compose logs -f derper
   ./start.ps1 config  -> docker compose config
 
 示例:
   ./start.ps1
   ./start.ps1 -DryRun
+  ./start.ps1 build --no-cache
   ./start.ps1 logs --tail 100
   ./start.ps1 pull
 '@
@@ -150,17 +151,112 @@ function Invoke-DockerCompose {
         [Parameter(Mandatory = $true)]
         [string[]]$ComposeArgs,
 
+        [hashtable]$Environment = @{},
+
         [switch]$DryRun
     )
 
-    $preview = 'docker ' + ($ComposeArgs -join ' ')
+    $environmentPrefix = ''
+    if ($Environment.Count -gt 0) {
+        $environmentPrefix = (($Environment.GetEnumerator() | Sort-Object Key | ForEach-Object {
+                    '{0}={1}' -f $_.Key, $_.Value
+                }) -join ' ') + ' '
+    }
+
+    $preview = $environmentPrefix + 'docker ' + ($ComposeArgs -join ' ')
     if ($DryRun) {
         return $preview
     }
 
-    & docker @ComposeArgs
-    if ($LASTEXITCODE -ne 0) {
-        exit $LASTEXITCODE
+    $originalValues = @{}
+    foreach ($entry in $Environment.GetEnumerator()) {
+        $originalValues[$entry.Key] = [Environment]::GetEnvironmentVariable($entry.Key, 'Process')
+        [Environment]::SetEnvironmentVariable($entry.Key, [string]$entry.Value, 'Process')
+    }
+
+    try {
+        & docker @ComposeArgs
+        if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+        }
+    }
+    finally {
+        foreach ($entry in $Environment.GetEnumerator()) {
+            [Environment]::SetEnvironmentVariable($entry.Key, $originalValues[$entry.Key], 'Process')
+        }
+    }
+}
+
+function Get-ComposeInvocationPlan {
+    <#
+    .SYNOPSIS
+        生成当前动作对应的一组 compose 子命令计划。
+
+    .DESCRIPTION
+        `up` 会先显式执行 `build`，再执行 `up -d --no-build`。
+        这样构建日志可以通过 `BUILDKIT_PROGRESS=plain` 直接展开，避免排障时只看到
+        `Image ... Building` 的折叠进度条。
+
+    .PARAMETER Action
+        标准化后的动作名。
+
+    .PARAMETER ExtraArgs
+        需要透传给 compose 子命令的额外参数。
+
+    .OUTPUTS
+        System.Object[]
+        返回按执行顺序排列的计划项，每项包含 `ComposeArgs` 与 `Environment`。
+    #>
+    [CmdletBinding()]
+    param(
+        [string]$Action,
+        [string[]]$ExtraArgs = @()
+    )
+
+    $buildEnvironment = @{ BUILDKIT_PROGRESS = 'plain' }
+    $newPlanItem = {
+        param(
+            [string[]]$ComposeArgs,
+            [hashtable]$Environment
+        )
+
+        return [pscustomobject]@{
+            ComposeArgs = $ComposeArgs
+            Environment = $Environment
+        }
+    }
+
+    switch ($Action) {
+        'up' {
+            return @(
+                (& $newPlanItem -ComposeArgs (@('build') + $ExtraArgs) -Environment $buildEnvironment),
+                (& $newPlanItem -ComposeArgs @('up', '-d', '--no-build') -Environment @{})
+            )
+        }
+        'build' {
+            return ,(& $newPlanItem -ComposeArgs (@('build') + $ExtraArgs) -Environment $buildEnvironment)
+        }
+        'down' {
+            return ,(& $newPlanItem -ComposeArgs (@('down') + $ExtraArgs) -Environment @{})
+        }
+        'restart' {
+            return ,(& $newPlanItem -ComposeArgs (@('restart') + $ExtraArgs) -Environment @{})
+        }
+        'logs' {
+            return ,(& $newPlanItem -ComposeArgs (@('logs', '-f', 'derper') + $ExtraArgs) -Environment @{})
+        }
+        'ps' {
+            return ,(& $newPlanItem -ComposeArgs (@('ps') + $ExtraArgs) -Environment @{})
+        }
+        'pull' {
+            return ,(& $newPlanItem -ComposeArgs (@('pull') + $ExtraArgs) -Environment @{})
+        }
+        'config' {
+            return ,(& $newPlanItem -ComposeArgs (@('config') + $ExtraArgs) -Environment @{})
+        }
+        default {
+            throw "不支持的操作: $Action"
+        }
     }
 }
 
@@ -176,50 +272,24 @@ if ($normalizedAction -in @('help', '-h', '--help')) {
 
 Assert-ComposeTemplateReady -ComposeFile $script:ComposeFile -EnvFile $script:EnvFile -SkipDockerCheck:$DryRun
 
-$composeArgs = Get-ComposeBaseArgs `
+$composeBaseArgs = Get-ComposeBaseArgs `
     -ComposeFile $script:ComposeFile `
     -ProjectDirectory $script:ScriptDir `
     -EnvFile $script:EnvFile
 
-switch ($normalizedAction) {
-    'up' {
-        # 默认同时 build，确保 Dockerfile.derper 变更后不需要用户额外记忆重建命令。
-        $composeArgs += @('up', '-d', '--build')
-        $composeArgs += $ExtraArgs
-    }
-    'down' {
-        $composeArgs += @('down')
-        $composeArgs += $ExtraArgs
-    }
-    'restart' {
-        $composeArgs += @('restart')
-        $composeArgs += $ExtraArgs
-    }
-    'logs' {
-        # 默认聚焦 derper 日志，因为最常见排障点在中继与客户端准入。
-        $composeArgs += @('logs', '-f', 'derper')
-        $composeArgs += $ExtraArgs
-    }
-    'ps' {
-        $composeArgs += @('ps')
-        $composeArgs += $ExtraArgs
-    }
-    'pull' {
-        $composeArgs += @('pull')
-        $composeArgs += $ExtraArgs
-    }
-    'config' {
-        $composeArgs += @('config')
-        $composeArgs += $ExtraArgs
-    }
-    default {
-        Write-Host "不支持的操作: $Action" -ForegroundColor Red
-        Show-Usage | Write-Host
-        exit 1
-    }
+try {
+    $invocationPlan = Get-ComposeInvocationPlan -Action $normalizedAction -ExtraArgs $ExtraArgs
+}
+catch {
+    Write-Host $_.Exception.Message -ForegroundColor Red
+    Show-Usage | Write-Host
+    exit 1
 }
 
-$result = Invoke-DockerCompose -ComposeArgs $composeArgs -DryRun:$DryRun
-if ($DryRun -and -not [string]::IsNullOrWhiteSpace($result)) {
-    Write-Host $result
+foreach ($planItem in $invocationPlan) {
+    $composeArgs = $composeBaseArgs + $planItem.ComposeArgs
+    $result = Invoke-DockerCompose -ComposeArgs $composeArgs -Environment $planItem.Environment -DryRun:$DryRun
+    if ($DryRun -and -not [string]::IsNullOrWhiteSpace($result)) {
+        Write-Host $result
+    }
 }

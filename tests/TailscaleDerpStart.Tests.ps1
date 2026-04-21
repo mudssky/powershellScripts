@@ -23,9 +23,36 @@ Describe 'Show-Usage' {
     It 'documents the supported compose actions' {
         $usage = Show-Usage
 
-        $usage | Should -Match '\[up\|down\|restart\|logs\|ps\|pull\|config\|help\]'
+        $usage | Should -Match '\[up\|down\|restart\|logs\|ps\|pull\|build\|config\|help\]'
         $usage | Should -Match '\./start\.ps1'
         $usage | Should -Match 'docker compose'
+    }
+}
+
+Describe 'Get-ComposeInvocationPlan' {
+    It 'runs build with plain progress before detached up' {
+        $plan = Get-ComposeInvocationPlan -Action 'up' -ExtraArgs @('--no-cache')
+
+        $plan.Count | Should -Be 2
+        $plan[0].ComposeArgs | Should -Be @('build', '--no-cache')
+        $plan[0].Environment.BUILDKIT_PROGRESS | Should -Be 'plain'
+        $plan[1].ComposeArgs | Should -Be @('up', '-d', '--no-build')
+    }
+
+    It 'build action keeps plain progress for easier diagnosis' {
+        $plan = Get-ComposeInvocationPlan -Action 'build' -ExtraArgs @('--no-cache')
+
+        $plan.Count | Should -Be 1
+        $plan[0].ComposeArgs | Should -Be @('build', '--no-cache')
+        $plan[0].Environment.BUILDKIT_PROGRESS | Should -Be 'plain'
+    }
+
+    It 'logs action stays attached to derper without build environment tweaks' {
+        $plan = Get-ComposeInvocationPlan -Action 'logs' -ExtraArgs @('--tail', '100')
+
+        $plan.Count | Should -Be 1
+        $plan[0].ComposeArgs | Should -Be @('logs', '-f', 'derper', '--tail', '100')
+        $plan[0].Environment.Count | Should -Be 0
     }
 }
 
@@ -67,5 +94,14 @@ Describe 'Invoke-DockerCompose' {
         $preview = Invoke-DockerCompose -ComposeArgs @('compose', '-f', '/tmp/demo.yaml', 'ps') -DryRun
 
         $preview | Should -Be 'docker compose -f /tmp/demo.yaml ps'
+    }
+
+    It 'shows scoped environment variables in dry run mode' {
+        $preview = Invoke-DockerCompose `
+            -ComposeArgs @('compose', '-f', '/tmp/demo.yaml', 'build') `
+            -Environment @{ BUILDKIT_PROGRESS = 'plain' } `
+            -DryRun
+
+        $preview | Should -Be 'BUILDKIT_PROGRESS=plain docker compose -f /tmp/demo.yaml build'
     }
 }

@@ -23,7 +23,11 @@ services:
       context: .
       dockerfile: Dockerfile.derper
       args:
+        GO_BUILD_IMAGE: ${GO_BUILD_IMAGE:-golang:1.26-alpine}
+        ALPINE_MIRROR: ${ALPINE_MIRROR:-https://dl-cdn.alpinelinux.org/alpine}
         TAILSCALE_VERSION: ${TAILSCALE_VERSION:-latest}
+        GOPROXY: ${GOPROXY:-https://proxy.golang.org,direct}
+        GOSUMDB: ${GOSUMDB:-sum.golang.org}
     restart: unless-stopped
     depends_on:
       - tailscaled-auth

@@ -1,8 +1,18 @@
+ARG GO_BUILD_IMAGE=golang:1.26-alpine
+FROM ${GO_BUILD_IMAGE} AS build
+
 # 通过构建时版本参数把 derper 固定到明确的 Tailscale 版本，方便和 tailscaled 对齐。
-FROM golang:1.24-alpine AS build
-
+ARG ALPINE_MIRROR=https://dl-cdn.alpinelinux.org/alpine
 ARG TAILSCALE_VERSION=latest
+ARG GOPROXY=https://proxy.golang.org,direct
+ARG GOSUMDB=sum.golang.org
 
+# 通过 build args 暴露 Go 模块下载配置，便于在 proxy.golang.org 不可达时切换镜像站。
+ENV GOPROXY=${GOPROXY}
+ENV GOSUMDB=${GOSUMDB}
+
+# 只替换镜像源域名，保留基础镜像自带的 Alpine 版本路径，避免把 3.x 仓库误切到其它发行线。
+RUN sed -i "s#https\?://dl-cdn.alpinelinux.org/alpine#${ALPINE_MIRROR}#g" /etc/apk/repositories
 RUN apk add --no-cache git
 RUN go install tailscale.com/cmd/derper@${TAILSCALE_VERSION}
 

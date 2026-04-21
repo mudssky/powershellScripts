@@ -177,6 +177,22 @@ cp config/network/tailscale/derp/.env.example config/network/tailscale/derp/.env
 - `DERP_PUBLIC_IP`
 - `TS_AUTHKEY`
 
+如果你在当前网络里构建 `Dockerfile.derper` 时访问 `proxy.golang.org` 超时，建议同时设置：
+
+- `GO_BUILD_IMAGE`
+- `ALPINE_MIRROR`
+- `GOPROXY`
+- `GOSUMDB`
+
+例如：
+
+```dotenv
+GO_BUILD_IMAGE=golang:1.26-alpine
+ALPINE_MIRROR=https://mirrors.aliyun.com/alpine
+GOPROXY=https://goproxy.cn,direct
+GOSUMDB=sum.golang.google.cn
+```
+
 3. 启动容器：
 
 ```bash

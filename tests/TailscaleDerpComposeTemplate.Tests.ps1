@@ -67,6 +67,15 @@ Describe 'Tailscale DERP template files' {
     }
 }
 
+Describe 'Tailscale DERP Dockerfile' {
+    It 'uses a Go 1.26+ builder image that can be overridden via build args' {
+        $dockerfile = Get-Content -LiteralPath (Join-Path $script:TemplateDir 'Dockerfile.derper') -Raw
+
+        $dockerfile | Should -Match '(?m)^ARG GO_BUILD_IMAGE=golang:1\.26'
+        $dockerfile | Should -Match '(?m)^FROM \$\{GO_BUILD_IMAGE\} AS build$'
+    }
+}
+
 Describe 'Tailscale DERP compose template' {
     It 'defaults to tailscaled-auth plus verify-clients derper' {
         $composePath = Join-Path $script:TemplateDir 'compose.yaml'
@@ -89,6 +98,16 @@ Describe 'Tailscale DERP compose template' {
         $derperBlock | Should -Match '--a=:\$\{DERP_PORT:-443\}'
         $derperBlock | Should -Match '--stun-port=\$\{DERP_STUN_PORT:-3478\}'
     }
+
+    It 'passes Go module proxy settings into the derper build' {
+        $composePath = Join-Path $script:TemplateDir 'compose.yaml'
+        $derperBlock = Get-ComposeServiceBlock -ComposePath $composePath -ServiceName 'derper'
+
+        $derperBlock | Should -Match 'GO_BUILD_IMAGE:\s+\$\{GO_BUILD_IMAGE:-golang:1\.26'
+        $derperBlock | Should -Match 'ALPINE_MIRROR:\s+\$\{ALPINE_MIRROR:-https://dl-cdn\.alpinelinux\.org/alpine\}'
+        $derperBlock | Should -Match 'GOPROXY:\s+\$\{GOPROXY:-https://proxy\.golang\.org,direct\}'
+        $derperBlock | Should -Match 'GOSUMDB:\s+\$\{GOSUMDB:-sum\.golang\.org\}'
+    }
 }
 
 Describe 'Tailscale DERP env example' {
@@ -97,7 +116,11 @@ Describe 'Tailscale DERP env example' {
 
         $envExample | Should -Match '(?m)^DERP_PUBLIC_IP='
         $envExample | Should -Match '(?m)^TS_AUTHKEY='
+        $envExample | Should -Match '(?m)^GO_BUILD_IMAGE=golang:1\.26'
+        $envExample | Should -Match '(?m)^ALPINE_MIRROR='
         $envExample | Should -Match '(?m)^DERP_CERTS_DIR='
+        $envExample | Should -Match '(?m)^GOPROXY='
+        $envExample | Should -Match '(?m)^GOSUMDB='
         $envExample | Should -Match '(?m)^TAILSCALE_VERSION='
     }
 }
@@ -118,9 +141,19 @@ Describe 'Tailscale DERP tailnet policy template' {
 Describe 'Tailscale DERP docs' {
     It 'points readers to the dedicated template instead of start-container derper' {
         $doc = Get-Content -LiteralPath (Join-Path $script:RepoRoot 'docs/cheatsheet/network/tailscale/index.md') -Raw
+        $readme = Get-Content -LiteralPath (Join-Path $script:TemplateDir 'README.md') -Raw
 
         $doc | Should -Match 'config/network/tailscale/derp'
+        $doc | Should -Match 'GO_BUILD_IMAGE'
+        $doc | Should -Match 'ALPINE_MIRROR'
         $doc | Should -Match 'docker compose --env-file .*compose\.yaml .*up -d --build'
+        $doc | Should -Match 'GOPROXY'
         $doc | Should -Not -Match 'start-container\.ps1\s+-ServiceName\s+derper'
+
+        $readme | Should -Match 'tailscale status'
+        $readme | Should -Match 'tailscale netcheck'
+        $readme | Should -Match 'tailscale ping <另一台设备>'
+        $readme | Should -Match 'No home relay server'
+        $readme | Should -Match 'OmitDefaultRegions'
     }
 }
