@@ -91,7 +91,6 @@
     - rustfs: RustFS对象存储服务
     - beszel: 轻量级服务器监控 Hub
     - gotify: 简单的消息推送服务器
-    - derper: Tailscale DERP/STUN 中继服务
     - open-webui: 适用于 LLM 的 WebUI
 
 .PARAMETER RestartPolicy
@@ -176,11 +175,7 @@
     ./start-container.ps1 -ServiceName postgre -BindLocalhost
     以 localhost 绑定模式启动 PostgreSQL，仅允许宿主机本机访问
 
-.EXAMPLE
-    ./start-container.ps1 -ServiceName derper -BindLocalhost:$false
-    即使 `.env.local` 中配置了 `BIND_LOCALHOST=true`，本次也显式恢复为对外发布端口
-
-.NOTES
+	.NOTES
     需要安装Docker
     脚本会自动创建必要的数据目录
     某些服务可能需要额外的配置文件
@@ -216,7 +211,6 @@ param (
         "beszel", 
         "rustdesk", 
         "gotify",
-        "derper",
         "sillytavern",
         "open-webui"
     )]

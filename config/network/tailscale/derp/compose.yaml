@@ -1,0 +1,50 @@
+services:
+  tailscaled-auth:
+    image: tailscale/tailscale:${TAILSCALE_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      # 使用一次性 auth key 初始化 state；后续重启优先复用持久化 state，避免重复登录。
+      TS_AUTHKEY: ${TS_AUTHKEY:?set TS_AUTHKEY in .env.local}
+      TS_AUTH_ONCE: "true"
+      # derper 只需要本地 LocalAPI socket，不需要把 tailscaled 暴露到宿主机。
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_SOCKET: /var/run/tailscale/tailscaled.sock
+      TS_HOSTNAME: ${TS_HOSTNAME:-derp-auth}
+      # 这里只承担控制面校验职责，用 userspace 模式避免额外 TUN / NET_ADMIN 依赖。
+      TS_USERSPACE: "true"
+      # 该节点只用于 DERP 客户端准入校验，不接受额外路由或 DNS 配置。
+      TS_EXTRA_ARGS: ${TS_EXTRA_ARGS:---accept-routes=false --accept-dns=false}
+    volumes:
+      - tailscale-state:/var/lib/tailscale
+      - tailscale-socket:/var/run/tailscale
+
+  derper:
+    build:
+      context: .
+      dockerfile: Dockerfile.derper
+      args:
+        TAILSCALE_VERSION: ${TAILSCALE_VERSION:-latest}
+    restart: unless-stopped
+    depends_on:
+      - tailscaled-auth
+    # 官方不建议把 DERP 放在 NAT 后面；host network 能避免 Docker bridge 额外的一层转发。
+    network_mode: host
+    volumes:
+      - tailscale-socket:/var/run/tailscale:ro
+      # manual cert 模式会在 certdir 中查找 <hostname>.crt/.key；IP-only 且文件缺失时会自动生成自签证书。
+      - ${DERP_CERTS_DIR:-./certs}:/var/lib/derper/certs
+    command:
+      - --hostname=${DERP_PUBLIC_IP:?set DERP_PUBLIC_IP in .env.local}
+      - --a=:${DERP_PORT:-443}
+      - --http-port=${DERP_HTTP_PORT:-80}
+      - --stun-port=${DERP_STUN_PORT:-3478}
+      - --verify-clients
+      - --socket=/var/run/tailscale/tailscaled.sock
+      - --certmode=manual
+      - --certdir=/var/lib/derper/certs
+      - --accept-connection-limit=${DERP_ACCEPT_CONNECTION_LIMIT:-32}
+      - --accept-connection-burst=${DERP_ACCEPT_CONNECTION_BURST:-64}
+
+volumes:
+  tailscale-state:
+  tailscale-socket:

@@ -89,26 +89,30 @@ Describe 'docker compose postgres defaults' {
     }
 }
 
-Describe 'docker compose derper service' {
-    It 'derper service is available in the shared compose template' {
+Describe 'docker compose shared template' {
+    It 'no longer exposes derper after the dedicated template is introduced' {
         $composePath = Join-Path $script:RepoRoot 'config/dockerfiles/compose/docker-compose.yml'
-        $derperBlock = Get-ComposeServiceBlock -ComposePath $composePath -ServiceName 'derper'
 
-        $derperBlock | Should -Match 'image:\s+fredliang/derper'
-        $derperBlock | Should -Match 'DERP_ADDR:\s*"?\:8443"?'
-        $derperBlock | Should -Match 'DERP_STUN_PORT:\s*"?3478"?'
-        $derperBlock | Should -Match 'DERP_VERIFY_CLIENTS:\s*"?false"?'
-        $derperBlock | Should -Match '8443:8443'
-        $derperBlock | Should -Match '3478:3478/udp'
-        $derperBlock | Should -Match 'profiles:\s*\["derper"\]'
+        {
+            Get-ComposeServiceBlock -ComposePath $composePath -ServiceName 'derper'
+        } | Should -Throw '*未找到 compose 服务块: derper*'
     }
 }
 
 Describe 'Get-ComposeServiceNames' {
-    It 'lists derper after the compose file is updated' {
+    It 'does not list derper after it moves to config/network/tailscale/derp' {
         $composePath = Join-Path $script:RepoRoot 'config/dockerfiles/compose/docker-compose.yml'
         $replicaComposePath = Join-Path $script:RepoRoot 'config/dockerfiles/compose/mongo-repl.compose.yml'
 
-        Get-ComposeServiceNames -ComposePath $composePath -ReplicaComposePath $replicaComposePath | Should -Contain 'derper'
+        Get-ComposeServiceNames -ComposePath $composePath -ReplicaComposePath $replicaComposePath | Should -Not -Contain 'derper'
+    }
+}
+
+Describe 'start-container script help surface' {
+    It 'does not advertise derper anymore' {
+        $scriptContent = Get-Content -LiteralPath (Join-Path $script:RepoRoot 'scripts/pwsh/devops/start-container.ps1') -Raw
+
+        $scriptContent | Should -Not -Match '(?m)^\s*-\s+derper:'
+        $scriptContent | Should -Not -Match '"derper"'
     }
 }

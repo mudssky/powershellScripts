@@ -1,0 +1,24 @@
+{
+  // 把这个对象合并到你现有 tailnet policy 顶层对象中；若已存在 derpMap，请仅替换对应 Region。
+  derpMap: {
+    // 默认不写为false是保留官方derp fallback，为true则只用自己的derp
+    "OmitDefaultRegions": false,
+    Regions: {
+      "900": {
+        RegionID: 900,
+        RegionCode: "cn-custom",
+        Nodes: [
+          {
+            Name: "cn-node",
+            RegionID: 900,
+            HostName: "203.0.113.10",
+            DERPPort: 443,
+            STUNPort: 3478,
+            // 第一版模板默认走 IP-only + 自签证书路线，因此保留 InsecureForTests。
+            InsecureForTests: true,
+          },
+        ],
+      },
+    },
+  },
+}

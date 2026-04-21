@@ -33,17 +33,17 @@ services:
         $overrideContent | Should -Match '127\.0\.0\.1:6379:6379'
     }
 
-    It 'rewrites multi-line ports and keeps udp suffixes' {
+    It 'rewrites multi-line tcp and udp ports and keeps protocol suffixes' {
         $composePath = Join-Path $TestDrive 'udp.compose.yml'
         Set-Content -Path $composePath -Value @'
 services:
-  derper:
+  relay:
     ports:
       - "8443:8443"
       - "3478:3478/udp"
 '@
 
-        $overridePath = New-LocalhostComposeOverrideFile -ComposePath $composePath -ServiceNames @('derper')
+        $overridePath = New-LocalhostComposeOverrideFile -ComposePath $composePath -ServiceNames @('relay')
         $overrideContent = Get-Content -LiteralPath $overridePath -Raw
 
         $overrideContent | Should -Match '127\.0\.0\.1:8443:8443'

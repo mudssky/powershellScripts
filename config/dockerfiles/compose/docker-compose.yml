@@ -411,24 +411,6 @@ services:
         max-file: "3"
     profiles: ["gotify"]
 
-  derper:
-    image: fredliang/derper
-    restart: ${RESTART_POLICY:-unless-stopped}
-    environment:
-      # 保持与现有 docker run 用法一致，便于复用现有 DERP/STUN 部署参数。
-      DERP_ADDR: ":8443"
-      DERP_STUN_PORT: "3478"
-      DERP_VERIFY_CLIENTS: "false"
-    ports:
-      - "8443:8443"
-      - "3478:3478/udp"
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    profiles: ["derper"]
-
   sillytavern:
     image: ghcr.io/sillytavern/sillytavern:latest
     restart: ${RESTART_POLICY:-unless-stopped}

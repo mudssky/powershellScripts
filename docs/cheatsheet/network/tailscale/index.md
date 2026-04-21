@@ -142,25 +142,59 @@ sudo tailscale up \
 
 #### 7.1 先把 DERP 节点跑起来
 
-根据 Tailscale 当前文档，自建 DERP 属于高级操作，你需要自己构建并维护
-`cmd/derper`，而不是依赖 `tailscale up` 本地开关。
+仓库里现在已经提供了一个可直接维护的模板目录：
 
-最短路径：
+- `config/network/tailscale/derp/compose.yaml`
+- `config/network/tailscale/derp/Dockerfile.derper`
+- `config/network/tailscale/derp/.env.example`
+- `config/network/tailscale/derp/tailnet-policy.derp.example.hujson`
+- `config/network/tailscale/derp/start.ps1`
+- `config/network/tailscale/derp/README.md`
+
+默认方案不是“单容器裸跑 `derper`”，而是：
+
+- `tailscaled-auth`：加入 tailnet，提供 `tailscaled.sock`
+- `derper`：使用 `--verify-clients`，把访问范围限制在当前 tailnet
+
+这套模板默认按 **无域名 / 仅公网 IP** 路线设计：
+
+- `derper` 使用 `--certmode=manual`
+- 当 `DERP_PUBLIC_IP` 是 IP 且 `certdir` 没有现成证书时，会自动生成自签 IP 证书
+- 这也是脚本生成的 `derpMap` 里当前仍保留 `InsecureForTests = true` 的原因之一
+
+推荐启动步骤：
+
+1. 复制环境变量模板：
 
 ```bash
-go install tailscale.com/cmd/derper@latest
-sudo derper --hostname=derp.example.com
+cp config/network/tailscale/derp/.env.example config/network/tailscale/derp/.env.local
 ```
 
-在这之前，请先满足这些前置条件：
+2. 编辑 `config/network/tailscale/derp/.env.local`
 
-- 给 DERP 服务器准备一个公网域名，并把域名解析到这台机器
+最少填写：
+
+- `DERP_PUBLIC_IP`
+- `TS_AUTHKEY`
+
+3. 启动容器：
+
+```bash
+docker compose --env-file config/network/tailscale/derp/.env.local -f config/network/tailscale/derp/compose.yaml --project-directory config/network/tailscale/derp up -d --build
+```
+
+如果你习惯 PowerShell，也可以直接用包装脚本：
+
+```powershell
+./config/network/tailscale/derp/start.ps1
+```
+
+部署前仍要满足这些前置条件：
+
 - 不要把 `derper` 放在 NAT、全局负载均衡器或普通 HTTP 代理后面
 - 防火墙至少放行 `TCP 80`、`TCP 443`、`UDP 3478`
 - 允许 ICMP，便于连通性与诊断
-
-如果你启用了 `--verify-clients`，还需要在同机运行 `tailscaled`。如果只是先跑通，
-建议先按最小配置启动，再考虑更严格的校验。
+- `tailscaled-auth` 这台辅助节点在 ACL 中需要能“看见”需要使用 DERP 的客户端，否则 `--verify-clients` 不会放行
 
 #### 7.2 再把节点写进 tailnet policy
 
@@ -177,7 +211,7 @@ sudo derper --hostname=derp.example.com
 
 ```powershell
 ./scripts/pwsh/network/tailscale/Set-TailscaleDerp.ps1 `
-  -ServerIp derp.example.com `
+  -ServerIp 203.0.113.10 `
   -DerpPort 443 `
   -StunPort 3478 `
   -PolicyPath ./tailnet-policy.hujson
@@ -187,7 +221,7 @@ sudo derper --hostname=derp.example.com
 
 ```powershell
 ./scripts/pwsh/network/tailscale/Set-TailscaleDerp.ps1 `
-  -ServerIp derp.example.com `
+  -ServerIp 203.0.113.10 `
   -DerpPort 443 `
   -StunPort 3478 `
   -PolicyPath ./tailnet-policy.hujson `
@@ -198,15 +232,18 @@ sudo derper --hostname=derp.example.com
 
 ```powershell
 ./scripts/pwsh/network/tailscale/Set-TailscaleDerp.ps1 `
-  -ServerIp derp.example.com `
+  -ServerIp 203.0.113.10 `
   -DerpPort 443 `
   -StunPort 3478 `
   -PrintSnippet
 ```
 
+如果你想先从一份可改的模板开始，而不是现场生成片段，也可以直接改：
+
+- `config/network/tailscale/derp/tailnet-policy.derp.example.hujson`
+
 脚本默认 `DERPPort` 是 `8443`。如果你是按官方最短命令
-`sudo derper --hostname=...` 启动，DERP HTTPS 端口通常就是 `443`，所以要像上面这样
-显式传 `-DerpPort 443`，别直接吃脚本默认值。
+模板默认监听 `443` / `3478`，所以要像上面这样显式传 `-DerpPort 443`，别直接吃脚本默认值。
 
 #### 删除受管 Region
 
@@ -229,7 +266,7 @@ sudo derper --hostname=derp.example.com
           {
             "Name": "cn-node",
             "RegionID": 900,
-            "HostName": "derp.example.com",
+            "HostName": "203.0.113.10",
             "DERPPort": 443,
             "STUNPort": 3478,
             "InsecureForTests": true

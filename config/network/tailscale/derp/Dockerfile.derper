@@ -1,0 +1,14 @@
+# 通过构建时版本参数把 derper 固定到明确的 Tailscale 版本，方便和 tailscaled 对齐。
+FROM golang:1.24-alpine AS build
+
+ARG TAILSCALE_VERSION=latest
+
+RUN apk add --no-cache git
+RUN go install tailscale.com/cmd/derper@${TAILSCALE_VERSION}
+
+FROM alpine:3.22
+
+RUN apk add --no-cache ca-certificates
+COPY --from=build /go/bin/derper /usr/local/bin/derper
+
+ENTRYPOINT ["/usr/local/bin/derper"]
