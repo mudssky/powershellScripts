@@ -65,7 +65,7 @@ jobs:
 
       # 1. 安装 pnpm
       - name: Install pnpm
-        uses: pnpm/action-setup@v5
+        uses: pnpm/action-setup@v6
 
       # 2. 安装 Node 并开启 pnpm 缓存 (这是 Monorepo 速度的关键)
       - name: Setup Node
