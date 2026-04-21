@@ -1,3 +1,8 @@
+> Superseded on 2026-04-20 by `docs/superpowers/specs/2026-04-20-tailscale-derp-policy-script-design.md`.
+>
+> 本文档描述的 `tailscale up --derp-map-url` / `--tls-skip-verify` 路线已不再作为仓库推荐实现。
+> 后续实现请以 tailnet policy 中的 `derpMap` 编辑方案为准。
+
 # Tailscale Custom DERP Script Design
 
 ## Summary

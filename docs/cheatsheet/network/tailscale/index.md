@@ -130,42 +130,145 @@ sudo tailscale up \
 
 ---
 
-### 🧩 7. 自建 DERP 一键切换
+### 🧩 7. 自建 DERP policy 片段与 tailnet policy 更新
 
-仓库内提供了一个跨平台 PowerShell 入口，可把当前设备切到你自己的 DERP 服务器，并在需要时恢复到应用前的普通 Tailscale 配置。
+当前官方路线不是在单台机器上执行实验性 CLI 参数，而是：
 
-#### 应用自建 DERP
+1. 先把你自己的 DERP 节点跑起来
+2. 再把这个节点写进 tailnet policy 的 `derpMap`
 
-```powershell
-./scripts/pwsh/network/tailscale/Set-TailscaleDerp.ps1 -ServerIp 203.0.113.10
+仓库内的 `Set-TailscaleDerp.ps1` 负责的是第 2 步：离线编辑 tailnet policy 文件中的
+`derpMap`，然后把结果交给你提交到 Tailscale Admin Console 或现有 GitOps 流程。
+
+#### 7.1 先把 DERP 节点跑起来
+
+根据 Tailscale 当前文档，自建 DERP 属于高级操作，你需要自己构建并维护
+`cmd/derper`，而不是依赖 `tailscale up` 本地开关。
+
+最短路径：
+
+```bash
+go install tailscale.com/cmd/derper@latest
+sudo derper --hostname=derp.example.com
 ```
 
-默认会生成受管 `derp.json`，并调用等价于：
+在这之前，请先满足这些前置条件：
 
-```powershell
-tailscale up --derp-map-url=file:///.../derp.json --tls-skip-verify
-```
+- 给 DERP 服务器准备一个公网域名，并把域名解析到这台机器
+- 不要把 `derper` 放在 NAT、全局负载均衡器或普通 HTTP 代理后面
+- 防火墙至少放行 `TCP 80`、`TCP 443`、`UDP 3478`
+- 允许 ICMP，便于连通性与诊断
 
-如果你需要自定义端口或 Region 元数据，也可以显式指定：
+如果你启用了 `--verify-clients`，还需要在同机运行 `tailscaled`。如果只是先跑通，
+建议先按最小配置启动，再考虑更严格的校验。
+
+#### 7.2 再把节点写进 tailnet policy
+
+`derpMap` 是 tailnet 级网络策略。当前 Tailscale 的 **Visual editor 不能改**
+`derpMap`，你必须走：
+
+- Admin Console 的 **JSON editor**
+- GitOps 管理的 policy 仓库
+- Tailscale API
+
+如果你本地就有 policy 文件，直接用仓库脚本改：
+
+#### 生成并写入受管 Region
 
 ```powershell
 ./scripts/pwsh/network/tailscale/Set-TailscaleDerp.ps1 `
-  -ServerIp 203.0.113.10 `
-  -RegionId 900 `
-  -RegionCode cn-custom `
-  -NodeName cn-node `
-  -DerpPort 8443 `
-  -StunPort 3478
+  -ServerIp derp.example.com `
+  -DerpPort 443 `
+  -StunPort 3478 `
+  -PolicyPath ./tailnet-policy.hujson
 ```
 
-#### 取消并恢复默认行为
+如果你不想直接覆盖原始 policy，也可以把结果写到新文件：
 
 ```powershell
-./scripts/pwsh/network/tailscale/Set-TailscaleDerp.ps1 -Reset
+./scripts/pwsh/network/tailscale/Set-TailscaleDerp.ps1 `
+  -ServerIp derp.example.com `
+  -DerpPort 443 `
+  -StunPort 3478 `
+  -PolicyPath ./tailnet-policy.hujson `
+  -OutputPath ./tailnet-policy.generated.json
 ```
 
-这不会执行 `tailscale down`，而是按脚本保存的应用前基线配置执行恢复。
+如果你是在 Admin Console 里直接改 JSON editor，没有本地 policy 文件，先生成片段再粘贴：
 
-#### 兼容性提醒
+```powershell
+./scripts/pwsh/network/tailscale/Set-TailscaleDerp.ps1 `
+  -ServerIp derp.example.com `
+  -DerpPort 443 `
+  -StunPort 3478 `
+  -PrintSnippet
+```
 
-如果当前 `tailscale` 客户端不支持 `--derp-map-url` 或 `--tls-skip-verify`，脚本会直接报错，并提示你升级或切换到支持这些 flag 的构建。
+脚本默认 `DERPPort` 是 `8443`。如果你是按官方最短命令
+`sudo derper --hostname=...` 启动，DERP HTTPS 端口通常就是 `443`，所以要像上面这样
+显式传 `-DerpPort 443`，别直接吃脚本默认值。
+
+#### 删除受管 Region
+
+```powershell
+./scripts/pwsh/network/tailscale/Set-TailscaleDerp.ps1 `
+  -Reset `
+  -PolicyPath ./tailnet-policy.hujson
+```
+
+#### 7.3 生成出来的 `derpMap` 大概长这样
+
+```json
+{
+  "derpMap": {
+    "Regions": {
+      "900": {
+        "RegionID": 900,
+        "RegionCode": "cn-custom",
+        "Nodes": [
+          {
+            "Name": "cn-node",
+            "RegionID": 900,
+            "HostName": "derp.example.com",
+            "DERPPort": 443,
+            "STUNPort": 3478,
+            "InsecureForTests": true
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+如果你有多台 DERP 机器，第一版建议先做“一个 Region 对应一个 Node”这种最简单模型，
+确认跑通后再扩展，不要一上来就做复杂 mesh。
+
+#### 7.4 怎么验证它真的生效了
+
+可以按下面顺序排查：
+
+1. 先看 `tailscale netcheck`
+   作用：确认客户端能看到哪些 DERP 候选、UDP 是否正常、NAT 是否困难
+2. 再看 `tailscale ping <另一台设备>`
+   作用：观察当前连接是直连还是走 DERP 中继
+3. 必要时看 `tailscale debug derp`
+   作用：进一步看 DERP 侧诊断信息
+
+如果你发现大多数流量长期都在依赖 DERP，中继本身通常不是最优解。Tailscale 官方当前也明确建议：
+如果你经常遇到 DERP 中继且性能不够，很多场景下更值得优先考虑 peer relays，而不是长期自维护自定义 DERP。
+
+#### 7.5 这份仓库脚本到底帮你做了什么
+
+- 脚本只管理一个 `RegionID`，默认是 `900`
+- 脚本会规范化重写输出文件，不保证保留原 HuJSON 注释与排版
+- `-OutputPath` 可把结果写到新文件，避免直接覆盖原始 policy
+- `-WhatIf` / `-Confirm` 可用于预览写入动作
+- 最后仍需要你把结果提交到 Admin Console 或既有 GitOps 流程
+
+#### 7.6 官方参考
+
+- [DERP servers](https://tailscale.com/docs/reference/derp-servers)
+- [Custom DERP servers](https://tailscale.com/docs/reference/derp-servers/custom-derp-servers)
+- [Visual policy editor](https://tailscale.com/docs/features/visual-editor)
+- [Edit access control policies in your tailnet policy file](https://tailscale.com/docs/features/tailnet-policy-file/manage-tailnet-policies)
