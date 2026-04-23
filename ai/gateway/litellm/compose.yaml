@@ -18,6 +18,11 @@ services:
       # 当前本地配置同时走 NewAPI 与智谱 OpenAI 兼容接口；变量必须显式注入容器，LiteLLM 才能解析 os.environ/...。
       NEWAPI_API_BASE: ${NEWAPI_API_BASE:-}
       NEWAPI_KEY: ${NEWAPI_KEY:-}
+      # Claude 优先走专用 Anthropic 兼容上游；若未单独配置，则自动复用通用 NewAPI 地址。
+      NEWAPI_ANTHROPIC_API_BASE: ${NEWAPI_ANTHROPIC_API_BASE:-${NEWAPI_API_BASE:-}}
+      NEWAPI_ANTHROPIC_KEY: ${NEWAPI_ANTHROPIC_KEY:-${NEWAPI_KEY:-}}
+      # 某些 Anthropic 兼容网关已自带完整路径时，可通过这个开关禁止 LiteLLM 自动补后缀。
+      LITELLM_ANTHROPIC_DISABLE_URL_SUFFIX: ${LITELLM_ANTHROPIC_DISABLE_URL_SUFFIX:-}
       # 智谱 GLM Coding Plan 走独立 OpenAI 兼容端点，默认指向官方专属地址。
       Z_AI_CODING_API_BASE: ${Z_AI_CODING_API_BASE:-https://open.bigmodel.cn/api/coding/paas/v4}
       Z_AI_API_KEY: ${Z_AI_API_KEY:-}

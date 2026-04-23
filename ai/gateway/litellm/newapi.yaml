@@ -14,13 +14,33 @@ model_list:
       <<: *newapi_openai_params
       # 继续走 OpenAI 兼容入口，由 NewAPI 负责实际模型分发。
       model: "openai/gemini-3.1-pro"
-  # 显式注册 Claude 系列模型，便于 LiteLLM 直接暴露固定模型列表。
+  # Claude 默认走 Anthropic 原生上游，避免再依赖上游做 OpenAI -> Claude 转换。
   - model_name: "claude-opus-4-6"
+    litellm_params: &newapi_anthropic_params
+      # 这里单独声明 Claude 原生上游入口，避免和 OpenAI 兼容入口混用。
+      api_base: "os.environ/NEWAPI_ANTHROPIC_API_BASE"  # 从环境变量读 Anthropic 兼容地址
+      api_key: "os.environ/NEWAPI_ANTHROPIC_KEY"        # 从环境变量读 Anthropic 上游密钥
+      # 使用 LiteLLM 的 Anthropic provider，把 Claude 请求按原生协议发给上游。
+      model: "anthropic/claude-opus-4-6"
+  - model_name: "claude-opus-4-7"
     litellm_params:
-      # 复用同一个 NewAPI OpenAI 兼容入口，只覆盖具体模型名。
-      <<: *newapi_openai_params
-      # 使用上游真实模型 id，避免代理别名与 NewAPI 模型名脱节。
-      model: "openai/claude-opus-4-6"
+      # 复用同一个 Claude 原生上游入口，只覆盖具体模型名。
+      <<: *newapi_anthropic_params
+      # 保持官方模型名，避免 LiteLLM 对外别名与上游模型脱节。
+      model: "anthropic/claude-opus-4-7"
+  # 为 OpenAI 兼容客户端保留显式别名，但底层仍走同一个 Anthropic 原生上游。
+  - model_name: "compat/claude-opus-4-6"
+    litellm_params:
+      # 复用 Claude 原生上游，只通过模型名表达“兼容入口”的使用语义。
+      <<: *newapi_anthropic_params
+      # 兼容别名与默认模型共享同一上游，避免行为分叉。
+      model: "anthropic/claude-opus-4-6"
+  - model_name: "compat/claude-opus-4-7"
+    litellm_params:
+      # 复用 Claude 原生上游，只通过模型名表达“兼容入口”的使用语义。
+      <<: *newapi_anthropic_params
+      # 兼容别名与默认模型共享同一上游，避免行为分叉。
+      model: "anthropic/claude-opus-4-7"
   # 显式注册 GLM Coding Plan 主模型，便于 `/models` 稳定暴露官方模型名。
   - model_name: "GLM-5.1"
     litellm_params: &zai_openai_params
