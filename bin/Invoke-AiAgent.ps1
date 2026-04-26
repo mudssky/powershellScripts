@@ -21,6 +21,9 @@
 
 .PARAMETER Preset
     prompt preset 名称。
+
+.PARAMETER AppendPrompt
+    追加到最终 prompt 尾部的附加要求。
 #>
 
 [CmdletBinding(PositionalBinding = $false)]
@@ -45,6 +48,7 @@ param(
     [string]$WorkDir,
     [switch]$Json,
     [switch]$DryRun,
+    [string[]]$AppendPrompt,
     [string[]]$ExtraArgs
 )
 
