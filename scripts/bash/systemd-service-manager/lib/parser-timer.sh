@@ -15,6 +15,8 @@ ssm_parse_timer_config() {
   [[ -f "${timer_file}" ]] || ssm_die "Missing timer config: ${timer_file}"
 
   ssm_load_project_config "${project_dir}"
+  unset DESCRIPTION COMMAND WORKDIR SCOPE TARGET_TYPE TARGET_NAME ACTION SCHEDULE
+  unset PERSISTENT RANDOMIZED_DELAY RETRY_ATTEMPTS RETRY_DELAY_SEC
   ssm_load_key_value_file "${timer_file}"
 
   [[ -n "${TARGET_TYPE:-}" ]] || ssm_die "Missing TARGET_TYPE in ${timer_file}"
@@ -42,5 +44,14 @@ ssm_parse_timer_config() {
 
   if [[ -z "${SSM_TIMER_RUN_GROUP}" ]]; then
     SSM_TIMER_RUN_GROUP="${DEFAULT_GROUP:-}"
+  fi
+
+  SSM_TIMER_RETRY_ATTEMPTS="${RETRY_ATTEMPTS:-1}"
+  SSM_TIMER_RETRY_DELAY_SEC="${RETRY_DELAY_SEC:-5}"
+  ssm_require_integer_at_least "RETRY_ATTEMPTS" "${SSM_TIMER_RETRY_ATTEMPTS}" 1
+  ssm_require_integer_at_least "RETRY_DELAY_SEC" "${SSM_TIMER_RETRY_DELAY_SEC}" 0
+
+  if [[ "${TARGET_TYPE}" == "service" && "${SSM_TIMER_RETRY_ATTEMPTS}" -gt 1 ]]; then
+    ssm_die "RETRY_ATTEMPTS only supports TARGET_TYPE=task"
   fi
 }
