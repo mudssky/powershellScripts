@@ -13,6 +13,7 @@
 - `Manage-BinScripts.ps1` 扫描 `.ps1` / `.py`，生成 PowerShell shim。
 - `scripts/node` 通过 Node 构建流程生成 `bin/rule-loader` 等包装器。
 - `scripts/bash/systemd-service-manager/build.sh` 独立构建 `bin/systemd-service-manager`。
+- `scripts/bash/aliyun-oss-put.sh` 这类单文件 Bash 脚本目前没有统一复制到 `bin` 的流程。
 
 这种结构能工作，但 Bash 构建没有统一入口，根安装流程也没有显式刷新 Bash 工具。用户还指出 `systemd-service-manager list` 目前只显示名称，不方便判断服务实际运行命令；同时希望补充重试能力。
 
@@ -21,8 +22,10 @@
 - 新增 `scripts/bash/build.sh`，作为 Bash 工具的统一构建入口。
 - 让 `install.ps1` 调用 `scripts/bash/build.sh`，安装时自动刷新 Bash `bin` 产物。
 - Bash 构建支持并行执行，并可限制并发数，默认根据 CPU 核心数推导。
+- Bash 构建清单支持两类目标：目录内 `build.sh` 构建型目标，以及单文件 `.sh` 复制型目标。
 - `systemd-service-manager list` 输出更多配置摘要，包括命令、目标、调度、scope 与重启策略。
 - `systemd-service-manager list --json` 输出结构化数据，便于脚本消费与测试断言。
+- `systemd-service-manager restart` 作为一等生命周期命令纳入文档、help 与测试覆盖。
 - `systemd-service-manager` 增加明确的 retry 配置模型，避免服务重启和 timer task 重试语义混乱。
 - 更新相关 README 与模板，让用户知道新字段和构建入口。
 
@@ -31,14 +34,14 @@
 - 不把 Bash 构建逻辑塞进 `Manage-BinScripts.ps1`。
 - 不在本轮统一重构 PowerShell、Node、Bash 三类构建为同一个跨语言构建器。
 - 不实现全局插件注册表或动态扫描所有目录下的任意 `build.sh`。
-- 不改变已有 `systemd-service-manager install/start/status/logs` 的命令语义。
+- 不改变已有 `systemd-service-manager install/start/stop/restart/status/logs` 的命令语义。
 - 不默认启用 timer task retry，避免改变现有定时任务失败行为。
 
 ## Chosen Approach
 
 采用“Bash 独立统一构建入口 + systemd 管理器小步增强”的方案。
 
-`scripts/bash/build.sh` 维护一个显式构建清单。第一版只纳入 `scripts/bash/systemd-service-manager/build.sh`，后续 Bash 工具可以按需加入。显式清单比目录全量扫描更可控，能避免误执行示例、临时目录或未完成工具里的 `build.sh`。
+`scripts/bash/build.sh` 维护一个显式构建清单。第一版纳入 `scripts/bash/systemd-service-manager/build.sh` 和单文件脚本 `scripts/bash/aliyun-oss-put.sh`。后续 Bash 工具可以按需加入。显式清单比目录全量扫描更可控，能避免误执行示例、临时目录或未完成工具里的 `build.sh`。
 
 `install.ps1` 在同步 PowerShell/Python shim 之后调用 Bash 构建入口，再继续 Node 构建和 PATH 配置。这样安装流程从用户视角仍是一条命令，但内部职责没有混在一起。
 
@@ -53,8 +56,16 @@ scripts/bash/build.sh
 第一版构建清单：
 
 ```text
-scripts/bash/systemd-service-manager/build.sh
+build:systemd-service-manager:scripts/bash/systemd-service-manager/build.sh
+copy:aliyun-oss-put:scripts/bash/aliyun-oss-put.sh
 ```
+
+构建目标分为两类：
+
+- `build`：目标目录或工具自带 `build.sh`。统一入口直接调用该脚本，由子构建负责生成自己的 `bin` 产物。
+- `copy`：单文件 `.sh`。统一入口把源文件复制到 `bin/<name>`，默认去掉 `.sh` 扩展，并执行 `chmod +x`。
+
+`copy` 目标保留源文件内容，不生成包装器。这样单文件脚本的 shebang、注释、参数解析和相对当前工作目录行为都保持原样。
 
 命令形态：
 
@@ -94,6 +105,13 @@ CPU 核心数探测顺序：
 - 调度器最多同时运行 `jobs` 个任务。
 - 所有任务结束后统一打印成功/失败摘要。
 - 任一任务失败时，`scripts/bash/build.sh` 返回非零退出码。
+
+单文件复制策略：
+
+- 源文件必须是普通文件，并以 `.sh` 结尾。
+- 输出文件默认是 `bin/<name>`，其中 `<name>` 来自清单，不从路径临时推导。
+- 输出文件覆盖旧产物，确保安装时总能拿到最新版本。
+- Unix 平台对输出文件执行 `chmod 0755`。
 
 ## Install Integration
 
@@ -153,6 +171,21 @@ Timers
 - JSON 输出面向脚本，字段稳定；缺失值统一保留字段并置为 `null`，方便消费者处理。
 - `SSM_DEBUG_DUMP_CONFIG=1` 的测试辅助路径保留，不和正式 `--json` 混用。
 
+## systemd-service-manager Restart
+
+`restart` 必须作为一等生命周期命令保留并验证。
+
+要求：
+
+- 顶层 help 展示 `restart`。
+- README 示例包含 `systemd-service-manager restart api --project /path/to/app`。
+- 源码入口与构建产物都能执行 `restart`。
+- `restart <name>` 在 service 与 timer 中只命中一个对象时允许自动推断类型。
+- `restart service <name>` / `restart timer <name>` 支持显式指定类型。
+- `restart` 的 system scope 写操作沿用现有 sudo 自动提权规则。
+
+如果实现中已经存在 `restart`，本轮只补齐文档与回归测试；如果发现分发、构建产物或帮助文本遗漏，则按上述要求补齐。
+
 ## Retry Model
 
 Service 重试继续使用 systemd 原生字段：
@@ -183,6 +216,7 @@ Timer task 新增可选字段：
 Bash 构建入口：
 
 - 构建脚本不存在时报错并返回非零。
+- `copy` 目标源文件不存在、不是 `.sh` 或复制失败时报错并返回非零。
 - `--jobs` 或 `BASH_BUILD_JOBS` 非法时报错并返回非零。
 - 任一子构建失败时打印失败工具名、退出码与日志路径。
 - 构建全部成功时打印产物摘要。
@@ -205,11 +239,13 @@ Bash 构建入口：
 
 - `scripts/bash/build.sh --list` 能列出 `systemd-service-manager`。
 - `scripts/bash/build.sh --jobs 1` 能构建 `bin/systemd-service-manager`。
+- `scripts/bash/build.sh --only aliyun-oss-put` 能把 `scripts/bash/aliyun-oss-put.sh` 复制为可执行的 `bin/aliyun-oss-put`。
 - 多个 fake build 任务时，并发数不超过 `--jobs`。
 - 子构建失败时统一入口返回非零，并打印失败摘要。
 - `install.ps1` 能调用 Bash 构建入口；缺少 `bash` 的平台分支用 mock 或最小断言覆盖。
 - `systemd-service-manager list` 输出包含 service command、timer command / target 与 schedule。
 - `systemd-service-manager list --json` 输出可解析 JSON。
+- `systemd-service-manager restart` 在源码入口和构建产物中都有 help、类型推断与显式类型路径覆盖。
 - service retry 字段仍渲染为 `Restart=` / `RestartSec=`。
 - timer task retry 字段生成 wrapper，并在字段非法时失败。
 
@@ -233,10 +269,12 @@ pnpm test:pwsh:all
 - 新增 `scripts/bash/build.sh`。
 - 接入 `install.ps1`。
 - 补充 Bash 构建入口测试与文档。
+- 把 `scripts/bash/aliyun-oss-put.sh` 作为单文件 copy 目标纳入 `bin` 产物刷新。
 
 第二阶段：
 
 - 增强 `systemd-service-manager list` 与 `list --json`。
+- 补齐 `systemd-service-manager restart` 的文档、help 与回归测试。
 - 增加 retry 配置解析与渲染。
 - 更新模板与 README。
 
