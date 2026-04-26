@@ -354,9 +354,11 @@ catch {
     Write-Warning "同步脚本失败: $($_.Exception.Message)"
 }
 
-# 3. 构建 Bash 脚本工具集
-if (-not (Install-BashScripts -RootPath $ProjectRoot)) {
-    exit 1
+if (-not $IsWindows) {
+    # 3. 构建 Bash 脚本工具集
+    if (-not (Install-BashScripts -RootPath $ProjectRoot)) {
+        exit 1
+    }
 }
 
 # 4. 安装 Node.js 脚本 (跨平台)

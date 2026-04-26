@@ -28,13 +28,15 @@ Describe 'AI agent command specs' {
         $spec.WorkingDirectory | Should -Be '/repo'
         $spec.ArgumentList | Should -Be @(
             'exec',
+            '--ephemeral',
             '--model', 'gpt-5.4',
             '-c', 'model_reasoning_effort="medium"',
             '--json',
             '--full-auto',
             '-C', '/repo',
-            '修复测试'
+            '-'
         )
+        $spec.InputText | Should -Be '修复测试'
     }
 
     It 'builds claude print args and ignores reasoning effort' {
@@ -81,6 +83,50 @@ Describe 'AI agent command specs' {
         $preview | Should -Match 'codex exec <PROMPT>'
         $preview | Should -Match 'PromptChars=13'
         $preview | Should -Not -Match 'secret prompt'
+    }
+
+    It 'prefers Windows application wrappers over PowerShell shims for invocation' -Skip:(-not $IsWindows) {
+        $toolsDir = Join-Path $TestDrive 'agent-bin'
+        New-Item -ItemType Directory -Path $toolsDir -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $toolsDir 'codex.ps1') -Encoding utf8NoBOM -Value "Write-Output 'ps1'"
+        Set-Content -LiteralPath (Join-Path $toolsDir 'codex.cmd') -Encoding ascii -Value "@echo off`r`necho cmd"
+
+        $originalPath = $env:PATH
+        try {
+            $env:PATH = "$toolsDir;$originalPath"
+
+            $resolved = Resolve-AiAgentInvocationFilePath -FilePath 'codex'
+
+            $resolved | Should -Be (Join-Path $toolsDir 'codex.cmd')
+        }
+        finally {
+            $env:PATH = $originalPath
+        }
+    }
+
+    It 'returns native exit codes without adding stdout to the function result' {
+        $pwshPath = (Get-Command pwsh -ErrorAction Stop).Source
+
+        $exitCode = Invoke-AiAgentNativeCommand -FilePath $pwshPath -ArgumentList @(
+            '-NoProfile',
+            '-Command',
+            "Write-Output 'native output'; exit 7"
+        ) 6>$null
+
+        $exitCode | Should -Be 7
+    }
+
+    It 'writes native stdin when input text is provided' {
+        $pwshPath = (Get-Command pwsh -ErrorAction Stop).Source
+        $inputText = "第一行`n第二行"
+
+        $exitCode = Invoke-AiAgentNativeCommand -FilePath $pwshPath -ArgumentList @(
+            '-NoProfile',
+            '-Command',
+            '$text = [Console]::In.ReadToEnd(); if ($text -match "第一行" -and $text -match "第二行") { exit 0 } else { exit 9 }'
+        ) -InputText $inputText 6>$null
+
+        $exitCode | Should -Be 0
     }
 }
 
@@ -194,7 +240,7 @@ Describe 'AI agent runner public script' {
         $LASTEXITCODE | Should -Be 0
         ($output -join "`n") | Should -Match 'codex exec'
         ($output -join "`n") | Should -Match 'model_reasoning_effort="high"'
-        ($output -join "`n") | Should -Match '<PROMPT>'
+        ($output -join "`n") | Should -Match '<PROMPT_STDIN>'
         ($output -join "`n") | Should -Not -Match '检查当前 Git 变更'
     }
 
@@ -212,7 +258,7 @@ Describe 'AI agent runner public script' {
         $appendChars = [int]([regex]::Match($appendText, 'PromptChars=(\d+)').Groups[1].Value)
 
         $appendChars | Should -BeGreaterThan $baseChars
-        $appendText | Should -Match '<PROMPT>'
+        $appendText | Should -Match '<PROMPT_STDIN>'
         $appendText | Should -Not -Match '只提交暂存区'
     }
 }

@@ -31,6 +31,7 @@ function New-CodexAgentCommandSpec {
     $workDir = if ($Config.ContainsKey('work_dir')) { [string]$Config.work_dir } else { (Get-Location).Path }
     $args = New-Object 'System.Collections.Generic.List[string]'
     $args.Add('exec') | Out-Null
+    $args.Add('--ephemeral') | Out-Null
 
     if ($Config.ContainsKey('model')) {
         $args.Add('--model') | Out-Null
@@ -51,7 +52,7 @@ function New-CodexAgentCommandSpec {
 
     $args.Add('-C') | Out-Null
     $args.Add($workDir) | Out-Null
-    $args.Add($Prompt) | Out-Null
+    $args.Add('-') | Out-Null
 
-    return New-AiAgentCommandSpec -FilePath 'codex' -ArgumentList $args.ToArray() -WorkingDirectory $workDir -Prompt $Prompt
+    return New-AiAgentCommandSpec -FilePath 'codex' -ArgumentList $args.ToArray() -WorkingDirectory $workDir -Prompt $Prompt -InputText $Prompt
 }

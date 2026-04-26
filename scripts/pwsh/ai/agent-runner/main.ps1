@@ -161,11 +161,12 @@ function Invoke-AiAgentRunnerCommand {
         return [pscustomobject]@{ ExitCode = 0; Output = Format-AiAgentCommandPreview -Spec $spec }
     }
 
-    Assert-AiAgentCommandAvailable -FilePath $spec.FilePath
+    $invocationFilePath = Resolve-AiAgentInvocationFilePath -FilePath $spec.FilePath
+    Assert-AiAgentCommandAvailable -FilePath $invocationFilePath
     Push-Location $spec.WorkingDirectory
     try {
-        & $spec.FilePath @($spec.ArgumentList)
-        return [pscustomobject]@{ ExitCode = $LASTEXITCODE; Output = '' }
+        $exitCode = Invoke-AiAgentNativeCommand -FilePath $invocationFilePath -ArgumentList @($spec.ArgumentList) -InputText ([string]$spec.InputText)
+        return [pscustomobject]@{ ExitCode = $exitCode; Output = '' }
     }
     finally {
         Pop-Location
