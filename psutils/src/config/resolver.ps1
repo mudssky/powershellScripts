@@ -63,6 +63,35 @@ function Read-ConfigSourceValues {
             $rawObject = Get-Content -LiteralPath $Source.Path -Raw | ConvertFrom-Json
             return ConvertTo-ConfigHashtable -InputObject $rawObject
         }
+        'PowerShellDataFile' {
+            if (-not (Test-Path -LiteralPath $Source.Path)) {
+                if ($ErrorOnMissing) {
+                    throw "配置文件不存在: $($Source.Path)"
+                }
+
+                return @{}
+            }
+
+            return Read-ConfigPowerShellDataFile -Path $Source.Path
+        }
+        'MarkdownFrontMatter' {
+            if (-not (Test-Path -LiteralPath $Source.Path)) {
+                if ($ErrorOnMissing) {
+                    throw "配置文件不存在: $($Source.Path)"
+                }
+
+                return @{}
+            }
+
+            $frontMatter = Read-ConfigMarkdownFrontMatter -Path $Source.Path
+            $values = ConvertTo-ConfigHashtable -InputObject $frontMatter.Metadata
+            $values['__content'] = $frontMatter.Content
+            return $values
+        }
+        'CliParameters' {
+            $excludeKeys = if ($Source.ContainsKey('ExcludeKeys')) { [string[]]$Source.ExcludeKeys } else { @() }
+            return ConvertFrom-ConfigCliParameters -Parameters (ConvertTo-ConfigHashtable -InputObject $Source.Data) -ExcludeKeys $excludeKeys
+        }
         default {
             throw "不支持的配置来源类型: $($Source.Type)"
         }

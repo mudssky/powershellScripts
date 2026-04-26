@@ -16,4 +16,8 @@ foreach ($relativePath in @(
 Export-ModuleMember -Function @(
     'Resolve-ConfigSources'
     'Invoke-WithScopedEnvironment'
+    'ConvertTo-ConfigKeyName'
+    'ConvertFrom-ConfigCliParameters'
+    'Read-ConfigPowerShellDataFile'
+    'Read-ConfigMarkdownFrontMatter'
 )
