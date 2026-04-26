@@ -359,6 +359,40 @@ function runRootFnosQa(modeValue, sinceRef) {
   runCommand('root-qa-fnos-changed', pnpmCommand.command, pnpmCommand.args)
 }
 
+function runRootBashQa(modeValue, sinceRef) {
+  // Bash 根级工具暂不进入 Turbo 图，通过路径触发独立 Vitest 套件。
+  if (!shouldRunLinuxOnlyQa()) {
+    console.log(
+      `[turbo:qa] skip root qa:bash (linux only, current platform: ${process.platform})`,
+    )
+    return
+  }
+
+  const pathspecs = [
+    'scripts/bash/build.sh',
+    'scripts/bash/tests',
+    'scripts/bash/vitest.config.ts',
+    'scripts/bash/aliyun-oss-put.sh',
+    'package.json',
+  ]
+
+  if (modeValue === 'all') {
+    console.log('[turbo:qa] run root qa:bash (all)')
+    const pnpmCommand = buildPnpmCommand(['run', 'qa:bash'])
+    runCommand('root-qa-bash-all', pnpmCommand.command, pnpmCommand.args)
+    return
+  }
+
+  if (!hasPathChanges(pathspecs, sinceRef)) {
+    console.log('[turbo:qa] skip root qa:bash (no changes)')
+    return
+  }
+
+  console.log('[turbo:qa] run root qa:bash (changed)')
+  const pnpmCommand = buildPnpmCommand(['run', 'qa:bash'])
+  runCommand('root-qa-bash-changed', pnpmCommand.command, pnpmCommand.args)
+}
+
 function runRootSystemdServiceManagerQa(modeValue, sinceRef) {
   if (!shouldRunLinuxOnlyQa()) {
     console.log(
@@ -408,6 +442,7 @@ try {
   runWorkspaceQa(mode, sinceRef)
   runRootPwshQa(mode, sinceRef)
   runRootFnosQa(mode, sinceRef)
+  runRootBashQa(mode, sinceRef)
   runRootSystemdServiceManagerQa(mode, sinceRef)
   console.log('[turbo:qa] done')
 } catch (error) {

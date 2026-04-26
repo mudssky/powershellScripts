@@ -12,7 +12,7 @@ Usage: systemd-service-manager <command> [options]
 
 Commands:
   init       初始化当前项目的 deploy/systemd 模板骨架
-  list       列出当前项目中声明的 services 与 timers
+  list       列出当前项目中声明的 services 与 timers，可配合 --json
   install    渲染并安装 service/timer unit 到 systemd
   uninstall  删除当前工具生成的 unit 文件
   start      启动指定 service 或 timer
@@ -42,11 +42,13 @@ Notes:
 Examples:
   systemd-service-manager init
   systemd-service-manager list --project /path/to/app
+  systemd-service-manager list --project /path/to/app --json
   systemd-service-manager install service api --project /path/to/app
   systemd-service-manager install api --project /path/to/app
   systemd-service-manager install api --project /path/to/app --start
   systemd-service-manager install timer cleanup --project /path/to/app --dry-run
   systemd-service-manager start api --project /path/to/app
+  systemd-service-manager restart api --project /path/to/app
   systemd-service-manager logs service api --project /path/to/app --follow
 EOF
 }

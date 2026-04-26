@@ -225,4 +225,44 @@ describe('lifecycle commands', () => {
     expect(result.stdout).toContain('note=unit 已启动但未启用开机自启')
     expect(result.stdout).toContain('note=unit 正在启动中')
   })
+
+  it('routes restart with inferred and explicit target kinds', async () => {
+    const workspace = createWorkspace()
+    workspaces.push(workspace)
+
+    const systemctlLog = path.join(workspace.root, 'systemctl.log')
+    installMockCommand(
+      workspace,
+      'systemctl',
+      '#!/usr/bin/env bash\nprintf "%s\\n" "$*" >>"${SSM_SYSTEMCTL_LOG}"\nexit 0\n',
+    )
+
+    const projectRoot = path.join(
+      workspace.managerHome,
+      'tests',
+      'fixtures',
+      'project-basic',
+    )
+
+    const inferred = await runSource(workspace, ['restart', 'api', '--project', projectRoot], {
+      SSM_TEST_EUID: '0',
+      SSM_SYSTEMCTL_LOG: systemctlLog,
+    })
+    const explicit = await runSource(
+      workspace,
+      ['restart', 'timer', 'cleanup', '--project', projectRoot],
+      {
+        SSM_TEST_EUID: '0',
+        SSM_SYSTEMCTL_LOG: systemctlLog,
+      },
+    )
+
+    const logText = fs.readFileSync(systemctlLog, 'utf8')
+    expect(inferred.exitCode).toBe(0)
+    expect(explicit.exitCode).toBe(0)
+    expect(logText).toContain('restart myapp-api.service')
+    expect(logText).toContain('restart myapp-cleanup.timer')
+    expect(inferred.stdout).toContain('restarted=myapp-api.service')
+    expect(explicit.stdout).toContain('restarted=myapp-cleanup.timer')
+  })
 })

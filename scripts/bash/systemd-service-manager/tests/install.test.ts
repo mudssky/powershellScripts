@@ -410,4 +410,83 @@ describe('install command', () => {
     expect(fs.readFileSync(systemctlLog, 'utf8')).toContain('daemon-reload')
     expect(fs.readFileSync(systemctlLog, 'utf8')).toContain('start myapp-api.service')
   })
+
+  it('renders retry wrapper for timer task commands when retry attempts are configured', async () => {
+    const workspace = createWorkspace()
+    workspaces.push(workspace)
+
+    installMockCommand(workspace, 'systemd-analyze', '#!/usr/bin/env bash\nexit 0\n')
+    installMockCommand(workspace, 'systemctl', '#!/usr/bin/env bash\nexit 0\n')
+
+    const projectRoot = path.join(
+      workspace.managerHome,
+      'tests',
+      'fixtures',
+      'project-basic',
+    )
+
+    writeText(
+      path.join(projectRoot, 'deploy/systemd/timers/retry-cleanup.conf'),
+      [
+        'DESCRIPTION=Retry Cleanup',
+        'TARGET_TYPE=task',
+        'COMMAND=/usr/bin/env bash -lc \'printf cleanup\'',
+        'WORKDIR=/opt/myapp',
+        'SCHEDULE=@daily',
+        'RETRY_ATTEMPTS=3',
+        'RETRY_DELAY_SEC=7',
+        '',
+      ].join('\n'),
+    )
+
+    const result = await runSource(
+      workspace,
+      ['install', 'timer', 'retry-cleanup', '--project', projectRoot],
+      { SSM_TEST_EUID: '0' },
+    )
+
+    expect(result.exitCode).toBe(0)
+    const unitText = fs.readFileSync(
+      path.join(workspace.fakeSystemDir, 'myapp-task-retry-cleanup.service'),
+      'utf8',
+    )
+    expect(unitText).toContain('attempt=1')
+    expect(unitText).toContain('RETRY_ATTEMPTS=3')
+    expect(unitText).toContain('RETRY_DELAY_SEC=7')
+    expect(unitText).toContain("/usr/bin/env bash -lc 'printf cleanup'")
+  })
+
+  it('rejects retry attempts on service-target timers', async () => {
+    const workspace = createWorkspace()
+    workspaces.push(workspace)
+
+    const projectRoot = path.join(
+      workspace.managerHome,
+      'tests',
+      'fixtures',
+      'project-basic',
+    )
+
+    writeText(
+      path.join(projectRoot, 'deploy/systemd/timers/bad-service-retry.conf'),
+      [
+        'DESCRIPTION=Bad Retry',
+        'TARGET_TYPE=service',
+        'TARGET_NAME=api',
+        'ACTION=restart',
+        'SCHEDULE=@daily',
+        'RETRY_ATTEMPTS=2',
+        '',
+      ].join('\n'),
+    )
+
+    const result = await runSource(
+      workspace,
+      ['install', 'timer', 'bad-service-retry', '--project', projectRoot, '--dry-run'],
+      { SSM_TEST_EUID: '0' },
+    )
+
+    expect(result.exitCode).not.toBe(0)
+    expect(result.stderr + result.stdout).toContain('RETRY_ATTEMPTS only supports TARGET_TYPE=task')
+  })
 })

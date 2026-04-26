@@ -403,6 +403,38 @@ function runRootFnosQa(modeValue, sinceRef) {
   runPnpm('root-qa-fnos-changed', ['run', 'qa:fnos'])
 }
 
+function runRootBashQa(modeValue, sinceRef) {
+  // Bash 根级工具不属于 workspace 包，通过路径触发独立 Vitest 套件。
+  if (!shouldRunLinuxOnlyQa()) {
+    console.log(
+      `[qa] skip root qa:bash (linux only, current platform: ${process.platform})`,
+    )
+    return
+  }
+
+  const pathspecs = [
+    'scripts/bash/build.sh',
+    'scripts/bash/tests',
+    'scripts/bash/vitest.config.ts',
+    'scripts/bash/aliyun-oss-put.sh',
+    'package.json',
+  ]
+
+  if (modeValue === 'all') {
+    console.log('[qa] run root qa:bash (all)')
+    runPnpm('root-qa-bash-all', ['run', 'qa:bash'])
+    return
+  }
+
+  if (!hasPathChanges(pathspecs, sinceRef)) {
+    console.log('[qa] skip root qa:bash (no changes)')
+    return
+  }
+
+  console.log('[qa] run root qa:bash (changed)')
+  runPnpm('root-qa-bash-changed', ['run', 'qa:bash'])
+}
+
 function runRootSystemdServiceManagerQa(modeValue, sinceRef) {
   if (!shouldRunLinuxOnlyQa()) {
     console.log(
@@ -448,6 +480,7 @@ try {
   runWorkspaceQa(mode, sinceRef)
   runRootPwshQa(mode, sinceRef)
   runRootFnosQa(mode, sinceRef)
+  runRootBashQa(mode, sinceRef)
   runRootSystemdServiceManagerQa(mode, sinceRef)
   console.log('[qa] done')
 } catch (error) {
