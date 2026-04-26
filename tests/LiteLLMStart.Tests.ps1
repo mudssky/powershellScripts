@@ -23,8 +23,20 @@ Describe 'LiteLLM start usage' {
     It 'documents the sync-models action' {
         $usage = Show-Usage
 
-        $usage | Should -Match '\[up\|down\|restart\|logs\|ps\|pull\|sync-models\]'
+        $usage | Should -Match '\[up\|apply\|down\|restart\|logs\|ps\|pull\|sync-models\]'
+        $usage | Should -Match '\./start\.ps1 apply'
         $usage | Should -Match '\./start\.ps1 sync-models'
+    }
+}
+
+Describe 'Get-LiteLLMComposeActionArgs' {
+    It 'builds apply args that recreate the LiteLLM service so YAML config is reloaded' {
+        $args = Get-LiteLLMComposeActionArgs `
+            -Action 'apply' `
+            -BaseArgs @('compose', '-f', 'compose.yaml') `
+            -ExtraArgs @('--wait')
+
+        $args | Should -Be @('compose', '-f', 'compose.yaml', 'up', '-d', '--force-recreate', '--wait', 'litellm')
     }
 }
 

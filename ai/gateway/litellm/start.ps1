@@ -25,15 +25,17 @@ function Show-Usage {
     #>
     $usage = @'
 用法:
-  ./start.ps1 [up|down|restart|logs|ps|pull|sync-models] [额外 compose 参数]
+  ./start.ps1 [up|apply|down|restart|logs|ps|pull|sync-models] [额外 compose 参数]
 
 默认行为:
   ./start.ps1         -> docker compose up -d
+  ./start.ps1 apply   -> docker compose up -d --force-recreate litellm
   ./start.ps1 logs    -> docker compose logs -f litellm
   ./start.ps1 sync-models -> 用 litellm.local.yaml 同步数据库模型列表
 
 示例:
   ./start.ps1
+  ./start.ps1 apply
   ./start.ps1 restart
   ./start.ps1 sync-models
   ./start.ps1 logs --tail 100
@@ -86,6 +88,69 @@ function Get-ComposeBaseArgs {
     # `--env-file` 既用于 compose 插值，也用于让文档中的原生命令与脚本行为保持一致。
     if (Test-Path -LiteralPath $envFile) {
         $args += @('--env-file', $envFile)
+    }
+
+    return $args
+}
+
+function Get-LiteLLMComposeActionArgs {
+    <#
+    .SYNOPSIS
+    按 LiteLLM 脚本动作生成完整 docker compose 参数。
+    .PARAMETER Action
+    用户传入的脚本动作，当前仅处理会落到 docker compose 的动作。
+    .PARAMETER BaseArgs
+    `docker` 后面的 compose 基础参数，通常来自 `Get-ComposeBaseArgs`。
+    .PARAMETER ExtraArgs
+    透传给目标 compose 子命令的额外参数。
+    .OUTPUTS
+    System.String[]
+    返回可直接传给 `docker` 命令的参数数组。
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('up', 'apply', 'down', 'restart', 'logs', 'ps', 'pull')]
+        [string]$Action,
+
+        [Parameter(Mandatory = $true)]
+        [string[]]$BaseArgs,
+
+        [string[]]$ExtraArgs = @()
+    )
+
+    $args = @($BaseArgs)
+    switch ($Action.ToLowerInvariant()) {
+        'up' {
+            $args += @('up', '-d')
+            $args += $ExtraArgs
+        }
+        'apply' {
+            # bind-mounted YAML 文件内容变化不会自动重启 LiteLLM 进程，重建服务可确保新配置被重新读取。
+            $args += @('up', '-d', '--force-recreate')
+            $args += $ExtraArgs
+            $args += 'litellm'
+        }
+        'down' {
+            $args += @('down')
+            $args += $ExtraArgs
+        }
+        'restart' {
+            $args += @('restart', 'litellm')
+            $args += $ExtraArgs
+        }
+        'logs' {
+            # 默认跟随单个 LiteLLM 服务日志，符合最常见的排查场景。
+            $args += @('logs', '-f', 'litellm')
+            $args += $ExtraArgs
+        }
+        'ps' {
+            $args += @('ps')
+            $args += $ExtraArgs
+        }
+        'pull' {
+            $args += @('pull', 'litellm')
+            $args += $ExtraArgs
+        }
     }
 
     return $args
@@ -440,39 +505,19 @@ switch ($normalizedAction) {
         Show-Usage
         exit 0
     }
-    'up' {
-        $composeArgs += @('up', '-d')
-        $composeArgs += $ExtraArgs
-    }
-    'down' {
-        $composeArgs += @('down')
-        $composeArgs += $ExtraArgs
-    }
-    'restart' {
-        $composeArgs += @('restart', 'litellm')
-        $composeArgs += $ExtraArgs
-    }
-    'logs' {
-        # 默认跟随单个 LiteLLM 服务日志，符合最常见的排查场景。
-        $composeArgs += @('logs', '-f', 'litellm')
-        $composeArgs += $ExtraArgs
-    }
-    'ps' {
-        $composeArgs += @('ps')
-        $composeArgs += $ExtraArgs
-    }
-    'pull' {
-        $composeArgs += @('pull', 'litellm')
-        $composeArgs += $ExtraArgs
-    }
     'sync-models' {
         Invoke-LiteLLMModelSync -EnvFilePath $envFile | Out-Null
         exit 0
     }
     default {
-        Write-Host "不支持的操作: $Action" -ForegroundColor Red
-        Show-Usage
-        exit 1
+        try {
+            $composeArgs = Get-LiteLLMComposeActionArgs -Action $normalizedAction -BaseArgs $composeArgs -ExtraArgs $ExtraArgs
+        }
+        catch {
+            Write-Host "不支持的操作: $Action" -ForegroundColor Red
+            Show-Usage
+            exit 1
+        }
     }
 }
 

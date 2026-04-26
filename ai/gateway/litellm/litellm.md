@@ -77,6 +77,7 @@ docker compose --env-file ai/gateway/litellm/.env.local `
 ```powershell
 ./ai/gateway/litellm/start.ps1
 ./ai/gateway/litellm/start.ps1 up
+./ai/gateway/litellm/start.ps1 apply
 ./ai/gateway/litellm/start.ps1 down
 ./ai/gateway/litellm/start.ps1 restart
 ./ai/gateway/litellm/start.ps1 logs --tail 100
@@ -87,6 +88,7 @@ docker compose --env-file ai/gateway/litellm/.env.local `
 这些命令分别对应：
 
 - `up`：后台启动或重建 LiteLLM 容器。
+- `apply`：强制重建 LiteLLM 服务，适合修改 `litellm.local.yaml` 后让新配置重新加载。
 - `down`：停止并移除当前 compose 管理的资源。
 - `restart`：重启 LiteLLM 容器。
 - `logs`：默认跟随 LiteLLM 日志，可透传额外参数如 `--tail 100`。
