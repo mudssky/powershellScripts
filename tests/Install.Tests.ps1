@@ -47,7 +47,7 @@ exit 0
         }
     }
 
-    It 'invokes scripts/bash/build.sh during default install flow' {
+    It 'invokes scripts/bash/build.sh during default install flow' -Skip:$IsWindows {
         $bashLog = Join-Path $script:TempRoot 'bash-command.log'
         $env:INSTALL_TEST_BASH_LOG = $bashLog
 
