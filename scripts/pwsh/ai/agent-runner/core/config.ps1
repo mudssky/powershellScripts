@@ -52,7 +52,7 @@ function Resolve-AiAgentExecutionConfig {
             Type        = 'CliParameters'
             Name        = 'Cli'
             Data        = $CliParameters
-            ExcludeKeys = @('CommandName', 'Prompt', 'PromptFile', 'Preset', 'RawArguments')
+            ExcludeKeys = @('CommandName', 'Prompt', 'PromptFile', 'Preset', 'AppendPrompt', 'RawArguments')
         }) | Out-Null
 
     return (Resolve-ConfigSources -Sources $sources.ToArray()).Values

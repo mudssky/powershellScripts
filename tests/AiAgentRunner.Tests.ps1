@@ -117,6 +117,15 @@ Describe 'AI agent runner prompt and config' {
         $preset.Content | Should -Match '不要执行 git push'
     }
 
+    It 'loads the fix-tests preset with medium reasoning effort' {
+        $preset = Read-AiAgentPromptPreset -Name 'fix-tests' -PromptsRoot (Join-Path $script:RunnerRoot 'prompts')
+
+        $preset.Metadata.agent | Should -Be 'codex'
+        $preset.Metadata.reasoning_effort | Should -Be 'medium'
+        $preset.Content | Should -Match '测试'
+        $preset.Content | Should -Match '不要执行 git push'
+    }
+
     It 'lets CLI parameters override prompt frontmatter' {
         $preset = Read-AiAgentPromptPreset -Name 'commit' -PromptsRoot (Join-Path $script:RunnerRoot 'prompts')
         $config = Resolve-AiAgentExecutionConfig -Preset $preset -CliParameters @{
@@ -140,11 +149,39 @@ Describe 'AI agent runner prompt and config' {
         (Resolve-AiAgentPromptText -PresetName 'commit' -PromptsRoot (Join-Path $script:RunnerRoot 'prompts')) | Should -Match 'git commit'
     }
 
+    It 'appends structured requirements to direct prompt text' {
+        $result = Resolve-AiAgentPromptText `
+            -Prompt '检查当前变更' `
+            -AppendPrompt @('只提交暂存区', '   ', '不要修改未暂存文件')
+
+        $nl = [Environment]::NewLine
+        $result | Should -Be "检查当前变更${nl}${nl}## 附加要求${nl}${nl}- 只提交暂存区${nl}- 不要修改未暂存文件"
+    }
+
+    It 'appends structured requirements to prompt files without changing source validation' {
+        $promptFile = Join-Path $TestDrive 'task.md'
+        Set-Content -Path $promptFile -Encoding utf8NoBOM -Value '修复当前失败测试'
+
+        $result = Resolve-AiAgentPromptText -PromptFile $promptFile -AppendPrompt '不要修改文档'
+
+        $result | Should -Match '修复当前失败测试'
+        $result | Should -Match '## 附加要求'
+        $result | Should -Match '- 不要修改文档'
+        { Resolve-AiAgentPromptText -Prompt '直接任务' -PromptFile $promptFile -AppendPrompt '附加要求' } | Should -Throw '必须且只能提供一种 prompt 来源。'
+    }
+
     It 'builds the commit shortcut as a commit preset request' {
         $request = ConvertTo-AiAgentRunRequest -CommandName 'commit' -Prompt $null -PromptFile $null -Preset $null
 
         $request.CommandName | Should -Be 'run'
         $request.Preset | Should -Be 'commit'
+    }
+
+    It 'builds the fix-tests shortcut as a fix-tests preset request' {
+        $request = ConvertTo-AiAgentRunRequest -CommandName 'fix-tests' -Prompt $null -PromptFile $null -Preset $null
+
+        $request.CommandName | Should -Be 'run'
+        $request.Preset | Should -Be 'fix-tests'
     }
 }
 
@@ -159,5 +196,23 @@ Describe 'AI agent runner public script' {
         ($output -join "`n") | Should -Match 'model_reasoning_effort="high"'
         ($output -join "`n") | Should -Match '<PROMPT>'
         ($output -join "`n") | Should -Not -Match '检查当前 Git 变更'
+    }
+
+    It 'counts appended prompt text in dry-run without printing it' {
+        $scriptPath = Join-Path $script:RunnerRoot 'main.ps1'
+        $pwshPath = (Get-Command pwsh -ErrorAction Stop).Source
+
+        $baseOutput = & $pwshPath -NoProfile -File $scriptPath commit -DryRun 2>&1
+        $appendOutput = & $pwshPath -NoProfile -File $scriptPath commit -DryRun -AppendPrompt '只提交暂存区' 2>&1
+
+        $LASTEXITCODE | Should -Be 0
+        $baseText = $baseOutput -join "`n"
+        $appendText = $appendOutput -join "`n"
+        $baseChars = [int]([regex]::Match($baseText, 'PromptChars=(\d+)').Groups[1].Value)
+        $appendChars = [int]([regex]::Match($appendText, 'PromptChars=(\d+)').Groups[1].Value)
+
+        $appendChars | Should -BeGreaterThan $baseChars
+        $appendText | Should -Match '<PROMPT>'
+        $appendText | Should -Not -Match '只提交暂存区'
     }
 }

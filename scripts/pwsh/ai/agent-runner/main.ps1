@@ -17,6 +17,9 @@
 
 .PARAMETER Preset
     prompt preset 名称。
+
+.PARAMETER AppendPrompt
+    追加到最终 prompt 尾部的附加要求。
 #>
 [CmdletBinding(PositionalBinding = $false)]
 param(
@@ -40,6 +43,7 @@ param(
     [string]$WorkDir,
     [switch]$Json,
     [switch]$DryRun,
+    [string[]]$AppendPrompt,
     [string[]]$ExtraArgs
 )
 
@@ -79,15 +83,17 @@ function Get-AiAgentHelpText {
 
     return @'
 Usage:
-  Invoke-AiAgent.ps1 commit [-Agent codex] [-ReasoningEffort medium]
+  Invoke-AiAgent.ps1 commit [-AppendPrompt "只提交暂存区"]
+  Invoke-AiAgent.ps1 fix-tests [-AppendPrompt "只修复 Pester 失败"]
   Invoke-AiAgent.ps1 run "prompt text" [-Agent codex]
-  Invoke-AiAgent.ps1 run -PromptFile ./task.md [-Agent claude]
+  Invoke-AiAgent.ps1 run -PromptFile ./task.md [-AppendPrompt "不要修改文档"]
   Invoke-AiAgent.ps1 run -Preset commit [-ReasoningEffort high]
 
 Commands:
-  commit    使用内置 commit preset 执行 git commit，不 push
-  run       执行自定义 prompt、prompt 文件或 preset
-  help      显示帮助
+  commit      使用内置 commit preset 执行 git commit，不 push
+  fix-tests   使用内置 fix-tests preset 定位并修复测试失败，不提交
+  run         执行自定义 prompt、prompt 文件或 preset
+  help        显示帮助
 '@
 }
 
@@ -130,7 +136,19 @@ function Invoke-AiAgentRunnerCommand {
     }
 
     $config = Resolve-AiAgentExecutionConfig -Preset $presetObject -CliParameters $BoundParameters
-    $promptText = Resolve-AiAgentPromptText -Prompt $request.Prompt -PromptFile $request.PromptFile -PresetName $request.Preset -PromptsRoot $promptsRoot
+    $appendPromptItems = if ($BoundParameters.ContainsKey('AppendPrompt')) {
+        @($BoundParameters['AppendPrompt'])
+    }
+    else {
+        @()
+    }
+
+    $promptText = Resolve-AiAgentPromptText `
+        -Prompt $request.Prompt `
+        -PromptFile $request.PromptFile `
+        -PresetName $request.Preset `
+        -PromptsRoot $promptsRoot `
+        -AppendPrompt $appendPromptItems
 
     switch ([string]$config.agent) {
         'codex' { $spec = New-CodexAgentCommandSpec -Prompt $promptText -Config $config }

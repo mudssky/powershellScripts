@@ -6,7 +6,7 @@ $ErrorActionPreference = 'Stop'
     将顶层命令转换为 run 请求。
 
 .DESCRIPTION
-    把 `commit` 快捷命令规约为 `run -Preset commit`，让后续执行路径统一。
+    把 `commit`、`fix-tests` 等快捷命令规约为 `run -Preset <name>`，让后续执行路径统一。
 
 .PARAMETER CommandName
     顶层命令名。
@@ -44,6 +44,14 @@ function ConvertTo-AiAgentRunRequest {
                 Prompt      = $null
                 PromptFile  = $null
                 Preset      = 'commit'
+            }
+        }
+        'fix-tests' {
+            return [pscustomobject]@{
+                CommandName = 'run'
+                Prompt      = $null
+                PromptFile  = $null
+                Preset      = 'fix-tests'
             }
         }
         'run' {
