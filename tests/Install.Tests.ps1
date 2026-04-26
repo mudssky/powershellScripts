@@ -3,7 +3,8 @@ Set-StrictMode -Version Latest
 Describe 'install.ps1' {
     BeforeEach {
         $script:ProjectRoot = Split-Path -Parent $PSScriptRoot
-        $script:TempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("Install.Tests.{0}" -f [System.Guid]::NewGuid())
+        # Linux 容器里的 /tmp 可能挂载为不可执行，mock 外部命令需放在工作区内。
+        $script:TempRoot = Join-Path $script:ProjectRoot (".install-tests.{0}" -f [System.Guid]::NewGuid())
         New-Item -ItemType Directory -Path $script:TempRoot -Force | Out-Null
 
         Copy-Item -Path (Join-Path $script:ProjectRoot 'install.ps1') -Destination (Join-Path $script:TempRoot 'install.ps1') -Force
