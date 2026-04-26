@@ -80,6 +80,7 @@ systemd-service-manager list --project /path/to/app
 systemd-service-manager install service api --project /path/to/app
 systemd-service-manager install api --project /path/to/app --start
 systemd-service-manager install timer cleanup --project /path/to/app --dry-run
+systemd-service-manager restart api --project /path/to/app
 systemd-service-manager logs service api --project /path/to/app --follow
 ```
 
