@@ -147,3 +147,17 @@ Describe 'AI agent runner prompt and config' {
         $request.Preset | Should -Be 'commit'
     }
 }
+
+Describe 'AI agent runner public script' {
+    It 'prints a safe dry-run preview for commit' {
+        $scriptPath = Join-Path $script:RunnerRoot 'main.ps1'
+        $pwshPath = (Get-Command pwsh -ErrorAction Stop).Source
+        $output = & $pwshPath -NoProfile -File $scriptPath commit -DryRun -ReasoningEffort high 2>&1
+
+        $LASTEXITCODE | Should -Be 0
+        ($output -join "`n") | Should -Match 'codex exec'
+        ($output -join "`n") | Should -Match 'model_reasoning_effort="high"'
+        ($output -join "`n") | Should -Match '<PROMPT>'
+        ($output -join "`n") | Should -Not -Match '检查当前 Git 变更'
+    }
+}
