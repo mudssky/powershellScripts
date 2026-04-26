@@ -69,6 +69,17 @@ $BinDir = Join-Path $ProjectRoot 'bin'
 # 忽略的目录列表
 $IgnoreDirs = @('.git', 'node_modules', 'bin', 'dist', 'build', 'coverage', '.claude', '.vscode', '.idea')
 
+$ConfigSourceRoot = Join-Path $ProjectRoot 'psutils/src/config'
+foreach ($relativePath in @(
+        'convert.ps1'
+        'discovery.ps1'
+        'reader.ps1'
+        'resolver.ps1'
+        'scoped-environment.ps1'
+    )) {
+    . (Join-Path $ConfigSourceRoot $relativePath)
+}
+
 # 辅助函数：高性能遍历查找 .ps1 文件
 function Find-ProjectScripts {
     param (
@@ -114,13 +125,19 @@ function Resolve-ScriptTargetNames {
     param(
         [string[]]$Scripts,
         [string]$RootPath,
-        [string]$Strategy
+        [string]$Strategy,
+        [hashtable]$PreferredNames = @{}
     )
     
     $mapping = @{} # SourcePath -> TargetFileName
     
     if ($Strategy -eq 'Overwrite') {
         foreach ($s in $Scripts) {
+            if ($PreferredNames.ContainsKey($s)) {
+                $mapping[$s] = $PreferredNames[$s]
+                continue
+            }
+
             $name = [System.IO.Path]::GetFileName($s)
             if ($name.EndsWith('.py')) {
                 $name = [System.IO.Path]::ChangeExtension($name, '.ps1')
@@ -132,6 +149,11 @@ function Resolve-ScriptTargetNames {
 
     # 初始化：全部使用原始文件名
     foreach ($s in $Scripts) {
+        if ($PreferredNames.ContainsKey($s)) {
+            $mapping[$s] = $PreferredNames[$s]
+            continue
+        }
+
         $ext = [System.IO.Path]::GetExtension($s)
         $baseName = [System.IO.Path]::GetFileNameWithoutExtension($s)
         if ($ext -eq '.py') {
@@ -171,6 +193,9 @@ function Resolve-ScriptTargetNames {
             # 对冲突组中的每个文件重新计算名称
             foreach ($entry in $group.Group) {
                 $sourcePath = $entry.Key
+                if ($PreferredNames.ContainsKey($sourcePath)) {
+                    continue
+                }
                 
                 # 计算相对路径部分
                 $relPath = [System.IO.Path]::GetRelativePath($RootPath, $sourcePath)
@@ -199,6 +224,98 @@ function Resolve-ScriptTargetNames {
     }
     
     return $mapping
+}
+
+<#
+.SYNOPSIS
+    获取目录型 PowerShell 工具 manifest。
+
+.DESCRIPTION
+    扫描 `scripts/pwsh/**/tool.psd1`，并读取每个 manifest 的公开 bin 名称与入口脚本。
+
+.PARAMETER RootPath
+    项目根目录。
+
+.OUTPUTS
+    PSCustomObject[]
+    返回目录工具描述对象。
+#>
+function Get-DirectoryToolManifests {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RootPath
+    )
+
+    $manifestRoot = Join-Path $RootPath 'scripts/pwsh'
+    if (-not (Test-Path -LiteralPath $manifestRoot -PathType Container)) {
+        return @()
+    }
+
+    $manifests = Get-ChildItem -Path $manifestRoot -Filter 'tool.psd1' -Recurse -File -ErrorAction SilentlyContinue
+    $tools = New-Object 'System.Collections.Generic.List[object]'
+    foreach ($manifest in $manifests) {
+        $config = Resolve-ConfigSources -Sources @(
+            @{ Type = 'PowerShellDataFile'; Name = 'ToolManifest'; Path = $manifest.FullName }
+        ) -ErrorOnMissing
+
+        $binName = [string]$config.Values.BinName
+        $entry = [string]$config.Values.Entry
+        if ([string]::IsNullOrWhiteSpace($binName) -or -not $binName.EndsWith('.ps1')) {
+            throw "目录工具 manifest 必须声明 .ps1 BinName: $($manifest.FullName)"
+        }
+        if ([string]::IsNullOrWhiteSpace($entry)) {
+            throw "目录工具 manifest 必须声明 Entry: $($manifest.FullName)"
+        }
+
+        $toolRoot = Split-Path -Parent $manifest.FullName
+        $entryPath = Join-Path $toolRoot $entry
+        if (-not (Test-Path -LiteralPath $entryPath -PathType Leaf)) {
+            throw "目录工具入口不存在: $entryPath"
+        }
+
+        $tools.Add([pscustomobject]@{
+            ManifestPath = $manifest.FullName
+            RootPath     = $toolRoot
+            EntryPath    = [System.IO.Path]::GetFullPath($entryPath)
+            BinName      = $binName
+        }) | Out-Null
+    }
+
+    return $tools.ToArray()
+}
+
+<#
+.SYNOPSIS
+    获取目录工具中不应公开安装的内部脚本。
+
+.DESCRIPTION
+    对每个目录工具，除 manifest 声明的入口脚本外，其余 `.ps1` 都视为内部实现。
+
+.PARAMETER Tools
+    `Get-DirectoryToolManifests` 返回的工具描述对象。
+
+.OUTPUTS
+    HashSet[string]
+    返回需要从普通脚本扫描结果中过滤掉的绝对路径集合。
+#>
+function Get-DirectoryToolInternalScriptSet {
+    [CmdletBinding()]
+    param(
+        [object[]]$Tools
+    )
+
+    $set = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($tool in $Tools) {
+        Get-ChildItem -Path $tool.RootPath -Filter '*.ps1' -Recurse -File | ForEach-Object {
+            $fullPath = [System.IO.Path]::GetFullPath($_.FullName)
+            if ($fullPath -ne $tool.EntryPath) {
+                $set.Add($fullPath) | Out-Null
+            }
+        }
+    }
+
+    return , $set
 }
 
 function Get-ManagedBinShimMetadata {
@@ -295,6 +412,12 @@ function Sync-BinScripts {
     
     # 1. 查找所有脚本
     [object[]]$allScripts = Find-ProjectScripts -RootPath $ProjectRoot -IgnoreList $IgnoreDirs
+    $directoryTools = @(Get-DirectoryToolManifests -RootPath $ProjectRoot)
+    $internalDirectoryToolScripts = Get-DirectoryToolInternalScriptSet -Tools $directoryTools
+    $preferredNames = @{}
+    foreach ($tool in $directoryTools) {
+        $preferredNames[$tool.EntryPath] = $tool.BinName
+    }
     
     if ($allScripts.Count -eq 0) {
         Write-Warning "未找到任何 .ps1 脚本。"
@@ -323,13 +446,23 @@ function Sync-BinScripts {
         $allScripts
     }
 
+    [object[]]$targetScripts = @($targetScripts | Where-Object {
+            -not $internalDirectoryToolScripts.Contains([System.IO.Path]::GetFullPath($_))
+        })
+
+    foreach ($tool in $directoryTools) {
+        if ($targetScripts -notcontains $tool.EntryPath) {
+            $targetScripts += $tool.EntryPath
+        }
+    }
+
     if ($targetScripts.Count -eq 0) {
         Write-Warning "没有脚本匹配指定的模式。"
         return
     }
 
     # 3. 解析目标文件名 (处理重名)
-    $scriptMapping = Resolve-ScriptTargetNames -Scripts $targetScripts -RootPath $ProjectRoot -Strategy $DuplicateStrategy
+    $scriptMapping = Resolve-ScriptTargetNames -Scripts $targetScripts -RootPath $ProjectRoot -Strategy $DuplicateStrategy -PreferredNames $preferredNames
     
     # 4. 确保 bin 目录存在
     if (-not (Test-Path $BinDir)) {
