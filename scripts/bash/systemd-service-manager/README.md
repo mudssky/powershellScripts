@@ -5,7 +5,7 @@
 ## Commands
 
 - `init`：在项目目录下生成 `deploy/systemd/` 骨架、`README.md`、`*.example` 和默认可编辑配置。
-- `list`：列出项目中声明的 services 与 timers，方便确认命名和管理范围。
+- `list`：列出项目中声明的 services 与 timers，方便确认命名和管理范围；支持 `--json` 输出稳定结构。
 - `install`：把 `.conf` / `.env` 渲染成 `.service` / `.timer`，并安装到 systemd 目录；支持 `--dry-run` 预览。
 - `uninstall`：删除当前工具生成的 unit 文件。
 - `start`：启动指定 service 或 timer。
@@ -39,6 +39,15 @@
   - `<name>.env`
   - `project.env.local`
   - `project.env`
+
+## Timer task retry
+
+Timer task 可选配置：
+
+- `RETRY_ATTEMPTS`：命令总尝试次数，默认 `1`，即不重试。
+- `RETRY_DELAY_SEC`：失败后等待秒数，默认 `5`。
+
+`RETRY_ATTEMPTS` 只适用于 `TARGET_TYPE=task`，不适用于触发 service 的 timer。
 
 ## fnm 推荐写法
 
@@ -77,6 +86,7 @@ bash scripts/bash/systemd-service-manager/build.sh
 ```bash
 systemd-service-manager init
 systemd-service-manager list --project /path/to/app
+systemd-service-manager list --project /path/to/app --json
 systemd-service-manager install service api --project /path/to/app
 systemd-service-manager install api --project /path/to/app --start
 systemd-service-manager install timer cleanup --project /path/to/app --dry-run

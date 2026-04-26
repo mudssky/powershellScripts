@@ -2,6 +2,17 @@
 
 这里存放以 `bash` 为运行时的轻量单文件脚本。
 
+## Build
+
+```bash
+scripts/bash/build.sh
+scripts/bash/build.sh --jobs 2
+scripts/bash/build.sh --list
+scripts/bash/build.sh --only aliyun-oss-put
+```
+
+`scripts/bash/build.sh` 统一刷新 Bash 工具的 `bin` 产物。目录型工具通过自己的 `build.sh` 生成产物；单文件 `.sh` 会复制到 `bin/<name>`，默认去掉 `.sh` 扩展。
+
 ## aliyun-oss-put.sh
 
 使用阿里云 OSS `PutObject` 接口上传单个本地文件。
