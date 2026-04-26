@@ -106,6 +106,41 @@ CPU 核心数探测顺序：
 - 所有任务结束后统一打印成功/失败摘要。
 - 任一任务失败时，`scripts/bash/build.sh` 返回非零退出码。
 
+## Build Logging
+
+`scripts/bash/build.sh` 的日志要明确展示“输入是什么、解析成什么、实际做了什么”。并行构建时子任务输出会进入独立日志文件，主进程负责打印稳定摘要，避免多任务输出交织。
+
+启动日志必须包含：
+
+- 原始参数，例如 `args=--jobs 2 --only systemd-service-manager`。
+- 项目根目录、`bin` 输出目录、临时日志目录。
+- 解析后的模式：`list=true/false`、`only=<name|all>`。
+- 并发来源：`jobs=<n>`，并标明来自 `--jobs`、`BASH_BUILD_JOBS` 或 CPU 自动推导。
+- 本次选中的目标数量与目标清单。
+
+`--list` 输出必须包含每个目标的：
+
+- `name`
+- `type`，即 `build` 或 `copy`
+- `source`
+- `output`，copy 目标为 `bin/<name>`，build 目标为子构建自管产物。
+
+每个任务的日志摘要必须包含：
+
+- `START <name>`：目标类型、源路径、预期动作。
+- `ACTION <name>`：`run build.sh` 或 `copy source -> bin/<name>`。
+- `DONE <name>`：退出码、耗时、关键产物路径。
+- `FAIL <name>`：退出码、耗时、子任务日志路径。
+
+最终摘要必须包含：
+
+- 总任务数、成功数、失败数、跳过数。
+- 成功任务名称。
+- 失败任务名称与日志路径。
+- 总耗时。
+
+日志格式以稳定前缀为主，例如 `[bash-build][info]`、`[bash-build][error]`。时间戳可以有，但测试不依赖时间戳。
+
 单文件复制策略：
 
 - 源文件必须是普通文件，并以 `.sh` 结尾。
@@ -218,6 +253,7 @@ Bash 构建入口：
 - 构建脚本不存在时报错并返回非零。
 - `copy` 目标源文件不存在、不是 `.sh` 或复制失败时报错并返回非零。
 - `--jobs` 或 `BASH_BUILD_JOBS` 非法时报错并返回非零。
+- 参数解析失败时打印收到的原始参数和支持的用法。
 - 任一子构建失败时打印失败工具名、退出码与日志路径。
 - 构建全部成功时打印产物摘要。
 
@@ -238,8 +274,11 @@ Bash 构建入口：
 需要覆盖以下测试：
 
 - `scripts/bash/build.sh --list` 能列出 `systemd-service-manager`。
+- `scripts/bash/build.sh --list` 输出目标的 `name`、`type`、`source` 与 `output`。
 - `scripts/bash/build.sh --jobs 1` 能构建 `bin/systemd-service-manager`。
+- `scripts/bash/build.sh --jobs 1` 日志包含原始参数、解析后的 jobs、目标清单、任务动作与最终摘要。
 - `scripts/bash/build.sh --only aliyun-oss-put` 能把 `scripts/bash/aliyun-oss-put.sh` 复制为可执行的 `bin/aliyun-oss-put`。
+- `copy` 目标日志包含 `copy source -> bin/<name>`。
 - 多个 fake build 任务时，并发数不超过 `--jobs`。
 - 子构建失败时统一入口返回非零，并打印失败摘要。
 - `install.ps1` 能调用 Bash 构建入口；缺少 `bash` 的平台分支用 mock 或最小断言覆盖。
