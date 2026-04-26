@@ -83,3 +83,67 @@ Describe 'AI agent command specs' {
         $preview | Should -Not -Match 'secret prompt'
     }
 }
+
+Describe 'AI agent runner prompt and config' {
+    BeforeAll {
+        $script:OriginalAiAgentRunnerSkip = [Environment]::GetEnvironmentVariable('PWSH_TEST_SKIP_AI_AGENT_RUNNER_MAIN', 'Process')
+        $env:PWSH_TEST_SKIP_AI_AGENT_RUNNER_MAIN = '1'
+
+        foreach ($relativePath in @(
+                'core/prompt.ps1'
+                'core/config.ps1'
+                'core/arguments.ps1'
+                'main.ps1'
+            )) {
+            . (Join-Path $script:RunnerRoot $relativePath)
+        }
+    }
+
+    AfterAll {
+        if ($null -eq $script:OriginalAiAgentRunnerSkip) {
+            Remove-Item Env:\PWSH_TEST_SKIP_AI_AGENT_RUNNER_MAIN -ErrorAction SilentlyContinue
+        }
+        else {
+            [Environment]::SetEnvironmentVariable('PWSH_TEST_SKIP_AI_AGENT_RUNNER_MAIN', $script:OriginalAiAgentRunnerSkip, 'Process')
+        }
+    }
+
+    It 'loads the commit preset with medium reasoning effort' {
+        $preset = Read-AiAgentPromptPreset -Name 'commit' -PromptsRoot (Join-Path $script:RunnerRoot 'prompts')
+
+        $preset.Metadata.agent | Should -Be 'codex'
+        $preset.Metadata.reasoning_effort | Should -Be 'medium'
+        $preset.Content | Should -Match 'git commit'
+        $preset.Content | Should -Match '不要执行 git push'
+    }
+
+    It 'lets CLI parameters override prompt frontmatter' {
+        $preset = Read-AiAgentPromptPreset -Name 'commit' -PromptsRoot (Join-Path $script:RunnerRoot 'prompts')
+        $config = Resolve-AiAgentExecutionConfig -Preset $preset -CliParameters @{
+            Agent           = 'codex'
+            ReasoningEffort = 'high'
+            WorkDir         = '/repo'
+        }
+
+        $config.agent | Should -Be 'codex'
+        $config.reasoning_effort | Should -Be 'high'
+        $config.work_dir | Should -Be '/repo'
+        $config.__content | Should -Match 'git commit'
+    }
+
+    It 'resolves run prompt text from direct prompt, prompt file and preset' {
+        $promptFile = Join-Path $TestDrive 'task.md'
+        Set-Content -Path $promptFile -Encoding utf8NoBOM -Value '解释当前仓库结构'
+
+        (Resolve-AiAgentPromptText -Prompt '直接任务').Trim() | Should -Be '直接任务'
+        (Resolve-AiAgentPromptText -PromptFile $promptFile).Trim() | Should -Be '解释当前仓库结构'
+        (Resolve-AiAgentPromptText -PresetName 'commit' -PromptsRoot (Join-Path $script:RunnerRoot 'prompts')) | Should -Match 'git commit'
+    }
+
+    It 'builds the commit shortcut as a commit preset request' {
+        $request = ConvertTo-AiAgentRunRequest -CommandName 'commit' -Prompt $null -PromptFile $null -Preset $null
+
+        $request.CommandName | Should -Be 'run'
+        $request.Preset | Should -Be 'commit'
+    }
+}
