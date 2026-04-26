@@ -8,7 +8,8 @@
     该脚本执行以下操作：
     1. 自动检测并添加项目根目录和 bin 目录到 PATH 环境变量 (Windows)。
     2. 同步 bin 目录下的 PowerShell 脚本包装器。
-    3. 安装并构建 scripts/node 下的 TypeScript/Node.js 工具集。
+    3. 构建 scripts/bash 下的 Bash 工具集。
+    4. 安装并构建 scripts/node 下的 TypeScript/Node.js 工具集。
 
 .EXAMPLE
     .\install.ps1
@@ -225,6 +226,52 @@ function Install-NodeScripts {
     }
 }
 
+function Install-BashScripts {
+    <#
+    .SYNOPSIS
+        构建 scripts/bash 下的 Bash 工具。
+
+    .DESCRIPTION
+        调用 scripts/bash/build.sh 统一刷新 Bash 单文件产物与构建型产物。
+
+    .PARAMETER RootPath
+        仓库根目录。
+
+    .OUTPUTS
+        System.Boolean。成功执行或无需执行时返回 $true；构建失败返回 $false。
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$RootPath
+    )
+
+    $bashBuildScript = Join-Path $RootPath 'scripts/bash/build.sh'
+    if (-not (Test-Path -LiteralPath $bashBuildScript -PathType Leaf)) {
+        Write-Warning "未找到 Bash 构建脚本: $bashBuildScript"
+        return $true
+    }
+
+    if (-not (Get-Command 'bash' -ErrorAction SilentlyContinue)) {
+        if ($IsWindows) {
+            Write-Warning "未找到 bash，跳过 Bash 工具构建。"
+            return $true
+        }
+
+        Write-Error "未找到 bash，无法构建 Bash 工具。"
+        return $false
+    }
+
+    Write-Host "`n=== 开始构建 Bash 脚本工具集 ===" -ForegroundColor Magenta
+    & bash $bashBuildScript
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Bash 脚本工具集构建失败，退出码: $LASTEXITCODE"
+        return $false
+    }
+
+    Write-Host "✓ Bash 脚本工具集构建完成" -ForegroundColor Green
+    return $true
+}
+
 function Install-NbStripout {
     Write-Host "`n=== 开始安装与配置 nbstripout ===" -ForegroundColor Magenta
     
@@ -307,19 +354,24 @@ catch {
     Write-Warning "同步脚本失败: $($_.Exception.Message)"
 }
 
-# 3. 安装 Node.js 脚本 (跨平台)
+# 3. 构建 Bash 脚本工具集
+if (-not (Install-BashScripts -RootPath $ProjectRoot)) {
+    exit 1
+}
+
+# 4. 安装 Node.js 脚本 (跨平台)
 Install-NodeScripts -ScriptDir $NodeScriptsDir
 
-# 4. 配置 bin 目录 PATH (仅 Windows)
+# 5. 配置 bin 目录 PATH (仅 Windows)
 #    注意：Node 脚本构建后会生成文件到 bin，所以确保 bin 在 PATH 中很重要
 if (Ensure-PathSetup -Path $BinDir -Description "Bin 目录") {
     $changesMade = $true
 }
 
-# 5. 安装与配置 nbstripout (Python 工具)
+# 6. 安装与配置 nbstripout (Python 工具)
 Install-NbStripout
 
-# 6. 配置 AutoHotkey (仅 Windows)
+# 7. 配置 AutoHotkey (仅 Windows)
 Install-AutoHotkey -RootPath $ProjectRoot
 
 # --- 结束汇总 ---
