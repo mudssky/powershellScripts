@@ -102,7 +102,7 @@ pwsh ./rclone-ops.ps1 doctor
 
 ## 启动 WebUI / RC
 
-默认监听 `127.0.0.1:5572`。不带 `--background` 时是前台运行模式，命令会持续占用当前终端；如果没有持续输出，通常表示 `rclone rcd` 仍在运行，可打开 `http://127.0.0.1:5572` 或查看 `.runtime/logs/webui.log` 确认状态，按 `Ctrl+C` 停止。
+默认监听 `127.0.0.1:5572`。不带 `--background` 时是前台运行模式，命令会持续占用当前终端，并把 rclone 日志直接显示在当前终端；可打开 `http://127.0.0.1:5572` 确认状态，按 `Ctrl+C` 停止。后台模式才会把日志写入 `.runtime/logs/webui.log`。
 
 如果未设置 `RCLONE_RC_PASS`，rclone WebUI 会自动生成临时认证信息；建议日常运维显式设置强密码：
 

@@ -369,13 +369,16 @@ function commandWebui(flags, passthrough) {
     'RCLONE_RC_PASS',
     process.env.RCLONE_RC_PASS ?? '',
   )
+  const isBackground = flags.has('background')
   const logFile = resolveOption(
     flags,
     'log-file',
     'RCLONE_LOG_FILE',
     join(DEFAULT_LOG_DIR, 'webui.log'),
   )
-  ensureDir(dirname(logFile))
+  if (isBackground) {
+    ensureDir(dirname(logFile))
+  }
   const rcloneCheck = checkRclone(binary)
   if (!rcloneCheck.ok) {
     throw new Error(
@@ -389,9 +392,11 @@ function commandWebui(flags, passthrough) {
     '--rc-web-gui',
     `--rc-addr=${rcAddr}`,
     `--config=${configPath}`,
-    `--log-file=${logFile}`,
     ...passthrough,
   ]
+  if (isBackground) {
+    args.push(`--log-file=${logFile}`)
+  }
   if (rcPass) {
     args.push(`--rc-user=${rcUser}`, `--rc-pass=${rcPass}`)
   }
@@ -402,23 +407,21 @@ function commandWebui(flags, passthrough) {
   console.log('准备启动 rclone WebUI/RC：')
   console.log(`  地址: http://${rcAddr}`)
   console.log(`  配置: ${configPath}`)
-  console.log(`  日志: ${logFile}`)
+  console.log(`  日志: ${isBackground ? logFile : '当前终端（rclone stdout/stderr）'}`)
   if (!rcPass) {
     console.log(
       '  认证: 未设置 RCLONE_RC_PASS，rclone 会生成临时认证信息；建议日常运维显式设置强密码。',
     )
   }
-  if (flags.has('background')) {
+  if (isBackground) {
     console.log('  模式: 后台启动，可用 stop-webui 停止。')
   } else {
-    console.log(
-      '  模式: 前台运行，会持续占用当前终端；无持续输出通常表示服务仍在运行，按 Ctrl+C 停止。',
-    )
+    console.log('  模式: 前台运行，rclone 日志会直接显示在当前终端，按 Ctrl+C 停止。')
     console.log('  提示: 如需命令立即返回，请使用 --background --no-open-browser。')
   }
 
   return runRclone(binary, args, {
-    background: flags.has('background'),
+    background: isBackground,
     pidFile: join(DEFAULT_RUNTIME_DIR, 'webui.pid'),
   })
 }

@@ -624,15 +624,19 @@ function Start-RcloneOpsWebUi {
     $rcAddr = Get-RcloneOpsOption -Flags $Flags -Name 'addr' -EnvName 'RCLONE_RC_ADDR' -DefaultValue $script:DefaultRcAddr
     $rcPass = Get-RcloneOpsOption -Flags $Flags -Name 'pass' -EnvName 'RCLONE_RC_PASS' -DefaultValue ''
     $rcUser = if ($rcPass) { Get-RcloneOpsOption -Flags $Flags -Name 'user' -EnvName 'RCLONE_RC_USER' -DefaultValue $script:DefaultRcUser } else { '' }
+    $isBackground = $Flags.ContainsKey('background')
     $logFile = Get-RcloneOpsOption -Flags $Flags -Name 'log-file' -EnvName 'RCLONE_LOG_FILE' -DefaultValue (Join-Path $script:DefaultLogDir 'webui.log')
-    New-Item -ItemType Directory -Path (Split-Path -Parent $logFile) -Force | Out-Null
+    if ($isBackground) {
+        New-Item -ItemType Directory -Path (Split-Path -Parent $logFile) -Force | Out-Null
+    }
 
     if (-not (Get-Command $rclone -ErrorAction SilentlyContinue)) {
         throw "未找到 rclone 命令：$rclone。请先安装 rclone，或通过 --rclone / RCLONE_BIN 指定路径。"
     }
 
-    # WebUI 会暴露 RC API；默认只监听 localhost，避免无意暴露到公网。
-    $rcloneArgs = @('rcd', '--rc-web-gui', "--rc-addr=$rcAddr", "--config=$configPath", "--log-file=$logFile")
+    # 前台模式保留 rclone 的 stderr/stdout，后台模式才写日志文件，避免用户误判“没反应”。
+    $rcloneArgs = @('rcd', '--rc-web-gui', "--rc-addr=$rcAddr", "--config=$configPath")
+    if ($isBackground) { $rcloneArgs += "--log-file=$logFile" }
     if ($rcPass) { $rcloneArgs += @("--rc-user=$rcUser", "--rc-pass=$rcPass") }
     if ($Flags.ContainsKey('no-open-browser')) { $rcloneArgs += '--rc-web-gui-no-open-browser' }
     $rcloneArgs += $Passthrough
@@ -640,19 +644,19 @@ function Start-RcloneOpsWebUi {
     Write-Host '准备启动 rclone WebUI/RC：'
     Write-Host "  地址: http://$rcAddr"
     Write-Host "  配置: $configPath"
-    Write-Host "  日志: $logFile"
+    Write-Host ("  日志: {0}" -f ($(if ($isBackground) { $logFile } else { '当前终端（rclone stdout/stderr）' })))
     if (-not $rcPass) {
         Write-Host '  认证: 未设置 RCLONE_RC_PASS，rclone 会生成临时认证信息；建议日常运维显式设置强密码。'
     }
-    if ($Flags.ContainsKey('background')) {
+    if ($isBackground) {
         Write-Host '  模式: 后台启动，可用 stop-webui 停止。'
     }
     else {
-        Write-Host '  模式: 前台运行，会持续占用当前终端；无持续输出通常表示服务仍在运行，按 Ctrl+C 停止。'
+        Write-Host '  模式: 前台运行，rclone 日志会直接显示在当前终端，按 Ctrl+C 停止。'
         Write-Host '  提示: 如需命令立即返回，请使用 --background --no-open-browser。'
     }
 
-    Invoke-RcloneOpsProcess -FilePath $rclone -Arguments $rcloneArgs -Background:($Flags.ContainsKey('background')) -PidFile (Join-Path $script:DefaultRuntimeDir 'webui.pid')
+    Invoke-RcloneOpsProcess -FilePath $rclone -Arguments $rcloneArgs -Background:$isBackground -PidFile (Join-Path $script:DefaultRuntimeDir 'webui.pid')
 }
 
 function Stop-RcloneOpsWebUi {
