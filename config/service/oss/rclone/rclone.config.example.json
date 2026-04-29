@@ -21,5 +21,10 @@
       "force_path_style": "true",
       "no_check_bucket": "true"
     }
-  ]
+  ],
+  "webui": {
+    "addr": "127.0.0.1:5572",
+    "user": "admin",
+    "pass": "${RCLONE_RC_PASS}"
+  }
 }

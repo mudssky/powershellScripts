@@ -36,7 +36,8 @@ AfterAll {
             'Get-RcloneOpsRemoteName',
             'Read-RcloneOpsConfigValues',
             'Resolve-RcloneOpsEnvPlaceholder',
-            'Split-RcloneOpsArguments'
+            'Split-RcloneOpsArguments',
+            'Get-RcloneOpsOptionWithConfig'
         )) {
         Remove-Item -Path ("Function:\{0}" -f $functionName) -ErrorAction SilentlyContinue
     }
@@ -132,6 +133,22 @@ Describe 'rclone-ops.ps1 JSON 配置生成逻辑' {
         Set-Content -LiteralPath $envPath -Encoding utf8NoBOM -Value 'RCLONE_REMOTE_NAMES=cloud-main'
 
         { Read-RcloneOpsConfigValues -ConfigPath $envPath } | Should -Throw 'rclone-ops 仅支持 JSON 主配置*'
+    }
+
+
+    It '能从 JSON webui section 读取 RC 密码' {
+        $env:RCLONE_RC_PASS = 'json-rc-pass'
+        $values = @{
+            webui = [pscustomobject]@{
+                addr = '100.64.0.1:5572'
+                user = 'admin'
+                pass = '${RCLONE_RC_PASS}'
+            }
+        }
+
+        $password = Get-RcloneOpsOptionWithConfig -Flags @{} -Name 'pass' -EnvName 'UNUSED_RCLONE_RC_PASS' -ConfigValues $values -Section 'webui' -ConfigName 'pass' -DefaultValue ''
+
+        $password | Should -Be 'json-rc-pass'
     }
 
     It '能解析透传参数与布尔开关' {

@@ -22,6 +22,7 @@
 2. 每个 remote 必须包含 `name` 与 `type`。
 3. remote 对象中除 `name` 外的字段会按原键名写入 `rclone.conf`。
 4. 字符串值可使用 `${ENV_VAR}` 占位符，从当前进程环境变量读取密钥；缺失变量会直接报错。
+5. 可选的 `webui` section 可配置 `addr`、`user`、`pass`，命令行参数与环境变量优先级高于 JSON。
 
 示例：
 
@@ -47,7 +48,12 @@
       "endpoint": "http://127.0.0.1:9000",
       "force_path_style": "true"
     }
-  ]
+  ],
+  "webui": {
+    "addr": "127.0.0.1:5572",
+    "user": "admin",
+    "pass": "${RCLONE_RC_PASS}"
+  }
 }
 ```
 
@@ -104,7 +110,7 @@ pwsh ./rclone-ops.ps1 doctor
 
 默认监听 `127.0.0.1:5572`。不带 `--background` 时是前台运行模式，命令会持续占用当前终端，并把 rclone 日志直接显示在当前终端；可打开 `http://127.0.0.1:5572` 确认状态，按 `Ctrl+C` 停止。后台模式才会把日志写入 `.runtime/logs/webui.log`。
 
-如果未设置 `RCLONE_RC_PASS`，rclone WebUI 会自动生成临时认证信息；建议日常运维显式设置强密码：
+WebUI 密码可以通过三种方式设置，优先级为命令行 `--pass` > 环境变量 `RCLONE_RC_PASS` > JSON `webui.pass`。如果 JSON 中写了 `${RCLONE_RC_PASS}`，运行前需要导出该环境变量；如果三者都未设置，rclone WebUI 会自动生成临时认证信息。
 
 ```bash
 RCLONE_RC_PASS='强密码' pwsh ./rclone-ops.ps1 webui

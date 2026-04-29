@@ -128,6 +128,70 @@ export function resolveEnvPlaceholders(value, context = 'config') {
 }
 
 /**
+ * 安全读取可选 JSON 主配置文件。
+ *
+ * @param {string} path 配置文件路径。
+ * @returns {Record<string, unknown>} 文件存在时返回 JSON 顶层配置，否则返回空对象。
+ */
+function readOptionalConfigValues(path) {
+  if (!existsSync(path)) {
+    return {}
+  }
+  return readConfigValues(path)
+}
+
+/**
+ * 读取嵌套 JSON 配置值。
+ *
+ * @param {Record<string, unknown>} values 顶层 JSON 配置对象。
+ * @param {string} section section 名称。
+ * @param {string} name section 内部键名。
+ * @returns {unknown} 命中的配置值；未命中时返回 undefined。
+ */
+function getNestedConfigValue(values, section, name) {
+  const sectionValue = values?.[section]
+  if (!sectionValue || typeof sectionValue !== 'object' || Array.isArray(sectionValue)) {
+    return undefined
+  }
+  return sectionValue[name]
+}
+
+/**
+ * 按 flag、环境变量、JSON 配置、默认值的优先级解析选项。
+ *
+ * @param {Map<string, string|boolean>} flags 命令行 flag 集合。
+ * @param {string} name flag 名称。
+ * @param {string} envName 环境变量名称。
+ * @param {Record<string, unknown>} configValues 顶层 JSON 配置对象。
+ * @param {string} section JSON section 名称。
+ * @param {string} configName JSON section 内部键名。
+ * @param {string} fallback 默认值。
+ * @returns {string} 解析后的字符串值。
+ */
+export function resolveOptionWithConfig(
+  flags,
+  name,
+  envName,
+  configValues,
+  section,
+  configName,
+  fallback,
+) {
+  const flagValue = flags.get(name)
+  if (typeof flagValue === 'string' && flagValue.length > 0) {
+    return flagValue
+  }
+  if (process.env[envName]) {
+    return process.env[envName]
+  }
+  const configValue = getNestedConfigValue(configValues, section, configName)
+  if (configValue !== undefined && String(configValue).length > 0) {
+    return String(resolveEnvPlaceholders(configValue, `${section}.${configName}`))
+  }
+  return fallback
+}
+
+/**
  * 根据 JSON remotes 数组生成 rclone remote 定义。
  *
  * @param {Record<string, unknown>|{values: Record<string, unknown>}} configValues JSON 顶层配置对象。
@@ -361,14 +425,42 @@ function resolveRcloneRuntime(flags) {
  */
 function commandWebui(flags, passthrough) {
   const { binary, configPath } = resolveRcloneRuntime(flags)
-  const rcAddr = resolveOption(flags, 'addr', 'RCLONE_RC_ADDR', DEFAULT_RC_ADDR)
-  const rcUser = resolveOption(flags, 'user', 'RCLONE_RC_USER', DEFAULT_RC_USER)
-  const rcPass = resolveOption(
+  const sourcePath = resolveOption(
+    flags,
+    'source',
+    'RCLONE_SOURCE_CONFIG_PATH',
+    DEFAULT_SOURCE_PATH,
+  )
+  const sourceValues = readOptionalConfigValues(sourcePath)
+  const rcAddr = resolveOptionWithConfig(
+    flags,
+    'addr',
+    'RCLONE_RC_ADDR',
+    sourceValues,
+    'webui',
+    'addr',
+    DEFAULT_RC_ADDR,
+  )
+  const rcPass = resolveOptionWithConfig(
     flags,
     'pass',
     'RCLONE_RC_PASS',
-    process.env.RCLONE_RC_PASS ?? '',
+    sourceValues,
+    'webui',
+    'pass',
+    '',
   )
+  const rcUser = rcPass
+    ? resolveOptionWithConfig(
+        flags,
+        'user',
+        'RCLONE_RC_USER',
+        sourceValues,
+        'webui',
+        'user',
+        DEFAULT_RC_USER,
+      )
+    : ''
   const isBackground = flags.has('background')
   const logFile = resolveOption(
     flags,

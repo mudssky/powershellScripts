@@ -6,6 +6,7 @@ import {
   parseArgs,
   renderRcloneConfig,
   resolveEnvPlaceholders,
+  resolveOptionWithConfig,
 } from './rclone-ops.mjs'
 
 describe('rclone-ops JSON 配置生成逻辑', () => {
@@ -78,6 +79,24 @@ describe('rclone-ops JSON 配置生成逻辑', () => {
 
   it('拒绝缺少 remotes 数组的 JSON 配置', () => {
     assert.throws(() => buildRemoteDefinitions({}), /配置缺少 remotes 数组/)
+  })
+
+
+  it('能从 JSON webui section 读取 RC 密码', () => {
+    process.env.RCLONE_RC_PASS = 'json-rc-pass'
+
+    assert.equal(
+      resolveOptionWithConfig(
+        new Map(),
+        'pass',
+        'UNUSED_RCLONE_RC_PASS',
+        { webui: { pass: '${RCLONE_RC_PASS}' } },
+        'webui',
+        'pass',
+        '',
+      ),
+      'json-rc-pass',
+    )
   })
 
   it('能渲染并重新读取 remote 名称', () => {

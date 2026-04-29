@@ -271,6 +271,146 @@ function Get-RcloneOpsConfigValue {
     return $null
 }
 
+function Get-RcloneOpsOptionalConfigValues {
+    <#
+    .SYNOPSIS
+        读取可选的 rclone JSON 主配置。
+
+    .PARAMETER ConfigPath
+        JSON 配置文件路径；文件不存在时返回空表。
+
+    .OUTPUTS
+        hashtable。存在配置时返回顶层配置键值，否则返回空 hashtable。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ConfigPath
+    )
+
+    $resolvedPath = if ([System.IO.Path]::IsPathRooted($ConfigPath)) {
+        $ConfigPath
+    }
+    else {
+        Join-Path (Get-Location).Path $ConfigPath
+    }
+
+    if (-not (Test-Path -LiteralPath $resolvedPath -PathType Leaf)) {
+        return @{}
+    }
+
+    return Read-RcloneOpsConfigValues -ConfigPath $ConfigPath
+}
+
+function Get-RcloneOpsNestedConfigValue {
+    <#
+    .SYNOPSIS
+        读取嵌套 JSON 配置值。
+
+    .PARAMETER ConfigValues
+        顶层 JSON 配置键值。
+
+    .PARAMETER Section
+        顶层 section 名称，例如 `webui`。
+
+    .PARAMETER Name
+        section 内部键名。
+
+    .OUTPUTS
+        object。命中的嵌套配置值；未命中时返回 $null。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$ConfigValues,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Section,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Name
+    )
+
+    $sectionValue = Get-RcloneOpsConfigValue -Values $ConfigValues -Name $Section
+    if ($null -eq $sectionValue) {
+        return $null
+    }
+
+    $sectionTable = ConvertTo-RcloneOpsHashtable -InputObject $sectionValue
+    return Get-RcloneOpsConfigValue -Values $sectionTable -Name $Name
+}
+
+function Get-RcloneOpsOptionWithConfig {
+    <#
+    .SYNOPSIS
+        按 flag、环境变量、JSON 配置、默认值的优先级解析选项。
+
+    .PARAMETER Flags
+        Split-RcloneOpsArguments 返回的 Flags 哈希表。
+
+    .PARAMETER Name
+        命令行 flag 名称，不包含前缀 `--`。
+
+    .PARAMETER EnvName
+        环境变量名称。
+
+    .PARAMETER ConfigValues
+        顶层 JSON 配置键值。
+
+    .PARAMETER Section
+        JSON section 名称。
+
+    .PARAMETER ConfigName
+        JSON section 内部键名。
+
+    .PARAMETER DefaultValue
+        未提供 flag、环境变量与 JSON 配置时使用的默认值。
+
+    .OUTPUTS
+        System.String。解析后的选项值。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Flags,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Name,
+
+        [Parameter(Mandatory = $true)]
+        [string]$EnvName,
+
+        [Parameter(Mandatory = $true)]
+        [hashtable]$ConfigValues,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Section,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ConfigName,
+
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyString()]
+        [string]$DefaultValue
+    )
+
+    if ($Flags.ContainsKey($Name) -and $Flags[$Name] -is [string] -and -not [string]::IsNullOrWhiteSpace($Flags[$Name])) {
+        return [string]$Flags[$Name]
+    }
+
+    $envValue = [Environment]::GetEnvironmentVariable($EnvName, 'Process')
+    if (-not [string]::IsNullOrWhiteSpace($envValue)) {
+        return $envValue
+    }
+
+    $configValue = Get-RcloneOpsNestedConfigValue -ConfigValues $ConfigValues -Section $Section -Name $ConfigName
+    if ($null -ne $configValue -and -not [string]::IsNullOrWhiteSpace([string]$configValue)) {
+        return [string](Resolve-RcloneOpsEnvPlaceholder -Value $configValue -Context "$Section.$ConfigName")
+    }
+
+    return $DefaultValue
+}
+
 function Resolve-RcloneOpsEnvPlaceholder {
     <#
     .SYNOPSIS
@@ -619,11 +759,13 @@ function Start-RcloneOpsWebUi {
         [string[]]$Passthrough
     )
 
+    $sourcePath = Get-RcloneOpsOption -Flags $Flags -Name 'source' -EnvName 'RCLONE_SOURCE_CONFIG_PATH' -DefaultValue $script:DefaultSourcePath
+    $sourceValues = Get-RcloneOpsOptionalConfigValues -ConfigPath $sourcePath
     $rclone = Get-RcloneOpsOption -Flags $Flags -Name 'rclone' -EnvName 'RCLONE_BIN' -DefaultValue 'rclone'
     $configPath = Get-RcloneOpsOption -Flags $Flags -Name 'config' -EnvName 'RCLONE_CONFIG_PATH' -DefaultValue $script:DefaultConfigPath
-    $rcAddr = Get-RcloneOpsOption -Flags $Flags -Name 'addr' -EnvName 'RCLONE_RC_ADDR' -DefaultValue $script:DefaultRcAddr
-    $rcPass = Get-RcloneOpsOption -Flags $Flags -Name 'pass' -EnvName 'RCLONE_RC_PASS' -DefaultValue ''
-    $rcUser = if ($rcPass) { Get-RcloneOpsOption -Flags $Flags -Name 'user' -EnvName 'RCLONE_RC_USER' -DefaultValue $script:DefaultRcUser } else { '' }
+    $rcAddr = Get-RcloneOpsOptionWithConfig -Flags $Flags -Name 'addr' -EnvName 'RCLONE_RC_ADDR' -ConfigValues $sourceValues -Section 'webui' -ConfigName 'addr' -DefaultValue $script:DefaultRcAddr
+    $rcPass = Get-RcloneOpsOptionWithConfig -Flags $Flags -Name 'pass' -EnvName 'RCLONE_RC_PASS' -ConfigValues $sourceValues -Section 'webui' -ConfigName 'pass' -DefaultValue ''
+    $rcUser = if ($rcPass) { Get-RcloneOpsOptionWithConfig -Flags $Flags -Name 'user' -EnvName 'RCLONE_RC_USER' -ConfigValues $sourceValues -Section 'webui' -ConfigName 'user' -DefaultValue $script:DefaultRcUser } else { '' }
     $isBackground = $Flags.ContainsKey('background')
     $logFile = Get-RcloneOpsOption -Flags $Flags -Name 'log-file' -EnvName 'RCLONE_LOG_FILE' -DefaultValue (Join-Path $script:DefaultLogDir 'webui.log')
     if ($isBackground) {
