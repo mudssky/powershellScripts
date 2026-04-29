@@ -1,0 +1,21 @@
+# rclone.conf 示例模板，只能放占位符，不能提交真实密钥。
+# 推荐通过 `pwsh ./rclone-ops.ps1 init-config --source rclone.config.local.json` 从 JSON 主配置生成真实配置。
+
+[cloud-main]
+type = s3
+provider = Other
+access_key_id = REPLACE_ME
+secret_access_key = REPLACE_ME
+endpoint = https://s3.example.com
+region = auto
+acl = private
+
+[archive]
+type = s3
+provider = Other
+access_key_id = REPLACE_ME
+secret_access_key = REPLACE_ME
+endpoint = http://127.0.0.1:9000
+acl = private
+force_path_style = true
+no_check_bucket = true
