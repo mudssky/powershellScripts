@@ -1,13 +1,31 @@
 function Test-EnvSwitchEnabled {
+    <#
+    .SYNOPSIS
+        解析环境变量形式的布尔开关。
+
+    .DESCRIPTION
+        支持 0/false/off/no/n 作为显式关闭值，其他非空值视为开启；DefaultEnabled 用于描述默认开启的配置项。
+
+    .PARAMETER Name
+        需要读取的环境变量名称。
+
+    .PARAMETER DefaultEnabled
+        环境变量不存在或为空白时是否返回开启。
+
+    .OUTPUTS
+        System.Boolean。返回 $true 表示开关开启，返回 $false 表示开关关闭。
+    #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
-        [string]$Name
+        [string]$Name,
+
+        [switch]$DefaultEnabled
     )
 
     $rawValue = [System.Environment]::GetEnvironmentVariable($Name)
-    if ($null -eq $rawValue) { return $false }
-    if ([string]::IsNullOrWhiteSpace($rawValue)) { return $false }
+    if ($null -eq $rawValue) { return [bool]$DefaultEnabled }
+    if ([string]::IsNullOrWhiteSpace($rawValue)) { return [bool]$DefaultEnabled }
 
     switch ($rawValue.Trim().ToLowerInvariant()) {
         '0' { return $false }

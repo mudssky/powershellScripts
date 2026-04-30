@@ -424,6 +424,8 @@ New-Shortcut -Path "C:\Program Files\App\app.exe" -Destination "C:\Users\Desktop
 
 提供网络代理配置管理功能。
 
+默认会在 profile 初始化或 shell 脚本加载时自动探测 `PROXY_DEFAULT_HOST:PROXY_DEFAULT_PORT`，端口可连通则自动开启当前会话代理。若希望保留 `proxy on/off` 命令但关闭自动开启，可设置 `PROXY_AUTO_ENABLE=0`（也支持 `false`、`off`、`no`、`n`）。
+
 ### 💻 PowerShell 工具 (pwsh)
 
 提供 PowerShell 环境增强功能。

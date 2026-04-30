@@ -213,7 +213,7 @@ if ($IsLinux) {
 Lap '4.02-linux-path-sync'
 
 # 4.3 代理自动检测
-if (-not $SkipProxy) {
+if ((-not $SkipProxy) -and (Test-EnvSwitchEnabled -Name 'PROXY_AUTO_ENABLE' -DefaultEnabled)) {
     try {
         $proxyState = Invoke-WithCache `
             -Key "proxy-auto-detect" `

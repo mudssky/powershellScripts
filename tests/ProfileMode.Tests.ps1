@@ -16,6 +16,7 @@ Describe 'Profile mode decision priority' {
             'POWERSHELL_PROFILE_MINIMAL',
             'POWERSHELL_PROFILE_FAST',
             'POWERSHELL_PROFILE_LIGHT',
+            'PROXY_AUTO_ENABLE',
             'CODEX_THREAD_ID',
             'CODEX_SANDBOX_NETWORK_DISABLED'
         )
@@ -75,6 +76,16 @@ Describe 'Profile mode decision priority' {
         $decision = Get-ProfileModeDecision
         $decision.Mode | Should -Be 'Full'
         $decision.Reason | Should -Be 'default_full'
+    }
+
+    It 'environment switch should support default-enabled values' {
+        Test-EnvSwitchEnabled -Name 'PROXY_AUTO_ENABLE' -DefaultEnabled | Should -BeTrue
+
+        $env:PROXY_AUTO_ENABLE = 'off'
+        Test-EnvSwitchEnabled -Name 'PROXY_AUTO_ENABLE' -DefaultEnabled | Should -BeFalse
+
+        $env:PROXY_AUTO_ENABLE = '1'
+        Test-EnvSwitchEnabled -Name 'PROXY_AUTO_ENABLE' -DefaultEnabled | Should -BeTrue
     }
 }
 

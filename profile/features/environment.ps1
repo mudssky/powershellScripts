@@ -348,8 +348,8 @@ function Initialize-Environment {
         }
     }
 
-    # 自动检测代理（缓存 5 分钟避免每次 profile 加载都做 TCP 探测）
-    if (-not $SkipProxy) {
+    # 自动检测代理默认保持开启；PROXY_AUTO_ENABLE=0/false/off/no/n 时跳过检测与缓存回放。
+    if ((-not $SkipProxy) -and (Test-EnvSwitchEnabled -Name 'PROXY_AUTO_ENABLE' -DefaultEnabled)) {
         try {
             $proxyState = Invoke-WithCache -Key "proxy-auto-detect" -MaxAge ([TimeSpan]::FromMinutes(30)) -CacheType Text -ScriptBlock {
                 Set-Proxy -Command auto

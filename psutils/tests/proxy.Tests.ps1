@@ -21,7 +21,7 @@ BeforeAll {
     $proxyVarNames = @(
         "http_proxy", "https_proxy", "ftp_proxy", "rsync_proxy", "all_proxy", "no_proxy",
         "HTTP_PROXY", "HTTPS_PROXY", "FTP_PROXY", "RSYNC_PROXY", "ALL_PROXY", "NO_PROXY",
-        "PROXY_DEFAULT_HOST", "PROXY_DEFAULT_PORT"
+        "PROXY_DEFAULT_HOST", "PROXY_DEFAULT_PORT", "PROXY_AUTO_ENABLE"
     )
     foreach ($varName in $proxyVarNames) {
         $script:savedEnvVars[$varName] = [System.Environment]::GetEnvironmentVariable($varName)
@@ -76,6 +76,7 @@ Describe "Set-Proxy 函数测试" -Tag 'Proxy' {
         # 清除默认值环境变量，确保测试使用硬编码默认值
         Remove-Item "env:\PROXY_DEFAULT_HOST" -ErrorAction SilentlyContinue
         Remove-Item "env:\PROXY_DEFAULT_PORT" -ErrorAction SilentlyContinue
+        Remove-Item "env:\PROXY_AUTO_ENABLE" -ErrorAction SilentlyContinue
     }
 
     Context "on 命令 - 开启代理" {
@@ -138,6 +139,25 @@ Describe "Set-Proxy 函数测试" -Tag 'Proxy' {
             $env:http_proxy | Should -Be "http://192.168.1.100:1080"
             $env:https_proxy | Should -Be "http://192.168.1.100:1080"
             $env:all_proxy | Should -Be "http://192.168.1.100:1080"
+        }
+
+        It "使用完整 URL 时应该直接设置代理地址" {
+            Mock -ModuleName proxy New-Object {
+                $mockTcp = [PSCustomObject]@{}
+                $mockAsync = [PSCustomObject]@{
+                    AsyncWaitHandle = [PSCustomObject]@{}
+                }
+                $mockAsync.AsyncWaitHandle | Add-Member -MemberType ScriptMethod -Name WaitOne -Value { param($ms) return $false } -Force
+                $mockTcp | Add-Member -MemberType ScriptMethod -Name BeginConnect -Value { param($h, $p, $a, $b) return $mockAsync } -Force
+                $mockTcp | Add-Member -MemberType ScriptMethod -Name Close -Value {} -Force
+                return $mockTcp
+            } -ParameterFilter { $TypeName -eq 'System.Net.Sockets.TcpClient' }
+
+            Set-Proxy -Command "on" -Target "http://192.168.21.90:7890"
+
+            $env:http_proxy | Should -Be "http://192.168.21.90:7890"
+            $env:https_proxy | Should -Be "http://192.168.21.90:7890"
+            $env:all_proxy | Should -Be "http://192.168.21.90:7890"
         }
 
         It "应该同时设置 ftp_proxy 和 rsync_proxy" {
@@ -292,6 +312,21 @@ Describe "Set-Proxy 函数测试" -Tag 'Proxy' {
     Context "默认行为" {
         It "不传参数时应该默认执行 status 命令且不抛出异常" {
             { Set-Proxy } | Should -Not -Throw
+        }
+
+        It "PROXY_AUTO_ENABLE 关闭时 auto 命令不应该探测或开启代理" {
+            $env:PROXY_AUTO_ENABLE = "0"
+
+            Mock -ModuleName proxy New-Object {
+                throw "关闭自动代理时不应创建 TCP 客户端"
+            } -ParameterFilter { $TypeName -eq 'System.Net.Sockets.TcpClient' }
+
+            Set-Proxy -Command "auto"
+
+            $env:http_proxy | Should -BeNullOrEmpty
+            Should -Invoke New-Object -ModuleName proxy -Times 0 -Exactly -ParameterFilter {
+                $TypeName -eq 'System.Net.Sockets.TcpClient'
+            }
         }
     }
 

@@ -79,15 +79,17 @@ function Set-Proxy {
         支持通过环境变量配置默认代理：
         - $env:PROXY_DEFAULT_HOST: 默认代理主机 (默认: 127.0.0.1)
         - $env:PROXY_DEFAULT_PORT: 默认代理端口 (默认: 7890)
+        - $env:PROXY_AUTO_ENABLE: 是否允许 auto 自动开启代理 (默认: 1；0/false/off/no/n 表示关闭)
         
     .PARAMETER Command
         操作命令: on, off, status, test, docker, container, auto, help。
         默认值为 'status'。
     
     .PARAMETER Target
-        目标主机或端口。
+        目标主机、端口或完整代理 URL。
         如果仅提供端口 (如 7890)，则主机默认为 127.0.0.1。
         如果提供主机 (如 192.168.1.10)，则需要通过 Port 参数提供端口，或使用默认端口。
+        如果提供完整 URL (如 http://192.168.1.10:7890)，则直接使用该地址的协议、主机和端口。
     
     .PARAMETER Port
         代理端口，仅在 Target 为主机时使用。
@@ -99,6 +101,10 @@ function Set-Proxy {
     .EXAMPLE
         proxy on 192.168.1.100 1080
         开启代理，指向 192.168.1.100:1080
+
+    .EXAMPLE
+        proxy on http://192.168.21.90:7890
+        使用完整 URL 开启代理。
 
     .EXAMPLE
         proxy off
@@ -127,16 +133,70 @@ function Set-Proxy {
         $DefaultHost = if (-not [string]::IsNullOrWhiteSpace($env:PROXY_DEFAULT_HOST)) { $env:PROXY_DEFAULT_HOST } else { "127.0.0.1" }
         $DefaultPort = if (-not [string]::IsNullOrWhiteSpace($env:PROXY_DEFAULT_PORT)) { $env:PROXY_DEFAULT_PORT } else { "7890" }
         $NoProxyList = "localhost,127.0.0.1,::1,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12"
+
+        function Test-ProxyAutoEnable {
+            <#
+            .SYNOPSIS
+                判断是否允许自动探测并开启代理。
+
+            .DESCRIPTION
+                通过 PROXY_AUTO_ENABLE 控制 profile 或 auto 命令的自动开启行为；未设置时保持兼容，默认允许自动开启。
+
+            .OUTPUTS
+                System.Boolean。返回 $true 表示允许自动开启，返回 $false 表示跳过自动开启。
+            #>
+            param()
+
+            $rawValue = [System.Environment]::GetEnvironmentVariable('PROXY_AUTO_ENABLE')
+            if ([string]::IsNullOrWhiteSpace($rawValue)) { return $true }
+
+            switch ($rawValue.Trim().ToLowerInvariant()) {
+                '0' { return $false }
+                'false' { return $false }
+                'off' { return $false }
+                'no' { return $false }
+                'n' { return $false }
+                default { return $true }
+            }
+        }
         
         # 内部辅助函数：解析主机和端口
         function Get-ProxyEndpoint {
+            <#
+            .SYNOPSIS
+                解析代理目标参数。
+
+            .DESCRIPTION
+                兼容端口、主机加端口、完整 URL 三种输入形式，并统一返回代理环境变量使用的 URL。
+
+            .PARAMETER InputTarget
+                端口、主机或完整代理 URL。
+
+            .PARAMETER InputPort
+                当 InputTarget 为主机时使用的代理端口。
+
+            .OUTPUTS
+                System.Management.Automation.PSCustomObject。包含 Host、Port、Url 三个字段。
+            #>
             param ($InputTarget, $InputPort)
             
             $hostName = $DefaultHost
             $portNum = $DefaultPort
+            $scheme = "http"
 
             if (-not [string]::IsNullOrWhiteSpace($InputTarget)) {
-                if ($InputTarget -match '^\d+$') {
+                if ($InputTarget -match '^[a-zA-Z][a-zA-Z0-9+.-]*://') {
+                    $uri = [System.Uri]$InputTarget
+                    $scheme = $uri.Scheme
+                    $hostName = $uri.Host
+                    if (-not $uri.IsDefaultPort) {
+                        $portNum = [string]$uri.Port
+                    }
+                    elseif (-not [string]::IsNullOrWhiteSpace($InputPort)) {
+                        $portNum = $InputPort
+                    }
+                }
+                elseif ($InputTarget -match '^\d+$') {
                     $portNum = $InputTarget
                 }
                 else {
@@ -146,7 +206,7 @@ function Set-Proxy {
                     }
                 }
             }
-            return [pscustomobject]@{ Host = $hostName; Port = $portNum; Url = "http://${hostName}:${portNum}" }
+            return [pscustomobject]@{ Host = $hostName; Port = $portNum; Url = "${scheme}://${hostName}:${portNum}" }
         }
     }
 
@@ -185,6 +245,11 @@ function Set-Proxy {
             }
 
             "auto" {
+                if (-not (Test-ProxyAutoEnable)) {
+                    Write-Verbose "PROXY_AUTO_ENABLE 已关闭，跳过代理自动开启。"
+                    return
+                }
+
                 # 自动尝试连接默认端口，如果通了就开启
                 $endpoint = Get-ProxyEndpoint -InputTarget $null -InputPort $null
                 try {

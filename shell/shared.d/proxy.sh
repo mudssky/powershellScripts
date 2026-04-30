@@ -14,6 +14,64 @@ if [ -z "${_PM_NO_PROXY:-}" ]; then
     readonly _PM_NO_PROXY="localhost,127.0.0.1,::1,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12"
 fi
 
+# --- 自动开启配置 ---
+# 参数: 无；返回值: 0 表示允许自动探测并开启代理，1 表示跳过自动开启。
+_pm_auto_enable_enabled() {
+    case "${PROXY_AUTO_ENABLE:-1}" in
+        0|false|FALSE|False|off|OFF|Off|no|NO|No|n|N)
+            return 1
+            ;;
+        *)
+            return 0
+            ;;
+    esac
+}
+
+# --- 代理地址解析 ---
+# 参数: $1 为端口、主机或完整代理 URL，$2 为可选端口；返回值: 成功时输出 host|port|url。
+_pm_resolve_endpoint() {
+    local target="${1:-}"
+    local input_port="${2:-}"
+    local host="$_PM_DEFAULT_HOST"
+    local port="$_PM_DEFAULT_PORT"
+    local url=""
+    local without_scheme=""
+    local scheme=""
+
+    if [[ -n "$target" && "$target" == *"://"* ]]; then
+        scheme="${target%%://*}"
+        without_scheme="${target#*://}"
+        without_scheme="${without_scheme%%/*}"
+
+        if [[ "$without_scheme" == *:* ]]; then
+            host="${without_scheme%:*}"
+            port="${without_scheme##*:}"
+        else
+            host="$without_scheme"
+            port="$_PM_DEFAULT_PORT"
+        fi
+
+        if [[ -z "$host" || -z "$port" ]]; then
+            return 1
+        fi
+
+        url="${scheme}://${host}:${port}"
+    elif [[ -n "$target" && "$target" =~ ^[0-9]+$ ]]; then
+        port="$target"
+        url="http://${host}:${port}"
+    elif [[ -n "$target" ]]; then
+        host="$target"
+        if [[ -n "$input_port" ]]; then
+            port="$input_port"
+        fi
+        url="http://${host}:${port}"
+    else
+        url="http://${host}:${port}"
+    fi
+
+    printf '%s|%s|%s\n' "$host" "$port" "$url"
+}
+
 # --- 跨 shell 端口连通性检测 ---
 # /dev/tcp 是 Bash 专属特性，Zsh 不支持
 # 优先使用 nc -z，fallback 到 curl，最后 fallback 到 bash /dev/tcp
@@ -21,11 +79,19 @@ _pm_check_port() {
     local host="$1"
     local port="$2"
     if command -v nc >/dev/null 2>&1; then
-        timeout 0.1 nc -z "$host" "$port" >/dev/null 2>&1
+        if command -v timeout >/dev/null 2>&1; then
+            timeout 0.1 nc -z "$host" "$port" >/dev/null 2>&1
+        else
+            nc -z -G 1 "$host" "$port" >/dev/null 2>&1 || nc -z -w 1 "$host" "$port" >/dev/null 2>&1
+        fi
     elif command -v curl >/dev/null 2>&1; then
         curl --connect-timeout 0.1 -s "http://${host}:${port}" >/dev/null 2>&1
     elif command -v bash >/dev/null 2>&1; then
-        timeout 0.1 bash -c "</dev/tcp/${host}/${port}" >/dev/null 2>&1
+        if command -v timeout >/dev/null 2>&1; then
+            timeout 0.1 bash -c "</dev/tcp/${host}/${port}" >/dev/null 2>&1
+        else
+            bash -c "</dev/tcp/${host}/${port}" >/dev/null 2>&1
+        fi
     else
         return 1
     fi
@@ -40,19 +106,18 @@ proxy() {
 
     case "$cmd" in
         on|enable)
-            # 用法: proxy on [port] 或 proxy on [host] [port]
-            local host="$_PM_DEFAULT_HOST"
-            local port="$_PM_DEFAULT_PORT"
-
-            if [[ $# -eq 1 ]]; then
-                port="$1" # 如果只传了一个参数，认为是端口
-            elif [[ $# -ge 2 ]]; then
-                host="$1" # 如果传了两个，第一个是 IP
-                port="$2" # 第二个是端口
+            # 用法: proxy on [port]、proxy on [host] [port] 或 proxy on [url]
+            local endpoint
+            if ! endpoint="$(_pm_resolve_endpoint "${1:-}" "${2:-}")"; then
+                echo "❌ 代理地址格式无效: ${1:-}"
+                return 1
             fi
+            local host="${endpoint%%|*}"
+            local rest="${endpoint#*|}"
+            local port="${rest%%|*}"
+            local url="${rest#*|}"
 
             # 设置变量
-            local url="http://${host}:${port}"
             export http_proxy="$url" https_proxy="$url" ftp_proxy="$url" rsync_proxy="$url" all_proxy="$url"
             export HTTP_PROXY="$url" HTTPS_PROXY="$url" FTP_PROXY="$url" RSYNC_PROXY="$url" ALL_PROXY="$url"
             export no_proxy="$_PM_NO_PROXY" NO_PROXY="$_PM_NO_PROXY"
@@ -100,13 +165,12 @@ proxy() {
             
             case "$subcmd" in
                 on|enable|set)
-                    local d_host="$_PM_DEFAULT_HOST"
-                    local d_port="$_PM_DEFAULT_PORT"
-                    
-                    if [[ $# -ge 1 ]]; then d_port="$1"; fi
-                    if [[ $# -ge 2 ]]; then d_host="$1"; d_port="$2"; fi
-                    
-                    local d_url="http://${d_host}:${d_port}"
+                    local d_endpoint
+                    if ! d_endpoint="$(_pm_resolve_endpoint "${1:-}" "${2:-}")"; then
+                        echo "❌ 代理地址格式无效: ${1:-}"
+                        return 1
+                    fi
+                    local d_url="${d_endpoint##*|}"
                     
                     echo "⚙️  正在配置 Docker 代理: $d_url ..."
                     
@@ -162,13 +226,12 @@ proxy() {
             
             case "$subcmd" in
                 on|enable|set)
-                    local d_host="$_PM_DEFAULT_HOST"
-                    local d_port="$_PM_DEFAULT_PORT"
-                    
-                    if [[ $# -ge 1 ]]; then d_port="$1"; fi
-                    if [[ $# -ge 2 ]]; then d_host="$1"; d_port="$2"; fi
-                    
-                    local d_url="http://${d_host}:${d_port}"
+                    local d_endpoint
+                    if ! d_endpoint="$(_pm_resolve_endpoint "${1:-}" "${2:-}")"; then
+                        echo "❌ 代理地址格式无效: ${1:-}"
+                        return 1
+                    fi
+                    local d_url="${d_endpoint##*|}"
                     
                     echo "⚙️  正在配置 Docker 容器代理: $d_url ..."
                     
@@ -250,6 +313,7 @@ proxy() {
             echo "用法: proxy [命令]"
             echo "  on [port]        开启代理 (默认: $_PM_DEFAULT_HOST:$_PM_DEFAULT_PORT)"
             echo "  on [host] [port] 开启自定义代理"
+            echo "  on [url]         开启完整代理地址，例如 http://192.168.21.90:7890"
             echo "  off              关闭代理"
             echo "  docker [on|off]  配置 Docker Daemon 代理 (需重启, 影响 pull)"
             echo "  container [on]   配置 Docker Container 代理 (无需重启, 影响 run)"
@@ -259,6 +323,7 @@ proxy() {
             echo "配置 (环境变量):"
             echo "  PROXY_DEFAULT_HOST   自定义默认主机 (当前: $_PM_DEFAULT_HOST)"
             echo "  PROXY_DEFAULT_PORT   自定义默认端口 (当前: $_PM_DEFAULT_PORT)"
+            echo "  PROXY_AUTO_ENABLE    是否自动探测并开启代理 (默认: 1，可设为 0/false/off/no 关闭)"
             ;;
 
         *)
@@ -288,8 +353,8 @@ elif [ -n "$ZSH_VERSION" ]; then
 fi
 
 # --- 自动检测 (静默启动) ---
-# 如果默认端口通了，且当前没有设置代理，则自动开启
-if [ -z "$http_proxy" ] && _pm_check_port "$_PM_DEFAULT_HOST" "$_PM_DEFAULT_PORT"; then
+# 如果默认端口通了，且当前没有设置代理，则自动开启；可用 PROXY_AUTO_ENABLE=0 关闭。
+if _pm_auto_enable_enabled && [ -z "$http_proxy" ] && _pm_check_port "$_PM_DEFAULT_HOST" "$_PM_DEFAULT_PORT"; then
     # 直接设置变量，不调用 proxy on 以避免输出文字干扰 scp
     export http_proxy="http://${_PM_DEFAULT_HOST}:${_PM_DEFAULT_PORT}"
     export https_proxy="http://${_PM_DEFAULT_HOST}:${_PM_DEFAULT_PORT}"
