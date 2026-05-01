@@ -76,7 +76,7 @@
     "execa": "^9.6.1",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
-    "rumdl": "^0.1.78",
+    "rumdl": "^0.1.85",
     "turbo": "^2.9.6",
     "typescript": "^6.0.3",
     "vitest": "^4.1.5"
