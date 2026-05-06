@@ -204,6 +204,26 @@ pwsh -NoProfile -File ./ai/coding/claude/Sync-ClaudeConfig.ps1
 1. 修改 `config/settings.local.json`
 2. 重新运行 `Sync-ClaudeConfig.ps1`
 
+如果使用 `ai/gateway/litellm` 里的 Claude Code GLM 优先入口，可以把本机覆盖写成：
+
+```json
+{
+  "env": {
+    "ANTHROPIC_API_KEY": "sk-litellm-123456",
+    "ANTHROPIC_BASE_URL": "http://127.0.0.1:34000",
+    "ANTHROPIC_MODEL": "cc-glmplan-opus",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "cc-glmplan-opus",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "cc-glmplan-opus",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "cc-glmplan-haiku",
+    "CLAUDE_CODE_SUBAGENT_MODEL": "cc-glmplan-haiku",
+    "CLAUDE_CODE_EFFORT_LEVEL": "max"
+  },
+  "model": "cc-glmplan-opus"
+}
+```
+
+这里的 key 是 LiteLLM 网关 `LITELLM_MASTER_KEY`，上游智谱和 DeepSeek 密钥仍放在 `ai/gateway/litellm/.env.local`。GLM 额度耗尽时 LiteLLM 会自动降级到 DeepSeek，并在冷却 1 小时后重新尝试 GLM。
+
 ### 场景 4：切换到新机器
 
 1. 拉取仓库

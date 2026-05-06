@@ -1,16 +1,16 @@
 # LiteLLM 网关说明
 
-这个目录用于启动一个基于 LiteLLM Proxy 的多上游网关，当前默认同时支持 NewAPI OpenAI 兼容模型、Claude Anthropic 原生模型与智谱 GLM Coding Plan。
+这个目录用于启动一个基于 LiteLLM Proxy 的多上游网关，当前默认同时支持 NewAPI OpenAI 兼容模型、Claude Anthropic 原生模型、智谱 GLM Coding Plan，以及 Claude Code 的 GLM 优先 / DeepSeek 兜底入口。
 
 相关文件职责如下：
 
-- `litellm.local.yaml`：本地默认配置，定义 LiteLLM 的显式模型、GLM 专属路由与上游连接方式。
+- `litellm.local.yaml`：本地默认配置，定义 LiteLLM 的显式模型、GLM 专属路由、Claude Code 降级路由与上游连接方式。
 - `qwen.yaml`：历史示例配置，保留了固定模型与降级策略写法，可作为按模型显式映射时的参考。
 - `compose.yaml`：LiteLLM 容器模板，定义镜像、端口、挂载和默认环境变量。
 - `start.ps1`：统一入口，封装常用 `docker compose` 操作。
 - `.env.example`：开发环境变量示例。
 - `.env.production.example`：生产环境变量示例。
-- `.env.local`：本地私有环境变量，保存 `NEWAPI_API_BASE`、`NEWAPI_KEY`、可选的 `NEWAPI_ANTHROPIC_API_BASE` / `NEWAPI_ANTHROPIC_KEY`、`Z_AI_CODING_API_BASE`、`Z_AI_API_KEY`、`LITELLM_MASTER_KEY`、可选 `DATABASE_URL`。
+- `.env.local`：本地私有环境变量，保存 `NEWAPI_API_BASE`、`NEWAPI_KEY`、可选的 `NEWAPI_ANTHROPIC_API_BASE` / `NEWAPI_ANTHROPIC_KEY`、`Z_AI_CODING_API_BASE`、`Z_AI_ANTHROPIC_API_BASE`、`Z_AI_API_KEY`、`DEEPSEEK_ANTHROPIC_API_BASE`、`DEEPSEEK_API_KEY`、`LITELLM_MASTER_KEY`、可选 `DATABASE_URL`。
 
 固定常量如 `PORT=4000`、`CONFIG_FILE_PATH=/app/config.yaml` 保留在 `compose.yaml` 内部；环境差异值建议集中在 `.env.local`，再通过 `start.ps1` 追加的 `--env-file` 和 `compose.yaml` 的 `environment` 白名单注入到容器。
 
@@ -27,7 +27,10 @@ NEWAPI_KEY=sk-newapi-dev-xxxx
 # NEWAPI_ANTHROPIC_API_BASE=http://anthropic-api.example.com
 # NEWAPI_ANTHROPIC_KEY=sk-anthropic-dev-xxxx
 Z_AI_CODING_API_BASE=https://open.bigmodel.cn/api/coding/paas/v4
+Z_AI_ANTHROPIC_API_BASE=https://open.bigmodel.cn/api/anthropic
 Z_AI_API_KEY=sk-zai-dev-xxxx
+DEEPSEEK_ANTHROPIC_API_BASE=https://api.deepseek.com/anthropic
+DEEPSEEK_API_KEY=sk-deepseek-dev-xxxx
 LITELLM_MASTER_KEY=sk-litellm-123456
 DATABASE_URL=postgresql://postgres:12345678@host.docker.internal:5432/litellm
 # LITELLM_ANTHROPIC_DISABLE_URL_SUFFIX=true
@@ -43,7 +46,10 @@ DATABASE_URL=postgresql://postgres:12345678@host.docker.internal:5432/litellm
 - `NEWAPI_ANTHROPIC_KEY`：可选覆盖项；如果 Claude 需要独立上游密钥可单独提供。不配置时，Claude 默认复用 `NEWAPI_KEY`。
 - `LITELLM_ANTHROPIC_DISABLE_URL_SUFFIX`：可选开关；如果 Claude 实际使用的 Anthropic 上游地址已经包含完整 API 路径，可设置为 `true` 禁止 LiteLLM 自动追加后缀。
 - `Z_AI_CODING_API_BASE`：智谱 GLM Coding Plan 的 OpenAI 兼容接口地址，默认建议使用官方专属端点。
+- `Z_AI_ANTHROPIC_API_BASE`：智谱 GLM Coding Plan 的 Anthropic 兼容接口地址，Claude Code GLM 优先入口会使用它。
 - `Z_AI_API_KEY`：LiteLLM 转发 `GLM-*` 请求到智谱 Coding Plan 时使用的上游密钥。
+- `DEEPSEEK_ANTHROPIC_API_BASE`：DeepSeek 的 Anthropic 兼容接口地址，默认用于 Claude Code 的兜底路由。
+- `DEEPSEEK_API_KEY`：LiteLLM 转发 Claude Code DeepSeek 兜底请求时使用的上游密钥。
 - `LITELLM_MASTER_KEY`：LiteLLM Proxy 对外暴露的网关密钥。
 - `DATABASE_URL`：LiteLLM 的数据库连接串；如果未配置，会回退到默认的宿主机 PostgreSQL 地址。
 - `DASHSCOPE_API_KEY` / `DASHSCOPE_API_BASE`：可选兼容项；只有切回 `qwen.yaml` 或其他百炼配置时才需要提供。
@@ -148,6 +154,34 @@ curl http://127.0.0.1:34000/v1/chat/completions `
   -d "{\"model\":\"GLM-5.1\",\"messages\":[{\"role\":\"user\",\"content\":\"你好\"}]}"
 ```
 
+## Claude Code 的 GLM 优先入口
+
+如果你想让 Claude Code 优先使用 GLM-5.1，并在 Coding Plan 额度耗尽后自动切到 DeepSeek，可以把 Claude Code 指向 LiteLLM 的 Anthropic 兼容入口：
+
+```json
+{
+  "env": {
+    "ANTHROPIC_API_KEY": "sk-litellm-123456",
+    "ANTHROPIC_BASE_URL": "http://127.0.0.1:34000",
+    "ANTHROPIC_MODEL": "cc-glmplan-opus",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "cc-glmplan-opus",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "cc-glmplan-opus",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "cc-glmplan-haiku",
+    "CLAUDE_CODE_SUBAGENT_MODEL": "cc-glmplan-haiku",
+    "CLAUDE_CODE_EFFORT_LEVEL": "max"
+  },
+  "model": "cc-glmplan-opus"
+}
+```
+
+说明：
+
+- 这段配置应放在 `ai/coding/claude/config/settings.local.json`，再运行 `pwsh -NoProfile -File ./ai/coding/claude/Sync-ClaudeConfig.ps1` 生成最终配置。
+- `ANTHROPIC_API_KEY` 使用 LiteLLM 的 `LITELLM_MASTER_KEY`，不要填写上游真实密钥。
+- `cc-glmplan-opus` 先走智谱 `GLM-5.1`；失败后会降级到 `claude-code-deepseek-v4-pro`。
+- `cc-glmplan-haiku` 先走智谱 `GLM-4.5-air`；失败后会降级到 `claude-code-deepseek-v4-flash`。
+- GLM 两个 Claude Code 入口的 `cooldown_time=3600` 表示失败后冷却 1 小时；冷却结束后下一次请求会重新尝试 GLM，如果额度恢复就会切回 GLM。
+
 ## 模型查询
 
 如果你想查看 LiteLLM 当前暴露的路由名，可调用：
@@ -157,19 +191,24 @@ curl "http://127.0.0.1:34000/models?return_wildcard_routes=true" `
   -H "x-litellm-api-key: sk-litellm-123456"
 ```
 
-当前 `litellm.local.yaml` 默认显式注册了 `gpt-5.4`、`gemini-3.1-pro`、`claude-opus-4-6`、`claude-opus-4-7`、`compat/claude-opus-4-6`、`compat/claude-opus-4-7`、`GLM-5.1` 七个主模型，并在末尾保留 `GLM-*` 与 `*` 两条 fallback 路由。因此 `/models` 会返回显式模型加上两条通配兜底路由。默认会看到类似下面的结果：
+当前 `litellm.local.yaml` 默认显式注册了 `gpt-5.5`、`gemini-3.1-pro`、`claude-opus-4-6`、`claude-opus-4-7`、`compat/claude-opus-4-6`、`compat/claude-opus-4-7`、四条 Claude Code 专用模型、`GLM-5.1` 与 `gpt*spark` 等主模型，并在末尾保留 `GLM-*` 与 `*` 两条 fallback 路由。因此 `/models` 会返回显式模型加上两条通配兜底路由。默认会看到类似下面的结果：
 
 ```json
 {
   "data": [
-    {"id": "gpt-5.4", "object": "model"},
+    {"id": "gpt-5.5", "object": "model"},
     {"id": "gemini-3.1-pro", "object": "model"},
     {"id": "claude-opus-4-6", "object": "model"},
     {"id": "claude-opus-4-7", "object": "model"},
     {"id": "compat/claude-opus-4-6", "object": "model"},
     {"id": "compat/claude-opus-4-7", "object": "model"},
+    {"id": "cc-glmplan-opus", "object": "model"},
+    {"id": "cc-glmplan-haiku", "object": "model"},
+    {"id": "claude-code-deepseek-v4-pro", "object": "model"},
+    {"id": "claude-code-deepseek-v4-flash", "object": "model"},
     {"id": "GLM-5.1", "object": "model"},
     {"id": "GLM-*", "object": "model"},
+    {"id": "gpt*spark", "object": "model"},
     {"id": "*", "object": "model"}
   ],
   "object": "list"
@@ -203,12 +242,16 @@ curl "$env:Z_AI_CODING_API_BASE/models" `
 
 当前 `litellm.local.yaml` 的关键点：
 
-- `model_list`：显式注册 `gpt-5.4`、`gemini-3.1-pro`、两条默认 Claude 原生模型、两条 Claude 兼容别名、`GLM-5.1`，并追加 `GLM-*` 与 `*` 两层兜底。
+- `model_list`：显式注册 `gpt-5.5`、`gemini-3.1-pro`、两条默认 Claude 原生模型、两条 Claude 兼容别名、四条 Claude Code 专用模型、`GLM-5.1` 与 `gpt*spark`，并追加 `GLM-*` 与 `*` 两层兜底。
 - 显式模型优先：常用模型可以稳定出现在 `/models` 里，也方便客户端按固定名称接入。
 - `claude-opus-*`：默认映射到 LiteLLM 的 Anthropic provider，优先服务 Anthropic 兼容客户端。
 - `compat/claude-opus-*`：为 OpenAI 兼容客户端保留显式 Claude 别名，但底层仍然走同一个 Anthropic 原生上游。
+- `cc-glmplan-opus`：为 Claude Code 提供稳定主入口，优先走智谱 `GLM-5.1` 的 Anthropic 兼容端点。
+- `cc-glmplan-haiku`：为 Claude Code Haiku / subagent 流量提供轻量入口，优先走智谱 `GLM-4.5-air`。
+- `claude-code-deepseek-v4-pro` / `claude-code-deepseek-v4-flash`：作为 GLM 额度耗尽或临时不可用时的 DeepSeek 兜底路由。
+- `router_settings.fallbacks`：把 Claude Code 的 GLM 主入口分别降级到对应 DeepSeek 路由，并通过 GLM 部署自己的 1 小时冷却实现周期性恢复探测。
 - `GLM-*` fallback：对智谱 Coding Plan 已存在但未显式注册的 GLM 官方模型保留透传能力，同时避免误落到 NewAPI。
 - `*` fallback：对 NewAPI 已存在但未显式注册的非 GLM 模型保留透传能力，减少频繁改本地配置的成本。
-- `litellm_params.model`：OpenAI / Gemini / GLM 继续映射到 `openai/<模型名>`；Claude 显式模型与兼容别名映射到 `anthropic/<模型名>`。
+- `litellm_params.model`：OpenAI / Gemini / GLM OpenAI 兼容路由映射到 `openai/<模型名>`；Claude 显式模型、兼容别名与 Claude Code 专用模型映射到 `anthropic/<模型名>`。
 - `master_key`：开启 LiteLLM 网关鉴权，避免任何能访问端口的客户端都直接调用上游。
 - `Codex` 直连：当前 `ai/coding/codex/config.toml` 里的 `z.ai` provider 保持不变；本目录改动只补充 LiteLLM 网关入口。
