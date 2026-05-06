@@ -207,7 +207,7 @@ def _get_task_status(trellis_dir: Path, hook_input: dict) -> str:
     task_ref = active.task_path
     task_dir = _resolve_task_dir(trellis_dir, task_ref)
     if active.stale or not task_dir.is_dir():
-        return f"Status: STALE POINTER\nTask: {task_ref}\nSource: {active.source}\nNext: Task directory not found. Run: python ./.trellis/scripts/task.py finish"
+        return f"Status: STALE POINTER\nTask: {task_ref}\nSource: {active.source}\nNext: Task directory not found. Run: python3 ./.trellis/scripts/task.py finish"
 
     task_json_path = task_dir / "task.json"
     task_data: dict = {}
@@ -221,7 +221,7 @@ def _get_task_status(trellis_dir: Path, hook_input: dict) -> str:
     task_status = task_data.get("status", "unknown")
 
     if task_status == "completed":
-        return f"Status: COMPLETED\nTask: {task_title}\nSource: {active.source}\nNext: Archive with `python ./.trellis/scripts/task.py archive {task_dir.name}` or start a new task"
+        return f"Status: COMPLETED\nTask: {task_title}\nSource: {active.source}\nNext: Archive with `python3 ./.trellis/scripts/task.py archive {task_dir.name}` or start a new task"
 
     has_context = False
     for jsonl_name in ("implement.jsonl", "check.jsonl", "spec.jsonl"):
@@ -410,7 +410,7 @@ Read and follow all instructions below carefully.
 
     output.write(
         "Discover more via: "
-        "`python ./.trellis/scripts/get_context.py --mode packages`\n"
+        "`python3 ./.trellis/scripts/get_context.py --mode packages`\n"
     )
     output.write("</guidelines>\n\n")
 
