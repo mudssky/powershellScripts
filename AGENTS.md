@@ -3,11 +3,37 @@
 - 如需显式验证 coverage 门槛或改动涉及 coverage 规范，额外执行 `pnpm test:pwsh:coverage`。
 - 若本机 Docker 不可用，至少执行 `pnpm test:pwsh:full`（兼容保留，当前等价 `pnpm test:pwsh:coverage`），并在说明中明确 Linux 覆盖依赖 CI 或 WSL。
 - 你必须为所有输出的代码补充清晰规范的注释。公共接口标注核心功能、入参、返回值，非直观逻辑补充设计意图，- 不重复代码本身的语义。
-- 创建skill时使用中文，除了术语等
 
-当创建或更新 `openspec/changes/**` 与 `openspec/specs/**` 下的 OpenSpec 工件（`proposal.md`、`design.md`、`tasks.md`、`specs/**/*.md`、`validation.md`）时：
+<!-- TRELLIS:START -->
+# Trellis Instructions
 
-1) OpenSpec 模板中的 Markdown 标题与小节名保持英文原文，不做翻译（如 `Why`、`What Changes`、`Context`、`Goals / Non-Goals`、`Decisions`、`Risks / Trade-offs`、`Migration Plan`、`Open Questions`、`Impact`、`Capabilities`、`New Capabilities`、`Modified Capabilities`）。
-2) OpenSpec 结构关键词与固定术语保持原样（`ADDED Requirements`、`MODIFIED Requirements`、`REMOVED Requirements`、`RENAMED Requirements`、`Requirement`、`Scenario`、`WHEN`、`THEN`、`BREAKING`）。
-3) 除上述标题、关键词与固定术语外，其余叙述必须使用简体中文。
-4) 代码、命令、路径、参数名保持原样。
+These instructions are for AI assistants working in this project.
+
+This project is managed by Trellis. The working knowledge you need lives under `.trellis/`:
+
+- `.trellis/workflow.md` — development phases, when to create tasks, skill routing
+- `.trellis/spec/` — package- and layer-scoped coding guidelines (read before writing code in a given layer)
+- `.trellis/workspace/` — per-developer journals and session traces
+- `.trellis/tasks/` — active and archived tasks (PRDs, research, jsonl context)
+
+If a Trellis command is available on your platform (e.g. `/trellis:finish-work`, `/trellis:continue`), prefer it over manual steps. Not every platform exposes every command.
+
+If you're using Codex or another agent-capable tool, additional project-scoped helpers may live in:
+
+- `.agents/skills/` — reusable Trellis skills
+- `.codex/agents/` — optional custom subagents
+
+## Subagents
+
+- ALWAYS wait for every spawned subagent to reach a terminal status before yielding, acting on partial results, or spawning followups.
+  - On Codex, this means calling the `wait` tool with the subagent's thread id (requires `multi_agent_v2`). Do NOT infer completion from elapsed time.
+  - On Claude Code / OpenCode, this means awaiting the Task/agent tool result before continuing.
+- NEVER cancel or re-spawn a subagent that hasn't finished. If a subagent appears stuck, raise the wait timeout (Codex default 30s, max 1h) before judging it broken.
+- Spawn subagents automatically when:
+  - Parallelizable work (e.g., install + verify, npm test + typecheck, multiple tasks from plan)
+  - Long-running or blocking tasks where a worker can run independently
+  - Isolation for risky changes or checks
+
+Managed by Trellis. Edits outside this block are preserved; edits inside may be overwritten by a future `trellis update`.
+
+<!-- TRELLIS:END -->
