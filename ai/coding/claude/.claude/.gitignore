@@ -1,5 +1,4 @@
 ccline.exe
-settings.json
 shell-snapshots
 projects
 todos
@@ -19,3 +18,4 @@ backup
 backups
 ide
 sessions
+.last-cleanup
