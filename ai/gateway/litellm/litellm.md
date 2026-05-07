@@ -178,9 +178,10 @@ curl http://127.0.0.1:34000/v1/chat/completions `
 
 - 这段配置应放在 `ai/coding/claude/config/settings.local.json`，再运行 `pwsh -NoProfile -File ./ai/coding/claude/Sync-ClaudeConfig.ps1` 生成最终配置。
 - `ANTHROPIC_API_KEY` 使用 LiteLLM 的 `LITELLM_MASTER_KEY`，不要填写上游真实密钥。
-- `cc-glmplan-opus` 先走智谱 `GLM-5.1`；失败后会降级到 `claude-code-deepseek-v4-pro`。
-- `cc-glmplan-haiku` 先走智谱 `GLM-4.5-air`；失败后会降级到 `claude-code-deepseek-v4-flash`。
+- `cc-glmplan-opus` 先走智谱 `GLM-5.1`；遇到 429 / `RateLimitError` 时由 LiteLLM 网关短重试，仍失败后会降级到 `claude-code-deepseek-v4-pro`。
+- `cc-glmplan-haiku` 先走智谱 `GLM-5.1`；遇到 429 / `RateLimitError` 时由 LiteLLM 网关短重试，仍失败后会降级到 `claude-code-deepseek-v4-flash`。
 - GLM 两个 Claude Code 入口的 `cooldown_time=3600` 表示失败后冷却 1 小时；冷却结束后下一次请求会重新尝试 GLM，如果额度恢复就会切回 GLM。
+- 429 无感只覆盖这两个 Claude Code GLM 入口；如果 GLM 重试和 DeepSeek fallback 全部失败，LiteLLM 仍会把最终错误返回给 Claude Code / 客户端。
 
 ## 模型查询
 
@@ -247,8 +248,9 @@ curl "$env:Z_AI_CODING_API_BASE/models" `
 - `claude-opus-*`：默认映射到 LiteLLM 的 Anthropic provider，优先服务 Anthropic 兼容客户端。
 - `compat/claude-opus-*`：为 OpenAI 兼容客户端保留显式 Claude 别名，但底层仍然走同一个 Anthropic 原生上游。
 - `cc-glmplan-opus`：为 Claude Code 提供稳定主入口，优先走智谱 `GLM-5.1` 的 Anthropic 兼容端点。
-- `cc-glmplan-haiku`：为 Claude Code Haiku / subagent 流量提供轻量入口，优先走智谱 `GLM-4.5-air`。
+- `cc-glmplan-haiku`：为 Claude Code Haiku / subagent 流量提供独立入口，优先走智谱 `GLM-5.1` 的 Anthropic 兼容端点。
 - `claude-code-deepseek-v4-pro` / `claude-code-deepseek-v4-flash`：作为 GLM 额度耗尽或临时不可用时的 DeepSeek 兜底路由。
+- `router_settings.num_retries` / `retry_policy.RateLimitErrorRetries`：让 Claude Code GLM 入口的瞬时 429 先在网关内短重试，避免直接把限流错误透给客户端。
 - `router_settings.fallbacks`：把 Claude Code 的 GLM 主入口分别降级到对应 DeepSeek 路由，并通过 GLM 部署自己的 1 小时冷却实现周期性恢复探测。
 - `GLM-*` fallback：对智谱 Coding Plan 已存在但未显式注册的 GLM 官方模型保留透传能力，同时避免误落到 NewAPI。
 - `*` fallback：对 NewAPI 已存在但未显式注册的非 GLM 模型保留透传能力，减少频繁改本地配置的成本。

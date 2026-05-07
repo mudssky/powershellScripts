@@ -1,12 +1,12 @@
 model_list:
   # 显式注册 OpenAI 系列模型，确保 `/models` 能直接返回可用模型名。
-  - model_name: "gpt-5.4"
+  - model_name: "gpt-5.5"
     litellm_params: &newapi_openai_params
       # 这里顺手定义 NewAPI OpenAI 兼容入口的公共连接参数，后续同上游模型通过 merge 复用。
       api_base: "os.environ/NEWAPI_API_BASE"  # 从环境变量读 NewAPI 地址
       api_key: "os.environ/NEWAPI_KEY"        # 从环境变量读密钥
       # `model_name` 保持与上游模型 id 一致，便于客户端直接按 `/models` 结果发起调用。
-      model: "openai/gpt-5.4"
+      model: "openai/gpt-5.5"
   # 显式注册 Gemini 系列模型，避免 wildcard 路由只返回 `*`。
   - model_name: "gemini-3.1-pro"
     litellm_params:
@@ -41,6 +41,40 @@ model_list:
       <<: *newapi_anthropic_params
       # 兼容别名与默认模型共享同一上游，避免行为分叉。
       model: "anthropic/claude-opus-4-7"
+  # Claude Code 开发入口优先使用 GLM Coding Plan 的 Anthropic 兼容端点。
+  - model_name: "cc-glmplan-opus"
+    litellm_params: &zai_anthropic_claude_code_params
+      # 与下面的 OpenAI 兼容 GLM 路由分开建锚点，避免两种协议端点互相污染。
+      api_base: "os.environ/Z_AI_ANTHROPIC_API_BASE"  # 从环境变量读智谱 Anthropic 兼容地址
+      api_key: "os.environ/Z_AI_API_KEY"              # 复用智谱 Coding Plan 密钥
+      # Claude Code 的 sonnet / opus 默认走 GLM-5.1，享受 Coding Plan 额度。
+      model: "anthropic/GLM-5.1"
+      # Coding Plan 额度耗尽后让该部署冷却 1 小时，再由下一次请求重新探测是否恢复。
+      cooldown_time: 3600
+  # Claude Code 的 Haiku / subagent 请求复用 GLM Coding Plan 的 Anthropic 兼容入口。
+  - model_name: "cc-glmplan-haiku"
+    litellm_params:
+      # 复用智谱 Anthropic 兼容入口，只覆盖具体轻量模型。
+      <<: *zai_anthropic_claude_code_params
+      # 当前智谱 Anthropic 兼容端点统一使用 GLM-5.1 承接 Claude Code 流量。
+      model: "anthropic/GLM-5.1"
+      # 轻量入口也按同一节奏恢复探测，避免 Haiku 流量频繁撞上额度错误。
+      cooldown_time: 3600
+  # GLM 额度耗尽或临时不可用时，Claude Code 自动降级到 DeepSeek Anthropic 兼容端点。
+  - model_name: "claude-code-deepseek-v4-pro"
+    litellm_params: &deepseek_anthropic_claude_code_params
+      # DeepSeek 的 Anthropic 兼容地址与密钥独立注入，避免与默认 NewAPI Claude 路由耦合。
+      api_base: "os.environ/DEEPSEEK_ANTHROPIC_API_BASE"  # 从环境变量读 DeepSeek Anthropic 兼容地址
+      api_key: "os.environ/DEEPSEEK_API_KEY"              # 从环境变量读 DeepSeek 密钥
+      # 兜底时保持用户原先 Claude Code 的 pro 默认模型。
+      model: "anthropic/deepseek-v4-pro[1m]"
+  # DeepSeek 轻量兜底给 Haiku / subagent 使用，避免主模型降级后小任务也占用 pro。
+  - model_name: "claude-code-deepseek-v4-flash"
+    litellm_params:
+      # 复用 DeepSeek Anthropic 兼容入口，只覆盖轻量模型。
+      <<: *deepseek_anthropic_claude_code_params
+      # 与用户现有 Claude Code Haiku / subagent 模型配置保持一致。
+      model: "anthropic/deepseek-v4-flash"
   # 显式注册 GLM Coding Plan 主模型，便于 `/models` 稳定暴露官方模型名。
   - model_name: "GLM-5.1"
     litellm_params: &zai_openai_params
@@ -56,6 +90,21 @@ model_list:
       <<: *zai_openai_params
       # 由 LiteLLM 按请求中的官方模型名透传，例如 `GLM-4.7`。
       model: "openai/GLM-*"
+  # 把omx使用的spark模型重定向，因为只有pro模型有
+  - model_name: "gpt*spark"
+    litellm_params:
+      <<: *newapi_openai_params
+      model: "openai/gpt-5.4"
+      reasoning_effort: "medium"
+  # Codex 后台可能会请求旧 mini 别名，这里收敛到当前可用的 GPT-5.5 上游。
+  # - model_name: "gpt-5.4-mini"
+  #   litellm_params:
+  #     # 复用 NewAPI OpenAI 兼容入口，同时把真实上游模型固定到 GPT-5.5。
+  #     <<: *newapi_openai_params
+  #     # 避免继续透传到 NewAPI 中缺失渠道的 `gpt-5.4-mini`。
+  #     model: "openai/gpt-5.5"
+  #     # 给未显式指定推理强度的 Responses / Chat 请求提供 medium 默认值。
+  #     reasoning_effort: "medium"
   # 把 wildcard 路由放在最后，优先命中显式模型，其余上游模型再走透传兜底。
   - model_name: "*"
     litellm_params:
@@ -77,20 +126,29 @@ litellm_settings:
 router_settings:
   # 开启前置检查，尽早发现不可用部署或无效模型名。
   enable_pre_call_checks: true
+  # Claude Code GLM 主入口在 429 / RateLimitError 短重试耗尽后切到 DeepSeek 兜底。
+  fallbacks:
+    - cc-glmplan-opus:
+        - claude-code-deepseek-v4-pro
+    - cc-glmplan-haiku:
+        - claude-code-deepseek-v4-flash
+  # 连续一次失败即进入冷却；具体冷却时长可由各模型的 `cooldown_time` 覆盖。
+  allowed_fails: 1
   # 路由层与 SDK 层保持一致的重试次数，避免出现双层策略不一致。
   num_retries: 2
+  # 显式声明 429 的短重试次数；仍失败时才进入上面的 Claude Code DeepSeek fallback。
+  retry_policy:
+    RateLimitErrorRetries: 2
   # Router 级超时以毫秒计；这里与 `request_timeout` 保持同一数量级。
   timeout: 60000
-
 
 # database_url: "sqlite:///./litellm.db"
 # 可选：LiteLLM 网关鉴权（防止滥用）
 general_settings:
-  # 对外访问 LiteLLM 网关时使用的主密钥；客户端通常通过 `Authorization: Bearer <key>` 携带它。
   master_key: "os.environ/LITELLM_MASTER_KEY"
-  # 把模型配置与相关元数据写入数据库，便于 UI 管理页读取模型列表与配置状态。
-  store_model_in_db: true
-  # 把请求消息与响应内容写入 spend logs，供 UI Request Logs 详情页查看完整 request/response。
+  # 模型存在数据库更新模型不方便
+  # store_model_in_db: true
+  store_model_in_db: false
   store_prompts_in_spend_logs: true
   # disable_frontend: true  # 关闭前端页面（纯API模式）
   # proxy_batch_write_at: 60 # 每60秒写入一次数据库
