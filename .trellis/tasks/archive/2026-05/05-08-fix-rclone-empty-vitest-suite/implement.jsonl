@@ -1,0 +1,3 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/guides/index.md", "reason": "共享开发思考指南"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "修复测试导入前复用既有 Vitest 模式"}
