@@ -9,4 +9,5 @@
 | Guide | Description | Status |
 |-------|-------------|--------|
 | [LiteLLM Gateway](./litellm-gateway.md) | LiteLLM 路由、fallback、参数兼容和验证边界 | Active |
+| [Node/Vitest Scripts](./node-vitest-scripts.md) | 根目录 Vitest 发现的 Node 脚本测试与 shebang 行尾约定 | Active |
 

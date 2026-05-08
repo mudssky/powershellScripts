@@ -1,2 +1,3 @@
+.gitattributes text eol=lf
 *.ps1 text eol=lf
-
+config/service/oss/rclone/rclone-ops.mjs text eol=lf
