@@ -37,6 +37,8 @@ services:
       DASHSCOPE_API_BASE: ${DASHSCOPE_API_BASE:-https://dashscope.aliyuncs.com/compatible-mode/v1}
     volumes:
       - ./litellm.local.yaml:/app/config.yaml:ro
+      # LiteLLM 自定义回调用于处理跨供应商 Anthropic messages 兼容清洗。
+      - ./callbacks:/app/callbacks:ro
     extra_hosts:
       # 在 Linux Docker Engine 场景补齐宿主机别名，保持默认 DATABASE_URL 可用。
       - "host.docker.internal:host-gateway"

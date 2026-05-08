@@ -222,7 +222,7 @@ pwsh -NoProfile -File ./ai/coding/claude/Sync-ClaudeConfig.ps1
 }
 ```
 
-这里的 key 是 LiteLLM 网关 `LITELLM_MASTER_KEY`，上游智谱和 DeepSeek 密钥仍放在 `ai/gateway/litellm/.env.local`。GLM 额度耗尽时 LiteLLM 会先短重试，再自动降级到 DeepSeek，并在冷却 1 小时后重新尝试 GLM。DeepSeek 兜底会丢弃 Claude Code 的 extended thinking 参数，避免跨供应商 fallback 时因为历史消息缺少 `thinking_blocks` 被兼容端点拒绝；`CLAUDE_CODE_EFFORT_LEVEL=max` 在 DeepSeek Anthropic 官方接口中对应 `output_config.effort`，当前兜底配置不会丢弃 `output_config`，但会牺牲显式 `thinking` 模式以保证 fallback 可用。如果 GLM 重试和 DeepSeek 兜底都失败，最终错误仍会返回给 Claude Code。
+这里的 key 是 LiteLLM 网关 `LITELLM_MASTER_KEY`，上游智谱和 DeepSeek 密钥仍放在 `ai/gateway/litellm/.env.local`。GLM 额度耗尽时 LiteLLM 会先短重试，再自动降级到 DeepSeek，并在冷却 1 小时后重新尝试 GLM。DeepSeek 兜底会丢弃 Claude Code 的 extended thinking 参数，并由 LiteLLM 本地 callback 清理 `/v1/messages` 历史里的 `content[].thinking` 块，避免跨供应商 fallback 时被 DeepSeek 的 thinking 历史校验拒绝；`CLAUDE_CODE_EFFORT_LEVEL=max` 在 DeepSeek Anthropic 官方接口中对应 `output_config.effort`，当前兜底配置不会丢弃 `output_config`，但会牺牲显式 `thinking` 模式以保证 fallback 可用。如果 GLM 重试和 DeepSeek 兜底都失败，最终错误仍会返回给 Claude Code。
 
 ### 场景 4：切换到新机器
 

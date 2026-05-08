@@ -68,7 +68,7 @@ model_list:
       api_key: "os.environ/DEEPSEEK_API_KEY"              # 从环境变量读 DeepSeek 密钥
       # 兜底时保持用户原先 Claude Code 的 pro 默认模型。
       model: "anthropic/deepseek-v4-pro[1m]"
-      # DeepSeek 兜底优先接住 GLM 429；跨供应商时不强制保留 Claude Code extended thinking 参数。
+      # 普通 Chat/Responses 路径不强制保留 Claude Code extended thinking 参数；原生 Anthropic messages 由回调清理历史 thinking 块。
       additional_drop_params:
         - reasoning_effort
         - thinking
@@ -124,6 +124,9 @@ litellm_settings:
   drop_params: true
   # 允许 LiteLLM 修正 Anthropic tool/thinking 历史块不完整的问题，避免 DeepSeek 兜底被兼容性错误拦截。
   modify_params: true
+  # DeepSeek Anthropic 兼容端点会校验 thinking 历史块；GLM fallback 时由本地回调移除不完整 thinking 历史。
+  callbacks:
+    - callbacks.deepseek_thinking_sanitizer.proxy_handler_instance
   # 默认重试 2 次，兼顾临时抖动恢复与整体响应时延。
   num_retries: 2
   # 统一请求超时为 60 秒，覆盖常规对话模型与较慢的推理模型。

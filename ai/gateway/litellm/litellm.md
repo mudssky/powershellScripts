@@ -180,7 +180,7 @@ curl http://127.0.0.1:34000/v1/chat/completions `
 - `ANTHROPIC_API_KEY` 使用 LiteLLM 的 `LITELLM_MASTER_KEY`，不要填写上游真实密钥。
 - `cc-glmplan-opus` 先走智谱 `GLM-5.1`；遇到 429 / `RateLimitError` 时由 LiteLLM 网关短重试，仍失败后会降级到 `claude-code-deepseek-v4-pro`。
 - `cc-glmplan-haiku` 先走智谱 `GLM-5.1`；遇到 429 / `RateLimitError` 时由 LiteLLM 网关短重试，仍失败后会降级到 `claude-code-deepseek-v4-flash`。
-- DeepSeek 兜底路由会丢弃 `thinking` / `reasoning_effort` 这类 extended thinking 参数，并启用 LiteLLM 的 `modify_params` 兼容修正；这能避免跨供应商 fallback 时因为历史消息缺少 `thinking_blocks` 被 Anthropic 兼容端点拒绝。
+- DeepSeek 兜底路由会丢弃 `thinking` / `reasoning_effort` 这类 extended thinking 参数；Claude `/v1/messages` 原生路径还会通过 `callbacks/deepseek_thinking_sanitizer.py` 在发往 DeepSeek 前清理历史 `content[].thinking` / `redacted_thinking` 块，避免跨供应商 fallback 时被 DeepSeek 的 thinking 历史校验拒绝。
 - DeepSeek 官方 Claude Code 直连配置推荐 `CLAUDE_CODE_EFFORT_LEVEL=max`；在 DeepSeek Anthropic 兼容接口里，effort 对应 `output_config.effort`。当前兜底只丢弃 `thinking` / `reasoning_effort`，不丢弃 `output_config`，避免误伤官方 effort 字段；代价是 fallback 不再显式请求 extended thinking。
 - GLM 两个 Claude Code 入口的 `cooldown_time=3600` 表示失败后冷却 1 小时；冷却结束后下一次请求会重新尝试 GLM，如果额度恢复就会切回 GLM。
 - 429 无感只覆盖这两个 Claude Code GLM 入口；如果 GLM 重试和 DeepSeek fallback 全部失败，LiteLLM 仍会把最终错误返回给 Claude Code / 客户端。
@@ -252,9 +252,11 @@ curl "$env:Z_AI_CODING_API_BASE/models" `
 - `cc-glmplan-opus`：为 Claude Code 提供稳定主入口，优先走智谱 `GLM-5.1` 的 Anthropic 兼容端点。
 - `cc-glmplan-haiku`：为 Claude Code Haiku / subagent 流量提供独立入口，优先走智谱 `GLM-5.1` 的 Anthropic 兼容端点。
 - `claude-code-deepseek-v4-pro` / `claude-code-deepseek-v4-flash`：作为 GLM 额度耗尽或临时不可用时的 DeepSeek 兜底路由。
-- `additional_drop_params`：只在 DeepSeek 兜底路由上丢弃 `thinking` / `reasoning_effort`，优先保证 429 后请求能继续完成；GLM 主入口仍保留 Claude Code 传入的 thinking 语义。
+- `additional_drop_params`：只在 DeepSeek 兜底路由上丢弃普通参数路径里的 `thinking` / `reasoning_effort`；GLM 主入口仍保留 Claude Code 传入的 thinking 语义。
+- `callbacks/deepseek_thinking_sanitizer.py`：只在 DeepSeek Anthropic 请求发出前清理顶层 `thinking` / `reasoning_effort` 和历史 `thinking` / `redacted_thinking` content 块；这是给 Claude Code `/v1/messages` pass-through 路径补的兼容层，不能只靠 `additional_drop_params` 替代。
 - DeepSeek effort 兼容：不要把 `output_config` 加入 DeepSeek 兜底路由的丢弃参数；DeepSeek Anthropic 兼容接口使用 `output_config.effort` 承接 Claude Code 的 `CLAUDE_CODE_EFFORT_LEVEL=max`。
-- `litellm_settings.modify_params`：允许 LiteLLM 对 Anthropic tool/thinking 消息做兼容修正；当历史消息缺少必要的 `thinking_blocks` 时，本轮兜底请求会降级掉不安全的 thinking 参数。
+- `litellm_settings.callbacks`：加载 DeepSeek thinking sanitizer；`compose.yaml` 必须挂载 `./callbacks:/app/callbacks:ro`，修改后需要重建容器才能让新挂载生效。
+- `litellm_settings.modify_params`：允许 LiteLLM 对 Anthropic tool/thinking 消息做兼容修正；但它不能替代上面的 sanitizer，因为 DeepSeek 报错来自原生 `messages[].content[]` 历史块校验。
 - `router_settings.num_retries` / `retry_policy.RateLimitErrorRetries`：让 Claude Code GLM 入口的瞬时 429 先在网关内短重试，避免直接把限流错误透给客户端。
 - `router_settings.fallbacks`：把 Claude Code 的 GLM 主入口分别降级到对应 DeepSeek 路由，并通过 GLM 部署自己的 1 小时冷却实现周期性恢复探测。
 - `GLM-*` fallback：对智谱 Coding Plan 已存在但未显式注册的 GLM 官方模型保留透传能力，同时避免误落到 NewAPI。
