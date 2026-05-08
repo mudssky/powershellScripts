@@ -5,3 +5,37 @@
 
 ---
 
+
+
+## Session 1: 拆分 pnpm workspace 包边界
+
+**Date**: 2026-05-08
+**Task**: 拆分 pnpm workspace 包边界
+**Package**: node-script
+**Branch**: `master`
+
+### Summary
+
+按 QA/语言域拆分 workspace 与 Trellis package/spec 边界；新增 bash、pwsh、psutils 包声明与各包规范文档。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1e612a9` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
