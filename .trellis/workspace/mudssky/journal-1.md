@@ -39,3 +39,37 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 2: 修复 rclone Vitest 空测试套件
+
+**Date**: 2026-05-08
+**Task**: 修复 rclone Vitest 空测试套件
+**Package**: bash-scripts
+**Branch**: `master`
+
+### Summary
+
+将 rclone 旁路测试切换到 Vitest API，固定被导入 shebang 脚本 LF 行尾，并补充 Node/Vitest 脚本测试规范。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `3911093` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
