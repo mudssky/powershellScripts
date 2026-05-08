@@ -1,0 +1,9 @@
+{
+  "name": "psutils",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test:qa": "pwsh -NoProfile -File ../scripts/pwsh/devops/Invoke-PesterMode.ps1 -Mode qa -Path \"./tests\"",
+    "test:full": "pwsh -NoProfile -File ../scripts/pwsh/devops/Invoke-PesterMode.ps1 -Mode full -Coverage Off -Path \"./tests\""
+  }
+}

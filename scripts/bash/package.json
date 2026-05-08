@@ -1,0 +1,10 @@
+{
+  "name": "bash-scripts",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:bash": "pnpm --dir ../.. run test:bash",
+    "test:systemd-service-manager": "pnpm --dir ../.. run test:systemd-service-manager"
+  }
+}

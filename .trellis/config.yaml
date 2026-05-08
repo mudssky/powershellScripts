@@ -60,6 +60,18 @@ max_journal_lines: 2000
 
 # Auto-detected monorepo packages
 packages:
+  bash-scripts:
+    path: scripts/bash
+  json-diff-tool:
+    path: projects/clis/json-diff-tool
+  mpv-scripts:
+    path: config/software/mpv/mpv_scripts
   node-script:
     path: scripts/node
-default_package: node-script
+  psutils:
+    path: psutils
+  pwsh-scripts:
+    path: scripts/pwsh
+  pwshfmt-rs:
+    path: projects/clis/pwshfmt-rs
+default_package: pwsh-scripts

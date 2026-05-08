@@ -1,0 +1,11 @@
+{
+  "name": "pwsh-scripts",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "format": "pnpm --dir ../.. run format:pwsh",
+    "format:all": "pnpm --dir ../.. run format:pwsh:all",
+    "test:qa": "pnpm --dir ../.. run test:pwsh:qa",
+    "test:full": "pnpm --dir ../.. run test:pwsh:full:assertions"
+  }
+}

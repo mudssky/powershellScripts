@@ -1,3 +1,7 @@
 packages:
   - 'projects/**'
+  - 'config/software/mpv/mpv_scripts'
+  - 'scripts/bash'
   - 'scripts/node'
+  - 'scripts/pwsh'
+  - 'psutils'
