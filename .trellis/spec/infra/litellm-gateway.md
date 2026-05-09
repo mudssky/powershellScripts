@@ -47,6 +47,8 @@
   - `drop_params: true` 用于丢弃上游不识别的普通参数。
   - `modify_params: true` 用于允许 LiteLLM 修正 Anthropic tool/thinking 历史块兼容问题。
   - `callbacks` 必须包含 DeepSeek thinking sanitizer；`compose.yaml` 必须挂载 `./callbacks:/app/callbacks:ro`，否则配置中的 Python 回调无法导入。
+  - DeepSeek sanitizer 修改真实请求体时必须使用 `async_pre_call_deployment_hook`。该 hook 在 Router 选中 fallback 部署后、provider 构造 Anthropic messages 请求体前运行，可以基于 `litellm_metadata.deployment` / `deployment_model_name` / `api_base` 识别 DeepSeek 兜底部署。
+  - `log_pre_api_call` 只能作为日志上下文与最终 `complete_input_dict` 的兜底清理点，不能作为唯一请求改写机制；Anthropic messages handler 会先构造请求体并可能执行 `sign_request`，再进入 logging pre-call，若实际发送体已经序列化，日志 hook 里的字典修改不会稳定改变上游收到的 JSON。
 
 ### 4. Validation & Error Matrix
 
@@ -56,9 +58,10 @@
 | GLM 返回 429 / `RateLimitError` | LiteLLM 先按 retry policy 短重试 |
 | GLM 短重试耗尽 | Router fallback 到对应 `claude-code-deepseek-*` |
 | DeepSeek 收到顶层 `thinking` / `reasoning_effort` | 兜底别名的 `additional_drop_params` 覆盖普通 Chat/Responses 路径；原生 Anthropic messages 路径由 sanitizer 在 HTTP pre-call 阶段移除 |
-| DeepSeek 收到历史 `content[].thinking` / `redacted_thinking` | sanitizer 必须在 HTTP pre-call 阶段移除这些历史块，否则 DeepSeek 会返回 `content[].thinking in the thinking mode must be passed back` |
+| DeepSeek 收到历史 `content[].thinking` / `redacted_thinking` | sanitizer 必须在 deployment pre-call 阶段移除这些历史块，否则 DeepSeek 会返回 `content[].thinking in the thinking mode must be passed back` |
 | DeepSeek 收到 `output_config.effort` | 不应通过 `additional_drop_params` 丢弃；这是 DeepSeek Anthropic 兼容接口承接 `CLAUDE_CODE_EFFORT_LEVEL=max` 的官方字段 |
 | 历史消息缺少完整 `thinking_blocks` | `modify_params` 允许 LiteLLM 做兼容修正，避免 fallback 被 Anthropic 兼容端点拒绝 |
+| Sanitizer 只实现 `log_pre_api_call` | 视为不满足请求改写合同；该 hook 可能只能改日志视图，不能保证修改已签名/已序列化的 Anthropic messages 请求体 |
 | GLM 与 DeepSeek 都失败 | LiteLLM 将最终错误返回给 Claude Code，不伪装成功 |
 
 ### 5. Good/Base/Bad Cases
@@ -77,7 +80,9 @@
 - Config sync: 如果 `newapi.yaml` 与 `litellm.local.yaml` 应保持一致，修改后需要确认两者没有非预期差异。
 - Route contract: 检查 `router_settings.fallbacks` 仍指向专用 DeepSeek 兜底别名。
 - Parameter contract: 检查 `additional_drop_params` 只出现在 DeepSeek 兜底别名或其它明确的兼容专用路由上。
-- Callback contract: 检查 `callbacks.deepseek_thinking_sanitizer.proxy_handler_instance` 能在 LiteLLM 镜像内导入，并能原地清理 DeepSeek Anthropic request body。
+- Callback contract: 检查 `callbacks.deepseek_thinking_sanitizer.proxy_handler_instance` 能在 LiteLLM 镜像内导入，并实现 `async_pre_call_deployment_hook`，能在 `CallTypes.anthropic_messages` 且 deployment metadata 指向 DeepSeek 时原地清理请求参数。
+- Hook-stage contract: 离线测试必须直接调用 `async_pre_call_deployment_hook`，输入包含 `litellm_metadata.deployment` / `deployment_model_name` / `api_base`、顶层 `thinking` / `reasoning_effort`、历史 `content[].thinking` / `redacted_thinking`，断言清理发生在 provider 请求体构造前。
+- Runtime callback contract: 重启 LiteLLM 后调用 `/active/callbacks`，确认运行态 `litellm.callbacks` 包含 `callbacks.deepseek_thinking_sanitizer.DeepSeekThinkingSanitizer`；不要用 `docker exec python` 新进程里的 `litellm.callbacks` 判断服务进程状态。
 - Runtime note: 真实 429 fallback 依赖上游额度、密钥和实时响应；本地配置验证不能证明线上额度恢复或供应商端协议行为。
 
 ### 7. Wrong vs Correct
@@ -143,6 +148,21 @@ litellm_settings:
 ```
 
 说明：Claude Code 使用 `/v1/messages?beta=true` 时，LiteLLM 走 Anthropic 原生 messages pass-through。该路径的 `messages` 与 `thinking` 不走普通 OpenAI 参数映射，`additional_drop_params` 不能删除历史 `messages[*].content[*]` 中的 thinking 内容块。DeepSeek 返回 `content[].thinking in the thinking mode must be passed back` 时，应先确认 sanitizer 已挂载并加载，而不是只改 `additional_drop_params`。
+
+#### Hook stage: request mutation vs logging
+
+```python
+class DeepSeekThinkingSanitizer(CustomLogger):
+    async def async_pre_call_deployment_hook(self, kwargs, call_type):
+        # 正确：Router 已选中 fallback 部署，provider 尚未构造/签名实际 Anthropic 请求体。
+        ...
+
+    def log_pre_api_call(self, model, messages, kwargs):
+        # 仅可作为兜底同步日志上下文；不要把它当作唯一请求改写入口。
+        ...
+```
+
+说明：LiteLLM 的 hook 名称容易让人误判阶段。`async_pre_call_deployment_hook` 是“部署已选、请求尚未送入 provider”的改写点；`log_pre_api_call` 是 provider 内部 logging pre-call，Anthropic messages 路径进入这里时请求体已经完成 transform，部分 provider 还可能已经生成 `signed_json_body`。任何跨供应商 fallback 的请求兼容清洗，都应优先放在 deployment pre-call，并用实际 fallback deployment metadata 判断目标上游。
 
 #### Deferred option: two-stage DeepSeek fallback
 

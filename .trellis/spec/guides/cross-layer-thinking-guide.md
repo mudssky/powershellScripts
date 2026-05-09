@@ -68,6 +68,24 @@ For each boundary:
 
 **Good**: Each layer only knows its neighbors
 
+### Mistake 4: Hook Stage Assumptions
+
+**Bad**: 根据 hook 名称推断它能修改真实请求，例如把 logging pre-call 当成 provider 请求构造前的改写点。
+
+**Good**: 先确认 hook 在完整生命周期中的位置，并验证它修改的是下游实际消费的数据结构，而不是日志副本、已序列化后的副本或另一个进程里的状态。
+
+When lifecycle hooks cross layers, map the flow explicitly:
+
+```
+Proxy request → Router deployment selection → pre-deployment hook → provider transform/sign → logging hook → HTTP send
+```
+
+For each hook, ask:
+- Is the target deployment/provider already known?
+- Has the request body been transformed or serialized yet?
+- Does this hook return modified data, mutate a live reference, or only log a snapshot?
+- How can runtime state be checked from the serving process rather than a fresh local process?
+
 ---
 
 ## Checklist for Cross-Layer Features
@@ -82,6 +100,7 @@ After implementation:
 - [ ] Tested with edge cases (null, empty, invalid)
 - [ ] Verified error handling at each boundary
 - [ ] Checked data survives round-trip
+- [ ] For lifecycle hooks, verified the hook stage with source or docs and tested the exact structure consumed by the downstream layer
 
 ---
 
