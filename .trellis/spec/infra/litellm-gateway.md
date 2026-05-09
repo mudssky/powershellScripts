@@ -8,7 +8,7 @@
 
 ### 1. Scope / Trigger
 
-- Trigger: 修改 `ai/gateway/litellm/*.yaml` 中 Claude Code GLM 入口、DeepSeek 兜底别名、`router_settings.fallbacks`、`additional_drop_params`、`litellm_settings.callbacks`、`callbacks/deepseek_thinking_sanitizer.py` 或 `litellm_settings.modify_params`。
+- Trigger: 修改 `ai/gateway/litellm/*.yaml` 中 Claude Code GLM 入口、DeepSeek 兜底别名、`router_settings.fallbacks`、`additional_drop_params`、`litellm_settings.callbacks`、`callbacks/deepseek_thinking_sanitizer*.py` 或 `litellm_settings.modify_params`。
 - Scope: `cc-glmplan-opus` / `cc-glmplan-haiku` 主路由优先使用智谱 GLM Coding Plan；GLM 返回 429 或 LiteLLM `RateLimitError` 后短重试，仍失败才 fallback 到 DeepSeek Anthropic 兼容端点。
 - Design intent: 主路由尽量保留 Claude Code extended thinking；兜底路由优先保证请求不中断。
 
@@ -88,7 +88,7 @@
 - Callback contract: 检查 `callbacks.deepseek_thinking_sanitizer.proxy_handler_instance` 能在 LiteLLM 镜像内导入，并实现 `async_pre_call_deployment_hook`，能在 `CallTypes.anthropic_messages` 且 deployment metadata 指向 DeepSeek 时原地清理请求参数。
 - Hook-stage contract: 离线测试必须直接调用 `async_pre_call_deployment_hook`，输入包含 `litellm_metadata.deployment` / `deployment_model_name` / `api_base`、顶层 `thinking` / `reasoning_effort`、历史 `content[].thinking` / `redacted_thinking`，断言清理发生在 provider 请求体构造前。
 - Reference contract: 离线测试必须断言原始 `messages` 列表对象 ID 不变，且清理后 `kwargs["messages"] is messages`；这是 Anthropic messages pass-through 位置参数链路的关键行为。
-- Recursive contract: 离线测试必须包含嵌套 content 中的 `redacted_thinking` 和 message-level `thinking_blocks`，并断言 `_find_thinking_paths(...)` 在清理后为空。
+- Recursive contract: 离线测试必须包含嵌套 content 中的 `redacted_thinking` 和 message-level `thinking_blocks`，并断言 `thinking_paths(...)` 在清理后为空。
 - Runtime smoke contract: 真实验证可用 `/v1/messages?beta=true` 先直打 `claude-code-deepseek-v4-pro`，再打 `cc-glmplan-opus` 触发 429 fallback；成功样本应返回 HTTP 200，容器日志应有两个阶段的 `deepseek thinking sanitized` 且 `remaining_thinking_paths: []`。
 - Runtime callback contract: 重启 LiteLLM 后调用 `/active/callbacks`，确认运行态 `litellm.callbacks` 包含 `callbacks.deepseek_thinking_sanitizer.DeepSeekThinkingSanitizer`；不要用 `docker exec python` 新进程里的 `litellm.callbacks` 判断服务进程状态。
 - Runtime note: 真实 429 fallback 依赖上游额度、密钥和实时响应；本地配置验证不能证明线上额度恢复或供应商端协议行为。
