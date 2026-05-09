@@ -180,9 +180,9 @@ curl http://127.0.0.1:34000/v1/chat/completions `
 - `ANTHROPIC_API_KEY` 使用 LiteLLM 的 `LITELLM_MASTER_KEY`，不要填写上游真实密钥。
 - `cc-glmplan-opus` 先走智谱 `GLM-5.1`；遇到 429 / `RateLimitError` 时由 LiteLLM 网关短重试，仍失败后会降级到 `claude-code-deepseek-v4-pro`。
 - `cc-glmplan-haiku` 先走智谱 `GLM-5.1`；遇到 429 / `RateLimitError` 时由 LiteLLM 网关短重试，仍失败后会降级到 `claude-code-deepseek-v4-flash`。
-- DeepSeek 兜底路由会丢弃 `thinking` / `reasoning_effort` 这类 extended thinking 参数；Claude `/v1/messages` 原生路径还会通过 `callbacks/deepseek_thinking_sanitizer.py` 在发往 DeepSeek 前递归清理无签名/不完整的历史 `content[].thinking` / `redacted_thinking` / `thinking_blocks`，同时保留带 `signature` 或 `data` 的上游不透明 thinking 块。
+- DeepSeek 兜底路由会保留当前请求的 `thinking` / `reasoning_effort` / `output_config.effort`，让 DeepSeek Anthropic 兼容接口继续承接 Claude Code thinking / effort；Claude `/v1/messages` 原生路径会通过 `callbacks/deepseek_thinking_sanitizer.py` 在发往 DeepSeek 前递归清理无签名/不完整的历史 `content[].thinking` / `redacted_thinking` / `thinking_blocks`，同时保留带 `signature` 或 `data` 的上游不透明 thinking 块。
 - sanitizer 会输出不含正文的结构诊断日志，事件名为 `deepseek thinking sanitized`；排查 fallback 时重点看 `stage`、`top_level_thinking_before/after`、`removed_thinking_paths`、`remaining_thinking_paths` 与 `preserved_thinking_blocks_after`，其中 `remaining_thinking_paths: []` 表示发往 DeepSeek 前已没有不兼容 thinking 历史路径。
-- DeepSeek 官方 Claude Code 直连配置推荐 `CLAUDE_CODE_EFFORT_LEVEL=max`；在 DeepSeek Anthropic 兼容接口里，effort 对应 `output_config.effort`。跨供应商 fallback safe 模式只清理历史 assistant thinking 块，不把当前请求的 top-level `thinking` 改成 disabled。
+- DeepSeek 官方 Claude Code 直连配置推荐 `CLAUDE_CODE_EFFORT_LEVEL=max`；在 DeepSeek Anthropic 兼容接口里，effort 对应 `output_config.effort`。跨供应商 fallback 只清理历史 assistant thinking 块，不把当前请求的 top-level `thinking` 改成 disabled，也不在路由配置里丢弃 thinking / effort。
 - GLM 两个 Claude Code 入口的 `cooldown_time=3600` 表示失败后冷却 1 小时；冷却结束后下一次请求会重新尝试 GLM，如果额度恢复就会切回 GLM。
 - 429 无感只覆盖这两个 Claude Code GLM 入口；如果 GLM 重试和 DeepSeek fallback 全部失败，LiteLLM 仍会把最终错误返回给 Claude Code / 客户端。
 
@@ -253,9 +253,9 @@ curl "$env:Z_AI_CODING_API_BASE/models" `
 - `cc-glmplan-opus`：为 Claude Code 提供稳定主入口，优先走智谱 `GLM-5.1` 的 Anthropic 兼容端点。
 - `cc-glmplan-haiku`：为 Claude Code Haiku / subagent 流量提供独立入口，优先走智谱 `GLM-5.1` 的 Anthropic 兼容端点。
 - `claude-code-deepseek-v4-pro` / `claude-code-deepseek-v4-flash`：作为 GLM 额度耗尽或临时不可用时的 DeepSeek 兜底路由。
-- `additional_drop_params`：只在 DeepSeek 兜底路由上丢弃普通参数路径里的 `thinking` / `reasoning_effort`；GLM 主入口仍保留 Claude Code 传入的 thinking 语义。
-- `callbacks/deepseek_thinking_sanitizer.py`：只在 DeepSeek Anthropic 请求发出前清理无签名/不完整的历史 `thinking` / `redacted_thinking` / `thinking_blocks` content 块；带 `signature` 的 thinking 和带 `data` 的 redacted thinking 必须保留回传。这是给 Claude Code `/v1/messages` pass-through 路径补的兼容层，不能只靠 `additional_drop_params` 替代。该回调必须原地修改 `messages` 列表引用，因为 Anthropic pass-through handler 会继续使用函数位置参数里的原 messages 对象。
-- DeepSeek effort 兼容：不要把 `output_config` 或 `output_config.effort` 加入 DeepSeek 兜底路由的丢弃参数；DeepSeek Anthropic 兼容接口使用 `output_config.effort` 承接 `CLAUDE_CODE_EFFORT_LEVEL=max`。
+- `claude-code-deepseek-*` 参数策略：这是 Claude Code Anthropic messages 专用兜底入口，不配置 `additional_drop_params` 丢弃 `thinking` / `reasoning_effort`；如需 Chat/Responses 保守兼容，应新增独立 safe 路由。
+- `callbacks/deepseek_thinking_sanitizer.py`：只在 DeepSeek Anthropic 请求发出前清理无签名/不完整的历史 `thinking` / `redacted_thinking` / `thinking_blocks` content 块；带 `signature` 的 thinking 和带 `data` 的 redacted thinking 必须保留回传。这是给 Claude Code `/v1/messages` pass-through 路径补的兼容层，不能只靠普通参数丢弃替代。该回调必须原地修改 `messages` 列表引用，因为 Anthropic pass-through handler 会继续使用函数位置参数里的原 messages 对象。
+- DeepSeek effort 兼容：不要把 `thinking`、`reasoning_effort`、`output_config` 或 `output_config.effort` 加入 DeepSeek Claude Code 兜底路由的丢弃参数；DeepSeek Anthropic 兼容接口使用这些字段承接 Claude Code thinking / effort。
 - `litellm_settings.callbacks`：加载 DeepSeek thinking sanitizer；`compose.yaml` 必须挂载 `./callbacks:/app/callbacks:ro`，修改后需要重建容器才能让新挂载生效。
 - `litellm_settings.modify_params`：允许 LiteLLM 对 Anthropic tool/thinking 消息做兼容修正；但它不能替代上面的 sanitizer，因为 DeepSeek 报错来自原生 `messages[].content[]` 历史块校验。
 - `router_settings.num_retries` / `retry_policy.RateLimitErrorRetries`：让 Claude Code GLM 入口的瞬时 429 先在网关内短重试，避免直接把限流错误透给客户端。

@@ -36,14 +36,13 @@
   - `DEEPSEEK_API_KEY`: DeepSeek 密钥。
   - `LITELLM_MASTER_KEY`: LiteLLM 对外鉴权密钥。
 - Fallback-only parameter policy:
-  - DeepSeek 兜底别名必须显式丢弃 `thinking` 与 `reasoning_effort`，用于覆盖普通 Chat/Responses 参数转换路径；原生 Anthropic messages 路径不要把当前请求的 top-level `thinking` 改成 disabled。
+  - `claude-code-deepseek-*` 是 Claude Code Anthropic messages 专用兜底入口，必须保留当前请求的 top-level `thinking`、`reasoning_effort` 与 `output_config.effort`；不得再通过 `additional_drop_params` 丢弃 `thinking` / `reasoning_effort`。
   - Claude `/v1/messages` 原生路径必须启用 `callbacks.deepseek_thinking_sanitizer.proxy_handler_instance`，因为该路径会把历史 `messages[].content[]` 直接传给上游，`additional_drop_params` 不能移除 `content[].thinking` / `redacted_thinking` 内容块。
   - DeepSeek 官方 Claude Code 直连配置推荐 `CLAUDE_CODE_EFFORT_LEVEL=max`；在 Anthropic 兼容接口里，DeepSeek 的 effort 语义对应 `output_config.effort`，不是 OpenAI 兼容接口里的 `reasoning_effort`。
   - 原生 Anthropic messages fallback 的核心问题是历史 assistant thinking 内容块有两类语义：带 `signature` 的 `thinking` 与带 `data` 的 `redacted_thinking` 是上游要求完整回传的不透明块；缺少签名/不透明数据的 thinking 块通常来自跨供应商或中间层转换，DeepSeek 无法校验。sanitizer 应保留可回传块，只清理不兼容块与 `thinking_blocks` 辅助字段。
-  - 不得把 `output_config` 或 `output_config.effort` 加入 DeepSeek 兜底别名的 `additional_drop_params`；DeepSeek Anthropic 兼容接口使用它承接 effort。
-  - 普通 Chat/Responses 路径丢弃 `thinking` 会让 DeepSeek 兜底不再显式请求 extended thinking；原生 Anthropic messages 路径由 sanitizer 只清历史块，不禁用当前请求 thinking。
-  - 丢弃范围只绑定到 DeepSeek 兜底别名；不得在 GLM 主路由上全局禁用 Claude Code thinking。
-  - 如果 `claude-code-deepseek-*` 被直接调用，也会应用同一丢弃策略；因此该别名应被视为 fallback/兼容专用入口。
+  - 不得把 `thinking`、`reasoning_effort`、`output_config` 或 `output_config.effort` 加入 DeepSeek Claude Code 兜底别名的 `additional_drop_params`；DeepSeek Anthropic 兼容接口使用 top-level thinking 与 `output_config.effort` 承接 Claude Code effort。
+  - 如果未来需要面向 Chat/Responses 的保守 DeepSeek 兼容入口，应新增独立 safe 路由，而不是让 `claude-code-deepseek-*` 牺牲 Claude Code thinking 能力。
+  - 不得在 GLM 主路由上全局禁用 Claude Code thinking。
 - LiteLLM settings:
   - `drop_params: true` 用于丢弃上游不识别的普通参数。
   - `modify_params: true` 用于允许 LiteLLM 修正 Anthropic tool/thinking 历史块兼容问题。
@@ -65,7 +64,7 @@
 | GLM 正常可用 | `cc-glmplan-*` 直接走 GLM，保留 Claude Code thinking 语义 |
 | GLM 返回 429 / `RateLimitError` | LiteLLM 先按 retry policy 短重试 |
 | GLM 短重试耗尽 | Router fallback 到对应 `claude-code-deepseek-*` |
-| DeepSeek 收到顶层 `thinking` / `reasoning_effort` | 普通 Chat/Responses 路径由兜底别名的 `additional_drop_params` 处理；原生 Anthropic messages 路径应保留 top-level `thinking`，只清历史 thinking 块 |
+| DeepSeek 收到顶层 `thinking` / `reasoning_effort` | Claude Code DeepSeek 兜底路由应保留这些当前请求参数；sanitizer 只处理历史 content thinking 块 |
 | DeepSeek 收到带签名/不透明数据的历史 `content[].thinking` / `redacted_thinking` | sanitizer 必须原样保留这些块；DeepSeek thinking mode 需要它们维持工具调用回合的推理连续性 |
 | DeepSeek 收到无签名/不完整的历史 `content[].thinking` / `redacted_thinking` | sanitizer 必须在 deployment pre-call 阶段移除这些不兼容块，否则 DeepSeek 可能返回 thinking 历史校验错误 |
 | DeepSeek 返回 `thinking options type cannot be disabled when reasoning_effort is set` | 优先检查 sanitizer 是否错误设置了 `top_level_thinking_after: disabled`；正确策略是保留 top-level thinking，而不是 disabled + effort 共存 |
@@ -80,20 +79,20 @@
 
 - Good: GLM 429 后切到 DeepSeek，原生 Anthropic `/v1/messages` fallback 保留当前 top-level `thinking`，同时只移除无签名/不完整的历史 thinking content 块。
 - Good: sanitizer 原地修改 `messages` 列表并递归清理嵌套 content；日志显示 `top_level_thinking_before: enabled/adaptive`、`top_level_thinking_after: enabled/adaptive`、`remaining_thinking_paths: []`，同时 `preserved_thinking_blocks_after` 可大于 0。
-- Good: DeepSeek 兜底别名不丢弃 `output_config.effort`；如果 Claude Code / LiteLLM 以 DeepSeek Anthropic 官方字段表达 effort，`CLAUDE_CODE_EFFORT_LEVEL=max` 仍有机会透传。
+- Good: DeepSeek 兜底别名不丢弃 `thinking`、`reasoning_effort` 或 `output_config.effort`；如果 Claude Code / LiteLLM 以 DeepSeek Anthropic 官方字段表达 effort，`CLAUDE_CODE_EFFORT_LEVEL=max` 仍有机会透传。
 - Base: GLM 正常响应时不触发 fallback，不改变 Claude Code 对 GLM 主路由的 thinking 使用方式。
 - Bad: 全局丢弃 `thinking`，导致 GLM 主路由也失去 Claude Code extended thinking 能力。
 - Bad: sanitizer 为了绕过历史校验而设置 `thinking: disabled`，导致 DeepSeek 报 `thinking options type cannot be disabled when reasoning_effort is set`。
 - Bad: sanitizer 删除所有 `content[].thinking`，导致 DeepSeek 在带工具调用历史的 thinking mode 中报 `content[].thinking in the thinking mode must be passed back`。
 - Bad: sanitizer 诊断函数直接用 `value.get("type") in THINKING_BLOCK_TYPES`，真实请求里 `type` 是 dict 时会在 LiteLLM logging pre-call 阶段抛异常，反而遮蔽 fallback 的真实错误。
-- Bad: 看到 DeepSeek 官方推荐 `CLAUDE_CODE_EFFORT_LEVEL=max` 后，把 fallback 别名改成保留 `thinking`；直连 DeepSeek 与跨供应商 fallback 的历史消息完整性不同，不能混为一谈。
+- Bad: 为了兼容 Chat/Responses，把 `claude-code-deepseek-*` 继续配置成丢弃 `thinking` / `reasoning_effort`，导致 Claude Code 兜底链路失去 DeepSeek thinking / effort 能力。
 
 ### 6. Tests Required
 
 - Config parse: YAML 必须能被项目现有解析方式读取。
 - Config sync: 如果 `newapi.yaml` 与 `litellm.local.yaml` 应保持一致，修改后需要确认两者没有非预期差异。
 - Route contract: 检查 `router_settings.fallbacks` 仍指向专用 DeepSeek 兜底别名。
-- Parameter contract: 检查 `additional_drop_params` 只出现在 DeepSeek 兜底别名或其它明确的兼容专用路由上。
+- Parameter contract: 检查 `claude-code-deepseek-*` 不再配置 `additional_drop_params` 丢弃 `thinking` / `reasoning_effort`；如果出现 safe 兼容路由，其命名必须与 Claude Code 兜底路由区分。
 - Callback contract: 检查 `callbacks.deepseek_thinking_sanitizer.proxy_handler_instance` 能在 LiteLLM 镜像内导入，并实现 `async_pre_call_deployment_hook`，能在 `CallTypes.anthropic_messages` 且 deployment metadata 指向 DeepSeek 时原地清理请求参数。
 - Hook-stage contract: 离线测试必须直接调用 `async_pre_call_deployment_hook`，输入包含 `litellm_metadata.deployment` / `deployment_model_name` / `api_base`、顶层 `thinking` / `reasoning_effort`、历史 `content[].thinking` / `redacted_thinking`，断言清理发生在 provider 请求体构造前。
 - Reference contract: 离线测试必须断言原始 `messages` 列表对象 ID 不变，且清理后 `kwargs["messages"] is messages`；这是 Anthropic messages pass-through 位置参数链路的关键行为。
@@ -121,7 +120,7 @@ model_list:
       model: "anthropic/deepseek-v4-pro[1m]"
 ```
 
-问题：DeepSeek 兜底仍可能收到 Claude Code extended thinking 参数；跨供应商 fallback 时，历史消息缺少完整 `thinking_blocks` 会触发 `invalid_request_error`。
+问题：只配置 DeepSeek 路由而不挂载 sanitizer，会让跨供应商 fallback 的历史 thinking 内容块直接进入 DeepSeek；历史消息缺少完整签名或不透明数据时会触发 `invalid_request_error`。
 
 #### Correct
 
@@ -130,9 +129,6 @@ model_list:
   - model_name: "claude-code-deepseek-v4-pro"
     litellm_params:
       model: "anthropic/deepseek-v4-pro[1m]"
-      additional_drop_params:
-        - reasoning_effort
-        - thinking
 
 litellm_settings:
   drop_params: true
@@ -141,7 +137,7 @@ litellm_settings:
     - callbacks.deepseek_thinking_sanitizer.proxy_handler_instance
 ```
 
-理由：DeepSeek 兜底别名是降级链路专用入口，优先保证 GLM 429 后可用；主 GLM 路由仍保留 Claude Code extended thinking。`additional_drop_params` 处理普通参数，sanitizer 处理 Anthropic `/v1/messages` 历史内容块，两者不能互相替代。
+理由：DeepSeek 兜底别名是 Claude Code 降级链路专用入口，应保留当前请求的 thinking / effort 能力；sanitizer 只处理 Anthropic `/v1/messages` 历史 content thinking 块，两者不能互相替代。
 
 #### DeepSeek effort vs thinking
 
@@ -150,10 +146,8 @@ model_list:
   - model_name: "claude-code-deepseek-v4-pro"
     litellm_params:
       model: "anthropic/deepseek-v4-pro[1m]"
-      additional_drop_params:
-        - reasoning_effort
-        - thinking
-        # 不要加入 output_config 或 output_config.effort；DeepSeek Anthropic 兼容接口用它承接 effort。
+      # 不要在 Claude Code 兜底路由上丢弃 thinking / reasoning_effort / output_config.effort；
+      # DeepSeek Anthropic 兼容接口用它们承接 Claude Code thinking / effort。
 ```
 
 结论：`CLAUDE_CODE_EFFORT_LEVEL=max` 是 DeepSeek 官方 Claude Code 直连推荐配置；在 DeepSeek Anthropic 兼容接口里，effort 对应 `output_config.effort`。原生 Anthropic messages fallback 不应把当前请求降级为 `thinking: disabled`，否则会与 effort 冲突；正确做法是保留当前 thinking/effort，只清理历史 assistant thinking 块。
@@ -201,4 +195,4 @@ router_settings:
         - claude-code-deepseek-v4-pro-safe
 ```
 
-说明：可以先尝试完整 DeepSeek 路由，再 fallback 到只清理历史 thinking 块的 safe 路由，以尽量保留 DeepSeek 官方 thinking 能力。但 LiteLLM YAML 不能按 DeepSeek 返回的精确错误文本改写同一请求后重放；两级路由会增加配置复杂度和一次失败重试延迟。当前策略选择直接让 DeepSeek 兜底路由进入 safe 模式，优先保证 GLM 429 后 Claude Code 不被中断。
+说明：可以先尝试完整 DeepSeek 路由，再 fallback 到只清理历史 thinking 块的 safe 路由，以尽量保留 DeepSeek 官方 thinking 能力。但 LiteLLM YAML 不能按 DeepSeek 返回的精确错误文本改写同一请求后重放；两级路由会增加配置复杂度和一次失败重试延迟。当前策略选择让 `claude-code-deepseek-*` 保留当前 thinking / effort，并由 sanitizer 在单一路由内清理历史 thinking 块。
