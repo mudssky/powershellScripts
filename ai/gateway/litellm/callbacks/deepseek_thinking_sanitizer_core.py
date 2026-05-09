@@ -4,8 +4,6 @@ from typing import Any
 
 THINKING_BLOCK_TYPES = {"thinking", "redacted_thinking"}
 THINKING_FIELD_KEYS = {"redacted_thinking", "thinking_blocks"}
-REASONING_EFFORT_KEY = "reasoning_effort"
-REQUEST_CONTENT_KEYS = {"messages", "content"}
 _DROP = object()
 
 
@@ -48,20 +46,20 @@ def complete_input_dict(kwargs: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def thinking_paths(value: Any, path: str = "$") -> list[str]:
-    """扫描请求结构中残留的 thinking 相关路径。
+    """扫描请求结构中不兼容、会被清理的 thinking 相关路径。
 
     Args:
         value: 待扫描的任意请求结构。
         path: 当前结构路径，用于日志定位。
 
     Returns:
-        thinking 块或字段的结构路径列表，不包含正文内容。
+        不兼容 thinking 块或字段的结构路径列表，不包含正文内容。
     """
     return _thinking_paths(value, path, set())
 
 
 def _thinking_paths(value: Any, path: str, seen: set[int]) -> list[str]:
-    """递归扫描 thinking 路径并避免异常结构拖垮日志回调。
+    """递归扫描不兼容 thinking 路径并避免异常结构拖垮日志回调。
 
     Args:
         value: 待扫描的任意请求结构。
@@ -69,7 +67,7 @@ def _thinking_paths(value: Any, path: str, seen: set[int]) -> list[str]:
         seen: 已访问容器对象 ID 集合，用于防止循环引用。
 
     Returns:
-        thinking 块或字段的结构路径列表。
+        不兼容 thinking 块或字段的结构路径列表。
     """
     if isinstance(value, list):
         if _seen_container(value, seen):
@@ -84,11 +82,54 @@ def _thinking_paths(value: Any, path: str, seen: set[int]) -> list[str]:
     if _seen_container(value, seen):
         return []
 
-    paths = [path] if _is_thinking_block(value) else []
+    paths = [path] if _is_incompatible_thinking_block(value) else []
     for key, child in value.items():
         if key in THINKING_FIELD_KEYS:
             paths.append(f"{path}.{key}")
         paths.extend(_thinking_paths(child, f"{path}.{key}", seen))
+    return paths
+
+
+def preserved_thinking_paths(value: Any, path: str = "$") -> list[str]:
+    """扫描请求结构中可安全回传给上游的 thinking 块路径。
+
+    Args:
+        value: 待扫描的任意请求结构。
+        path: 当前结构路径，用于日志定位。
+
+    Returns:
+        带签名或不透明数据的 thinking 块路径列表，不包含正文内容。
+    """
+    return _preserved_thinking_paths(value, path, set())
+
+
+def _preserved_thinking_paths(value: Any, path: str, seen: set[int]) -> list[str]:
+    """递归扫描可回传 thinking 路径并避免循环引用。
+
+    Args:
+        value: 待扫描的任意请求结构。
+        path: 当前结构路径，用于日志定位。
+        seen: 已访问容器对象 ID 集合，用于防止循环引用。
+
+    Returns:
+        可回传 thinking 块的结构路径列表。
+    """
+    if isinstance(value, list):
+        if _seen_container(value, seen):
+            return []
+        return [
+            child_path
+            for index, child in enumerate(value)
+            for child_path in _preserved_thinking_paths(child, f"{path}[{index}]", seen)
+        ]
+    if not isinstance(value, dict):
+        return []
+    if _seen_container(value, seen):
+        return []
+
+    paths = [path] if _is_preservable_thinking_block(value) else []
+    for key, child in value.items():
+        paths.extend(_preserved_thinking_paths(child, f"{path}.{key}", seen))
     return paths
 
 
@@ -103,16 +144,17 @@ def sanitize_request_context(kwargs: dict[str, Any]) -> dict[str, Any]:
     """
     request_body = complete_input_dict(kwargs)
     before_thinking = kwargs.get("thinking")
-    before_reasoning_effort = kwargs.get("reasoning_effort")
-    before_paths = thinking_paths(_diagnostic_view(kwargs, request_body))
-    before_effort_paths = _reasoning_effort_paths(_diagnostic_view(kwargs, request_body))
+    before_view = _diagnostic_view(kwargs, request_body)
+    before_paths = thinking_paths(before_view)
+    before_preserved_paths = preserved_thinking_paths(before_view)
 
     _sanitize_request_data(kwargs)
     if request_body is not None:
         _sanitize_request_data(request_body)
 
-    after_paths = thinking_paths(_diagnostic_view(kwargs, request_body))
-    after_effort_paths = _reasoning_effort_paths(_diagnostic_view(kwargs, request_body))
+    after_view = _diagnostic_view(kwargs, request_body)
+    after_paths = thinking_paths(after_view)
+    after_preserved_paths = preserved_thinking_paths(after_view)
     return {
         "messages_count": len(kwargs.get("messages") or [])
         if isinstance(kwargs.get("messages"), list)
@@ -123,11 +165,11 @@ def sanitize_request_context(kwargs: dict[str, Any]) -> dict[str, Any]:
         "top_level_thinking_after": kwargs.get("thinking", {}).get("type")
         if isinstance(kwargs.get("thinking"), dict)
         else None,
-        "had_reasoning_effort": before_reasoning_effort is not None,
-        "removed_reasoning_effort_paths": len(before_effort_paths),
-        "remaining_reasoning_effort_paths": after_effort_paths[:20],
         "removed_thinking_paths": len(before_paths),
         "remaining_thinking_paths": after_paths[:20],
+        "preserved_thinking_paths": after_preserved_paths[:20],
+        "preserved_thinking_blocks_before": len(before_preserved_paths),
+        "preserved_thinking_blocks_after": len(after_preserved_paths),
     }
 
 
@@ -175,10 +217,7 @@ def _diagnostic_view(
     return {
         "messages": kwargs.get("messages"),
         "complete_input_dict": request_body,
-        "optional_params": kwargs.get("optional_params"),
-        "extra_body": kwargs.get("extra_body"),
         "top_level_thinking": kwargs.get("thinking"),
-        "reasoning_effort": kwargs.get("reasoning_effort"),
     }
 
 
@@ -191,9 +230,6 @@ def _sanitize_request_data(data: dict[str, Any]) -> None:
     Returns:
         无返回值；函数会原地修改 data。
     """
-    _drop_reasoning_effort_fields(data)
-    # 顶层 thinking 置为 disabled，避免 DeepSeek 进入完整历史 thinking 校验模式。
-    data["thinking"] = {"type": "disabled"}
     messages = data.get("messages")
     if isinstance(messages, list):
         messages[:] = [_sanitize_message(message) for message in messages]
@@ -240,7 +276,9 @@ def _sanitize_value(value: Any) -> Any:
         ]
     if not isinstance(value, dict):
         return value
-    if _is_thinking_block(value):
+    if _is_preservable_thinking_block(value):
+        return value
+    if _is_incompatible_thinking_block(value):
         return _DROP
     return {
         key: sanitized
@@ -263,81 +301,46 @@ def _is_thinking_block(value: dict[str, Any]) -> bool:
     return isinstance(block_type, str) and block_type in THINKING_BLOCK_TYPES
 
 
-def _drop_reasoning_effort_fields(value: Any, seen: set[int] | None = None) -> None:
-    """递归移除会与 DeepSeek `thinking: disabled` 冲突的 reasoning_effort。
+def _is_incompatible_thinking_block(value: dict[str, Any]) -> bool:
+    """判断字典是否为不能安全回传给 DeepSeek 的 thinking 内容块。
 
     Args:
-        value: 待清理的任意请求结构。
-        seen: 已访问容器对象 ID 集合，用于防止循环引用。
+        value: Anthropic content block 或其它字典结构。
 
     Returns:
-        无返回值；函数会原地修改字典结构。
+        thinking 块缺少可校验签名或不透明数据时返回 True，否则返回 False。
     """
-    if seen is None:
-        seen = set()
-    if isinstance(value, list):
-        if _seen_container(value, seen):
-            return
-        for item in value:
-            _drop_reasoning_effort_fields(item, seen)
-        return
-    if not isinstance(value, dict):
-        return
-    if _seen_container(value, seen):
-        return
-
-    value.pop(REASONING_EFFORT_KEY, None)
-    for key, child in value.items():
-        # reasoning_effort 是请求参数，不是消息正文；跳过正文可避免误删工具结果里的同名业务字段。
-        if key in REQUEST_CONTENT_KEYS:
-            continue
-        _drop_reasoning_effort_fields(child, seen)
+    return _is_thinking_block(value) and not _is_preservable_thinking_block(value)
 
 
-def _reasoning_effort_paths(value: Any, path: str = "$") -> list[str]:
-    """扫描请求参数结构中残留的 reasoning_effort 路径。
+def _is_preservable_thinking_block(value: dict[str, Any]) -> bool:
+    """判断 thinking 内容块是否应原样回传给 DeepSeek。
 
     Args:
-        value: 待扫描的任意请求结构。
-        path: 当前结构路径，用于日志定位。
+        value: Anthropic content block 或其它字典结构。
 
     Returns:
-        reasoning_effort 参数路径列表，不包含字段值。
+        带非空 `signature` 的 thinking 块，或带非空 `data` 的 redacted_thinking
+        块返回 True；其它结构返回 False。
     """
-    return _field_paths(value, REASONING_EFFORT_KEY, path, set())
+    block_type = value.get("type")
+    if block_type == "thinking":
+        return _has_non_empty_string(value.get("signature"))
+    if block_type == "redacted_thinking":
+        return _has_non_empty_string(value.get("data"))
+    return False
 
 
-def _field_paths(value: Any, target_key: str, path: str, seen: set[int]) -> list[str]:
-    """扫描字典树中的指定字段路径。
+def _has_non_empty_string(value: Any) -> bool:
+    """判断字段是否为非空字符串。
 
     Args:
-        value: 待扫描的任意结构。
-        target_key: 需要定位的字段名。
-        path: 当前结构路径。
-        seen: 已访问容器对象 ID 集合，用于防止循环引用。
+        value: 任意字段值。
 
     Returns:
-        命中字段的结构路径列表。
+        字段是去除空白后仍非空的字符串时返回 True，否则返回 False。
     """
-    if isinstance(value, list):
-        if _seen_container(value, seen):
-            return []
-        return [
-            child_path
-            for index, child in enumerate(value)
-            for child_path in _field_paths(child, target_key, f"{path}[{index}]", seen)
-        ]
-    if not isinstance(value, dict):
-        return []
-    if _seen_container(value, seen):
-        return []
-
-    paths = [f"{path}.{target_key}"] if value.get(target_key) is not None else []
-    for key, child in value.items():
-        if key in REQUEST_CONTENT_KEYS:
-            continue
-        paths.extend(_field_paths(child, target_key, f"{path}.{key}", seen))
-    return paths
+    return isinstance(value, str) and value.strip() != ""
 
 
 def _seen_container(value: Any, seen: set[int]) -> bool:

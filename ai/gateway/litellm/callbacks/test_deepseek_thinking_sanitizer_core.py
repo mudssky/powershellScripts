@@ -42,11 +42,17 @@ def _sample_kwargs() -> tuple[dict[str, Any], list[dict[str, Any]]]:
             "thinking_blocks": [{"type": "thinking", "thinking": "old"}],
             "content": [
                 {"type": "thinking", "thinking": "direct"},
+                {
+                    "type": "thinking",
+                    "thinking": "must pass back",
+                    "signature": "signed-token",
+                },
                 {"type": "text", "text": "visible"},
                 {
                     "type": "tool_result",
                     "content": [
                         {"type": "redacted_thinking", "data": "secret"},
+                        {"type": "redacted_thinking", "data": ""},
                         {"type": "text", "text": "nested"},
                     ],
                 },
@@ -59,7 +65,10 @@ def _sample_kwargs() -> tuple[dict[str, Any], list[dict[str, Any]]]:
             "messages": messages,
             "thinking": {"type": "enabled"},
             "reasoning_effort": "high",
-            "optional_params": {"reasoning_effort": "medium"},
+            "optional_params": {
+                "reasoning_effort": "medium",
+            },
+            "output_config": {"effort": "max", "format": {"type": "text"}},
             "litellm_metadata": {
                 "deployment": "anthropic/deepseek-v4-pro[1m]",
                 "deployment_model_name": "claude-code-deepseek-v4-pro",
@@ -71,6 +80,7 @@ def _sample_kwargs() -> tuple[dict[str, Any], list[dict[str, Any]]]:
                     "messages": messages,
                     "thinking": {"type": "enabled"},
                     "reasoning_effort": "high",
+                    "output_config": {"effort": "max", "format": {"type": "text"}},
                     "extra_body": {"reasoning_effort": "low"},
                 }
             },
@@ -95,12 +105,18 @@ def _assert_malformed_type_is_safe(core: Any) -> None:
                 "content": [
                     {"type": {"unexpected": "dict"}, "thinking": "not-a-block"},
                     {"type": "thinking", "thinking": "old"},
+                    {
+                        "type": "thinking",
+                        "thinking": "signed",
+                        "signature": "signed-token",
+                    },
                 ],
             }
         ],
     }
 
     assert core.thinking_paths(malformed) == ["$.messages[0].content[1]"]
+    assert core.preserved_thinking_paths(malformed) == ["$.messages[0].content[2]"]
 
 
 def main() -> None:
@@ -121,36 +137,68 @@ def main() -> None:
 
     assert id(messages) == original_messages_id
     assert kwargs["messages"] is messages
-    assert kwargs["thinking"] == {"type": "disabled"}
-    assert "reasoning_effort" not in kwargs
-    assert "reasoning_effort" not in kwargs["optional_params"]
+    assert kwargs["thinking"] == {"type": "enabled"}
+    assert kwargs["reasoning_effort"] == "high"
+    assert kwargs["optional_params"]["reasoning_effort"] == "medium"
+    assert kwargs["output_config"] == {"effort": "max", "format": {"type": "text"}}
     request_body = kwargs["additional_args"]["complete_input_dict"]
-    assert "reasoning_effort" not in request_body
-    assert "reasoning_effort" not in request_body["extra_body"]
-    assert request_body["thinking"] == {"type": "disabled"}
+    assert request_body["reasoning_effort"] == "high"
+    assert request_body["extra_body"]["reasoning_effort"] == "low"
+    assert request_body["output_config"] == {
+        "effort": "max",
+        "format": {"type": "text"},
+    }
+    assert request_body["thinking"] == {"type": "enabled"}
     assert core.thinking_paths(kwargs) == []
+    assert core.preserved_thinking_paths(kwargs) == [
+        "$.messages[1].content[0]",
+        "$.messages[1].content[2].content[0]",
+    ]
     assert diagnostics["removed_thinking_paths"] == 4
     assert diagnostics["remaining_thinking_paths"] == []
-    assert diagnostics["removed_reasoning_effort_paths"] == 4
-    assert diagnostics["remaining_reasoning_effort_paths"] == []
+    assert diagnostics["preserved_thinking_blocks_before"] == 2
+    assert diagnostics["preserved_thinking_blocks_after"] == 2
     assert messages[1]["content"] == [
+        {
+            "type": "thinking",
+            "thinking": "must pass back",
+            "signature": "signed-token",
+        },
         {"type": "text", "text": "visible"},
-        {"type": "tool_result", "content": [{"type": "text", "text": "nested"}]},
+        {
+            "type": "tool_result",
+            "content": [
+                {"type": "redacted_thinking", "data": "secret"},
+                {"type": "text", "text": "nested"},
+            ],
+        },
     ]
 
     content_payload = {
         "messages": [
             {
                 "role": "user",
-                "content": [{"type": "text", "reasoning_effort": "business-data"}],
+                "content": [
+                    {
+                        "type": "text",
+                        "reasoning_effort": "business-data",
+                        "output_config": {"effort": "business-data"},
+                    }
+                ],
             }
         ],
         "reasoning_effort": "high",
+        "output_config": {"effort": "max"},
     }
     core.sanitize_request_context(content_payload)
     assert content_payload["messages"][0]["content"][0]["reasoning_effort"] == (
         "business-data"
     )
+    assert content_payload["messages"][0]["content"][0]["output_config"] == {
+        "effort": "business-data"
+    }
+    assert content_payload["reasoning_effort"] == "high"
+    assert content_payload["output_config"] == {"effort": "max"}
 
     _assert_malformed_type_is_safe(core)
     print("deepseek thinking sanitizer core ok")
