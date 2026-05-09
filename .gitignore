@@ -46,3 +46,7 @@ bin/
 docs/superpowers/plans
 
 vitest-report.xml
+
+
+# python
+*.pyc
