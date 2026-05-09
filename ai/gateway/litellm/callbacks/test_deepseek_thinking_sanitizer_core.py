@@ -59,14 +59,48 @@ def _sample_kwargs() -> tuple[dict[str, Any], list[dict[str, Any]]]:
             "messages": messages,
             "thinking": {"type": "enabled"},
             "reasoning_effort": "high",
+            "optional_params": {"reasoning_effort": "medium"},
             "litellm_metadata": {
                 "deployment": "anthropic/deepseek-v4-pro[1m]",
                 "deployment_model_name": "claude-code-deepseek-v4-pro",
                 "api_base": "https://api.deepseek.com/anthropic",
             },
+            "additional_args": {
+                "complete_input_dict": {
+                    "model": "deepseek-v4-pro[1m]",
+                    "messages": messages,
+                    "thinking": {"type": "enabled"},
+                    "reasoning_effort": "high",
+                    "extra_body": {"reasoning_effort": "low"},
+                }
+            },
         },
         messages,
     )
+
+
+def _assert_malformed_type_is_safe(core: Any) -> None:
+    """断言诊断扫描遇到非字符串 type 时不抛异常。
+
+    Args:
+        core: 已加载的 sanitizer core 模块对象。
+
+    Returns:
+        无返回值；断言失败时抛出异常。
+    """
+    malformed = {
+        "messages": [
+            {
+                "role": "assistant",
+                "content": [
+                    {"type": {"unexpected": "dict"}, "thinking": "not-a-block"},
+                    {"type": "thinking", "thinking": "old"},
+                ],
+            }
+        ],
+    }
+
+    assert core.thinking_paths(malformed) == ["$.messages[0].content[1]"]
 
 
 def main() -> None:
@@ -89,13 +123,36 @@ def main() -> None:
     assert kwargs["messages"] is messages
     assert kwargs["thinking"] == {"type": "disabled"}
     assert "reasoning_effort" not in kwargs
+    assert "reasoning_effort" not in kwargs["optional_params"]
+    request_body = kwargs["additional_args"]["complete_input_dict"]
+    assert "reasoning_effort" not in request_body
+    assert "reasoning_effort" not in request_body["extra_body"]
+    assert request_body["thinking"] == {"type": "disabled"}
     assert core.thinking_paths(kwargs) == []
     assert diagnostics["removed_thinking_paths"] == 4
     assert diagnostics["remaining_thinking_paths"] == []
+    assert diagnostics["removed_reasoning_effort_paths"] == 4
+    assert diagnostics["remaining_reasoning_effort_paths"] == []
     assert messages[1]["content"] == [
         {"type": "text", "text": "visible"},
         {"type": "tool_result", "content": [{"type": "text", "text": "nested"}]},
     ]
+
+    content_payload = {
+        "messages": [
+            {
+                "role": "user",
+                "content": [{"type": "text", "reasoning_effort": "business-data"}],
+            }
+        ],
+        "reasoning_effort": "high",
+    }
+    core.sanitize_request_context(content_payload)
+    assert content_payload["messages"][0]["content"][0]["reasoning_effort"] == (
+        "business-data"
+    )
+
+    _assert_malformed_type_is_safe(core)
     print("deepseek thinking sanitizer core ok")
 
 

@@ -51,6 +51,9 @@
   - Anthropic messages pass-through 会把 `messages` 作为位置参数继续传给 handler；sanitizer 不能只给 `kwargs["messages"]` 赋一个新列表，必须原地修改原 `messages` 列表引用，否则 provider request body 仍可能使用未清理的历史。
   - DeepSeek fallback 的 sanitizer 必须递归清理 content 结构，覆盖 `messages[*].content[*]`、嵌套 tool/result content、`thinking_blocks` 与 `redacted_thinking`；真实 Claude Code 历史不保证 thinking 只出现在第一层 content 列表。
   - sanitizer 结构诊断日志只允许输出模型、hook 阶段、deployment metadata、清理数量和剩余 thinking 路径；不得输出 prompt 正文、API key、完整 headers 或完整 request body。日志事件名固定为 `deepseek thinking sanitized`，`remaining_thinking_paths: []` 才表示请求结构已清理干净。
+  - sanitizer 的诊断扫描必须容忍非标准结构；例如 content block 的 `type` 可能被上游/客户端构造成非字符串值，日志扫描不得因为 `dict in set` 之类假设抛异常并中断 LiteLLM pre-call。
+  - DeepSeek 兜底把顶层 `thinking` 降级为 `{"type": "disabled"}` 后，所有请求参数层面的 `reasoning_effort` 都必须移除，包括 LiteLLM `kwargs`、`optional_params`、`extra_body` 与 `additional_args.complete_input_dict`；否则 DeepSeek 会拒绝 `thinking disabled` 与 `reasoning_effort` 共存。清理不得递归进入 `messages` / `content` 正文删除同名业务字段。
+  - sanitizer 触发边界以“Router 已选中的目标部署是 DeepSeek Anthropic 兼容端点”为准，而不是强依赖 `fallback_depth`；`fallback_depth > 0` 只能作为日志诊断字段，用于确认请求是否真的由 `cc-glmplan-*` fallback 而来。这样既不影响 GLM 正常路径，也能保护用户直接调用 `claude-code-deepseek-*` 兼容入口时的同类请求。
   - `log_pre_api_call` 只能作为日志上下文与最终 `complete_input_dict` 的兜底清理点，不能作为唯一请求改写机制；Anthropic messages handler 会先构造请求体并可能执行 `sign_request`，再进入 logging pre-call，若实际发送体已经序列化，日志 hook 里的字典修改不会稳定改变上游收到的 JSON。
 
 ### 4. Validation & Error Matrix
@@ -62,6 +65,8 @@
 | GLM 短重试耗尽 | Router fallback 到对应 `claude-code-deepseek-*` |
 | DeepSeek 收到顶层 `thinking` / `reasoning_effort` | 兜底别名的 `additional_drop_params` 覆盖普通 Chat/Responses 路径；原生 Anthropic messages 路径由 sanitizer 在 HTTP pre-call 阶段移除 |
 | DeepSeek 收到历史 `content[].thinking` / `redacted_thinking` | sanitizer 必须在 deployment pre-call 阶段移除这些历史块，否则 DeepSeek 会返回 `content[].thinking in the thinking mode must be passed back` |
+| DeepSeek 返回 `thinking options type cannot be disabled when reasoning_effort is set` | 优先检查 sanitizer 日志里的 `remaining_reasoning_effort_paths`；非空说明某个请求参数副本仍残留 `reasoning_effort` |
+| Sanitizer `log_pre_api_call` 自身抛 `TypeError: unhashable type: 'dict'` | 说明结构诊断函数假设了字段类型；修复方向是让诊断扫描容错，而不是放弃日志或输出完整请求体 |
 | Sanitizer 日志显示 `remaining_thinking_paths: []` 但仍失败 | 优先看 DeepSeek 返回的新错误文本；这通常说明 thinking 已清完，剩余问题是 Anthropic 协议形态错误、工具块角色错误或上游其他校验 |
 | DeepSeek 收到 `output_config.effort` | 不应通过 `additional_drop_params` 丢弃；这是 DeepSeek Anthropic 兼容接口承接 `CLAUDE_CODE_EFFORT_LEVEL=max` 的官方字段 |
 | 历史消息缺少完整 `thinking_blocks` | `modify_params` 允许 LiteLLM 做兼容修正，避免 fallback 被 Anthropic 兼容端点拒绝 |
@@ -73,10 +78,12 @@
 - Good: GLM 429 后切到 DeepSeek，DeepSeek 不接收 `thinking` / `reasoning_effort`，请求以普通非-thinking 模式继续完成。
 - Good: 原生 Anthropic `/v1/messages` fallback 到 DeepSeek 前，sanitizer 移除顶层 `thinking` 和历史 `thinking` / `redacted_thinking` content 块。
 - Good: sanitizer 原地修改 `messages` 列表并递归清理嵌套 content；日志显示 `top_level_thinking_before: enabled`、`top_level_thinking_after: disabled`、`remaining_thinking_paths: []`。
+- Good: sanitizer 日志显示 `remaining_reasoning_effort_paths: []`；即使 `optional_params`、`extra_body` 或 `complete_input_dict` 内有同名参数，也会在发往 DeepSeek 前清理。
 - Good: DeepSeek 兜底别名不丢弃 `output_config.effort`；如果 Claude Code / LiteLLM 以 DeepSeek Anthropic 官方字段表达 effort，`CLAUDE_CODE_EFFORT_LEVEL=max` 仍有机会透传。
 - Base: GLM 正常响应时不触发 fallback，不改变 Claude Code 对 GLM 主路由的 thinking 使用方式。
 - Bad: 全局丢弃 `thinking`，导致 GLM 主路由也失去 Claude Code extended thinking 能力。
 - Bad: DeepSeek 兜底别名保留 `thinking`，fallback 后报 `content[].thinking` / `thinking_blocks` 相关 `invalid_request_error`。
+- Bad: sanitizer 诊断函数直接用 `value.get("type") in THINKING_BLOCK_TYPES`，真实请求里 `type` 是 dict 时会在 LiteLLM logging pre-call 阶段抛异常，反而遮蔽 fallback 的真实错误。
 - Bad: 看到 DeepSeek 官方推荐 `CLAUDE_CODE_EFFORT_LEVEL=max` 后，把 fallback 别名改成保留 `thinking`；直连 DeepSeek 与跨供应商 fallback 的历史消息完整性不同，不能混为一谈。
 
 ### 6. Tests Required
@@ -89,6 +96,8 @@
 - Hook-stage contract: 离线测试必须直接调用 `async_pre_call_deployment_hook`，输入包含 `litellm_metadata.deployment` / `deployment_model_name` / `api_base`、顶层 `thinking` / `reasoning_effort`、历史 `content[].thinking` / `redacted_thinking`，断言清理发生在 provider 请求体构造前。
 - Reference contract: 离线测试必须断言原始 `messages` 列表对象 ID 不变，且清理后 `kwargs["messages"] is messages`；这是 Anthropic messages pass-through 位置参数链路的关键行为。
 - Recursive contract: 离线测试必须包含嵌套 content 中的 `redacted_thinking` 和 message-level `thinking_blocks`，并断言 `thinking_paths(...)` 在清理后为空。
+- Diagnostic robustness contract: 离线测试必须覆盖 content block `type` 为非字符串的异常结构，断言 `thinking_paths(...)` 不抛异常且只报告真实 thinking block 路径。
+- Reasoning effort contract: 离线测试必须覆盖 `kwargs`、`optional_params`、`extra_body`、`additional_args.complete_input_dict` 中的 `reasoning_effort`，断言清理后 `remaining_reasoning_effort_paths: []`，同时 `messages` / `content` 正文里的同名业务字段不被误删。
 - Runtime smoke contract: 真实验证可用 `/v1/messages?beta=true` 先直打 `claude-code-deepseek-v4-pro`，再打 `cc-glmplan-opus` 触发 429 fallback；成功样本应返回 HTTP 200，容器日志应有两个阶段的 `deepseek thinking sanitized` 且 `remaining_thinking_paths: []`。
 - Runtime callback contract: 重启 LiteLLM 后调用 `/active/callbacks`，确认运行态 `litellm.callbacks` 包含 `callbacks.deepseek_thinking_sanitizer.DeepSeekThinkingSanitizer`；不要用 `docker exec python` 新进程里的 `litellm.callbacks` 判断服务进程状态。
 - Runtime note: 真实 429 fallback 依赖上游额度、密钥和实时响应；本地配置验证不能证明线上额度恢复或供应商端协议行为。

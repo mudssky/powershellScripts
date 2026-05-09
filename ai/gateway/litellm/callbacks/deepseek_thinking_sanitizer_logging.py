@@ -28,15 +28,20 @@ def log_sanitized_context(
 
     metadata = kwargs.get("litellm_metadata") or kwargs.get("metadata") or {}
     additional_args = kwargs.get("additional_args") or {}
+    fallback_depth = kwargs.get("fallback_depth")
     LOGGER.warning(
         "%s | %s",
         LOG_EVENT,
         {
             "stage": stage,
             "model": kwargs.get("model"),
+            "model_group": metadata.get("model_group"),
             "deployment": metadata.get("deployment"),
             "deployment_model_name": metadata.get("deployment_model_name"),
             "api_base": additional_args.get("api_base") or metadata.get("api_base"),
+            "fallback_depth": fallback_depth,
+            "is_router_fallback": isinstance(fallback_depth, int)
+            and fallback_depth > 0,
             **diagnostics,
         },
     )
