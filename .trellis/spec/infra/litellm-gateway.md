@@ -48,6 +48,9 @@
   - `modify_params: true` 用于允许 LiteLLM 修正 Anthropic tool/thinking 历史块兼容问题。
   - `callbacks` 必须包含 DeepSeek thinking sanitizer；`compose.yaml` 必须挂载 `./callbacks:/app/callbacks:ro`，否则配置中的 Python 回调无法导入。
   - DeepSeek sanitizer 修改真实请求体时必须使用 `async_pre_call_deployment_hook`。该 hook 在 Router 选中 fallback 部署后、provider 构造 Anthropic messages 请求体前运行，可以基于 `litellm_metadata.deployment` / `deployment_model_name` / `api_base` 识别 DeepSeek 兜底部署。
+  - Anthropic messages pass-through 会把 `messages` 作为位置参数继续传给 handler；sanitizer 不能只给 `kwargs["messages"]` 赋一个新列表，必须原地修改原 `messages` 列表引用，否则 provider request body 仍可能使用未清理的历史。
+  - DeepSeek fallback 的 sanitizer 必须递归清理 content 结构，覆盖 `messages[*].content[*]`、嵌套 tool/result content、`thinking_blocks` 与 `redacted_thinking`；真实 Claude Code 历史不保证 thinking 只出现在第一层 content 列表。
+  - sanitizer 结构诊断日志只允许输出模型、hook 阶段、deployment metadata、清理数量和剩余 thinking 路径；不得输出 prompt 正文、API key、完整 headers 或完整 request body。日志事件名固定为 `deepseek thinking sanitized`，`remaining_thinking_paths: []` 才表示请求结构已清理干净。
   - `log_pre_api_call` 只能作为日志上下文与最终 `complete_input_dict` 的兜底清理点，不能作为唯一请求改写机制；Anthropic messages handler 会先构造请求体并可能执行 `sign_request`，再进入 logging pre-call，若实际发送体已经序列化，日志 hook 里的字典修改不会稳定改变上游收到的 JSON。
 
 ### 4. Validation & Error Matrix
@@ -59,6 +62,7 @@
 | GLM 短重试耗尽 | Router fallback 到对应 `claude-code-deepseek-*` |
 | DeepSeek 收到顶层 `thinking` / `reasoning_effort` | 兜底别名的 `additional_drop_params` 覆盖普通 Chat/Responses 路径；原生 Anthropic messages 路径由 sanitizer 在 HTTP pre-call 阶段移除 |
 | DeepSeek 收到历史 `content[].thinking` / `redacted_thinking` | sanitizer 必须在 deployment pre-call 阶段移除这些历史块，否则 DeepSeek 会返回 `content[].thinking in the thinking mode must be passed back` |
+| Sanitizer 日志显示 `remaining_thinking_paths: []` 但仍失败 | 优先看 DeepSeek 返回的新错误文本；这通常说明 thinking 已清完，剩余问题是 Anthropic 协议形态错误、工具块角色错误或上游其他校验 |
 | DeepSeek 收到 `output_config.effort` | 不应通过 `additional_drop_params` 丢弃；这是 DeepSeek Anthropic 兼容接口承接 `CLAUDE_CODE_EFFORT_LEVEL=max` 的官方字段 |
 | 历史消息缺少完整 `thinking_blocks` | `modify_params` 允许 LiteLLM 做兼容修正，避免 fallback 被 Anthropic 兼容端点拒绝 |
 | Sanitizer 只实现 `log_pre_api_call` | 视为不满足请求改写合同；该 hook 可能只能改日志视图，不能保证修改已签名/已序列化的 Anthropic messages 请求体 |
@@ -68,6 +72,7 @@
 
 - Good: GLM 429 后切到 DeepSeek，DeepSeek 不接收 `thinking` / `reasoning_effort`，请求以普通非-thinking 模式继续完成。
 - Good: 原生 Anthropic `/v1/messages` fallback 到 DeepSeek 前，sanitizer 移除顶层 `thinking` 和历史 `thinking` / `redacted_thinking` content 块。
+- Good: sanitizer 原地修改 `messages` 列表并递归清理嵌套 content；日志显示 `top_level_thinking_before: enabled`、`top_level_thinking_after: disabled`、`remaining_thinking_paths: []`。
 - Good: DeepSeek 兜底别名不丢弃 `output_config.effort`；如果 Claude Code / LiteLLM 以 DeepSeek Anthropic 官方字段表达 effort，`CLAUDE_CODE_EFFORT_LEVEL=max` 仍有机会透传。
 - Base: GLM 正常响应时不触发 fallback，不改变 Claude Code 对 GLM 主路由的 thinking 使用方式。
 - Bad: 全局丢弃 `thinking`，导致 GLM 主路由也失去 Claude Code extended thinking 能力。
@@ -82,6 +87,9 @@
 - Parameter contract: 检查 `additional_drop_params` 只出现在 DeepSeek 兜底别名或其它明确的兼容专用路由上。
 - Callback contract: 检查 `callbacks.deepseek_thinking_sanitizer.proxy_handler_instance` 能在 LiteLLM 镜像内导入，并实现 `async_pre_call_deployment_hook`，能在 `CallTypes.anthropic_messages` 且 deployment metadata 指向 DeepSeek 时原地清理请求参数。
 - Hook-stage contract: 离线测试必须直接调用 `async_pre_call_deployment_hook`，输入包含 `litellm_metadata.deployment` / `deployment_model_name` / `api_base`、顶层 `thinking` / `reasoning_effort`、历史 `content[].thinking` / `redacted_thinking`，断言清理发生在 provider 请求体构造前。
+- Reference contract: 离线测试必须断言原始 `messages` 列表对象 ID 不变，且清理后 `kwargs["messages"] is messages`；这是 Anthropic messages pass-through 位置参数链路的关键行为。
+- Recursive contract: 离线测试必须包含嵌套 content 中的 `redacted_thinking` 和 message-level `thinking_blocks`，并断言 `_find_thinking_paths(...)` 在清理后为空。
+- Runtime smoke contract: 真实验证可用 `/v1/messages?beta=true` 先直打 `claude-code-deepseek-v4-pro`，再打 `cc-glmplan-opus` 触发 429 fallback；成功样本应返回 HTTP 200，容器日志应有两个阶段的 `deepseek thinking sanitized` 且 `remaining_thinking_paths: []`。
 - Runtime callback contract: 重启 LiteLLM 后调用 `/active/callbacks`，确认运行态 `litellm.callbacks` 包含 `callbacks.deepseek_thinking_sanitizer.DeepSeekThinkingSanitizer`；不要用 `docker exec python` 新进程里的 `litellm.callbacks` 判断服务进程状态。
 - Runtime note: 真实 429 fallback 依赖上游额度、密钥和实时响应；本地配置验证不能证明线上额度恢复或供应商端协议行为。
 
@@ -148,6 +156,14 @@ litellm_settings:
 ```
 
 说明：Claude Code 使用 `/v1/messages?beta=true` 时，LiteLLM 走 Anthropic 原生 messages pass-through。该路径的 `messages` 与 `thinking` 不走普通 OpenAI 参数映射，`additional_drop_params` 不能删除历史 `messages[*].content[*]` 中的 thinking 内容块。DeepSeek 返回 `content[].thinking in the thinking mode must be passed back` 时，应先确认 sanitizer 已挂载并加载，而不是只改 `additional_drop_params`。
+
+Sanitizer 必须原地修改 `messages` 列表：
+
+```python
+messages[:] = sanitized_messages
+```
+
+说明：`async_pre_call_deployment_hook` 返回的 `kwargs` 会被 LiteLLM 回灌，但 Anthropic messages handler 后续仍可能继续使用函数位置参数里的原 `messages` 引用。只做 `kwargs["messages"] = sanitized_messages` 会让 hook 看起来已清理，实际 provider request body 仍带旧 content。递归清理后如果真实请求仍失败，应先查 `deepseek thinking sanitized` 日志：`remaining_thinking_paths` 非空说明清理范围不够；为空则说明错误已经转移到 DeepSeek/Anthropic 的其它协议校验。
 
 #### Hook stage: request mutation vs logging
 

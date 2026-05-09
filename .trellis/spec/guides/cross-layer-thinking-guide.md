@@ -84,7 +84,19 @@ For each hook, ask:
 - Is the target deployment/provider already known?
 - Has the request body been transformed or serialized yet?
 - Does this hook return modified data, mutate a live reference, or only log a snapshot?
+- Does the downstream layer keep using positional argument objects that are not replaced when you update `kwargs`?
 - How can runtime state be checked from the serving process rather than a fresh local process?
+
+When a hook mutates request data that also exists as a function argument, verify object identity:
+
+```python
+original_id = id(messages)
+# hook runs here
+assert id(messages) == original_id
+assert kwargs["messages"] is messages
+```
+
+If the downstream layer keeps a reference to the original list or dict, use in-place mutation (`messages[:] = sanitized_messages`, `dict.clear()` + `dict.update(...)`) instead of assigning a replacement object only into `kwargs`.
 
 ---
 
@@ -101,6 +113,7 @@ After implementation:
 - [ ] Verified error handling at each boundary
 - [ ] Checked data survives round-trip
 - [ ] For lifecycle hooks, verified the hook stage with source or docs and tested the exact structure consumed by the downstream layer
+- [ ] For hooks that rewrite args/kwargs, verified whether downstream reads the returned `kwargs` object or the original positional object reference
 
 ---
 
