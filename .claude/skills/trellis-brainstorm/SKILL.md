@@ -5,6 +5,14 @@ description: "Guides collaborative requirements discovery before implementation.
 
 # Brainstorm - Requirements Discovery (AI Coding Enhanced)
 
+**CoreRule**: Interview me relentlessly about every aspect of this plan until we reach a shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one-by-one. For each question, provide your recommended answer.
+
+Ask the questions one at a time.
+
+If a question can be answered by exploring the codebase, explore the codebase instead.
+
+---
+
 Guide AI through collaborative requirements discovery **before implementation**, optimized for AI coding workflows:
 
 * **Task-first** (capture ideas immediately)
@@ -59,7 +67,7 @@ Before any Q&A, ensure a task exists. If none exists, create one immediately.
 * It's OK if the title is imperfect — refine later in PRD.
 
 ```bash
-TASK_DIR=$(python ./.trellis/scripts/task.py create "brainstorm: <short goal>" --slug <auto>)
+TASK_DIR=$(python3 ./.trellis/scripts/task.py create "brainstorm: <short goal>" --slug <auto>)
 ```
 
 Use a slug without a date prefix. `task.py create` adds the `MM-DD-`
@@ -201,6 +209,8 @@ Why:
 - It persists findings to `{TASK_DIR}/research/<topic>.md` (the contract — see `workflow.md` Phase 1.2)
 - It returns only `{file path, one-line summary}` to the main agent
 - Independent topics can be **parallelized** — spawn multiple sub-agents in one tool call
+
+> **Codex exception**: on Codex CLI, do NOT dispatch `trellis-research` for research-first mode — do the research inline (WebFetch / WebSearch in the main session) and write findings to `{TASK_DIR}/research/<topic>.md` yourself. Reason: Codex `spawn_agent` runs sub-agents with `fork_turns="none"` (isolated context, no parent session inheritance), so the research sub-agent cannot resolve the active task path via `task.py current` and silently aborts without producing files. Inline research on Codex avoids this failure mode. The 3+ inline research calls limit (B rule in `workflow.md`) is relaxed for Codex specifically.
 
 Agent type: `trellis-research`
 Task description template: "Research <specific question>; persist findings to `{TASK_DIR}/research/<topic-slug>.md`."
@@ -444,11 +454,11 @@ For complex tasks with multiple independent work items, create subtasks:
 
 ```bash
 # Create child tasks
-CHILD1=$(python ./.trellis/scripts/task.py create "Child task 1" --slug child1 --parent "$TASK_DIR")
-CHILD2=$(python ./.trellis/scripts/task.py create "Child task 2" --slug child2 --parent "$TASK_DIR")
+CHILD1=$(python3 ./.trellis/scripts/task.py create "Child task 1" --slug child1 --parent "$TASK_DIR")
+CHILD2=$(python3 ./.trellis/scripts/task.py create "Child task 2" --slug child2 --parent "$TASK_DIR")
 
 # Or link existing tasks
-python ./.trellis/scripts/task.py add-subtask "$TASK_DIR" "$CHILD_DIR"
+python3 ./.trellis/scripts/task.py add-subtask "$TASK_DIR" "$CHILD_DIR"
 ```
 
 ---
