@@ -152,6 +152,141 @@ fi
 
 ---
 
+### 5. 长连接断联排查：VS Code、zellij、RemoteForward 混用
+
+适用于这类现象：Windows 客户端连接 Linux 服务器，SSH 配置里同时有 `RemoteForward`、`RequestTTY`、`RemoteCommand` 自动 attach zellij；连接通常不是秒断，而是十几分钟后断开。VS Code Remote SSH 也会断，但 zellij/RemoteCommand 连接更频繁。
+
+#### 先看历史日志，不要只盯实时日志
+
+十几分钟后才断的场景，先查历史更划算：
+
+```bash
+# 近 7 天做模式统计：看是否集中出现 disconnect、timeout、reset、kex、forward 失败
+journalctl -u ssh -u sshd --since "7 days ago" --no-pager \
+  | grep -Ei "192\.168\.21\.108|disconnect|closed|reset|timeout|broken|session closed|error|fatal|kex|forward|MaxStartups|drop connection"
+
+# 近 24 小时细看：结合 last 的登录/退出时间判断会话持续多久
+journalctl -u ssh -u sshd --since "24 hours ago" --no-pager
+last -Fai | grep "192.168.21.108" | head -n 80
+```
+
+如果知道某次大概断开时间，做前后 2-5 分钟切片：
+
+```bash
+# 替换成实际断开时间窗口
+journalctl -u ssh -u sshd \
+  --since "YYYY-MM-DD HH:MM:SS" \
+  --until "YYYY-MM-DD HH:MM:SS" \
+  --no-pager
+
+journalctl --since "YYYY-MM-DD HH:MM:SS" --until "YYYY-MM-DD HH:MM:SS" --no-pager \
+  | grep -Ei "192\.168\.21\.108|disconnect|closed|reset|timeout|broken|session closed|error|fatal|kex|forward"
+```
+
+日志解读：
+
+| 日志特征 | 优先怀疑 |
+| :--- | :--- |
+| `Received disconnect ... disconnected by user` | 客户端、VS Code Remote SSH、终端窗口或本地网络主动关闭 |
+| `timeout` / `broken pipe` / `reset by peer` | 网络抖动、Windows 睡眠/省电、NAT/防火墙空闲超时 |
+| `kex_exchange_identification` / `MaxStartups` / 大量短连接 | VS Code 多连接、客户端重连风暴、服务端未认证连接限流 |
+| 只有 `pam_unix(sshd:session): session closed` | 需要结合前后 2-5 分钟日志、客户端 `ssh -vvv` 和远程命令退出状态判断 |
+
+#### 核查 sshd 配置与连接数量
+
+连接数量通常不是“已建立会话被踢掉”的唯一原因，但它会放大问题：VS Code 会开多条 SSH 连接，多个连接如果都带同一个 `RemoteForward 7890`，容易出现端口冲突或半成功连接。
+
+```bash
+# 看服务端实际生效配置
+sshd -T | grep -Ei 'clientalive|tcpkeepalive|allowtcpforwarding|gatewayports|permittty|maxsessions|maxstartups|loglevel'
+
+# 看配置来源
+grep -RniE 'ClientAlive|TCPKeepAlive|AllowTcpForwarding|GatewayPorts|PermitTTY|MaxSessions|MaxStartups|LogLevel' \
+  /etc/ssh/sshd_config /etc/ssh/sshd_config.d 2>/dev/null
+
+# 看同一用户、同一客户端的 SSH 连接和进程
+pgrep -af "sshd: administrator"
+ss -tnp state established '( sport = :22 or dport = :22 )' | grep "192.168.21.108"
+```
+
+判断要点：
+
+* `MaxStartups` 主要影响未认证的新连接，常见表现是新连接在 kex/认证阶段失败。
+* `MaxSessions` 主要影响同一条 SSH 连接内能打开多少 session/channel，VS Code 场景要核查，但它不一定直接解释已有 zellij attach 会话断开。
+* 如果日志里有大量短时间 `Accepted publickey`，说明客户端或 VS Code 可能在频繁重连。
+
+#### 核查 RemoteForward 7890 是否冲突
+
+同一个远端监听地址和端口通常只能被一个 SSH 连接占用。多个 Host 或多条 VS Code 连接都声明 `RemoteForward 7890 ...` 时，后来的连接可能绑定失败。
+
+```bash
+# 看远端 7890 是否由 sshd 监听，以及属于哪个进程
+ss -ltnp | grep -E ":22|:7890"
+
+# 看当前 22/7890 相关连接
+ss -tnp | grep -E "192.168.21.108|:7890|:22"
+
+# 验证代理链路
+curl -I --proxy http://127.0.0.1:7890 https://www.google.com
+```
+
+建议在 SSH 配置中加上：
+
+```sshconfig
+ExitOnForwardFailure yes
+```
+
+这样 `RemoteForward 7890` 绑定失败时会直接失败，避免进入“SSH 登录成功但代理没有成功”的状态。
+
+#### 核查 zellij attach 是否只是退出了前台连接
+
+zellij session 还在，不代表当前 SSH attach 连接没有退出。`RemoteCommand` 的命令退出后，SSH 会话也会结束。
+
+```bash
+zellij list-sessions
+ps -ef | grep -E "sshd: administrator|zellij" | grep -v grep
+```
+
+推荐把 `RemoteCommand` 写成 `bash -lc` + `exec`，让远程命令生命周期更直观：
+
+```sshconfig
+RemoteCommand bash -lc 'cd ~/projects/ai/java/xhgj-ai-platform && exec /home/linuxbrew/.linuxbrew/bin/zellij attach -c proj-xhgj-ai-platform'
+```
+
+#### 拆分 VS Code Host 与人工 zellij Host
+
+不要让 VS Code Remote SSH 复用带 `RemoteCommand` 的 Host。VS Code 需要非交互连接，`RemoteCommand`、`RequestTTY`、`RemoteForward` 都可能干扰它的连接管理。
+
+```sshconfig
+Host proj-xhgj-ai-platform-vscode
+  HostName 192.168.27.77
+  User administrator
+  ServerAliveInterval 30
+  ServerAliveCountMax 3
+  TCPKeepAlive yes
+
+Host proj-xhgj-ai-platform-zellij
+  HostName 192.168.27.77
+  User administrator
+  RequestTTY yes
+  ServerAliveInterval 30
+  ServerAliveCountMax 3
+  TCPKeepAlive yes
+  ExitOnForwardFailure yes
+  RemoteForward 7890 192.168.21.108:7890
+  RemoteCommand bash -lc 'cd ~/projects/ai/java/xhgj-ai-platform && exec /home/linuxbrew/.linuxbrew/bin/zellij attach -c proj-xhgj-ai-platform'
+```
+
+如果 VS Code 也需要代理，建议只保留一个连接负责 `RemoteForward 7890`。可以先用独立终端维持隧道：
+
+```bash
+ssh -N -o ExitOnForwardFailure=yes -R 7890:192.168.21.108:7890 administrator@192.168.27.77
+```
+
+然后 VS Code Host 不再声明同一个 `RemoteForward 7890`，避免多连接抢同一端口。
+
+---
+
 ### 常见问题排查 (Troubleshooting)
 
 | 问题现象 | 原因分析 | 解决方案 |
@@ -162,3 +297,4 @@ fi
 | **Git 依然慢** | Git 有单独的配置 | 运行 `git config --global http.proxy http://127.0.0.1:7890` |
 | **后台隧道无法关闭** | 使用了 `-f` 参数，进程在后台运行 | `ps aux | grep "ssh -NfR"`查找进程，`kill <PID>` 关闭 |
 | **隧道自动断开** | SSH 连接超时或网络不稳定 | 在 SSH 配置中添加 `ServerAliveInterval 60` 保持心跳 |
+| **VS Code / zellij 十几分钟后断开** | 客户端主动断开、网络空闲超时、多连接抢 `RemoteForward`、`RemoteCommand` 退出都可能触发 | 先查近 7 天历史日志，再拆分 VS Code Host 与 zellij Host，并加 `ExitOnForwardFailure yes` |

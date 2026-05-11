@@ -1,0 +1,1 @@
+{"file": ".trellis/tasks/05-11-ssh-zellij-disconnect-diagnosis/research/openssh-remote-command-forwarding.md", "reason": "核对文档是否覆盖 SSH 断连排查、连接数量、RemoteForward 与 zellij 场景"}
