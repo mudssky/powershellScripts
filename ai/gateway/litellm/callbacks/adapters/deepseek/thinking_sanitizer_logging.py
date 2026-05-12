@@ -40,8 +40,7 @@ def log_sanitized_context(
             "deployment_model_name": metadata.get("deployment_model_name"),
             "api_base": additional_args.get("api_base") or metadata.get("api_base"),
             "fallback_depth": fallback_depth,
-            "is_router_fallback": isinstance(fallback_depth, int)
-            and fallback_depth > 0,
+            "is_router_fallback": isinstance(fallback_depth, int) and fallback_depth > 0,
             **diagnostics,
         },
     )

@@ -156,12 +156,8 @@ def sanitize_request_context(kwargs: dict[str, Any]) -> dict[str, Any]:
     after_paths = thinking_paths(after_view)
     after_preserved_paths = preserved_thinking_paths(after_view)
     return {
-        "messages_count": len(kwargs.get("messages") or [])
-        if isinstance(kwargs.get("messages"), list)
-        else None,
-        "top_level_thinking_before": before_thinking.get("type")
-        if isinstance(before_thinking, dict)
-        else None,
+        "messages_count": len(kwargs.get("messages") or []) if isinstance(kwargs.get("messages"), list) else None,
+        "top_level_thinking_before": before_thinking.get("type") if isinstance(before_thinking, dict) else None,
         "top_level_thinking_after": kwargs.get("thinking", {}).get("type")
         if isinstance(kwargs.get("thinking"), dict)
         else None,
@@ -183,9 +179,7 @@ def _is_deepseek_model(model: Any) -> bool:
         匹配 DeepSeek 兜底模型时返回 True，否则返回 False。
     """
     model_name = str(model or "").removeprefix("anthropic/")
-    return model_name.startswith(("deepseek-v4-pro", "deepseek-v4-flash")) or (
-        "claude-code-deepseek-" in model_name
-    )
+    return model_name.startswith(("deepseek-v4-pro", "deepseek-v4-flash")) or ("claude-code-deepseek-" in model_name)
 
 
 def _is_deepseek_anthropic_base(api_base: Any) -> bool:
@@ -269,11 +263,7 @@ def _sanitize_value(value: Any) -> Any:
         清理后的值；返回内部哨兵值时表示当前列表元素应被删除。
     """
     if isinstance(value, list):
-        return [
-            sanitized
-            for item in value
-            if (sanitized := _sanitize_value(item)) is not _DROP
-        ]
+        return [sanitized for item in value if (sanitized := _sanitize_value(item)) is not _DROP]
     if not isinstance(value, dict):
         return value
     if _is_preservable_thinking_block(value):

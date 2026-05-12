@@ -49,7 +49,7 @@ model_list:
       api_key: "os.environ/Z_AI_API_KEY"              # 复用智谱 Coding Plan 密钥
       # Claude Code 的 sonnet / opus 默认走 GLM-5.1，享受 Coding Plan 额度。
       model: "anthropic/GLM-5.1"
-      # Coding Plan 额度耗尽后让该部署冷却 1 小时，再由下一次请求重新探测是否恢复。
+      # Coding Plan 瞬时失败后走 LiteLLM 内建短冷却；5 小时额度窗口由 GLM cooldown adapter 精准避让。
       cooldown_time: 3600
   # Claude Code 的 Haiku / subagent 请求复用 GLM Coding Plan 的 Anthropic 兼容入口。
   - model_name: "cc-glmplan-haiku"
@@ -121,9 +121,9 @@ litellm_settings:
   drop_params: true
   # 允许 LiteLLM 修正 Anthropic tool/thinking 历史块不完整的问题，避免 DeepSeek 兜底被兼容性错误拦截。
   modify_params: true
-  # DeepSeek Anthropic 兼容端点会校验 thinking 历史块；GLM fallback 时由本地回调移除不完整 thinking 历史。
+  # 统一 callback hub 负责分发生命周期事件；DeepSeek thinking 清理与 GLM cooldown 都作为独立 adapter 接入。
   callbacks:
-    - callbacks.deepseek_thinking_sanitizer.proxy_handler_instance
+    - callbacks.gateway_callback.proxy_handler_instance
   # 默认重试 2 次，兼顾临时抖动恢复与整体响应时延。
   num_retries: 2
   # 统一请求超时为 60 秒，覆盖常规对话模型与较慢的推理模型。

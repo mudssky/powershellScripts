@@ -1,29 +1,12 @@
 """DeepSeek thinking sanitizer 核心逻辑回归测试。"""
 
-import importlib.util
+import sys
 from pathlib import Path
 from typing import Any
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-def _load_core_module() -> Any:
-    """从同目录加载 sanitizer core 模块。
-
-    Args:
-        None.
-
-    Returns:
-        已加载的 sanitizer core 模块对象。
-    """
-    module_path = Path(__file__).with_name("deepseek_thinking_sanitizer_core.py")
-    spec = importlib.util.spec_from_file_location(
-        "deepseek_thinking_sanitizer_core",
-        module_path,
-    )
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"无法加载模块: {module_path}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+from callbacks.adapters.deepseek import thinking_sanitizer_core as core
 
 
 def _sample_kwargs() -> tuple[dict[str, Any], list[dict[str, Any]]]:
@@ -89,11 +72,11 @@ def _sample_kwargs() -> tuple[dict[str, Any], list[dict[str, Any]]]:
     )
 
 
-def _assert_malformed_type_is_safe(core: Any) -> None:
+def _assert_malformed_type_is_safe() -> None:
     """断言诊断扫描遇到非字符串 type 时不抛异常。
 
     Args:
-        core: 已加载的 sanitizer core 模块对象。
+        None.
 
     Returns:
         无返回值；断言失败时抛出异常。
@@ -128,7 +111,6 @@ def main() -> None:
     Returns:
         无返回值；断言失败时抛出异常。
     """
-    core = _load_core_module()
     kwargs, messages = _sample_kwargs()
     original_messages_id = id(messages)
 
@@ -191,16 +173,12 @@ def main() -> None:
         "output_config": {"effort": "max"},
     }
     core.sanitize_request_context(content_payload)
-    assert content_payload["messages"][0]["content"][0]["reasoning_effort"] == (
-        "business-data"
-    )
-    assert content_payload["messages"][0]["content"][0]["output_config"] == {
-        "effort": "business-data"
-    }
+    assert content_payload["messages"][0]["content"][0]["reasoning_effort"] == ("business-data")
+    assert content_payload["messages"][0]["content"][0]["output_config"] == {"effort": "business-data"}
     assert content_payload["reasoning_effort"] == "high"
     assert content_payload["output_config"] == {"effort": "max"}
 
-    _assert_malformed_type_is_safe(core)
+    _assert_malformed_type_is_safe()
     print("deepseek thinking sanitizer core ok")
 
 
