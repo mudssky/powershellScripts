@@ -11,3 +11,4 @@
 | [Coding Plan Window Warmer](./coding-plan-window-warmer.md) | 独立窗口预热脚本、直连上游、uv 依赖和 PM2 管理约定 | Active |
 | [LiteLLM Gateway](./litellm-gateway.md) | LiteLLM 路由、fallback、参数兼容和验证边界 | Active |
 | [Node/Vitest Scripts](./node-vitest-scripts.md) | 根目录 Vitest 发现的 Node 脚本测试与 shebang 行尾约定 | Active |
+| [rathole template](./rathole.md) | rathole 裸二进制、PM2 管理、`.local.toml` 与公网白名单转发模板约定 | Active |
