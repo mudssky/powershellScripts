@@ -1,2 +1,0 @@
-{"file": ".trellis/spec/guides/index.md", "reason": "检查文档/配置改动是否保持最小变量与可回滚。"}
-{"file": ".trellis/tasks/05-12-ssh-remoteforward-vscode-docs/research/openssh-client-options.md", "reason": "校验文档建议与 OpenSSH 选项语义一致。"}
