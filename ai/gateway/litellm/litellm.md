@@ -101,6 +101,35 @@ docker compose --env-file ai/gateway/litellm/.env.local `
 - `ps`：查看当前容器状态。
 - `pull`：拉取最新镜像，不自动重启。
 
+## Coding Plan 窗口预热
+
+通用窗口预热工具位于 `ai/coding/window-warmer/`。它是独立宿主机脚本，不属于 LiteLLM callback 或 Compose 服务；默认配置通过 LiteLLM Python SDK 直连智谱 Coding Plan 上游端点，避免经过本机 LiteLLM Proxy 的 fallback 路由。
+
+启动默认配置：
+
+```bash
+pm2 start ai/coding/window-warmer/window-warmer.pm2.config.cjs
+```
+
+常用管理：
+
+```bash
+pm2 logs coding-window-warmer
+pm2 restart coding-window-warmer
+pm2 stop coding-window-warmer
+pm2 save
+```
+
+如果只想直接试跑脚本：
+
+```bash
+uv run --script ai/coding/window-warmer/window_warmer.py \
+  --config ai/coding/window-warmer/window-warmer.toml \
+  --print-next
+```
+
+多 Coding Plan、`fixed_times` / `interval` 调度模式和测试命令见 [README](../../coding/window-warmer/README.md)。
+
 ## 直接使用原生命令
 
 如果你想直接执行 `docker compose`，建议保持和脚本一致的参数：
