@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 2
-- **Last Active**: 2026-05-08
+- **Total Sessions**: 3
+- **Last Active**: 2026-05-13
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~75 | Active |
+| `journal-1.md` | ~111 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 3 | 2026-05-13 | rathole 配置模板与维护脚本 | `38dd0f9`, `3c9b174`, `4a77e6f`, `8c72b5a` | `master` |
 | 2 | 2026-05-08 | 修复 rclone Vitest 空测试套件 | `3911093` | `master` |
 | 1 | 2026-05-08 | 拆分 pnpm workspace 包边界 | `1e612a9` | `master` |
 <!-- @@@/auto:session-history -->

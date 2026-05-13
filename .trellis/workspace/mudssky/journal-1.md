@@ -73,3 +73,39 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 3: rathole 配置模板与维护脚本
+
+**Date**: 2026-05-13
+**Task**: rathole 配置模板与维护脚本
+**Branch**: `master`
+
+### Summary
+
+新增 config/network/rathole 裸二进制 + PM2 模板、白名单转发文档和 start.ps1 维护脚本；记录 infra 约定，并按配置/文档不测原则移除模板内容断言，只保留 start.ps1 逻辑测试。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `38dd0f9` | (see git log) |
+| `3c9b174` | (see git log) |
+| `4a77e6f` | (see git log) |
+| `8c72b5a` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
