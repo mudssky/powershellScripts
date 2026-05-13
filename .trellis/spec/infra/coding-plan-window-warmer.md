@@ -18,6 +18,7 @@
   - From `ai/coding/window-warmer`: `uv run python window_warmer.py --config window-warmer.toml`
   - From `ai/coding/window-warmer`: `uv run python window_warmer.py --config window-warmer.toml --print-next`
   - From `ai/coding/window-warmer`: `uv run python window_warmer.py --config window-warmer.toml --once --dry-run`
+  - From `ai/coding/window-warmer`: `uv run python window_warmer.py --config window-warmer.toml --debug-request --plan glm-coding-plan`
 - PM2:
   - `pm2 start ai/coding/window-warmer/window-warmer.pm2.config.cjs`
   - PM2 app name: `coding-window-warmer`
@@ -25,6 +26,7 @@
   - Entry file: `ai/coding/window-warmer/window_warmer.py`
   - Dependency declaration: `ai/coding/window-warmer/pyproject.toml`
   - Locked dependencies: `ai/coding/window-warmer/uv.lock`
+  - SOCKS proxy support: `httpx[socks]` must remain in project dependencies because LiteLLM/OpenAI may route through host proxy environment variables.
   - Helper package: `ai/coding/window-warmer/window_warmer_lib/`
 
 ### 3. Contracts
@@ -65,6 +67,7 @@
 | `api_key_env` configured but missing from env and `env_file` | Warmup is skipped with missing key diagnostic |
 | `health_path` configured but direct target health check fails | Warmup is skipped before completion request |
 | `--dry-run` or `scheduler.dry_run=true` | Docker/API readiness checks and completion request are skipped |
+| `--debug-request --plan <name>` | Sends one real completion request for the named enabled plan and exits |
 | LiteLLM SDK completion fails | Failure is logged without prompt/key/body; retry up to `retry_count` |
 | Multiple plans share the same base time | Each plan remains in the event queue and is executed independently |
 
@@ -87,6 +90,7 @@
 - Unit tests for multiple plans with simultaneous base time remaining independently executable.
 - Config parse tests for multiple `[[plans]]`.
 - Logging regression test asserting real warmups log lifecycle checkpoints without exposing prompt text or API key values.
+- Debug request test asserting `--debug-request` can target one enabled plan without running all plans.
 - SDK call test mocking the local wrapper around `litellm.completion`, asserting:
   - `model` keeps the configured provider-prefixed model.
   - `api_base` is the direct target URL.

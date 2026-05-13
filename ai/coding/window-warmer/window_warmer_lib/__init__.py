@@ -2,7 +2,7 @@
 
 from .config import load_config, parse_config, parse_plan_config
 from .models import AppConfig, PlanConfig, SchedulerConfig, TargetConfig, WarmEvent
-from .runner import print_next_event, run_once, run_watch, warm_plan
+from .runner import print_next_event, run_debug_request, run_once, run_watch, select_plan, warm_plan
 from .scheduler import (
     build_warm_event,
     build_warm_events,
@@ -37,8 +37,10 @@ __all__ = [
     "read_api_key",
     "request_json",
     "run_once",
+    "run_debug_request",
     "run_watch",
     "select_next_event",
+    "select_plan",
     "send_warm_completion",
     "warm_plan",
 ]

@@ -79,6 +79,16 @@ cd ai/coding/window-warmer
 uv run python window_warmer.py --config window-warmer.toml --once --dry-run
 ```
 
+立即发送一次真实调试请求：
+
+```bash
+cd ai/coding/window-warmer
+uv run python window_warmer.py \
+  --config window-warmer.toml \
+  --debug-request \
+  --plan glm-coding-plan
+```
+
 ## PM2 管理
 
 启动：

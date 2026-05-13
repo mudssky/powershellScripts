@@ -11,7 +11,7 @@ import tomllib
 
 from .config import load_config
 from .constants import DEFAULT_CONFIG_NAME
-from .runner import log, print_next_event, run_once, run_watch
+from .runner import log, print_next_event, run_debug_request, run_once, run_watch
 
 
 def default_config_path() -> Path:
@@ -52,6 +52,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Send one warmup request for every enabled plan immediately, then exit.",
     )
     parser.add_argument(
+        "--debug-request",
+        action="store_true",
+        help="Send one real warmup request for a single plan immediately, then exit.",
+    )
+    parser.add_argument(
+        "--plan",
+        help="Plan name for --debug-request. Defaults to the first enabled plan.",
+    )
+    parser.add_argument(
         "--print-next",
         action="store_true",
         help="Print the next scheduled event and exit.",
@@ -81,6 +90,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.print_next:
             return print_next_event(config, rng)
+        if args.debug_request:
+            return run_debug_request(config, plan_name=args.plan)
         if args.once:
             return run_once(config, dry_run=dry_run)
         return run_watch(config, rng, dry_run=dry_run)

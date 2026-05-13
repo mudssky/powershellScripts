@@ -341,6 +341,54 @@ class WindowWarmerHttpTests(unittest.TestCase):
 
             self.assertEqual(warmer.read_api_key(config), "sk-from-file")
 
+    def test_run_debug_request_uses_named_enabled_plan(self) -> None:
+        """调试请求应只执行指定的启用 plan。
+
+        Args:
+            None.
+
+        Returns:
+            无返回值。
+        """
+        scheduler = warmer.SchedulerConfig(True, 60, 120, 1, 30, False)
+        first = warmer.parse_plan_config(
+            {
+                "name": "first",
+                "model": "openai/first",
+                "schedule_mode": "fixed_times",
+                "times": ["08:00"],
+            },
+            scheduler,
+        )
+        second = warmer.parse_plan_config(
+            {
+                "name": "second",
+                "model": "openai/second",
+                "schedule_mode": "fixed_times",
+                "times": ["08:00"],
+            },
+            scheduler,
+        )
+        config = warmer.AppConfig(
+            target=warmer.TargetConfig(
+                name="z-ai",
+                base_url="https://open.bigmodel.cn/api/coding/paas/v4",
+                container_name=None,
+                api_key_env=None,
+                env_file=None,
+                health_path=None,
+                request_timeout_seconds=30,
+            ),
+            scheduler=scheduler,
+            plans=(first, second),
+        )
+
+        with patch("window_warmer_lib.runner.warm_plan", return_value=True) as warm_plan:
+            exit_code = warmer.run_debug_request(config, plan_name="second")
+
+        self.assertEqual(exit_code, 0)
+        warm_plan.assert_called_once_with(config, second, dry_run=False)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -12,6 +12,22 @@ from .scheduler import build_warm_event, build_warm_events, next_warm_event, sel
 from .target import ensure_target_ready, send_warm_completion
 
 
+def select_plan(config: AppConfig, plan_name: str | None) -> PlanConfig | None:
+    """选择一个启用的 plan。
+
+    Args:
+        config: 应用配置。
+        plan_name: 可选 plan 名称；为空时选择第一个启用 plan。
+
+    Returns:
+        找到时返回 plan，否则返回 None。
+    """
+    enabled_plans = [plan for plan in config.plans if plan.enabled]
+    if plan_name is None:
+        return enabled_plans[0] if enabled_plans else None
+    return next((plan for plan in enabled_plans if plan.name == plan_name), None)
+
+
 def warm_plan(config: AppConfig, plan: PlanConfig, dry_run: bool = False) -> bool:
     """执行单个 plan 的预热请求。
 
@@ -68,6 +84,30 @@ def warm_plan(config: AppConfig, plan: PlanConfig, dry_run: bool = False) -> boo
                 time.sleep(plan.retry_delay_seconds)
     log(f"[{plan.name}] warm exhausted attempts={attempts} total_duration_ms={elapsed_ms(started_at)}")
     return False
+
+
+def run_debug_request(config: AppConfig, plan_name: str | None = None) -> int:
+    """立即发送一次指定 plan 的真实调试请求。
+
+    Args:
+        config: 应用配置。
+        plan_name: 可选 plan 名称；为空时使用第一个启用 plan。
+
+    Returns:
+        调试请求成功返回 0，否则返回 1。
+    """
+    plan = select_plan(config, plan_name)
+    if plan is None:
+        if plan_name is None:
+            log("debug request failed: 没有启用的 plan。")
+        else:
+            log(f"debug request failed: 未找到启用的 plan name={plan_name}")
+        return 1
+
+    log(f"debug request started plan={plan.name}")
+    success = warm_plan(config, plan, dry_run=False)
+    log(f"debug request finished plan={plan.name} success={str(success).lower()}")
+    return 0 if success else 1
 
 
 def run_once(config: AppConfig, dry_run: bool = False) -> int:
