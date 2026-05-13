@@ -106,7 +106,62 @@ Copy-Item `
 调用方 -> rathole server 暴露端口 -> rathole 隧道 -> 白名单公网服务器上的 rathole client -> 白名单目标服务
 ```
 
-目标服务看到的来源 IP 是白名单公网服务器。注意这个模式是 TCP/UDP 四层端口转发，不处理 HTTP Host、路径、Header 或 TLS 终止；如果需要七层路由，继续使用 Nginx、Caddy 或 Traefik。
+目标服务看到的来源 IP 是白名单公网服务器。
+
+### HTTP/HTTPS 转发边界
+
+你的白名单场景本质上是“让请求从某台已加入白名单的公网服务器发出去”。如果这台白名单服务器本身就是你对外暴露入口的机器，并且它能直接访问目标 HTTP/HTTPS 服务，优先用 Nginx/Caddy 这类 HTTP 反向代理会更直观：
+
+```nginx
+server {
+    listen 8443 ssl;
+    server_name proxy.example.com;
+
+    location / {
+        proxy_pass https://api.allowlist-only.example.com;
+        proxy_set_header Host api.allowlist-only.example.com;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+这种情况下，目标服务看到的来源 IP 就是这台 Nginx 所在白名单服务器的公网 IP，而且你还能顺手处理域名、路径、Header、证书等 HTTP 细节。
+
+rathole 适合下面这种更像“隧道”的情况：
+
+- 入口端口不在白名单服务器上，需要把入口流量穿到白名单服务器再出去。
+- 目标不是 HTTP，或者你只想原样透传 TCP/UDP。
+- 白名单服务器不想跑完整 HTTP 反代配置，只需要固定端口转固定目标。
+
+只要目标是一个固定 HTTP/HTTPS 服务，并且你只需要把一个入口端口转到一个目标地址，rathole 直接透传 TCP 也够用。例如：
+
+```toml
+[client.services.whitelist_api]
+token = "replace-with-a-long-random-token"
+local_addr = "api.allowlist-only.example.com:443"
+```
+
+对应 server 端暴露一个入口端口：
+
+```toml
+[server.services.whitelist_api]
+token = "replace-with-a-long-random-token"
+bind_addr = "0.0.0.0:8443"
+```
+
+访问 `公网入口:8443` 时，流量会原样进入白名单公网服务器，再由这台服务器访问 `api.allowlist-only.example.com:443`。如果这是 HTTPS，TLS 握手和证书校验发生在调用方与最终 HTTPS 服务之间，rathole 不解密也不改包。
+
+这句话“rathole 不处理 HTTP Host、路径、Header 或 TLS 终止”的实际含义是：
+
+- 能做：`公网入口:8443 -> api.allowlist-only.example.com:443`
+- 能做：`公网入口:8080 -> 127.0.0.1:3000`
+- 不能单独做：同一个入口端口按 `a.example.com` / `b.example.com` 分流到不同服务
+- 不能单独做：同一个入口端口按 `/api` / `/static` 分流
+- 不能单独做：替你添加 `X-Forwarded-For`、重写 `Host` 或统一签发/终止 HTTPS 证书
+
+如果你只是借白名单服务器的公网 IP 访问某个固定 HTTP/HTTPS 服务，rathole 足够。如果你要“一个 443 端口承载多个域名、多个路径、统一证书”，就把 Nginx、Caddy 或 Traefik 放在 rathole 的一端或两端，让它们负责七层 HTTP 逻辑。
 
 ## PM2 管理
 

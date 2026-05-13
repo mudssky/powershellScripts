@@ -73,21 +73,17 @@
 
 ### 6. Tests Required
 
-- Template tests:
-  - 断言三份 TOML 示例存在：server、client、whitelist proxy。
-  - 断言 `.gitignore` 忽略 `*.local.toml` 和真实日志。
-  - 断言 PM2 configs 拆分、使用 `interpreter: 'none'`、引用对应 `.local.toml`。
-  - 断言 README 提到裸二进制 + PM2、`.local.toml`、白名单转发和四层边界。
+- Config/docs changes:
+  - README、`.example.toml`、`.gitignore` 和 PM2 ecosystem 配置属于模板/文档类产物，不要求 Pester 断言页面结构或配置文件内容。
+  - 修改这类文件时不要求新增或保留专门测试；人工核对示例可复制、无真实密钥即可。
 - Script tests:
   - `Show-Usage` 覆盖动作列表和 `-Role`。
   - `Get-RatholeRoleConfig` 区分 client/server 路径。
   - `Get-Pm2InvocationPlan` 生成 start/restart/save 等 PM2 参数。
   - `Invoke-Pm2Command -DryRun` 返回可复制预览命令。
   - `Show-RatholeConfig` 返回复制命令与启动提示。
-- Smoke checks:
-  - `node -c config/network/rathole/rathole-client.pm2.config.cjs`
-  - `node -c config/network/rathole/rathole-server.pm2.config.cjs`
-  - rathole 相关 Pester 测试必须在 host 和 Linux Pester 中通过。
+- Verification:
+  - rathole `start.ps1` 逻辑测试必须在 host 和 Linux Pester 中通过。
 
 ### 7. Wrong vs Correct
 

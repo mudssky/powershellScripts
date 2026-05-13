@@ -53,6 +53,10 @@
 * [x] 仓库包含可复制的 `whitelist-proxy.example.toml`，用于公网 IP 白名单转发场景。
 * [x] Git 忽略规则覆盖真实 `.local` 配置文件。
 
+## Test Scope Note
+
+配置示例、PM2 ecosystem 和 README 属于配置/文档类产物，不编写专门 Pester 内容断言，也不要求为文档和配置文件保留单独测试；测试聚焦 `start.ps1` 的命令生成与维护逻辑。
+
 ## Definition of Done (team quality bar)
 
 * Tests added/updated (unit/integration where appropriate)
@@ -106,7 +110,7 @@
 
 **Decision**: MVP 采用裸二进制 + PM2 主线。文档说明 Compose 只是备选方式，维护脚本优先封装 PM2 动作。
 
-**Consequences**: 第一版需要用户自行安装 rathole 与 PM2，但避免容器层开销；脚本和测试聚焦 PM2 命令生成、`.local.toml` 保护和 README 可操作性。后续如要更贴近 Linux 生产部署，可扩展 systemd 示例或安装器。
+**Consequences**: 第一版需要用户自行安装 rathole 与 PM2，但避免容器层开销；脚本测试聚焦 PM2 命令生成与维护逻辑，`.local.toml` 保护和 README 可操作性通过文档约定维护。后续如要更贴近 Linux 生产部署，可扩展 systemd 示例或安装器。
 
 **Decision**: 公网白名单转发示例单独放入 `whitelist-proxy.example.toml`。
 
