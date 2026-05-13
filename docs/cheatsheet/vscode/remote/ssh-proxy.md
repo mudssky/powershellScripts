@@ -61,17 +61,18 @@ killall ssh
 
 ---
 
-### 2. 配置文件方式 (推荐/永久生效)
+### 2. 配置文件方式：专用隧道 Host
 
-*配置一次，以后直接 `ssh alias` 即可自动建立隧道。*
+*配置一次，以后直接 `ssh alias` 即可建立隧道。建议把隧道放在专用 Host 中，不要和 VS Code Remote SSH 或 zellij 登录 Host 混用。*
 
 编辑文件：`~/.ssh/config` (Mac/Linux) 或 `%USERPROFILE%\.ssh\config` (Windows)
 
-```ssh
-Host my-cloud-server             # 别名
+```sshconfig
+Host my-cloud-server-tunnel      # 专用隧道别名
     HostName 1.2.3.4             # 服务器公网 IP
     User root                    # 用户名
     Port 22                      # SSH 端口
+    ExitOnForwardFailure yes     # 转发端口绑定失败时直接失败，避免半成功连接
     # ↓↓↓ 核心配置 ↓↓↓
     # 格式：RemoteForward <服务器监听端口> <本地视角的目标IP>:<目标端口>
 
@@ -82,16 +83,34 @@ Host my-cloud-server             # 别名
     # RemoteForward 7890 192.168.50.1:7890
 ```
 
+连接时用：
+
+```bash
+ssh -N my-cloud-server-tunnel
+```
+
+`-N` 表示不打开远程 Shell，只维护代理隧道。这样 VS Code、普通终端、zellij 登录都可以复用远端 `127.0.0.1:7890`，但不会各自抢占同一个远端监听端口。
+
 ---
 
-### 3. VS Code 自动化配置 (终极方案)
+### 3. VS Code 配置：保持 SSH Host 干净
 
-*实现：连接即代理，终端自动生效环境变量。*
+*目标：VS Code 连接稳定，远程终端按需使用已存在的代理端口。*
 
-#### 第一步：配置隧道 (同上)
+#### 第一步：VS Code Host 只放连接稳定性配置
 
-确保你的 SSH Config 文件中已经添加了 `RemoteForward` (参考第 2 点)。
-*VS Code 会自动读取这个 SSH 配置建立连接。*
+VS Code Remote SSH 通常会建立多条 SSH 连接。如果这些连接都带同一个 `RemoteForward 7890`，后续连接可能绑定失败，甚至让排查断联时难以判断根因。建议 VS Code 使用不带 `RemoteForward`、`RemoteCommand`、`RequestTTY` 的 Host：
+
+```sshconfig
+Host my-cloud-server-vscode
+    HostName 1.2.3.4
+    User root
+    ServerAliveInterval 60
+    ServerAliveCountMax 3
+    ConnectTimeout 30
+```
+
+如果正在排查十几分钟后断联的问题，可以先注释掉普通 Host 中的 `RemoteForward`，只保留上面三个 VS Code 侧参数观察一段时间。这样能把“代理端口冲突”和“连接空闲/网络抖动”拆开看。
 
 #### 第二步：配置终端自动注入变量
 
@@ -110,6 +129,54 @@ Host my-cloud-server             # 别名
         "all_proxy": "socks5://127.0.0.1:7890" // 如果你也转发了 socks 端口
     }
 }
+```
+
+如果远程 `127.0.0.1:7890` 没有监听，说明当前没有独立隧道在运行。此时先启动第 2 节的 `*-tunnel` Host，而不是把 `RemoteForward` 重新放回 VS Code Host。
+
+#### 第三步：常用配置实例
+
+下面这组配置把同一台服务器拆成三个入口：VS Code 只负责非交互开发连接，zellij 只负责人工终端会话，tunnel 只负责代理端口转发。
+
+```sshconfig
+# VS Code Remote SSH 入口：保持非交互，不带 RemoteCommand / RequestTTY / RemoteForward。
+Host ai-admin-vscode
+  HostName 192.168.27.77
+  User administrator
+  ServerAliveInterval 60
+  ServerAliveCountMax 3
+  ConnectTimeout 30
+
+# zellij 人工入口：保留 TTY 与远程命令，排查期先不加保活参数。
+Host ai-admin-zellij
+  HostName 192.168.27.77
+  User administrator
+  RequestTTY yes
+  RemoteCommand bash -lc 'cd ~/projects/env/powershellScripts && exec /home/linuxbrew/.linuxbrew/bin/zellij attach -c powershellScripts'
+
+# 独立代理入口：只在需要远端 127.0.0.1:7890 代理时手动启动。
+Host ai-admin-tunnel
+  HostName 192.168.27.77
+  User administrator
+  ExitOnForwardFailure yes
+  RemoteForward 7890 127.0.0.1:7890
+```
+
+使用方式：
+
+```bash
+# VS Code 里选择 ai-admin-vscode
+
+# 终端里进入 zellij 工作区
+ssh ai-admin-zellij
+
+# 需要代理时单独开一个窗口维持隧道
+ssh -N ai-admin-tunnel
+```
+
+如果代理目标不是本机 Clash，而是局域网软路由，把 `RemoteForward` 的目标地址换成软路由 IP：
+
+```sshconfig
+RemoteForward 7890 192.168.50.1:7890
 ```
 
 ---
@@ -255,32 +322,38 @@ RemoteCommand bash -lc 'cd ~/projects/ai/java/xhgj-ai-platform && exec /home/lin
 
 #### 拆分 VS Code Host 与人工 zellij Host
 
-不要让 VS Code Remote SSH 复用带 `RemoteCommand` 的 Host。VS Code 需要非交互连接，`RemoteCommand`、`RequestTTY`、`RemoteForward` 都可能干扰它的连接管理。
+不要让 VS Code Remote SSH 复用带 `RemoteCommand` 的 Host。VS Code 需要非交互连接，`RemoteCommand`、`RequestTTY`、`RemoteForward` 都可能干扰它的连接管理。排查期间建议只给 VS Code Host 加客户端侧保活与连接超时，zellij Host 先保持原样，避免一次改变太多变量。
 
 ```sshconfig
+# VS Code Remote SSH 入口：非交互连接，只放保活与连接超时。
 Host proj-xhgj-ai-platform-vscode
   HostName 192.168.27.77
   User administrator
-  ServerAliveInterval 30
+  ServerAliveInterval 60
   ServerAliveCountMax 3
-  TCPKeepAlive yes
+  ConnectTimeout 30
 
+# zellij 人工入口：保留 TTY 与 RemoteCommand，排查期先不加保活参数。
 Host proj-xhgj-ai-platform-zellij
   HostName 192.168.27.77
   User administrator
   RequestTTY yes
-  ServerAliveInterval 30
-  ServerAliveCountMax 3
-  TCPKeepAlive yes
+  RemoteCommand bash -lc 'cd ~/projects/ai/java/xhgj-ai-platform && exec /home/linuxbrew/.linuxbrew/bin/zellij attach -c proj-xhgj-ai-platform'
+
+# 独立代理入口：需要代理时用 ssh -N 启动，避免 VS Code 多连接抢端口。
+Host proj-xhgj-ai-platform-tunnel
+  HostName 192.168.27.77
+  User administrator
   ExitOnForwardFailure yes
   RemoteForward 7890 192.168.21.108:7890
-  RemoteCommand bash -lc 'cd ~/projects/ai/java/xhgj-ai-platform && exec /home/linuxbrew/.linuxbrew/bin/zellij attach -c proj-xhgj-ai-platform'
 ```
 
 如果 VS Code 也需要代理，建议只保留一个连接负责 `RemoteForward 7890`。可以先用独立终端维持隧道：
 
 ```bash
 ssh -N -o ExitOnForwardFailure=yes -R 7890:192.168.21.108:7890 administrator@192.168.27.77
+# 或者使用上面的专用 Host
+ssh -N proj-xhgj-ai-platform-tunnel
 ```
 
 然后 VS Code Host 不再声明同一个 `RemoteForward 7890`，避免多连接抢同一端口。
@@ -296,5 +369,5 @@ ssh -N -o ExitOnForwardFailure=yes -R 7890:192.168.21.108:7890 administrator@192
 | **端口被占用** | 服务器上已有程序占用了 7890 | 修改 `RemoteForward` 的第一个端口号 (如 `8888 127.0.0.1:7890`) |
 | **Git 依然慢** | Git 有单独的配置 | 运行 `git config --global http.proxy http://127.0.0.1:7890` |
 | **后台隧道无法关闭** | 使用了 `-f` 参数，进程在后台运行 | `ps aux | grep "ssh -NfR"`查找进程，`kill <PID>` 关闭 |
-| **隧道自动断开** | SSH 连接超时或网络不稳定 | 在 SSH 配置中添加 `ServerAliveInterval 60` 保持心跳 |
-| **VS Code / zellij 十几分钟后断开** | 客户端主动断开、网络空闲超时、多连接抢 `RemoteForward`、`RemoteCommand` 退出都可能触发 | 先查近 7 天历史日志，再拆分 VS Code Host 与 zellij Host，并加 `ExitOnForwardFailure yes` |
+| **隧道自动断开** | SSH 连接超时或网络不稳定 | 在专用隧道 Host 中添加 `ServerAliveInterval 60` 保持心跳，或先用前台 `ssh -N` 观察日志 |
+| **VS Code / zellij 十几分钟后断开** | 客户端主动断开、网络空闲超时、多连接抢 `RemoteForward`、`RemoteCommand` 退出都可能触发 | 先查近 7 天历史日志；排查期先注释普通 Host 的 `RemoteForward`，只给 VS Code Host 加 `ServerAliveInterval 60`、`ServerAliveCountMax 3`、`ConnectTimeout 30`，zellij Host 暂不加保活参数 |
