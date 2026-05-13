@@ -1,0 +1,15 @@
+# rathole client 示例配置。
+# 复制为 client.local.toml 后再填入真实 server 地址、token 与本地服务地址。
+
+[client]
+remote_addr = "rathole.example.com:2333"
+heartbeat_timeout = 40
+retry_interval = 1
+
+[client.services.ssh_home]
+token = "replace-with-a-long-random-token"
+local_addr = "127.0.0.1:22"
+
+[client.services.web_home]
+token = "replace-with-another-long-random-token"
+local_addr = "127.0.0.1:3000"

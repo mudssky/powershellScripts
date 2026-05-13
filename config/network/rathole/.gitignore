@@ -1,0 +1,7 @@
+# 真实 rathole 配置包含 token、内网地址、公网白名单目标等私有信息，不应提交。
+*.local.toml
+
+# PM2 运行日志由本机生成，仓库只保留目录和示例配置。
+logs/*.log
+logs/*.pid
+!logs/.gitkeep

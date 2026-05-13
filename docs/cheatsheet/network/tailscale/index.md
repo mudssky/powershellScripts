@@ -74,7 +74,7 @@
 sudo tailscale up --ssh
 ```
 
-* **连接方式**: 在客户端 `ssh <用户名>@<服务器TailscaleIP>` 或 `ssh <用户名>@<MagicDNS域名>`
+- **连接方式**: 在客户端 `ssh <用户名>@<服务器TailscaleIP>` 或 `ssh <用户名>@<MagicDNS域名>`
 
 ---
 
@@ -124,9 +124,9 @@ sudo tailscale up \
 
 为了保证**高直连率**，请务必在云服务器的安全组/防火墙中放行：
 
-* **协议**: UDP
-* **端口**: `41641` (这是 Tailscale 默认首选端口，放行它能大幅减少掉线和延迟)
-* **方向**: 入站 (Inbound) 和 出站 (Outbound)
+- **协议**: UDP
+- **端口**: `41641` (这是 Tailscale 默认首选端口，放行它能大幅减少掉线和延迟)
+- **方向**: 入站 (Inbound) 和 出站 (Outbound)
 
 ---
 
@@ -325,3 +325,31 @@ docker compose --env-file config/network/tailscale/derp/.env.local -f config/net
 - [Custom DERP servers](https://tailscale.com/docs/reference/derp-servers/custom-derp-servers)
 - [Visual policy editor](https://tailscale.com/docs/features/visual-editor)
 - [Edit access control policies in your tailnet policy file](https://tailscale.com/docs/features/tailnet-policy-file/manage-tailnet-policies)
+
+### 🕳️ 8. rathole 端口转发与公网白名单转发
+
+如果你更想用低资源占用的裸二进制转发，而不是容器，可以从仓库模板开始：
+
+- `config/network/rathole/server.example.toml`
+- `config/network/rathole/client.example.toml`
+- `config/network/rathole/whitelist-proxy.example.toml`
+- `config/network/rathole/rathole-server.pm2.config.cjs`
+- `config/network/rathole/rathole-client.pm2.config.cjs`
+- `config/network/rathole/start.ps1`
+- `config/network/rathole/README.md`
+
+推荐主线是 **rathole 裸二进制 + PM2**：
+
+```powershell
+# 公网入口机器
+Copy-Item config/network/rathole/server.example.toml config/network/rathole/server.local.toml
+./config/network/rathole/start.ps1 start -Role server
+
+# 内网服务机器
+Copy-Item config/network/rathole/client.example.toml config/network/rathole/client.local.toml
+./config/network/rathole/start.ps1 start -Role client
+```
+
+公网白名单转发场景使用 `whitelist-proxy.example.toml`：把 rathole client 放在已加入白名单的公网服务器上，由它访问目标服务；调用方访问 rathole server 暴露端口即可。目标服务看到的来源 IP 是这台白名单公网服务器。
+
+注意：rathole 是 TCP/UDP 四层端口转发，不处理 HTTP Host、路径、Header 或 TLS 终止。如果你需要七层反向代理，继续使用 Nginx、Caddy 或 Traefik。

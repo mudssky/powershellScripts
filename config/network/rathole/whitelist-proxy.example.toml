@@ -1,0 +1,16 @@
+# 公网白名单转发示例。
+# 适用场景：第三方服务只允许某台公网服务器 IP 访问，此文件应复制到那台白名单服务器
+# 并作为 rathole client 运行。第三方服务看到的来源 IP 会是这台服务器。
+
+[client]
+remote_addr = "rathole-entry.example.com:2333"
+heartbeat_timeout = 40
+retry_interval = 1
+
+[client.services.whitelist_api]
+token = "replace-with-a-long-random-token"
+local_addr = "api.allowlist-only.example.com:443"
+
+[client.services.whitelist_database]
+token = "replace-with-another-long-random-token"
+local_addr = "db.allowlist-only.example.com:5432"
