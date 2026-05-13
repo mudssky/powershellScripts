@@ -123,9 +123,8 @@ pm2 save
 如果只想直接试跑脚本：
 
 ```bash
-uv run --script ai/coding/window-warmer/window_warmer.py \
-  --config ai/coding/window-warmer/window-warmer.toml \
-  --print-next
+cd ai/coding/window-warmer
+uv run python window_warmer.py --config window-warmer.toml --print-next
 ```
 
 多 Coding Plan、`fixed_times` / `interval` 调度模式和测试命令见 [README](../../coding/window-warmer/README.md)。

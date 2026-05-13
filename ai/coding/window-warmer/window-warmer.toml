@@ -1,12 +1,12 @@
 # Coding Plan 窗口预热配置。
-# 该文件由 `uv run --script window_warmer.py` 启动，脚本元数据会自动安装 LiteLLM SDK。
+# 该文件由 `uv run python window_warmer.py` 读取；依赖由同目录 pyproject.toml 与 uv.lock 管理。
 
 [target]
 name = "z-ai-coding-plan"
 base_url = "https://open.bigmodel.cn/api/coding/paas/v4"
 container_name = "litellm"
 api_key_env = "Z_AI_API_KEY"
-env_file = "../../gateway/litellm/.env.local"
+env_file = ".env.local"
 health_path = "/models"
 request_timeout_seconds = 30
 

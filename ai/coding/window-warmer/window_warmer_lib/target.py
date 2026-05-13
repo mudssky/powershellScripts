@@ -10,11 +10,13 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+from dotenv import dotenv_values
+
 from .models import PlanConfig, TargetConfig
 
 
 def read_env_file(path: Path | None) -> dict[str, str]:
-    """读取简单 KEY=value 环境变量文件。
+    """读取 dotenv 环境变量文件。
 
     Args:
         path: env 文件路径；为空或不存在时返回空字典。
@@ -22,21 +24,10 @@ def read_env_file(path: Path | None) -> dict[str, str]:
     Returns:
         环境变量映射。
     """
-    values: dict[str, str] = {}
     if path is None or not path.exists():
-        return values
+        return {}
 
-    for raw_line in path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        key = key.strip()
-        value = value.strip()
-        if (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'")):
-            value = value[1:-1]
-        values[key] = value
-    return values
+    return {key: value for key, value in dotenv_values(path).items() if value is not None}
 
 
 def read_api_key(config: TargetConfig) -> str | None:

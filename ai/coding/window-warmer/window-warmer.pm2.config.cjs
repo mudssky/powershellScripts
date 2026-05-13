@@ -11,8 +11,8 @@ module.exports = {
       interpreter: 'none',
       args: [
         'run',
-        '--script',
-        path.join(scriptDir, 'window_warmer.py'),
+        'python',
+        'window_warmer.py',
         '--config',
         path.join(scriptDir, 'window-warmer.toml'),
       ],

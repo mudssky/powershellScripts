@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import random
 import sys
+import tempfile
 import unittest
 from datetime import datetime, time
 from pathlib import Path
@@ -250,6 +251,30 @@ class WindowWarmerHttpTests(unittest.TestCase):
         )
 
         self.assertTrue(warmer.warm_plan(config, plan, dry_run=True))
+
+    def test_read_api_key_falls_back_to_dotenv_file(self) -> None:
+        """API key 应支持从配置指定的 dotenv 文件读取。
+
+        Args:
+            None.
+
+        Returns:
+            无返回值。
+        """
+        with tempfile.TemporaryDirectory() as temp_dir:
+            env_path = Path(temp_dir) / ".env.local"
+            env_path.write_text('Z_AI_API_KEY="sk-from-file"\n', encoding="utf-8")
+            config = warmer.TargetConfig(
+                name="z-ai",
+                base_url="https://open.bigmodel.cn/api/coding/paas/v4",
+                container_name=None,
+                api_key_env="Z_AI_API_KEY",
+                env_file=env_path,
+                health_path=None,
+                request_timeout_seconds=30,
+            )
+
+            self.assertEqual(warmer.read_api_key(config), "sk-from-file")
 
 
 if __name__ == "__main__":

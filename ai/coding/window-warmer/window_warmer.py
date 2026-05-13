@@ -1,10 +1,4 @@
-#!/usr/bin/env -S uv run --script
-# /// script
-# requires-python = ">=3.11"
-# dependencies = [
-#   "litellm>=1.81.0",
-# ]
-# ///
+#!/usr/bin/env python3
 """Coding Plan 窗口预热脚本入口。"""
 
 from __future__ import annotations

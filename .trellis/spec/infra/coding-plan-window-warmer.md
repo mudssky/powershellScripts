@@ -15,15 +15,16 @@
 ### 2. Signatures
 
 - Direct run:
-  - `uv run --script ai/coding/window-warmer/window_warmer.py --config ai/coding/window-warmer/window-warmer.toml`
-  - `uv run --script ai/coding/window-warmer/window_warmer.py --config ai/coding/window-warmer/window-warmer.toml --print-next`
-  - `uv run --script ai/coding/window-warmer/window_warmer.py --config ai/coding/window-warmer/window-warmer.toml --once --dry-run`
+  - From `ai/coding/window-warmer`: `uv run python window_warmer.py --config window-warmer.toml`
+  - From `ai/coding/window-warmer`: `uv run python window_warmer.py --config window-warmer.toml --print-next`
+  - From `ai/coding/window-warmer`: `uv run python window_warmer.py --config window-warmer.toml --once --dry-run`
 - PM2:
   - `pm2 start ai/coding/window-warmer/window-warmer.pm2.config.cjs`
   - PM2 app name: `coding-window-warmer`
 - Python script:
   - Entry file: `ai/coding/window-warmer/window_warmer.py`
-  - Dependency declaration: PEP 723 script metadata with `litellm>=1.81.0`
+  - Dependency declaration: `ai/coding/window-warmer/pyproject.toml`
+  - Locked dependencies: `ai/coding/window-warmer/uv.lock`
   - Helper package: `ai/coding/window-warmer/window_warmer_lib/`
 
 ### 3. Contracts
@@ -33,7 +34,7 @@
   - `base_url`: direct upstream OpenAI-compatible API base URL. Default points to `https://open.bigmodel.cn/api/coding/paas/v4`, not local LiteLLM Proxy.
   - `container_name`: optional local Docker readiness gate. When set to `litellm`, it only proves the local gateway container is running; it must not change the warm request destination.
   - `api_key_env`: optional environment variable for upstream API key. Default for Z.ai Coding Plan is `Z_AI_API_KEY`.
-  - `env_file`: optional dotenv-style file path, resolved relative to the TOML file.
+  - `env_file`: optional dotenv file path, resolved relative to the TOML file. Default is `.env.local` in the warmer directory.
   - `health_path`: optional direct target health path. Default is `/models`.
   - `request_timeout_seconds`: timeout used by health check and LiteLLM SDK completion.
 - Plan config `[[plans]]`:
@@ -65,7 +66,8 @@
 ### 5. Good/Base/Bad Cases
 
 - Good: Default config checks optional local `litellm` container but sends `openai/GLM-5.1` to `https://open.bigmodel.cn/api/coding/paas/v4` through LiteLLM SDK.
-- Good: `uv run --script` handles LiteLLM SDK dependency without creating repo-level `requirements.txt`, `pyproject.toml`, or a committed virtual environment.
+- Good: `uv add litellm` records the direct dependency in tool-local `pyproject.toml` and locks it in `uv.lock`; `uv run` syncs the environment before execution.
+- Good: Put real API keys in ignored `.env.local`; commit only `.env.example`.
 - Good: Time calculation is pure and unit-tested separately from HTTP/LiteLLM SDK calls.
 - Base: `fixed_times = ["08:00", "13:00", "18:00", "23:00"]` with `jitter_seconds = 120` schedules each event within two minutes after the base time.
 - Bad: Pointing `[target].base_url` at `http://127.0.0.1:34000` for default GLM warmup, because the request can enter LiteLLM Proxy fallback chains.
@@ -85,8 +87,8 @@
   - prompt, max tokens, temperature and timeout are passed.
 - Dry-run test asserting readiness checks are skipped.
 - Smoke commands:
-  - `uv run --script ai/coding/window-warmer/window_warmer.py --config ai/coding/window-warmer/window-warmer.toml --print-next`
-  - `uv run --script ai/coding/window-warmer/window_warmer.py --config ai/coding/window-warmer/window-warmer.toml --once --dry-run`
+  - From `ai/coding/window-warmer`: `uv run python window_warmer.py --config window-warmer.toml --print-next`
+  - From `ai/coding/window-warmer`: `uv run python window_warmer.py --config window-warmer.toml --once --dry-run`
   - `node -c ai/coding/window-warmer/window-warmer.pm2.config.cjs`
 
 ### 7. Wrong vs Correct
@@ -115,6 +117,7 @@ name = "z-ai-coding-plan"
 base_url = "https://open.bigmodel.cn/api/coding/paas/v4"
 container_name = "litellm"
 api_key_env = "Z_AI_API_KEY"
+env_file = ".env.local"
 health_path = "/models"
 
 [[plans]]

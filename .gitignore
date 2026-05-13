@@ -50,3 +50,4 @@ vitest-report.xml
 
 # python
 *.pyc
+.venv/
