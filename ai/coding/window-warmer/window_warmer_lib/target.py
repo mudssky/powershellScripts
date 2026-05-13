@@ -7,12 +7,15 @@ import os
 import subprocess
 import urllib.error
 import urllib.request
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 from dotenv import dotenv_values
 
 from .models import PlanConfig, TargetConfig
+
+LogFn = Callable[[str], None]
 
 
 def read_env_file(path: Path | None) -> dict[str, str]:
@@ -45,6 +48,29 @@ def read_api_key(config: TargetConfig) -> str | None:
     if env_value:
         return env_value
     return read_env_file(config.env_file).get(config.api_key_env)
+
+
+def read_api_key_with_source(config: TargetConfig) -> tuple[str | None, str]:
+    """读取目标服务 API key 及其来源。
+
+    Args:
+        config: 目标服务连接配置。
+
+    Returns:
+        `(API key, 来源描述)`；未配置或未找到时 API key 为 None。
+    """
+    if config.api_key_env is None:
+        return None, "disabled"
+
+    env_value = os.getenv(config.api_key_env)
+    if env_value:
+        return env_value, f"env:{config.api_key_env}"
+
+    env_values = read_env_file(config.env_file)
+    file_value = env_values.get(config.api_key_env)
+    if file_value:
+        return file_value, f"file:{format_path(config.env_file)}"
+    return None, "missing"
 
 
 def is_container_running(container_name: str) -> tuple[bool, str]:
@@ -199,25 +225,65 @@ def call_litellm_completion(**kwargs: Any) -> None:
     completion(**kwargs)
 
 
-def ensure_target_ready(config: TargetConfig) -> tuple[bool, str, str | None]:
+def ensure_target_ready(config: TargetConfig, log_fn: LogFn | None = None) -> tuple[bool, str, str | None]:
     """确认目标前置条件与 API 均可用。
 
     Args:
         config: 目标服务连接配置。
+        log_fn: 可选日志函数，用于输出检查链路。
 
     Returns:
         `(是否可用, 诊断信息, API key)`。
     """
     if config.container_name is not None:
+        emit(log_fn, f"container check started container={config.container_name}")
         container_running, container_message = is_container_running(config.container_name)
         if not container_running:
+            emit(log_fn, f"container check failed container={config.container_name} reason={container_message}")
             return False, f"容器 {config.container_name} 未就绪: {container_message}", None
+        emit(log_fn, f"container check passed container={config.container_name}")
+    else:
+        emit(log_fn, "container check skipped")
 
-    api_key = read_api_key(config)
+    api_key, api_key_source = read_api_key_with_source(config)
     if config.api_key_env is not None and api_key is None:
+        emit(log_fn, f"api key check failed source={api_key_source} env={config.api_key_env}")
         return False, f"未找到 {config.api_key_env}", None
+    emit(log_fn, f"api key check passed source={api_key_source}")
 
+    if config.health_path is not None:
+        emit(log_fn, f"health check started url={join_url(config.base_url, config.health_path)}")
     api_ready, api_message = is_target_api_ready(config, api_key)
     if not api_ready:
+        emit(log_fn, f"health check failed reason={api_message}")
         return False, f"{config.name} API 未就绪: {api_message}", api_key
-    return True, f"{config.name} 已就绪", api_key
+    emit(log_fn, f"health check passed result={api_message}")
+    return True, f"{config.name} 已就绪 api_key_source={api_key_source}", api_key
+
+
+def emit(log_fn: LogFn | None, message: str) -> None:
+    """按需输出目标检查日志。
+
+    Args:
+        log_fn: 可选日志函数。
+        message: 日志消息。
+
+    Returns:
+        无返回值。
+    """
+    if log_fn is not None:
+        log_fn(message)
+
+
+def format_path(path: Path | None) -> str:
+    """格式化日志中的路径值。
+
+    Args:
+        path: 可选路径。
+
+    Returns:
+        适合日志展示的路径文本。
+    """
+    if path is None:
+        return "none"
+    return str(path)

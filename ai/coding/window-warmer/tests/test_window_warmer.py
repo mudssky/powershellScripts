@@ -252,6 +252,71 @@ class WindowWarmerHttpTests(unittest.TestCase):
 
         self.assertTrue(warmer.warm_plan(config, plan, dry_run=True))
 
+    def test_warm_plan_logs_execution_lifecycle_without_secret(self) -> None:
+        """真实执行应记录关键链路日志且不泄露 prompt 与 API key。
+
+        Args:
+            None.
+
+        Returns:
+            无返回值。
+        """
+        plan = warmer.parse_plan_config(
+            {
+                "name": "glm",
+                "model": "openai/GLM-5.1",
+                "prompt": "secret prompt",
+                "schedule_mode": "fixed_times",
+                "times": ["08:00"],
+            },
+            warmer.SchedulerConfig(True, 60, 120, 1, 30, False),
+        )
+        config = warmer.AppConfig(
+            target=warmer.TargetConfig(
+                name="z-ai",
+                base_url="https://open.bigmodel.cn/api/coding/paas/v4",
+                container_name=None,
+                api_key_env="Z_AI_API_KEY",
+                env_file=None,
+                health_path="/models",
+                request_timeout_seconds=30,
+            ),
+            scheduler=warmer.SchedulerConfig(True, 60, 120, 1, 30, False),
+            plans=(plan,),
+        )
+
+        def ready_with_logs(target: warmer.TargetConfig, log_fn: warmer.target.LogFn | None = None):
+            """模拟已通过前置检查并输出检查日志。
+
+            Args:
+                target: 目标服务配置。
+                log_fn: 可选日志函数。
+
+            Returns:
+                目标可用状态、诊断消息与模拟 API key。
+            """
+            self.assertEqual(target.name, "z-ai")
+            if log_fn is not None:
+                log_fn("container check skipped")
+                log_fn("api key check passed source=file:.env.local")
+                log_fn("health check passed result=target api is ready")
+            return True, "z-ai 已就绪 api_key_source=file:.env.local", "sk-secret"
+
+        with (
+            patch("window_warmer_lib.runner.ensure_target_ready", side_effect=ready_with_logs),
+            patch("window_warmer_lib.runner.send_warm_completion"),
+            patch("window_warmer_lib.runner.log") as log_mock,
+        ):
+            self.assertTrue(warmer.warm_plan(config, plan))
+
+        messages = "\n".join(call.args[0] for call in log_mock.call_args_list)
+        self.assertIn("warm started", messages)
+        self.assertIn("api key check passed source=file:.env.local", messages)
+        self.assertIn("sending warm request", messages)
+        self.assertIn("warm succeeded", messages)
+        self.assertNotIn("sk-secret", messages)
+        self.assertNotIn("secret prompt", messages)
+
     def test_read_api_key_falls_back_to_dotenv_file(self) -> None:
         """API key 应支持从配置指定的 dotenv 文件读取。
 

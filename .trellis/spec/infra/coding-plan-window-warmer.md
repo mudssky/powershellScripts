@@ -48,6 +48,11 @@
   - Warm requests use `litellm.completion(model=plan.model, messages=[...], api_base=target.base_url, api_key=api_key, timeout=..., max_tokens=..., temperature=...)`.
   - The warmer must not call local LiteLLM Proxy `/v1/chat/completions` for default GLM warmup.
   - Health checks may use direct HTTP GET because they are a readiness probe, not the warmup completion.
+- Logging contract:
+  - Watch mode logs the next scheduled event and the due event before calling the warmer.
+  - Each real warmup logs start, container check, API key source, health check, request send, retry wait, final success/failure, and millisecond durations.
+  - Logs may include target name, model, base URL, timeout, max tokens, retry counts, and API key source (`env:<name>` or `file:<path>`).
+  - Logs must not include prompt text, API key values, request headers, or full request body.
 
 ### 4. Validation & Error Matrix
 
@@ -81,6 +86,7 @@
 - Unit tests for `interval` continuous-window rollover across midnight.
 - Unit tests for multiple plans with simultaneous base time remaining independently executable.
 - Config parse tests for multiple `[[plans]]`.
+- Logging regression test asserting real warmups log lifecycle checkpoints without exposing prompt text or API key values.
 - SDK call test mocking the local wrapper around `litellm.completion`, asserting:
   - `model` keeps the configured provider-prefixed model.
   - `api_base` is the direct target URL.

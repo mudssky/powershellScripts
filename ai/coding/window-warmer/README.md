@@ -93,6 +93,8 @@ pm2 start ai/coding/window-warmer/window-warmer.pm2.config.cjs
 pm2 logs coding-window-warmer
 ```
 
+执行日志会包含调度触发、容器检查、API key 来源、健康检查、请求发送、重试、成功/失败和耗时；不会输出 prompt、API key、请求头或完整请求体。
+
 重启：
 
 ```bash
