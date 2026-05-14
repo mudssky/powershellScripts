@@ -18,29 +18,23 @@
   },
   "includeCoAuthoredBy": false,
   "permissions": {
-    "allow": [
-      "Bash",
-      "Edit",
-      "Glob",
-      "Grep",
-      "KillShell",
-      "NotebookEdit",
-      "Read",
-      "TodoWrite",
-      "WebFetch",
-      "WebSearch",
-      "Write",
-      "mcp__ide",
-      "mcp__exa",
-      "mcp__context7",
-      "mcp__mcp-deepwiki",
-      "mcp__Playwright",
-      "mcp__spec-workflow",
-      "mcp__open-websearch",
-      "mcp__serena"
+    "deny": [
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(**/secrets/**)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.gnupg/**)",
+      "Bash(sudo:*)",
+      "Bash(curl:*|*sh*)",
+      "Bash(wget:*|*sh*)"
     ],
-    "deny": [],
-    "defaultMode": "bypassPermissions"
+    "ask": [
+      "Bash(git:push*)",
+      "Bash(rm:-rf*)",
+      "Bash(git:reset:--hard*)",
+      "WebFetch"
+    ]
   },
   "hooks": {},
   "statusLine": {
