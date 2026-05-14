@@ -115,6 +115,7 @@ $bundleParts = @(
     'commands/backup.ps1'
     'commands/restore.ps1'
     'commands/import-csv.ps1'
+    'commands/pgbackrest.ps1'
     'commands/install-tools.ps1'
 )
 

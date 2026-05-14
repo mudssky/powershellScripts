@@ -1,0 +1,15 @@
+# 本目录的 .local 文件保存真实主机、路径或密码，不进入 Git。
+*.local
+*.local.conf
+*.env.local
+pgbackrest.conf.local
+pgbackrest.env.local
+pgpass.local
+
+# 备份产物通常体积较大，按本机运行态处理。
+backups/
+table-dumps/
+logs/
+*.dump
+*.backup
+*.sql
