@@ -13,3 +13,4 @@ a053585ea44ac895a0ca0ef7bc3c2ea3ba222cb4:config/nginx/README.md:curl-auth-user:5
 a053585ea44ac895a0ca0ef7bc3c2ea3ba222cb4:config/nginx/README.md:curl-auth-user:51
 3c5be6d685253934414abc7ae345b7ae2abee3c7:config/software/gitea/app.ini:generic-api-key:29
 3c5be6d685253934414abc7ae345b7ae2abee3c7:config/software/gitea/app.ini:generic-api-key:107
+3c5be6d685253934414abc7ae345b7ae2abee3c7:config/software/gitea/app.ini:jwt:76
