@@ -109,3 +109,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 4: GitHub CLI download installer
+
+**Date**: 2026-05-17
+**Task**: GitHub CLI download installer
+**Branch**: `master`
+
+### Summary
+
+Implemented a cross-platform PowerShell GitHub Release CLI downloader and installer with JSON config, example betterleaks config, tests, and full PowerShell QA.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ea4044c` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
