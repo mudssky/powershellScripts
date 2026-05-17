@@ -1,0 +1,15 @@
+261f6cd9023fde9a8997cb1e393d2d7c8ef32019:ai/coding/claude/.claude/settings.json:generic-api-key:10
+4d56e826b77bdc9fe2f54823a39463c92b3079c3:ai/gateway/litellm/litellm.md:curl-auth-header:129
+f5f22be21d6377cb36979836693227f9fc4cc17e:ai/gateway/litellm/litellm.md:curl-auth-header:112
+12275aae81c270c007ab27ce7d1882d511c5a4be:ai/self-hosted/lobehub/.env.example:generic-api-key:43
+12275aae81c270c007ab27ce7d1882d511c5a4be:ai/self-hosted/lobehub/.env.example:generic-api-key:47
+a916428a6051735cb4e5d35520cb4b6e31892f04:ai/self-hosted/lobehub/searxng-settings.yml:generic-api-key:98
+b93f452b02f762ddf1b7a441df517b011c07c8d2:ai/gateway/litellm/litellm.md:curl-auth-header:92
+61cb7e09f59b3847cb75805ea739a66121c3a270:.trae/documents/在 apps-config.json 中新增 Bun 包管理器并镜像 npm 工具.md:generic-api-key:103
+61cb7e09f59b3847cb75805ea739a66121c3a270:.trae/documents/在 apps-config.json 中新增 Bun 包管理器并镜像 npm 工具.md:generic-api-key:161
+61cb7e09f59b3847cb75805ea739a66121c3a270:.trae/documents/在 apps-config.json 中新增 Bun 包管理器并镜像 npm 工具.md:jwt:146
+a053585ea44ac895a0ca0ef7bc3c2ea3ba222cb4:config/nginx/README.md:curl-auth-header:61
+a053585ea44ac895a0ca0ef7bc3c2ea3ba222cb4:config/nginx/README.md:curl-auth-user:50
+a053585ea44ac895a0ca0ef7bc3c2ea3ba222cb4:config/nginx/README.md:curl-auth-user:51
+3c5be6d685253934414abc7ae345b7ae2abee3c7:config/software/gitea/app.ini:generic-api-key:29
+3c5be6d685253934414abc7ae345b7ae2abee3c7:config/software/gitea/app.ini:generic-api-key:107

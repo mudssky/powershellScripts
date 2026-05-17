@@ -9,4 +9,5 @@ export default {
   '*.py': ['uvx ruff check --fix', 'uvx ruff format'],
   '*.lua': 'stylua',
   '**/*.ipynb': ['nbstripout'],
+  '*': () => 'betterleaks git --pre-commit --staged --redact -v',
 }
