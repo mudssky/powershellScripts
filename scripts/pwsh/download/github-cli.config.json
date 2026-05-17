@@ -1,0 +1,24 @@
+{
+    "download_dir": ".github-cli-downloads",
+    "install_dirs": {
+        "windows": "%USERPROFILE%\\.local\\bin",
+        "linux": "~/.local/bin",
+        "macos": "~/.local/bin"
+    },
+    "tools": [
+        {
+            "name": "betterleaks",
+            "repo": "betterleaks/betterleaks",
+            "tag": "latest",
+            "executable": "betterleaks",
+            "asset_patterns": {
+                "windows-x64": "betterleaks_*_windows_x64.zip",
+                "windows-arm64": "betterleaks_*_windows_arm64.zip",
+                "linux-x64": "betterleaks_*_linux_x64.tar.gz",
+                "linux-arm64": "betterleaks_*_linux_arm64.tar.gz",
+                "macos-x64": "betterleaks_*_darwin_x64.tar.gz",
+                "macos-arm64": "betterleaks_*_darwin_arm64.tar.gz"
+            }
+        }
+    ]
+}
