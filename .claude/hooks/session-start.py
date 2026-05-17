@@ -73,14 +73,27 @@ Trellis SessionStart 已注入：workflow、当前任务状态、开发者身份
 Then continue directly with the user's request. This notice is one-shot: do not repeat it after the first assistant reply in the same session.
 </first-reply-notice>"""
 
-# IMPORTANT: Force stdout to use UTF-8 on Windows
-# This fixes UnicodeEncodeError when outputting non-ASCII characters
+# Force UTF-8 on stdin/stdout/stderr on Windows. Default codepage there is
+# cp936 / cp1252 / etc. — non-ASCII content (Chinese task names, prd snippets)
+# both in stdin (hook payload from host CLI) and stdout (our emitted blocks)
+# raises UnicodeDecodeError / UnicodeEncodeError. Equivalent to `python -X utf8`
+# but applied per-stream so we don't depend on host CLI's command wiring.
 if sys.platform.startswith("win"):
     import io as _io
-    if hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
-    elif hasattr(sys.stdout, "detach"):
-        sys.stdout = _io.TextIOWrapper(sys.stdout.detach(), encoding="utf-8", errors="replace")  # type: ignore[union-attr]
+    for _stream_name in ("stdin", "stdout", "stderr"):
+        _stream = getattr(sys, _stream_name, None)
+        if _stream is None:
+            continue
+        if hasattr(_stream, "reconfigure"):
+            try:
+                _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
+            except Exception:
+                pass
+        elif hasattr(_stream, "detach"):
+            try:
+                setattr(sys, _stream_name, _io.TextIOWrapper(_stream.detach(), encoding="utf-8", errors="replace"))
+            except Exception:
+                pass
 
 
 
@@ -289,7 +302,7 @@ def _get_task_status(trellis_dir: Path, input_data: dict) -> str:
             "Status: NO ACTIVE TASK\n"
             f"Source: {active.source}\n"
             "Next-Action: After the user describes their intent, load skill `trellis-brainstorm` "
-            "to clarify requirements and create a task via `python3 ./.trellis/scripts/task.py create`.\n"
+            "to clarify requirements and create a task via `python ./.trellis/scripts/task.py create`.\n"
             "Research reminder: for research-heavy tasks (comparing tools, reading external docs, "
             "cross-platform surveys), spawn `trellis-research` sub-agents via the Task tool — "
             "they persist findings to `{TASK_DIR}/research/*.md` and keep main context clean. "
@@ -307,7 +320,7 @@ def _get_task_status(trellis_dir: Path, input_data: dict) -> str:
         return (
             f"Status: STALE POINTER\nTask: {task_ref}\n"
             f"Source: {active.source}\n"
-            f"Next-Action: Run `python3 ./.trellis/scripts/task.py finish` to clear the stale pointer, "
+            f"Next-Action: Run `python ./.trellis/scripts/task.py finish` to clear the stale pointer, "
             "then ask the user what to work on next."
         )
 
@@ -329,7 +342,7 @@ def _get_task_status(trellis_dir: Path, input_data: dict) -> str:
             f"Status: COMPLETED\nTask: {task_title}\n"
             f"Source: {active.source}\n"
             f"Next-Action: Load skill `trellis-update-spec` to capture learnings, "
-            f"then archive with `python3 ./.trellis/scripts/task.py archive {task_dir.name}`."
+            f"then archive with `python ./.trellis/scripts/task.py archive {task_dir.name}`."
         )
 
     has_prd = (task_dir / "prd.md").is_file()
@@ -355,8 +368,8 @@ def _get_task_status(trellis_dir: Path, input_data: dict) -> str:
             "Next-Action: Curate `implement.jsonl` and `check.jsonl` with the spec + research files "
             "the Phase 2 sub-agents will need. Only spec paths (`.trellis/spec/**/*.md`) and research "
             "files (`{TASK_DIR}/research/*.md`) — no code paths. Run "
-            "`python3 ./.trellis/scripts/get_context.py --mode packages` to list available specs, "
-            "then edit the jsonl files or use `python3 ./.trellis/scripts/task.py add-context`. "
+            "`python ./.trellis/scripts/get_context.py --mode packages` to list available specs, "
+            "then edit the jsonl files or use `python ./.trellis/scripts/task.py add-context`. "
             "See `.trellis/workflow.md` Phase 1.3 for details."
         )
 
@@ -751,7 +764,7 @@ Read and follow all instructions below carefully.
 
     output.write(
         "Discover more via: "
-        "`python3 ./.trellis/scripts/get_context.py --mode packages`\n"
+        "`python ./.trellis/scripts/get_context.py --mode packages`\n"
     )
     output.write("</guidelines>\n\n")
 
@@ -765,11 +778,15 @@ When the user sends the first message, follow <task-status> and the workflow gui
 If a task is READY, execute its Next required action without asking whether to continue.
 </ready>""")
 
+    context_text = output.getvalue()
     result = {
+        # Claude Code / Qoder / CodeBuddy / Droid / Gemini / Copilot format
         "hookSpecificOutput": {
             "hookEventName": "SessionStart",
-            "additionalContext": output.getvalue(),
-        }
+            "additionalContext": context_text,
+        },
+        # Cursor sessionStart format (top-level snake_case per Cursor docs)
+        "additional_context": context_text,
     }
 
     # Output JSON - stdout is already configured for UTF-8

@@ -18,6 +18,28 @@ import warnings
 from io import StringIO
 from pathlib import Path
 
+# Force UTF-8 on stdin/stdout/stderr on Windows. Default codepage there is
+# cp936 / cp1252 / etc. — non-ASCII content (Chinese task names, prd snippets)
+# both in stdin (hook payload from host CLI) and stdout (our emitted blocks)
+# raises UnicodeDecodeError / UnicodeEncodeError. Equivalent to `python -X utf8`
+# but applied per-stream so we don't depend on host CLI's command wiring.
+if sys.platform.startswith("win"):
+    import io as _io
+    for _stream_name in ("stdin", "stdout", "stderr"):
+        _stream = getattr(sys, _stream_name, None)
+        if _stream is None:
+            continue
+        if hasattr(_stream, "reconfigure"):
+            try:
+                _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
+            except Exception:
+                pass
+        elif hasattr(_stream, "detach"):
+            try:
+                setattr(sys, _stream_name, _io.TextIOWrapper(_stream.detach(), encoding="utf-8", errors="replace"))
+            except Exception:
+                pass
+
 
 def _normalize_windows_shell_path(path_str: str) -> str:
     """Normalize Unix-style shell paths to real Windows paths.
@@ -223,7 +245,7 @@ def _get_task_status(trellis_dir: Path, hook_input: dict) -> str:
     task_ref = active.task_path
     task_dir = _resolve_task_dir(trellis_dir, task_ref)
     if active.stale or not task_dir.is_dir():
-        return f"Status: STALE POINTER\nTask: {task_ref}\nSource: {active.source}\nNext: Task directory not found. Run: python3 ./.trellis/scripts/task.py finish"
+        return f"Status: STALE POINTER\nTask: {task_ref}\nSource: {active.source}\nNext: Task directory not found. Run: python ./.trellis/scripts/task.py finish"
 
     task_json_path = task_dir / "task.json"
     task_data: dict = {}
@@ -237,7 +259,7 @@ def _get_task_status(trellis_dir: Path, hook_input: dict) -> str:
     task_status = task_data.get("status", "unknown")
 
     if task_status == "completed":
-        return f"Status: COMPLETED\nTask: {task_title}\nSource: {active.source}\nNext: Archive with `python3 ./.trellis/scripts/task.py archive {task_dir.name}` or start a new task"
+        return f"Status: COMPLETED\nTask: {task_title}\nSource: {active.source}\nNext: Archive with `python ./.trellis/scripts/task.py archive {task_dir.name}` or start a new task"
 
     has_context = False
     for jsonl_name in ("implement.jsonl", "check.jsonl", "spec.jsonl"):
@@ -429,7 +451,7 @@ Read and follow all instructions below carefully.
 
     output.write(
         "Discover more via: "
-        "`python3 ./.trellis/scripts/get_context.py --mode packages`\n"
+        "`python ./.trellis/scripts/get_context.py --mode packages`\n"
     )
     output.write("</guidelines>\n\n")
 

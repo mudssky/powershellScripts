@@ -19,7 +19,7 @@ git status
 ## Step 2: Read Applicable Specs
 
 ```bash
-python3 ./.trellis/scripts/get_context.py --mode packages
+python ./.trellis/scripts/get_context.py --mode packages
 ```
 
 For each changed package/layer, read the spec index and follow its **Quality Check** section:
