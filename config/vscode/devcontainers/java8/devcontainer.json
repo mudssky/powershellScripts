@@ -1,0 +1,51 @@
+{
+  "name": "java8-devcontainer",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
+  "remoteUser": "vscode",
+  "containerUser": "vscode",
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {},
+    "ghcr.io/devcontainers/features/java:1": {
+      "version": "8",
+      "jdkDistro": "tem",
+      "installMaven": true,
+      "mavenVersion": "latest",
+      "installGradle": false
+    },
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "lts",
+      "nodeGypDependencies": false,
+      "pnpmVersion": "none",
+      "installYarnUsingApt": false
+    }
+  },
+  "initializeCommand": "mkdir -p \"$HOME/.m2/repository\" \"$HOME/.codex\" \"$HOME/.claude\" && touch \"$HOME/.claude.json\"",
+  "mounts": [
+    "source=${localEnv:HOME}/.m2,target=/mnt/host-configs/m2,type=bind,readonly",
+    "source=${localEnv:HOME}/.m2/repository,target=/home/vscode/.m2/repository,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.codex,target=/mnt/host-configs/codex,type=bind,readonly",
+    "source=${localEnv:HOME}/.claude,target=/mnt/host-configs/claude,type=bind,readonly",
+    "source=${localEnv:HOME}/.claude.json,target=/mnt/host-configs/claude.json,type=bind,readonly"
+  ],
+  "remoteEnv": {
+    "MAVEN_OPTS": "-Dmaven.repo.local=/home/vscode/.m2/repository"
+  },
+  "postCreateCommand": "bash .devcontainer/scripts/bootstrap-host-configs.sh && (npm install -g @openai/codex @anthropic-ai/claude-code || sudo env \"PATH=$PATH\" npm install -g @openai/codex @anthropic-ai/claude-code)",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "java.configuration.updateBuildConfiguration": "interactive",
+        "java.import.maven.enabled": true,
+        "java.maven.downloadSources": true,
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "files.eol": "\n"
+      },
+      "extensions": [
+        "vscjava.vscode-java-pack",
+        "vscjava.vscode-maven",
+        "redhat.vscode-xml",
+        "EditorConfig.EditorConfig"
+      ]
+    }
+  }
+}

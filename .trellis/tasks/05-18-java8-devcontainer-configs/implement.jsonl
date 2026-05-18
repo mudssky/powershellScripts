@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/05-18-java8-devcontainer-configs/research/devcontainer-template-notes.md", "reason": "Dev Container 模板字段、Java Feature、Maven 与 AI Agent 配置复用策略"}
+{"file": ".trellis/spec/infra/devcontainer-templates.md", "reason": "Dev Container 标准模板、宿主配置挂载与 Agent CLI 复用约定"}
+{"file": ".trellis/spec/infra/index.md", "reason": "基础设施配置与本地工具链约定入口"}
+{"file": ".trellis/spec/guides/index.md", "reason": "配置模板变更前的复用与边界思考指南"}

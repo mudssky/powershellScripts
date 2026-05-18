@@ -13,3 +13,4 @@
 | [Node/Vitest Scripts](./node-vitest-scripts.md) | 根目录 Vitest 发现的 Node 脚本测试与 shebang 行尾约定 | Active |
 | [PostgreSQL Toolkit](./postgresql-toolkit.md) | PostgreSQL / pgBackRest 命令边界、env 解析和备份范围约定 | Active |
 | [rathole template](./rathole.md) | rathole 裸二进制、PM2 管理、`.local.toml` 与公网白名单转发模板约定 | Active |
+| [Dev Container Templates](./devcontainer-templates.md) | VS Code Dev Container 标准模板、宿主配置挂载与 Agent CLI 复用约定 | Active |
