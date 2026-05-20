@@ -245,6 +245,21 @@ Describe 'Skills 安装计划执行' {
         Invoke-SkillsToolStep -Tool $tool -LogPath '' -CommandRunner $runner -WhatIf
     }
 
+    It '外部命令成功退出时正确记录退出码' {
+        $logPath = Join-Path $TestDrive 'external-command.log'
+        $pwshPath = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
+
+        $result = Invoke-SkillsExternalCommand `
+            -Command $pwshPath `
+            -Arguments @('-NoLogo', '-NoProfile', '-Command', 'Write-Output "ok"') `
+            -WorkingDirectory $TestDrive `
+            -LogPath $logPath
+
+        $result.ExitCode | Should -Be 0
+        $result.StdOut | Should -Match 'ok'
+        Get-Content -Raw -LiteralPath $logPath | Should -Match 'EXIT 0'
+    }
+
     It '附带命令按 pre/install/post 顺序进入执行计划' {
         $configPath = Join-Path $TestDrive 'skills.config.json'
         Set-Content -LiteralPath $configPath -Encoding utf8NoBOM -Value @'

@@ -1115,8 +1115,12 @@ function Confirm-SkillsInstallPlan {
         return $false
     }
 
-    $answer = Read-Host '继续执行以上安装计划？输入 y 确认'
-    return $answer -in @('y', 'Y', 'yes', 'YES')
+    $choices = [System.Management.Automation.Host.ChoiceDescription[]]@(
+        [System.Management.Automation.Host.ChoiceDescription]::new('&Yes', '执行以上安装计划。'),
+        [System.Management.Automation.Host.ChoiceDescription]::new('&No', '取消安装计划。')
+    )
+    $selected = $Host.UI.PromptForChoice('确认安装计划', '继续执行以上安装计划？', $choices, 1)
+    return $selected -eq 0
 }
 
 function New-SkillsLogFile {
@@ -1237,6 +1241,7 @@ function Invoke-SkillsExternalCommand {
         $process.WaitForExit()
         $stdout = $stdoutTask.GetAwaiter().GetResult()
         $stderr = $stderrTask.GetAwaiter().GetResult()
+        $exitCode = $process.ExitCode
     }
     finally {
         $process.Dispose()
@@ -1251,15 +1256,15 @@ function Invoke-SkillsExternalCommand {
         Write-SkillsLogLine -LogPath $LogPath -Message "STDERR $($stderr.TrimEnd())"
     }
 
-    Write-SkillsLogLine -LogPath $LogPath -Message "EXIT $($process.ExitCode)"
+    Write-SkillsLogLine -LogPath $LogPath -Message "EXIT $exitCode"
     $result = [pscustomobject]@{
-        ExitCode = $process.ExitCode
+        ExitCode = $exitCode
         StdOut   = $stdout
         StdErr   = $stderr
     }
 
-    if ($process.ExitCode -ne 0 -and -not $AllowFailure) {
-        throw "外部命令执行失败($($process.ExitCode)): $commandLine"
+    if ($exitCode -ne 0 -and -not $AllowFailure) {
+        throw "外部命令执行失败($exitCode): $commandLine"
     }
 
     return $result
