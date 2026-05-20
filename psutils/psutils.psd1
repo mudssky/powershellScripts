@@ -105,7 +105,7 @@
         # 命令探测模块 (commandDiscovery.psm1)
         'Find-ExecutableCommand',
         # 配置管理模块 (config.psm1)
-        'Resolve-ConfigSources', 'Invoke-WithScopedEnvironment', 'ConvertTo-ConfigKeyName', 'ConvertFrom-ConfigCliParameters',
+        'Resolve-ConfigSources', 'Invoke-WithScopedEnvironment', 'ConvertTo-ConfigHashtable', 'Get-ConfigValue', 'ConvertTo-ConfigKeyName', 'ConvertFrom-ConfigCliParameters',
         'Read-ConfigPowerShellDataFile', 'Read-ConfigMarkdownFrontMatter',
         # 环境管理模块 (env.psm1)
         'Get-Dotenv', 'Install-Dotenv', 'Import-EnvPath', 'Set-EnvPath', 'Add-EnvPath', 'Get-EnvParam', 'Remove-FromEnvPath', 'Sync-PathFromBash',

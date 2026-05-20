@@ -102,6 +102,40 @@ Describe 'Resolve-DefaultEnvFiles' {
     }
 }
 
+Describe 'Config object helpers' {
+    It '将 IDictionary 转换为普通 hashtable' {
+        $dictionary = [System.Collections.Specialized.OrderedDictionary]::new()
+        $dictionary['Name'] = 'agent-browser'
+        $dictionary['Enabled'] = $true
+
+        $result = ConvertTo-ConfigHashtable -InputObject $dictionary
+
+        $result | Should -BeOfType hashtable
+        $result.Name | Should -Be 'agent-browser'
+        $result.Enabled | Should -BeTrue
+    }
+
+    It '按大小写不敏感方式读取配置值并保留原始类型' {
+        $values = @{
+            RetryCount = 3
+            Agents     = @('claude', 'codex')
+        }
+
+        $retryCount = Get-ConfigValue -Values $values -Name 'retrycount'
+        $agents = Get-ConfigValue -Values $values -Name 'AGENTS'
+
+        $retryCount | Should -Be 3
+        $retryCount | Should -BeOfType int
+        $agents | Should -Be @('claude', 'codex')
+    }
+
+    It '未命中配置键时返回默认值' {
+        $result = Get-ConfigValue -Values @{ Name = 'ctx7' } -Name 'missing' -DefaultValue 'fallback'
+
+        $result | Should -Be 'fallback'
+    }
+}
+
 Describe 'Invoke-WithScopedEnvironment' {
     AfterEach {
         Remove-Item Env:\CONFIG_TEST_NEW -ErrorAction SilentlyContinue

@@ -6,8 +6,8 @@ $ErrorActionPreference = 'Stop'
     将任意配置对象规范化为 hashtable。
 
 .DESCRIPTION
-    允许上层调用方传入 `hashtable`、`PSCustomObject` 或其他带属性对象，
-    统一转换为便于后续合并的键值表。
+    允许上层调用方传入 `hashtable`、`System.Collections.IDictionary`、
+    `PSCustomObject` 或其他带属性对象，统一转换为便于后续合并的键值表。
 
 .PARAMETER InputObject
     待转换的配置对象；传入 `$null` 时返回空表。
@@ -32,12 +32,63 @@ function ConvertTo-ConfigHashtable {
         return @{} + $InputObject
     }
 
+    if ($InputObject -is [System.Collections.IDictionary]) {
+        $dictionaryResult = @{}
+        foreach ($key in $InputObject.Keys) {
+            $dictionaryResult[[string]$key] = $InputObject[$key]
+        }
+        return $dictionaryResult
+    }
+
     $result = @{}
     foreach ($property in $InputObject.PSObject.Properties) {
         $result[$property.Name] = $property.Value
     }
 
     return $result
+}
+
+<#
+.SYNOPSIS
+    按大小写不敏感方式读取配置值。
+
+.DESCRIPTION
+    在浅层配置表中查找指定键名。匹配只忽略大小写，不做键名规范化、
+    嵌套路径解析或环境变量展开，适合业务脚本读取已经合并好的配置对象。
+
+.PARAMETER Values
+    配置键值表。
+
+.PARAMETER Name
+    要读取的配置键名。
+
+.PARAMETER DefaultValue
+    未命中配置键时返回的默认值。
+
+.OUTPUTS
+    object
+    返回命中的原始配置值；未命中时返回默认值。
+#>
+function Get-ConfigValue {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [hashtable]$Values,
+
+        [Parameter(Mandatory)]
+        [string]$Name,
+
+        [AllowNull()]
+        [object]$DefaultValue = $null
+    )
+
+    foreach ($entry in $Values.GetEnumerator()) {
+        if ([string]::Equals([string]$entry.Key, $Name, [System.StringComparison]::OrdinalIgnoreCase)) {
+            return $entry.Value
+        }
+    }
+
+    return $DefaultValue
 }
 
 <#

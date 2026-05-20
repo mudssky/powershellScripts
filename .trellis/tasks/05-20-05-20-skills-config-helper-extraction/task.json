@@ -1,7 +1,7 @@
 {
-  "id": "skills-installer-config",
-  "name": "skills-installer-config",
-  "title": "brainstorm: skills 安装脚本",
+  "id": "05-20-skills-config-helper-extraction",
+  "name": "05-20-skills-config-helper-extraction",
+  "title": "skills config helper extraction",
   "description": "",
   "status": "in_progress",
   "dev_type": null,
@@ -18,12 +18,8 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [
-    "05-20-05-20-skills-config-helper-extraction",
-    "05-20-skills-config-path-placeholder-extraction",
-    "05-20-skills-installer-private-module-split"
-  ],
-  "parent": null,
+  "children": [],
+  "parent": "05-20-skills-installer-config",
   "relatedFiles": [],
   "notes": "",
   "meta": {}

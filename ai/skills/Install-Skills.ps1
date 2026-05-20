@@ -59,7 +59,6 @@ $ErrorActionPreference = 'Stop'
 
 $script:SkillsInstallerRoot = $PSScriptRoot
 $script:SkillsRepoRoot = [System.IO.Path]::GetFullPath((Join-Path $script:SkillsInstallerRoot '..' '..'))
-$script:SkillsConfigModuleLoaded = $false
 
 $skillsProcessModulePath = Join-Path $script:SkillsRepoRoot 'psutils/modules/process.psm1'
 if (-not (Test-Path -LiteralPath $skillsProcessModulePath -PathType Leaf)) {
@@ -67,87 +66,11 @@ if (-not (Test-Path -LiteralPath $skillsProcessModulePath -PathType Leaf)) {
 }
 Import-Module $skillsProcessModulePath -Force
 
-function ConvertTo-SkillsHashtable {
-    <#
-    .SYNOPSIS
-        将配置节点转换为 hashtable。
-
-    .DESCRIPTION
-        JSON 配置经过共享解析器读取后，嵌套对象仍可能是 PSCustomObject。
-        此函数只做业务层需要的浅层转换，避免直接操作对象属性导致大小写或类型漂移。
-
-    .PARAMETER InputObject
-        待转换的配置对象；传入空值时返回空表。
-
-    .OUTPUTS
-        hashtable。转换后的浅层键值表。
-    #>
-    [CmdletBinding()]
-    param(
-        [AllowNull()]
-        [object]$InputObject
-    )
-
-    if ($null -eq $InputObject) {
-        return @{}
-    }
-
-    if ($InputObject -is [hashtable]) {
-        return @{} + $InputObject
-    }
-
-    if ($InputObject -is [System.Collections.IDictionary]) {
-        $result = @{}
-        foreach ($key in $InputObject.Keys) {
-            $result[[string]$key] = $InputObject[$key]
-        }
-        return $result
-    }
-
-    $objectResult = @{}
-    foreach ($property in $InputObject.PSObject.Properties) {
-        $objectResult[$property.Name] = $property.Value
-    }
-    return $objectResult
+$skillsConfigModulePath = Join-Path $script:SkillsRepoRoot 'psutils/modules/config.psm1'
+if (-not (Test-Path -LiteralPath $skillsConfigModulePath -PathType Leaf)) {
+    throw "未找到共享配置解析器模块: $skillsConfigModulePath"
 }
-
-function Get-SkillsConfigValue {
-    <#
-    .SYNOPSIS
-        按大小写不敏感方式读取配置值。
-
-    .PARAMETER Values
-        配置键值表。
-
-    .PARAMETER Name
-        要读取的键名。
-
-    .PARAMETER DefaultValue
-        未命中时返回的默认值。
-
-    .OUTPUTS
-        object。命中的值或默认值。
-    #>
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [hashtable]$Values,
-
-        [Parameter(Mandatory)]
-        [string]$Name,
-
-        [AllowNull()]
-        [object]$DefaultValue = $null
-    )
-
-    foreach ($entry in $Values.GetEnumerator()) {
-        if ([string]::Equals([string]$entry.Key, $Name, [System.StringComparison]::OrdinalIgnoreCase)) {
-            return $entry.Value
-        }
-    }
-
-    return $DefaultValue
-}
+Import-Module $skillsConfigModulePath -Force
 
 function ConvertTo-SkillsStringArray {
     <#
@@ -185,34 +108,6 @@ function ConvertTo-SkillsStringArray {
     }
 
     return [string[]]@($items | ForEach-Object { [string]$_ } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.Trim() })
-}
-
-function Import-SkillsConfigModule {
-    <#
-    .SYNOPSIS
-        加载仓库共享配置解析模块。
-
-    .DESCRIPTION
-        通过 `psutils/modules/config.psm1` 复用 `psutils/src/config` 的 JSON 配置读取逻辑，
-        让脚本只负责声明来源和业务校验。
-
-    .OUTPUTS
-        None。模块加载到当前会话。
-    #>
-    [CmdletBinding()]
-    param()
-
-    if ($script:SkillsConfigModuleLoaded) {
-        return
-    }
-
-    $configModulePath = Join-Path $script:SkillsRepoRoot 'psutils/modules/config.psm1'
-    if (-not (Test-Path -LiteralPath $configModulePath -PathType Leaf)) {
-        throw "未找到共享配置解析器模块: $configModulePath"
-    }
-
-    Import-Module $configModulePath -Force
-    $script:SkillsConfigModuleLoaded = $true
 }
 
 function Resolve-SkillsDefaultConfigPath {
@@ -448,15 +343,15 @@ function Test-SkillsDirectoryCheck {
     )
 
     $skillNames = @(
-        ConvertTo-SkillsStringArray -Value (Get-SkillsConfigValue -Values $Check -Name 'skill')
-        ConvertTo-SkillsStringArray -Value (Get-SkillsConfigValue -Values $Check -Name 'skills')
-        ConvertTo-SkillsStringArray -Value (Get-SkillsConfigValue -Values $Check -Name 'skillNames')
+        ConvertTo-SkillsStringArray -Value (Get-ConfigValue -Values $Check -Name 'skill')
+        ConvertTo-SkillsStringArray -Value (Get-ConfigValue -Values $Check -Name 'skills')
+        ConvertTo-SkillsStringArray -Value (Get-ConfigValue -Values $Check -Name 'skillNames')
     )
     if (@($skillNames).Count -eq 0) {
         return $false
     }
 
-    $agents = @(ConvertTo-SkillsStringArray -Value (Get-SkillsConfigValue -Values $Check -Name 'agents' -DefaultValue @('claude', 'codex')))
+    $agents = @(ConvertTo-SkillsStringArray -Value (Get-ConfigValue -Values $Check -Name 'agents' -DefaultValue @('claude', 'codex')))
     foreach ($agentName in $agents) {
         $mappedAgent = ConvertTo-SkillsCliAgent -Agent $agentName
         if (Test-SkillsAgentSkillInstalled -Agent $mappedAgent -SkillNames $skillNames) {
@@ -646,7 +541,6 @@ function Read-SkillsInstallerConfig {
         throw 'skills 安装配置仅支持 JSON 文件。'
     }
 
-    Import-SkillsConfigModule
     $resolvedPath = [System.IO.Path]::GetFullPath($effectivePath)
     $basePath = Split-Path -Parent $resolvedPath
     $sources = New-Object 'System.Collections.Generic.List[hashtable]'
@@ -738,12 +632,12 @@ function Resolve-SkillsAgents {
         $OverrideAgents
     }
     else {
-        $itemAgents = @(ConvertTo-SkillsStringArray -Value (Get-SkillsConfigValue -Values $Item -Name 'agents'))
+        $itemAgents = @(ConvertTo-SkillsStringArray -Value (Get-ConfigValue -Values $Item -Name 'agents'))
         if (@($itemAgents).Count -gt 0) {
             $itemAgents
         }
         else {
-            @(ConvertTo-SkillsStringArray -Value (Get-SkillsConfigValue -Values $ConfigValues -Name 'agents' -DefaultValue @('claude', 'codex')))
+            @(ConvertTo-SkillsStringArray -Value (Get-ConfigValue -Values $ConfigValues -Name 'agents' -DefaultValue @('claude', 'codex')))
         }
     }
 
@@ -785,7 +679,7 @@ function Resolve-SkillsScope {
         [hashtable]$Item = @{}
     )
 
-    $scope = [string](Get-SkillsConfigValue -Values $Item -Name 'scope' -DefaultValue (Get-SkillsConfigValue -Values $ConfigValues -Name 'scope' -DefaultValue 'global'))
+    $scope = [string](Get-ConfigValue -Values $Item -Name 'scope' -DefaultValue (Get-ConfigValue -Values $ConfigValues -Name 'scope' -DefaultValue 'global'))
     $scope = $scope.Trim().ToLowerInvariant()
     if ($scope -notin @('global', 'project')) {
         throw "不支持的 scope: $scope"
@@ -853,12 +747,12 @@ function Resolve-SkillsSource {
         [string]$BasePath
     )
 
-    $source = [string](Get-SkillsConfigValue -Values $Item -Name 'source')
+    $source = [string](Get-ConfigValue -Values $Item -Name 'source')
     if ([string]::IsNullOrWhiteSpace($source)) {
         throw "skill '$SkillName' 缺少 source。"
     }
 
-    $sourceType = [string](Get-SkillsConfigValue -Values $Item -Name 'sourceType' -DefaultValue '')
+    $sourceType = [string](Get-ConfigValue -Values $Item -Name 'sourceType' -DefaultValue '')
     $isLocal = Test-SkillsLocalSource -Source $source -SourceType $sourceType
     $resolvedSource = if ($isLocal) {
         $localPath = Resolve-SkillsPath -Path $source -BasePath $BasePath -Context "$SkillName.source"
@@ -979,18 +873,18 @@ function ConvertTo-SkillsCommandPlan {
     $index = 0
     foreach ($rawCommand in $items) {
         $index += 1
-        $commandConfig = if ($rawCommand -is [string]) { @{ command = $rawCommand } } else { ConvertTo-SkillsHashtable -InputObject $rawCommand }
-        $command = [string](Get-SkillsConfigValue -Values $commandConfig -Name 'command')
+        $commandConfig = if ($rawCommand -is [string]) { @{ command = $rawCommand } } else { ConvertTo-ConfigHashtable -InputObject $rawCommand }
+        $command = [string](Get-ConfigValue -Values $commandConfig -Name 'command')
         if ([string]::IsNullOrWhiteSpace($command)) {
             throw "$OwnerName.commands[$index] 缺少 command。"
         }
 
-        $phase = [string](Get-SkillsConfigValue -Values $commandConfig -Name 'phase' -DefaultValue $DefaultPhase)
+        $phase = [string](Get-ConfigValue -Values $commandConfig -Name 'phase' -DefaultValue $DefaultPhase)
         if ($phase -notin @('preInstall', 'postInstall')) {
             throw "$OwnerName.commands[$index] phase 只支持 preInstall 或 postInstall。"
         }
 
-        $workingDirectoryValue = [string](Get-SkillsConfigValue -Values $commandConfig -Name 'workingDirectory' -DefaultValue '')
+        $workingDirectoryValue = [string](Get-ConfigValue -Values $commandConfig -Name 'workingDirectory' -DefaultValue '')
         $workingDirectory = if ([string]::IsNullOrWhiteSpace($workingDirectoryValue)) {
             $BasePath
         }
@@ -1001,10 +895,10 @@ function ConvertTo-SkillsCommandPlan {
         $plans.Add([pscustomobject]@{
                 Type             = 'Command'
                 Owner            = $OwnerName
-                Name             = [string](Get-SkillsConfigValue -Values $commandConfig -Name 'name' -DefaultValue "$OwnerName-command-$index")
+                Name             = [string](Get-ConfigValue -Values $commandConfig -Name 'name' -DefaultValue "$OwnerName-command-$index")
                 Phase            = $phase
                 Command          = $command.Trim()
-                Arguments        = ConvertTo-SkillsStringArray -Value (Get-SkillsConfigValue -Values $commandConfig -Name 'args')
+                Arguments        = ConvertTo-SkillsStringArray -Value (Get-ConfigValue -Values $commandConfig -Name 'args')
                 WorkingDirectory = $workingDirectory
             }) | Out-Null
     }
@@ -1044,7 +938,7 @@ function New-SkillsPlanFromConfig {
         [switch]$IncludeDevAll
     )
 
-    $values = ConvertTo-SkillsHashtable -InputObject $Config.Values
+    $values = ConvertTo-ConfigHashtable -InputObject $Config.Values
     $selectedNames = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
     foreach ($itemName in $Name) {
         if (-not [string]::IsNullOrWhiteSpace($itemName)) {
@@ -1052,7 +946,7 @@ function New-SkillsPlanFromConfig {
         }
     }
 
-    $skillConfigs = ConvertTo-SkillsHashtable -InputObject (Get-SkillsConfigValue -Values $values -Name 'skills' -DefaultValue @{})
+    $skillConfigs = ConvertTo-ConfigHashtable -InputObject (Get-ConfigValue -Values $values -Name 'skills' -DefaultValue @{})
     if ($IncludeDevAll) {
         $devRoot = Join-Path $script:SkillsInstallerRoot 'dev'
         if (Test-Path -LiteralPath $devRoot -PathType Container) {
@@ -1074,26 +968,26 @@ function New-SkillsPlanFromConfig {
     $commandPlans = New-Object 'System.Collections.Generic.List[object]'
     $steps = New-Object 'System.Collections.Generic.List[object]'
 
-    $tools = ConvertTo-SkillsHashtable -InputObject (Get-SkillsConfigValue -Values $values -Name 'tools' -DefaultValue @{})
+    $tools = ConvertTo-ConfigHashtable -InputObject (Get-ConfigValue -Values $values -Name 'tools' -DefaultValue @{})
     foreach ($toolEntry in $tools.GetEnumerator() | Sort-Object Name) {
         $toolName = [string]$toolEntry.Key
         if ($selectedNames.Count -gt 0 -and -not $selectedNames.Contains($toolName)) {
             continue
         }
 
-        $tool = ConvertTo-SkillsHashtable -InputObject $toolEntry.Value
-        $toolCommand = [string](Get-SkillsConfigValue -Values $tool -Name 'command')
+        $tool = ConvertTo-ConfigHashtable -InputObject $toolEntry.Value
+        $toolCommand = [string](Get-ConfigValue -Values $tool -Name 'command')
         if ([string]::IsNullOrWhiteSpace($toolCommand)) {
             throw "tool '$toolName' 缺少 command。"
         }
 
-        $check = ConvertTo-SkillsHashtable -InputObject (Get-SkillsConfigValue -Values $tool -Name 'check' -DefaultValue @{})
-        $phase = [string](Get-SkillsConfigValue -Values $tool -Name 'phase' -DefaultValue 'preInstall')
+        $check = ConvertTo-ConfigHashtable -InputObject (Get-ConfigValue -Values $tool -Name 'check' -DefaultValue @{})
+        $phase = [string](Get-ConfigValue -Values $tool -Name 'phase' -DefaultValue 'preInstall')
         if ($phase -notin @('preInstall', 'postInstall')) {
             throw "tool '$toolName' phase 只支持 preInstall 或 postInstall。"
         }
 
-        $workingDirectoryValue = [string](Get-SkillsConfigValue -Values $tool -Name 'workingDirectory' -DefaultValue '')
+        $workingDirectoryValue = [string](Get-ConfigValue -Values $tool -Name 'workingDirectory' -DefaultValue '')
         $workingDirectory = if ([string]::IsNullOrWhiteSpace($workingDirectoryValue)) {
             $Config.BasePath
         }
@@ -1104,10 +998,10 @@ function New-SkillsPlanFromConfig {
         $toolPlan = [pscustomobject]@{
             Type             = 'Tool'
             Name             = $toolName
-            Description      = [string](Get-SkillsConfigValue -Values $tool -Name 'description' -DefaultValue '')
+            Description      = [string](Get-ConfigValue -Values $tool -Name 'description' -DefaultValue '')
             Phase            = $phase
             Command          = $toolCommand.Trim()
-            Arguments        = ConvertTo-SkillsStringArray -Value (Get-SkillsConfigValue -Values $tool -Name 'args')
+            Arguments        = ConvertTo-SkillsStringArray -Value (Get-ConfigValue -Values $tool -Name 'args')
             WorkingDirectory = $workingDirectory
             Check            = if ($check.Count -gt 0) { $check } else { $null }
         }
@@ -1121,10 +1015,10 @@ function New-SkillsPlanFromConfig {
             continue
         }
 
-        $skill = ConvertTo-SkillsHashtable -InputObject $skillEntry.Value
+        $skill = ConvertTo-ConfigHashtable -InputObject $skillEntry.Value
         $scope = Resolve-SkillsScope -ConfigValues $values -Item $skill
         $projectPath = if ($scope -eq 'project') {
-            $itemProjectPath = [string](Get-SkillsConfigValue -Values $skill -Name 'projectPath' -DefaultValue (Get-SkillsConfigValue -Values $values -Name 'projectPath' -DefaultValue ''))
+            $itemProjectPath = [string](Get-ConfigValue -Values $skill -Name 'projectPath' -DefaultValue (Get-ConfigValue -Values $values -Name 'projectPath' -DefaultValue ''))
             Resolve-SkillsProjectRoot -ProjectPath $itemProjectPath -BasePath $Config.BasePath
         }
         else {
@@ -1133,7 +1027,7 @@ function New-SkillsPlanFromConfig {
 
         $sourceInfo = Resolve-SkillsSource -SkillName $skillName -Item $skill -BasePath $Config.BasePath
         $agents = Resolve-SkillsAgents -ConfigValues $values -Item $skill -OverrideAgents $OverrideAgents
-        $selectorOverride = @(ConvertTo-SkillsStringArray -Value (Get-SkillsConfigValue -Values $skill -Name 'skill'))
+        $selectorOverride = @(ConvertTo-SkillsStringArray -Value (Get-ConfigValue -Values $skill -Name 'skill'))
         $skillSelectors = if (@($selectorOverride).Count -gt 0) {
             $selectorOverride
         }
@@ -1144,8 +1038,8 @@ function New-SkillsPlanFromConfig {
             @($skillName)
         }
 
-        $copyValue = Get-SkillsConfigValue -Values $skill -Name 'copy' -DefaultValue $false
-        $allCommands = @(ConvertTo-SkillsCommandPlan -OwnerName $skillName -Commands (Get-SkillsConfigValue -Values $skill -Name 'commands') -BasePath $Config.BasePath)
+        $copyValue = Get-ConfigValue -Values $skill -Name 'copy' -DefaultValue $false
+        $allCommands = @(ConvertTo-SkillsCommandPlan -OwnerName $skillName -Commands (Get-ConfigValue -Values $skill -Name 'commands') -BasePath $Config.BasePath)
         $preCommands = @($allCommands | Where-Object { $_.Phase -eq 'preInstall' })
         $postCommands = @($allCommands | Where-Object { $_.Phase -eq 'postInstall' })
         foreach ($commandPlan in @($preCommands) + @($postCommands)) {
@@ -1155,7 +1049,7 @@ function New-SkillsPlanFromConfig {
         $skillPlan = [pscustomobject]@{
             Type             = 'Skill'
             Name             = $skillName
-            Description      = [string](Get-SkillsConfigValue -Values $skill -Name 'description' -DefaultValue '')
+            Description      = [string](Get-ConfigValue -Values $skill -Name 'description' -DefaultValue '')
             Source           = $sourceInfo.Source
             SourceType       = $sourceInfo.SourceType
             Scope            = $scope
@@ -1298,19 +1192,19 @@ function Test-SkillsToolCheckResult {
         [pscustomobject]$Result
     )
 
-    $exitCodes = ConvertTo-SkillsStringArray -Value (Get-SkillsConfigValue -Values $Check -Name 'exitCodes' -DefaultValue @('0')) |
+    $exitCodes = ConvertTo-SkillsStringArray -Value (Get-ConfigValue -Values $Check -Name 'exitCodes' -DefaultValue @('0')) |
         ForEach-Object { [int]$_ }
     if ($Result.ExitCode -notin $exitCodes) {
         return $false
     }
 
     $combinedOutput = "{0}`n{1}" -f $Result.StdOut, $Result.StdErr
-    $contains = [string](Get-SkillsConfigValue -Values $Check -Name 'contains' -DefaultValue '')
+    $contains = [string](Get-ConfigValue -Values $Check -Name 'contains' -DefaultValue '')
     if (-not [string]::IsNullOrWhiteSpace($contains)) {
         return $combinedOutput.IndexOf($contains, [System.StringComparison]::OrdinalIgnoreCase) -ge 0
     }
 
-    $regex = [string](Get-SkillsConfigValue -Values $Check -Name 'regex' -DefaultValue '')
+    $regex = [string](Get-ConfigValue -Values $Check -Name 'regex' -DefaultValue '')
     if (-not [string]::IsNullOrWhiteSpace($regex)) {
         return [regex]::IsMatch($combinedOutput, $regex, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
     }
@@ -1356,17 +1250,17 @@ function Test-SkillsToolInstalled {
         return $false
     }
 
-    $check = ConvertTo-SkillsHashtable -InputObject $Tool.Check
+    $check = ConvertTo-ConfigHashtable -InputObject $Tool.Check
     if (Test-SkillsDirectoryCheck -Check $check) {
         return $true
     }
 
-    $checkCommand = [string](Get-SkillsConfigValue -Values $check -Name 'command')
+    $checkCommand = [string](Get-ConfigValue -Values $check -Name 'command')
     if ([string]::IsNullOrWhiteSpace($checkCommand)) {
         return $false
     }
 
-    $checkArguments = ConvertTo-SkillsStringArray -Value (Get-SkillsConfigValue -Values $check -Name 'args')
+    $checkArguments = ConvertTo-SkillsStringArray -Value (Get-ConfigValue -Values $check -Name 'args')
     $checkResult = & $CommandRunner $checkCommand $checkArguments $Tool.WorkingDirectory $LogPath $true ([bool]$SuppressOutput)
 
     return (Test-SkillsToolCheckResult -Check $check -Result $checkResult)
@@ -1767,3 +1661,4 @@ if ($env:SKILLS_INSTALLER_SKIP_MAIN -ne '1') {
         exit 1
     }
 }
+
