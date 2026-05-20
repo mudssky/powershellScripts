@@ -4,6 +4,8 @@ BeforeAll {
     $script:RepoRoot = Join-Path $PSScriptRoot '..'
     $script:InstallerPath = Join-Path $script:RepoRoot 'ai/skills/Install-Skills.ps1'
     $script:OriginalSkipMainFlag = [Environment]::GetEnvironmentVariable('SKILLS_INSTALLER_SKIP_MAIN', 'Process')
+    $script:OriginalClaudeSkillsDir = [Environment]::GetEnvironmentVariable('SKILLS_INSTALLER_CLAUDE_SKILLS_DIR', 'Process')
+    $script:OriginalCodexSkillsDir = [Environment]::GetEnvironmentVariable('SKILLS_INSTALLER_CODEX_SKILLS_DIR', 'Process')
     $env:SKILLS_INSTALLER_SKIP_MAIN = '1'
     . $script:InstallerPath
 }
@@ -14,6 +16,18 @@ AfterAll {
     }
     else {
         [Environment]::SetEnvironmentVariable('SKILLS_INSTALLER_SKIP_MAIN', $script:OriginalSkipMainFlag, 'Process')
+    }
+
+    foreach ($entry in @(
+            @{ Name = 'SKILLS_INSTALLER_CLAUDE_SKILLS_DIR'; Value = $script:OriginalClaudeSkillsDir },
+            @{ Name = 'SKILLS_INSTALLER_CODEX_SKILLS_DIR'; Value = $script:OriginalCodexSkillsDir }
+        )) {
+        if ($null -eq $entry.Value) {
+            Remove-Item -Path ("Env:{0}" -f $entry.Name) -ErrorAction SilentlyContinue
+        }
+        else {
+            [Environment]::SetEnvironmentVariable($entry.Name, $entry.Value, 'Process')
+        }
     }
 }
 
@@ -135,7 +149,24 @@ description: 本地测试 skill。
 }
 
 Describe 'Skills 安装计划执行' {
+    AfterEach {
+        foreach ($entry in @(
+                @{ Name = 'SKILLS_INSTALLER_CLAUDE_SKILLS_DIR'; Value = $script:OriginalClaudeSkillsDir },
+                @{ Name = 'SKILLS_INSTALLER_CODEX_SKILLS_DIR'; Value = $script:OriginalCodexSkillsDir }
+            )) {
+            if ($null -eq $entry.Value) {
+                Remove-Item -Path ("Env:{0}" -f $entry.Name) -ErrorAction SilentlyContinue
+            }
+            else {
+                [Environment]::SetEnvironmentVariable($entry.Name, $entry.Value, 'Process')
+            }
+        }
+    }
+
     It 'tool setup 支持 check 命中后跳过 setup' {
+        $claudeSkillsDir = Join-Path $TestDrive 'claude-skills'
+        New-Item -ItemType Directory -Path (Join-Path $claudeSkillsDir 'find-docs') -Force | Out-Null
+        [Environment]::SetEnvironmentVariable('SKILLS_INSTALLER_CLAUDE_SKILLS_DIR', $claudeSkillsDir, 'Process')
         $tool = [pscustomobject]@{
             Type             = 'Tool'
             Name             = 'ctx7'
@@ -143,30 +174,18 @@ Describe 'Skills 安装计划执行' {
             Arguments        = @('ctx7@latest', 'setup')
             WorkingDirectory = $TestDrive
             Check            = @{
-                command  = 'npx'
-                args     = @('ctx7@latest', 'skills', 'list', '--claude')
-                contains = 'context7'
+                agents = @('claude', 'codex')
+                skills = @('find-docs')
             }
         }
         $calls = New-Object 'System.Collections.Generic.List[object]'
         $runner = {
-            param($Command, $Arguments, $WorkingDirectory, $LogPath, $AllowFailure)
-            $calls.Add([pscustomobject]@{
-                    Command      = $Command
-                    Arguments    = $Arguments
-                    AllowFailure = $AllowFailure
-                }) | Out-Null
-            return [pscustomobject]@{
-                ExitCode = 0
-                StdOut   = 'context7'
-                StdErr   = ''
-            }
+            throw '目录 check 命中后不应执行外部命令'
         }
 
         Invoke-SkillsToolStep -Tool $tool -LogPath '' -CommandRunner $runner
 
-        $calls | Should -HaveCount 1
-        $calls[0].AllowFailure | Should -BeTrue
+        $calls | Should -HaveCount 0
     }
 
     It 'skills CLI 安装项不生成 check 步骤' {
@@ -258,6 +277,118 @@ Describe 'Skills 安装计划执行' {
         $result.ExitCode | Should -Be 0
         $result.StdOut | Should -Match 'ok'
         Get-Content -Raw -LiteralPath $logPath | Should -Match 'EXIT 0'
+    }
+
+    It '已安装 skill 会从待执行计划中移除' {
+        $claudeSkillsDir = Join-Path $TestDrive 'claude-skills'
+        $codexSkillsDir = Join-Path $TestDrive 'codex-skills'
+        New-Item -ItemType Directory -Path (Join-Path $claudeSkillsDir 'agent-browser') -Force | Out-Null
+        New-Item -ItemType Directory -Path $codexSkillsDir -Force | Out-Null
+        [Environment]::SetEnvironmentVariable('SKILLS_INSTALLER_CLAUDE_SKILLS_DIR', $claudeSkillsDir, 'Process')
+        [Environment]::SetEnvironmentVariable('SKILLS_INSTALLER_CODEX_SKILLS_DIR', $codexSkillsDir, 'Process')
+        $plan = [pscustomobject]@{
+            Tools    = @()
+            Skills   = @(
+                [pscustomobject]@{
+                    Type           = 'Skill'
+                    Name           = 'agent-browser'
+                    Agents         = @('claude-code', 'codex')
+                    SkillSelectors = @('agent-browser')
+                },
+                [pscustomobject]@{
+                    Type           = 'Skill'
+                    Name           = 'missing-skill'
+                    Agents         = @('claude-code', 'codex')
+                    SkillSelectors = @('missing-skill')
+                }
+            )
+            Commands = @()
+            Steps    = @(
+                [pscustomobject]@{
+                    Type           = 'Skill'
+                    Name           = 'agent-browser'
+                    Agents         = @('claude-code', 'codex')
+                    SkillSelectors = @('agent-browser')
+                },
+                [pscustomobject]@{
+                    Type           = 'Skill'
+                    Name           = 'missing-skill'
+                    Agents         = @('claude-code', 'codex')
+                    SkillSelectors = @('missing-skill')
+                }
+            )
+        }
+        $runner = {
+            throw 'skill 目录检查不应执行外部命令'
+        }
+
+        $pendingPlan = Get-SkillsPendingPlan -Plan $plan -LogPath '' -CommandRunner $runner
+
+        $pendingPlan.Skills.Name | Should -Be @('missing-skill')
+        $pendingPlan.Steps.Name | Should -Be @('missing-skill')
+    }
+
+    It 'tool check 命中时会从待执行计划中移除' {
+        $claudeSkillsDir = Join-Path $TestDrive 'claude-skills'
+        New-Item -ItemType Directory -Path (Join-Path $claudeSkillsDir 'find-docs') -Force | Out-Null
+        [Environment]::SetEnvironmentVariable('SKILLS_INSTALLER_CLAUDE_SKILLS_DIR', $claudeSkillsDir, 'Process')
+        $tool = [pscustomobject]@{
+            Type             = 'Tool'
+            Name             = 'ctx7'
+            Command          = 'npx'
+            Arguments        = @('ctx7@latest', 'setup')
+            WorkingDirectory = $TestDrive
+            Check            = @{
+                agents = @('claude', 'codex')
+                skills = @('find-docs')
+            }
+        }
+        $plan = [pscustomobject]@{
+            Tools    = @($tool)
+            Skills   = @()
+            Commands = @()
+            Steps    = @($tool)
+        }
+        $runner = {
+            throw '目录 check 命中后不应执行外部命令'
+        }
+
+        $pendingPlan = Get-SkillsPendingPlan -Plan $plan -LogPath '' -CommandRunner $runner
+
+        $pendingPlan.Steps | Should -HaveCount 0
+    }
+
+    It 'tool 目录 check 未命中且无命令 check 时保留待执行项' {
+        $claudeSkillsDir = Join-Path $TestDrive 'empty-claude-skills'
+        $codexSkillsDir = Join-Path $TestDrive 'empty-codex-skills'
+        New-Item -ItemType Directory -Path $claudeSkillsDir, $codexSkillsDir -Force | Out-Null
+        [Environment]::SetEnvironmentVariable('SKILLS_INSTALLER_CLAUDE_SKILLS_DIR', $claudeSkillsDir, 'Process')
+        [Environment]::SetEnvironmentVariable('SKILLS_INSTALLER_CODEX_SKILLS_DIR', $codexSkillsDir, 'Process')
+        $tool = [pscustomobject]@{
+            Type             = 'Tool'
+            Name             = 'ctx7'
+            Command          = 'npx'
+            Arguments        = @('ctx7@latest', 'setup')
+            WorkingDirectory = $TestDrive
+            Check            = @{
+                agents = @('claude', 'codex')
+                skills = @('find-docs')
+            }
+        }
+        $plan = [pscustomobject]@{
+            Tools    = @($tool)
+            Skills   = @()
+            Commands = @()
+            Steps    = @($tool)
+        }
+        $runner = {
+            throw '纯目录 check 未命中时不应执行外部检查命令'
+        }
+
+        $pendingPlan = Get-SkillsPendingPlan -Plan $plan -LogPath '' -CommandRunner $runner
+
+        $pendingPlan.Tools.Name | Should -Be @('ctx7')
+        $pendingPlan.Steps.Name | Should -Be @('ctx7')
     }
 
     It '附带命令按 pre/install/post 顺序进入执行计划' {

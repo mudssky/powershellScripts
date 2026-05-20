@@ -60,6 +60,7 @@ $ErrorActionPreference = 'Stop'
 $script:SkillsInstallerRoot = $PSScriptRoot
 $script:SkillsRepoRoot = [System.IO.Path]::GetFullPath((Join-Path $script:SkillsInstallerRoot '..' '..'))
 $script:SkillsConfigModuleLoaded = $false
+$script:SkillsInstallerSuppressCommandOutput = $false
 
 function ConvertTo-SkillsHashtable {
     <#
@@ -235,6 +236,230 @@ function Resolve-SkillsDefaultLogDirectory {
     param()
 
     return (Join-Path $script:SkillsInstallerRoot 'logs')
+}
+
+function Resolve-SkillsUserHome {
+    <#
+    .SYNOPSIS
+        解析当前用户主目录。
+
+    .DESCRIPTION
+        优先使用 .NET 标准用户目录，缺失时兼容常见环境变量，
+        用于定位 Claude Code 与 Codex 的全局 skill 目录。
+
+    .OUTPUTS
+        string。当前用户主目录绝对路径。
+    #>
+    [CmdletBinding()]
+    param()
+
+    $userHome = [Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile)
+    if (-not [string]::IsNullOrWhiteSpace($userHome)) {
+        return [System.IO.Path]::GetFullPath($userHome)
+    }
+
+    foreach ($envName in @('USERPROFILE', 'HOME')) {
+        $envHome = [Environment]::GetEnvironmentVariable($envName, 'Process')
+        if (-not [string]::IsNullOrWhiteSpace($envHome)) {
+            return [System.IO.Path]::GetFullPath($envHome)
+        }
+    }
+
+    throw '无法解析当前用户主目录。'
+}
+
+function Resolve-SkillsAgentSkillDirectory {
+    <#
+    .SYNOPSIS
+        解析指定 agent 的全局 skill 目录。
+
+    .DESCRIPTION
+        根据安装计划中的 agent 名称定位本地 skill 根目录。
+        测试和特殊环境可通过 `SKILLS_INSTALLER_CLAUDE_SKILLS_DIR`
+        或 `SKILLS_INSTALLER_CODEX_SKILLS_DIR` 覆盖默认目录。
+
+    .PARAMETER Agent
+        安装计划中的 agent 名称，例如 `claude-code` 或 `codex`。
+
+    .OUTPUTS
+        string。支持的 agent 返回 skill 根目录；不支持时返回空字符串。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Agent
+    )
+
+    switch ($Agent.Trim().ToLowerInvariant()) {
+        'claude-code' {
+            $override = [Environment]::GetEnvironmentVariable('SKILLS_INSTALLER_CLAUDE_SKILLS_DIR', 'Process')
+            if (-not [string]::IsNullOrWhiteSpace($override)) {
+                return [System.IO.Path]::GetFullPath($override)
+            }
+
+            return (Join-Path (Join-Path (Resolve-SkillsUserHome) '.claude') 'skills')
+        }
+        'codex' {
+            $override = [Environment]::GetEnvironmentVariable('SKILLS_INSTALLER_CODEX_SKILLS_DIR', 'Process')
+            if (-not [string]::IsNullOrWhiteSpace($override)) {
+                return [System.IO.Path]::GetFullPath($override)
+            }
+
+            $codexHome = [Environment]::GetEnvironmentVariable('CODEX_HOME', 'Process')
+            if ([string]::IsNullOrWhiteSpace($codexHome)) {
+                $codexHome = Join-Path (Resolve-SkillsUserHome) '.codex'
+            }
+
+            return (Join-Path ([System.IO.Path]::GetFullPath($codexHome)) 'skills')
+        }
+        default {
+            return ''
+        }
+    }
+}
+
+function Resolve-SkillsInstalledNameCandidates {
+    <#
+    .SYNOPSIS
+        生成用于本地目录检查的 skill 名称候选。
+
+    .PARAMETER Skill
+        单个 skill 安装计划项。
+
+    .OUTPUTS
+        string[]。去重后的目录名候选，优先包含配置项名称。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [pscustomobject]$Skill
+    )
+
+    $names = [System.Collections.Generic.List[string]]::new()
+    $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($candidate in @([string]$Skill.Name) + @($Skill.SkillSelectors)) {
+        if (-not [string]::IsNullOrWhiteSpace($candidate) -and $seen.Add($candidate.Trim())) {
+            $names.Add($candidate.Trim()) | Out-Null
+        }
+    }
+
+    return [string[]]$names.ToArray()
+}
+
+function Test-SkillsAgentSkillInstalled {
+    <#
+    .SYNOPSIS
+        判断某个 agent 目录中是否已存在指定 skill。
+
+    .PARAMETER Agent
+        安装计划中的 agent 名称。
+
+    .PARAMETER SkillNames
+        可能的 skill 目录名候选。
+
+    .OUTPUTS
+        bool。任一候选目录存在时返回 true。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Agent,
+
+        [Parameter(Mandatory)]
+        [string[]]$SkillNames
+    )
+
+    $skillRoot = Resolve-SkillsAgentSkillDirectory -Agent $Agent
+    if ([string]::IsNullOrWhiteSpace($skillRoot) -or -not (Test-Path -LiteralPath $skillRoot -PathType Container)) {
+        return $false
+    }
+
+    foreach ($skillName in $SkillNames) {
+        $skillPath = Join-Path $skillRoot $skillName
+        if (Test-Path -LiteralPath $skillPath) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
+function Test-SkillsSkillInstalled {
+    <#
+    .SYNOPSIS
+        判断安装计划中的 skill 是否已在目标 agent 中存在。
+
+    .DESCRIPTION
+        仅检查该 skill 配置实际声明的 agent。只要任一目标 agent 的
+        skill 目录存在对应目录，就认为该 skill 已安装，避免重复执行
+        `skills add`。
+
+    .PARAMETER Skill
+        单个 skill 安装计划项。
+
+    .OUTPUTS
+        bool。目标 agent 中任一处已存在时返回 true。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [pscustomobject]$Skill
+    )
+
+    $skillNames = Resolve-SkillsInstalledNameCandidates -Skill $Skill
+    if (@($skillNames).Count -eq 0) {
+        return $false
+    }
+
+    foreach ($agentName in @($Skill.Agents)) {
+        if (Test-SkillsAgentSkillInstalled -Agent ([string]$agentName) -SkillNames $skillNames) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
+function Test-SkillsDirectoryCheck {
+    <#
+    .SYNOPSIS
+        根据 check 配置检查 agent skill 目录。
+
+    .DESCRIPTION
+        目录检查用于替代某些 CLI 自身不稳定的 list/check 输出。
+        只要任一声明 agent 的 skill 目录下存在任一候选 skill 名称，
+        就认为目标已安装。
+
+    .PARAMETER Check
+        check 配置节点，支持 `skill`、`skills`、`skillNames` 与 `agents`。
+
+    .OUTPUTS
+        bool。目录命中时返回 true，未配置目录检查或未命中时返回 false。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [hashtable]$Check
+    )
+
+    $skillNames = @(
+        ConvertTo-SkillsStringArray -Value (Get-SkillsConfigValue -Values $Check -Name 'skill')
+        ConvertTo-SkillsStringArray -Value (Get-SkillsConfigValue -Values $Check -Name 'skills')
+        ConvertTo-SkillsStringArray -Value (Get-SkillsConfigValue -Values $Check -Name 'skillNames')
+    )
+    if (@($skillNames).Count -eq 0) {
+        return $false
+    }
+
+    $agents = @(ConvertTo-SkillsStringArray -Value (Get-SkillsConfigValue -Values $Check -Name 'agents' -DefaultValue @('claude', 'codex')))
+    foreach ($agentName in $agents) {
+        $mappedAgent = ConvertTo-SkillsCliAgent -Agent $agentName
+        if (Test-SkillsAgentSkillInstalled -Agent $mappedAgent -SkillNames $skillNames) {
+            return $true
+        }
+    }
+
+    return $false
 }
 
 function Resolve-SkillsEnvPlaceholder {
@@ -1247,12 +1472,16 @@ function Invoke-SkillsExternalCommand {
         $process.Dispose()
     }
 
-    if (-not [string]::IsNullOrWhiteSpace($stdout)) {
+    if (-not [string]::IsNullOrWhiteSpace($stdout) -and -not $script:SkillsInstallerSuppressCommandOutput) {
         [Console]::Out.Write($stdout)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($stdout)) {
         Write-SkillsLogLine -LogPath $LogPath -Message "STDOUT $($stdout.TrimEnd())"
     }
-    if (-not [string]::IsNullOrWhiteSpace($stderr)) {
+    if (-not [string]::IsNullOrWhiteSpace($stderr) -and -not $script:SkillsInstallerSuppressCommandOutput) {
         [Console]::Error.Write($stderr)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($stderr)) {
         Write-SkillsLogLine -LogPath $LogPath -Message "STDERR $($stderr.TrimEnd())"
     }
 
@@ -1313,6 +1542,159 @@ function Test-SkillsToolCheckResult {
     return $true
 }
 
+function Test-SkillsToolInstalled {
+    <#
+    .SYNOPSIS
+        判断 tool setup 是否已满足 check 条件。
+
+    .PARAMETER Tool
+        tool 安装计划项。
+
+    .PARAMETER LogPath
+        日志文件路径。
+
+    .PARAMETER CommandRunner
+        外部命令执行器，测试时可注入替身。
+
+    .PARAMETER SuppressOutput
+        为真时临时重定向 check 输出，只保留日志记录。
+
+    .OUTPUTS
+        bool。check 满足时返回 true；未配置 check 或 check 未命中时返回 false。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [pscustomobject]$Tool,
+
+        [AllowEmptyString()]
+        [string]$LogPath,
+
+        [Parameter(Mandatory)]
+        [scriptblock]$CommandRunner,
+
+        [switch]$SuppressOutput
+    )
+
+    if ($null -eq $Tool.Check) {
+        return $false
+    }
+
+    $check = ConvertTo-SkillsHashtable -InputObject $Tool.Check
+    if (Test-SkillsDirectoryCheck -Check $check) {
+        return $true
+    }
+
+    $checkCommand = [string](Get-SkillsConfigValue -Values $check -Name 'command')
+    if ([string]::IsNullOrWhiteSpace($checkCommand)) {
+        return $false
+    }
+
+    $checkArguments = ConvertTo-SkillsStringArray -Value (Get-SkillsConfigValue -Values $check -Name 'args')
+    $previousSuppressOutput = $script:SkillsInstallerSuppressCommandOutput
+    try {
+        if ($SuppressOutput) {
+            $script:SkillsInstallerSuppressCommandOutput = $true
+        }
+
+        $checkResult = & $CommandRunner $checkCommand $checkArguments $Tool.WorkingDirectory $LogPath $true
+    }
+    finally {
+        $script:SkillsInstallerSuppressCommandOutput = $previousSuppressOutput
+    }
+
+    return (Test-SkillsToolCheckResult -Check $check -Result $checkResult)
+}
+
+function Get-SkillsPendingPlan {
+    <#
+    .SYNOPSIS
+        根据已安装检查生成仍需执行的安装计划。
+
+    .DESCRIPTION
+        计划展示前先检查 tool check 与本地 agent skill 目录，
+        已满足的项目从执行计划中移除，避免重复安装。
+
+    .PARAMETER Plan
+        完整安装计划。
+
+    .PARAMETER LogPath
+        日志文件路径。
+
+    .PARAMETER CommandRunner
+        外部命令执行器，测试时可注入替身。
+
+    .OUTPUTS
+        PSCustomObject。包含过滤后的 Tools、Skills、Commands 与 Steps。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [pscustomobject]$Plan,
+
+        [AllowEmptyString()]
+        [string]$LogPath,
+
+        [Parameter(Mandatory)]
+        [scriptblock]$CommandRunner
+    )
+
+    $pendingTools = [System.Collections.Generic.List[object]]::new()
+    $pendingSkills = [System.Collections.Generic.List[object]]::new()
+    $pendingCommands = [System.Collections.Generic.List[object]]::new()
+    $pendingSteps = [System.Collections.Generic.List[object]]::new()
+    $skippedTools = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $skippedSkills = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+
+    foreach ($tool in @($Plan.Tools)) {
+        if (Test-SkillsToolInstalled -Tool $tool -LogPath $LogPath -CommandRunner $CommandRunner -SuppressOutput) {
+            Write-Host "tool '$($tool.Name)' 已配置，跳过 setup。"
+            Write-SkillsLogLine -LogPath $LogPath -Message "SKIP tool $($tool.Name)"
+            $skippedTools.Add([string]$tool.Name) | Out-Null
+            continue
+        }
+
+        $pendingTools.Add($tool) | Out-Null
+    }
+
+    foreach ($skill in @($Plan.Skills)) {
+        if (Test-SkillsSkillInstalled -Skill $skill) {
+            Write-Host "skill '$($skill.Name)' 已安装，跳过安装。"
+            Write-SkillsLogLine -LogPath $LogPath -Message "SKIP skill $($skill.Name)"
+            $skippedSkills.Add([string]$skill.Name) | Out-Null
+            continue
+        }
+
+        $pendingSkills.Add($skill) | Out-Null
+    }
+
+    foreach ($step in @($Plan.Steps)) {
+        if ($step.Type -eq 'Tool' -and $skippedTools.Contains([string]$step.Name)) {
+            continue
+        }
+
+        if ($step.Type -eq 'Skill' -and $skippedSkills.Contains([string]$step.Name)) {
+            continue
+        }
+
+        if ($step.Type -eq 'Command' -and $skippedSkills.Contains([string]$step.Owner)) {
+            continue
+        }
+
+        $pendingSteps.Add($step) | Out-Null
+        if ($step.Type -eq 'Command') {
+            $pendingCommands.Add($step) | Out-Null
+        }
+    }
+
+    return [pscustomobject]@{
+        Tools    = [pscustomobject[]]$pendingTools.ToArray()
+        Skills   = [pscustomobject[]]$pendingSkills.ToArray()
+        Commands = [pscustomobject[]]$pendingCommands.ToArray()
+        Steps    = [pscustomobject[]]$pendingSteps.ToArray()
+    }
+}
+
 function Invoke-SkillsToolStep {
     <#
     .SYNOPSIS
@@ -1342,16 +1724,8 @@ function Invoke-SkillsToolStep {
         [scriptblock]$CommandRunner
     )
 
-    if (-not $WhatIfPreference -and $null -ne $Tool.Check) {
-        $check = ConvertTo-SkillsHashtable -InputObject $Tool.Check
-        $checkCommand = [string](Get-SkillsConfigValue -Values $check -Name 'command')
-        if ([string]::IsNullOrWhiteSpace($checkCommand)) {
-            throw "tool '$($Tool.Name)' check 缺少 command。"
-        }
-
-        $checkArguments = ConvertTo-SkillsStringArray -Value (Get-SkillsConfigValue -Values $check -Name 'args')
-        $checkResult = & $CommandRunner $checkCommand $checkArguments $Tool.WorkingDirectory $LogPath $true
-        if (Test-SkillsToolCheckResult -Check $check -Result $checkResult) {
+    if (-not $WhatIfPreference) {
+        if (Test-SkillsToolInstalled -Tool $Tool -LogPath $LogPath -CommandRunner $CommandRunner) {
             Write-Host "tool '$($Tool.Name)' 已配置，跳过 setup。"
             Write-SkillsLogLine -LogPath $LogPath -Message "SKIP tool $($Tool.Name)"
             return
@@ -1572,19 +1946,14 @@ function Invoke-SkillsInstallMain {
 
     $config = Read-SkillsInstallerConfig -ConfigPath $ConfigPath -CliParameters $cliParameters
     $plan = New-SkillsPlanFromConfig -Config $config -OverrideAgents $Agent -Name $Name -IncludeDevAll:$IncludeDevAll
-    Show-SkillsInstallPlan -Plan $plan
 
     if ($DryRun) {
+        Show-SkillsInstallPlan -Plan $plan
         return 0
     }
 
     if ($WhatIfPreference) {
         Invoke-SkillsInstallPlan -Plan $plan -LogPath '' -CommandRunner $CommandRunner -Force:$Force
-        return 0
-    }
-
-    if (-not (Confirm-SkillsInstallPlan -Plan $plan -Yes:$Yes)) {
-        Write-Host '已取消。'
         return 0
     }
 
@@ -1594,7 +1963,23 @@ function Invoke-SkillsInstallMain {
     Write-SkillsLogLine -LogPath $logPath -Message "CONFIG $($config.Path)"
     Write-SkillsLogLine -LogPath $logPath -Message "FORCE $([bool]$Force)"
 
-    Invoke-SkillsInstallPlan -Plan $plan -LogPath $logPath -CommandRunner $CommandRunner -Force:$Force
+    $pendingPlan = if ($Force) {
+        $plan
+    }
+    else {
+        Get-SkillsPendingPlan -Plan $plan -LogPath $logPath -CommandRunner $CommandRunner
+    }
+    Show-SkillsInstallPlan -Plan $pendingPlan
+    if ($pendingPlan.Steps.Count -eq 0) {
+        return 0
+    }
+
+    if (-not (Confirm-SkillsInstallPlan -Plan $pendingPlan -Yes:$Yes)) {
+        Write-Host '已取消。'
+        return 0
+    }
+
+    Invoke-SkillsInstallPlan -Plan $pendingPlan -LogPath $logPath -CommandRunner $CommandRunner -Force:$Force
     return 0
 }
 
