@@ -60,7 +60,12 @@ $ErrorActionPreference = 'Stop'
 $script:SkillsInstallerRoot = $PSScriptRoot
 $script:SkillsRepoRoot = [System.IO.Path]::GetFullPath((Join-Path $script:SkillsInstallerRoot '..' '..'))
 $script:SkillsConfigModuleLoaded = $false
-$script:SkillsInstallerSuppressCommandOutput = $false
+
+$skillsProcessModulePath = Join-Path $script:SkillsRepoRoot 'psutils/modules/process.psm1'
+if (-not (Test-Path -LiteralPath $skillsProcessModulePath -PathType Leaf)) {
+    throw "未找到共享命令执行模块: $skillsProcessModulePath"
+}
+Import-Module $skillsProcessModulePath -Force
 
 function ConvertTo-SkillsHashtable {
     <#
@@ -1186,84 +1191,6 @@ function New-SkillsPlanFromConfig {
     }
 }
 
-function Format-SkillsCommandLine {
-    <#
-    .SYNOPSIS
-        格式化外部命令用于展示和日志。
-
-    .PARAMETER Command
-        命令名或路径。
-
-    .PARAMETER Arguments
-        参数数组。
-
-    .OUTPUTS
-        string。可读命令行文本。
-    #>
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$Command,
-
-        [string[]]$Arguments = @()
-    )
-
-    $parts = @($Command) + @($Arguments)
-    return ($parts | ForEach-Object {
-            $value = [string]$_
-            if ($value -match '\s' -or $value -match '["'']') {
-                '"' + ($value -replace '"', '\"') + '"'
-            }
-            else {
-                $value
-            }
-        }) -join ' '
-}
-
-function Resolve-SkillsExecutablePath {
-    <#
-    .SYNOPSIS
-        解析外部命令为可执行路径。
-
-    .DESCRIPTION
-        `System.Diagnostics.ProcessStartInfo` 不会像 PowerShell 一样自动处理函数、
-        alias 或脚本包装器。这里优先选择 Application 类型，避免 Windows 上误选
-        `npx.ps1` 这类需要 PowerShell 承载的脚本文件。
-
-    .PARAMETER Command
-        命令名或可执行文件路径。
-
-    .OUTPUTS
-        string。可传给 ProcessStartInfo.FileName 的路径或命令名。
-    #>
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$Command
-    )
-
-    if ([System.IO.Path]::IsPathRooted($Command)) {
-        return $Command
-    }
-
-    $commands = @(Get-Command -Name $Command -All -ErrorAction SilentlyContinue)
-    if ($commands.Count -eq 0) {
-        return $Command
-    }
-
-    $application = $commands | Where-Object { $_.CommandType -eq 'Application' } | Select-Object -First 1
-    if ($application) {
-        return $application.Source
-    }
-
-    $externalScript = $commands | Where-Object { $_.CommandType -eq 'ExternalScript' } | Select-Object -First 1
-    if ($externalScript) {
-        return $externalScript.Source
-    }
-
-    return $commands[0].Source
-}
-
 function Show-SkillsInstallPlan {
     <#
     .SYNOPSIS
@@ -1289,7 +1216,7 @@ function Show-SkillsInstallPlan {
             if (-not [string]::IsNullOrWhiteSpace($tool.Description)) {
                 Write-Host ("  {0}" -f $tool.Description)
             }
-            Write-Host ("  {0}" -f (Format-SkillsCommandLine -Command $tool.Command -Arguments $tool.Arguments))
+            Write-Host ("  {0}" -f (Format-NativeCommandLine -Command $tool.Command -ArgumentList $tool.Arguments))
         }
     }
 
@@ -1301,7 +1228,7 @@ function Show-SkillsInstallPlan {
             if (-not [string]::IsNullOrWhiteSpace($skill.Description)) {
                 Write-Host ("  {0}" -f $skill.Description)
             }
-            Write-Host ("  {0}" -f (Format-SkillsCommandLine -Command 'npx' -Arguments $skill.Arguments))
+            Write-Host ("  {0}" -f (Format-NativeCommandLine -Command 'npx' -ArgumentList $skill.Arguments))
         }
     }
 
@@ -1346,157 +1273,6 @@ function Confirm-SkillsInstallPlan {
     )
     $selected = $Host.UI.PromptForChoice('确认安装计划', '继续执行以上安装计划？', $choices, 1)
     return $selected -eq 0
-}
-
-function New-SkillsLogFile {
-    <#
-    .SYNOPSIS
-        创建本次安装日志文件。
-
-    .PARAMETER LogDirectory
-        日志目录路径。
-
-    .OUTPUTS
-        string。日志文件绝对路径。
-    #>
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$LogDirectory
-    )
-
-    $resolvedDirectory = [System.IO.Path]::GetFullPath($LogDirectory)
-    New-Item -ItemType Directory -Path $resolvedDirectory -Force | Out-Null
-    $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-    $logPath = Join-Path $resolvedDirectory "skills-install-$timestamp.log"
-    Set-Content -LiteralPath $logPath -Encoding utf8NoBOM -Value "skills install log $timestamp"
-    return $logPath
-}
-
-function Write-SkillsLogLine {
-    <#
-    .SYNOPSIS
-        写入单行安装日志。
-
-    .PARAMETER LogPath
-        日志文件路径。
-
-    .PARAMETER Message
-        日志消息。
-
-    .OUTPUTS
-        None。追加日志内容。
-    #>
-    [CmdletBinding()]
-    param(
-        [AllowEmptyString()]
-        [string]$LogPath,
-
-        [Parameter(Mandatory)]
-        [AllowEmptyString()]
-        [string]$Message
-    )
-
-    if ([string]::IsNullOrWhiteSpace($LogPath)) {
-        return
-    }
-
-    $line = "[{0}] {1}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Message
-    Add-Content -LiteralPath $LogPath -Encoding utf8NoBOM -Value $line
-}
-
-function Invoke-SkillsExternalCommand {
-    <#
-    .SYNOPSIS
-        执行外部命令并记录 stdout、stderr 与退出码。
-
-    .PARAMETER Command
-        命令名或可执行文件路径。
-
-    .PARAMETER Arguments
-        参数数组。
-
-    .PARAMETER WorkingDirectory
-        命令工作目录。
-
-    .PARAMETER LogPath
-        可选日志文件路径。
-
-    .PARAMETER AllowFailure
-        为真时命令非零退出也返回结果，不抛异常。
-
-    .OUTPUTS
-        PSCustomObject。包含 ExitCode、StdOut 与 StdErr。
-    #>
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$Command,
-
-        [string[]]$Arguments = @(),
-
-        [string]$WorkingDirectory = (Get-Location).Path,
-
-        [AllowEmptyString()]
-        [string]$LogPath = '',
-
-        [switch]$AllowFailure
-    )
-
-    $commandLine = Format-SkillsCommandLine -Command $Command -Arguments $Arguments
-    Write-SkillsLogLine -LogPath $LogPath -Message "COMMAND $commandLine"
-    Write-SkillsLogLine -LogPath $LogPath -Message "CWD $WorkingDirectory"
-
-    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
-    $startInfo.FileName = Resolve-SkillsExecutablePath -Command $Command
-    foreach ($argument in $Arguments) {
-        [void]$startInfo.ArgumentList.Add($argument)
-    }
-    $startInfo.WorkingDirectory = $WorkingDirectory
-    $startInfo.RedirectStandardOutput = $true
-    $startInfo.RedirectStandardError = $true
-    $startInfo.UseShellExecute = $false
-
-    $process = [System.Diagnostics.Process]::new()
-    $process.StartInfo = $startInfo
-    try {
-        [void]$process.Start()
-        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
-        $stderrTask = $process.StandardError.ReadToEndAsync()
-        $process.WaitForExit()
-        $stdout = $stdoutTask.GetAwaiter().GetResult()
-        $stderr = $stderrTask.GetAwaiter().GetResult()
-        $exitCode = $process.ExitCode
-    }
-    finally {
-        $process.Dispose()
-    }
-
-    if (-not [string]::IsNullOrWhiteSpace($stdout) -and -not $script:SkillsInstallerSuppressCommandOutput) {
-        [Console]::Out.Write($stdout)
-    }
-    if (-not [string]::IsNullOrWhiteSpace($stdout)) {
-        Write-SkillsLogLine -LogPath $LogPath -Message "STDOUT $($stdout.TrimEnd())"
-    }
-    if (-not [string]::IsNullOrWhiteSpace($stderr) -and -not $script:SkillsInstallerSuppressCommandOutput) {
-        [Console]::Error.Write($stderr)
-    }
-    if (-not [string]::IsNullOrWhiteSpace($stderr)) {
-        Write-SkillsLogLine -LogPath $LogPath -Message "STDERR $($stderr.TrimEnd())"
-    }
-
-    Write-SkillsLogLine -LogPath $LogPath -Message "EXIT $exitCode"
-    $result = [pscustomobject]@{
-        ExitCode = $exitCode
-        StdOut   = $stdout
-        StdErr   = $stderr
-    }
-
-    if ($exitCode -ne 0 -and -not $AllowFailure) {
-        throw "外部命令执行失败($exitCode): $commandLine"
-    }
-
-    return $result
 }
 
 function Test-SkillsToolCheckResult {
@@ -1591,17 +1367,7 @@ function Test-SkillsToolInstalled {
     }
 
     $checkArguments = ConvertTo-SkillsStringArray -Value (Get-SkillsConfigValue -Values $check -Name 'args')
-    $previousSuppressOutput = $script:SkillsInstallerSuppressCommandOutput
-    try {
-        if ($SuppressOutput) {
-            $script:SkillsInstallerSuppressCommandOutput = $true
-        }
-
-        $checkResult = & $CommandRunner $checkCommand $checkArguments $Tool.WorkingDirectory $LogPath $true
-    }
-    finally {
-        $script:SkillsInstallerSuppressCommandOutput = $previousSuppressOutput
-    }
+    $checkResult = & $CommandRunner $checkCommand $checkArguments $Tool.WorkingDirectory $LogPath $true ([bool]$SuppressOutput)
 
     return (Test-SkillsToolCheckResult -Check $check -Result $checkResult)
 }
@@ -1649,7 +1415,7 @@ function Get-SkillsPendingPlan {
     foreach ($tool in @($Plan.Tools)) {
         if (Test-SkillsToolInstalled -Tool $tool -LogPath $LogPath -CommandRunner $CommandRunner -SuppressOutput) {
             Write-Host "tool '$($tool.Name)' 已配置，跳过 setup。"
-            Write-SkillsLogLine -LogPath $LogPath -Message "SKIP tool $($tool.Name)"
+            Write-CommandLogLine -LogPath $LogPath -Message "SKIP tool $($tool.Name)"
             $skippedTools.Add([string]$tool.Name) | Out-Null
             continue
         }
@@ -1660,7 +1426,7 @@ function Get-SkillsPendingPlan {
     foreach ($skill in @($Plan.Skills)) {
         if (Test-SkillsSkillInstalled -Skill $skill) {
             Write-Host "skill '$($skill.Name)' 已安装，跳过安装。"
-            Write-SkillsLogLine -LogPath $LogPath -Message "SKIP skill $($skill.Name)"
+            Write-CommandLogLine -LogPath $LogPath -Message "SKIP skill $($skill.Name)"
             $skippedSkills.Add([string]$skill.Name) | Out-Null
             continue
         }
@@ -1727,15 +1493,15 @@ function Invoke-SkillsToolStep {
     if (-not $WhatIfPreference) {
         if (Test-SkillsToolInstalled -Tool $Tool -LogPath $LogPath -CommandRunner $CommandRunner) {
             Write-Host "tool '$($Tool.Name)' 已配置，跳过 setup。"
-            Write-SkillsLogLine -LogPath $LogPath -Message "SKIP tool $($Tool.Name)"
+            Write-CommandLogLine -LogPath $LogPath -Message "SKIP tool $($Tool.Name)"
             return
         }
     }
 
     $target = "tool:$($Tool.Name)"
-    $action = Format-SkillsCommandLine -Command $Tool.Command -Arguments $Tool.Arguments
+    $action = Format-NativeCommandLine -Command $Tool.Command -ArgumentList $Tool.Arguments
     if ($PSCmdlet.ShouldProcess($target, $action)) {
-        & $CommandRunner $Tool.Command $Tool.Arguments $Tool.WorkingDirectory $LogPath $false | Out-Null
+        & $CommandRunner $Tool.Command $Tool.Arguments $Tool.WorkingDirectory $LogPath $false $false | Out-Null
     }
 }
 
@@ -1769,9 +1535,9 @@ function Invoke-SkillsCommandStep {
     )
 
     $target = "command:$($CommandPlan.Owner)/$($CommandPlan.Name)"
-    $action = Format-SkillsCommandLine -Command $CommandPlan.Command -Arguments $CommandPlan.Arguments
+    $action = Format-NativeCommandLine -Command $CommandPlan.Command -ArgumentList $CommandPlan.Arguments
     if ($PSCmdlet.ShouldProcess($target, $action)) {
-        & $CommandRunner $CommandPlan.Command $CommandPlan.Arguments $CommandPlan.WorkingDirectory $LogPath $false | Out-Null
+        & $CommandRunner $CommandPlan.Command $CommandPlan.Arguments $CommandPlan.WorkingDirectory $LogPath $false $false | Out-Null
     }
 }
 
@@ -1810,13 +1576,13 @@ function Invoke-SkillsInstallStep {
     )
 
     if ($Force) {
-        Write-SkillsLogLine -LogPath $LogPath -Message "FORCE skill $($Skill.Name)"
+        Write-CommandLogLine -LogPath $LogPath -Message "FORCE skill $($Skill.Name)"
     }
 
     $target = "skill:$($Skill.Name)"
-    $action = Format-SkillsCommandLine -Command 'npx' -Arguments $Skill.Arguments
+    $action = Format-NativeCommandLine -Command 'npx' -ArgumentList $Skill.Arguments
     if ($PSCmdlet.ShouldProcess($target, $action)) {
-        & $CommandRunner 'npx' $Skill.Arguments $Skill.WorkingDirectory $LogPath $false | Out-Null
+        & $CommandRunner 'npx' $Skill.Arguments $Skill.WorkingDirectory $LogPath $false $false | Out-Null
     }
 }
 
@@ -1933,9 +1699,10 @@ function Invoke-SkillsInstallMain {
                 [string[]]$Arguments,
                 [string]$WorkingDirectory,
                 [string]$LogPath,
-                [bool]$AllowFailure
+                [bool]$AllowFailure,
+                [bool]$SuppressOutput
             )
-            Invoke-SkillsExternalCommand -Command $Command -Arguments $Arguments -WorkingDirectory $WorkingDirectory -LogPath $LogPath -AllowFailure:$AllowFailure
+            Invoke-NativeCommand -Command $Command -ArgumentList $Arguments -WorkingDirectory $WorkingDirectory -LogPath $LogPath -AllowFailure:$AllowFailure -SuppressOutput:$SuppressOutput
         }
     )
 
@@ -1958,10 +1725,10 @@ function Invoke-SkillsInstallMain {
     }
 
     $effectiveLogDirectory = if ([string]::IsNullOrWhiteSpace($LogDirectory)) { Resolve-SkillsDefaultLogDirectory } else { $LogDirectory }
-    $logPath = New-SkillsLogFile -LogDirectory $effectiveLogDirectory
+    $logPath = New-CommandLogFile -LogDirectory $effectiveLogDirectory -Prefix 'skills-install'
     Write-Host "日志: $logPath"
-    Write-SkillsLogLine -LogPath $logPath -Message "CONFIG $($config.Path)"
-    Write-SkillsLogLine -LogPath $logPath -Message "FORCE $([bool]$Force)"
+    Write-CommandLogLine -LogPath $logPath -Message "CONFIG $($config.Path)"
+    Write-CommandLogLine -LogPath $logPath -Message "FORCE $([bool]$Force)"
 
     $pendingPlan = if ($Force) {
         $plan

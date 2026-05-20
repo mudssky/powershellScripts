@@ -27,7 +27,7 @@
 
 ## Open Questions
 
-* None currently.
+* 第二轮如何拆分 config helper 与更多大文件重构子任务？
 
 ## Requirements (evolving)
 
@@ -71,6 +71,14 @@
 * 内部消息优先使用 PowerShell streams；外部 `npx skills` 调用通过日志 helper 保留命令、参数、退出码和输出。
 * 默认日志目录固定为 `ai/skills/logs/`，执行脚本可通过 `-LogDirectory` 覆盖；配置文件不提供日志目录字段。
 * 初始 `skills.config.json` 示例应包含 `agent-browser` 和 `supabase-postgres-best-practices`。
+* `ai/skills/Install-Skills.ps1` 不应继续作为超大单文件增长；应先评估并提取通用职责，降低入口脚本复杂度。
+* `psutils` 只抽通用基础设施，不接收 skills 安装器领域语义。
+* 第一轮只抽外部命令执行与轻量命令日志这类边界清晰的通用基础设施。
+* config helper、配置路径/env placeholder 解析以及更多大文件拆分子任务放到第二轮，不进入第一轮实现范围。
+* agent skill 目录解析、skills 已安装检测、ctx7 默认检查、安装计划领域模型属于 skills 安装器语义，应留在 `ai/skills` 私有模块。
+* 如果某些逻辑只服务 skills 安装器的配置模型或计划生成，应拆到 `ai/skills` 私有模块，而不是污染 `psutils` 公共 API。
+* 重构后 `Install-Skills.ps1` 应保留 CLI 入口、参数绑定、配置装配和高层流程，具体实现委托模块函数。
+* 仓库中 500 行以上 PowerShell 文件较多；重构方案应参考已有 source-first / bundle 先例，而不是只针对单个文件做临时拆分。
 
 ## Acceptance Criteria (evolving)
 
@@ -99,6 +107,10 @@
 * [ ] 配置加载使用 `psutils/modules/config.psm1` 暴露的共享解析器。
 * [ ] 有 Pester 测试覆盖配置解析、安装计划生成和幂等行为。
 * [ ] 有 Pester 测试覆盖安装计划生成、tool check 计划、dry-run/WhatIf 不执行外部命令。
+* [ ] `Install-Skills.ps1` 的入口文件行数显著降低，核心业务逻辑拆入可测试模块。
+* [ ] 被抽入 `psutils` 的函数必须有稳定公共命名、中文帮助注释、参数/返回说明和对应 Pester 测试。
+* [ ] skills 私有模块与 `psutils` 公共模块职责边界清晰：通用基础设施进 `psutils`，安装器领域模型留在 `ai/skills`。
+* [ ] 当前已安装检测行为保持不变：任一目标 agent 目录存在对应 skill 时跳过，两个都没有时才进入待执行计划。
 
 ## Definition of Done (team quality bar)
 
@@ -169,13 +181,13 @@
 
 **Consequences**: 安装计划会分成 tool setup 和 skill install 两类步骤，两者都支持 dry-run、WhatIf、Confirm、Yes 和日志。Context7 这类命令可以按官方方式执行，不需要伪装成 skill。
 
-### Decision: tool setup checks are explicit commands
+### Decision: tool setup checks support directory probes and explicit commands
 
-**Context**: 不同工具的安装完成信号不一样。Context7 既可能配置 CLI + Skills，也可能配置 MCP；直接猜文件路径不稳定。
+**Context**: 不同工具的安装完成信号不一样。Context7 的 `skills list` 输出在已存在本地 skill 目录时仍可能显示 `No skills installed`，单纯依赖 CLI list 不稳定。普通 skill 安装也需要避免每次计划展示都列出已存在项。
 
-**Decision**: `tools` 项支持 `check` 命令。脚本先执行 check，成功或输出匹配期望时标记为 installed；否则进入 setup 计划。Context7 默认 check 使用 `npx ctx7@latest skills list --<agent>`。
+**Decision**: `tools` 项支持目录型 check 和命令型 check。目录型 check 根据配置中的 agent 和 skill 名称检查 Claude/Codex skill 目录；命令型 check 作为可选 fallback。Context7 默认使用目录型 check 检测 `find-docs`。
 
-**Consequences**: tool 检测逻辑保持通用，不把 ctx7 的路径细节写死在安装器里。每个特殊工具可通过配置声明自己的检测方式。
+**Consequences**: tool 检测逻辑仍由配置声明，不把 ctx7 写死到流程里；同时避免不可靠 CLI list 导致重复 setup。新增 agent 目录解析能力后，需要评估是否抽到 `psutils` 供其他脚本复用。
 
 ### Decision: explicit local skills by default
 
@@ -207,7 +219,54 @@
 
 **Decision**: MVP 在安装脚本内实现轻量日志 helper。内部消息使用 PowerShell streams；外部命令通过 helper 同步输出到控制台和日志文件，并记录退出码。
 
-**Consequences**: 不需要额外日志框架，也暂不抽象到 `psutils`。如果未来多个脚本都需要同类能力，再提取成共享模块。
+**Consequences**: 初版实现已快速落地，但随着安装器增长到仓库最大 PowerShell 单文件，轻量日志和外部命令执行 helper 需要重新评估是否抽入 `psutils`。如果抽入公共模块，应保持 API 小而稳定，避免把 skills 安装器领域概念带入通用层。
+
+### Evidence: large PowerShell files
+
+当前仓库 `.ps1` / `.psm1` 共 246 个文件，平均约 173 行；500 行以上文件 19 个，其中 1000 行以上 5 个。最大文件包括：
+
+| Lines | Path | Notes |
+|---:|---|---|
+| 1609 | `ai/skills/Install-Skills.ps1` | 当前最大，且不是生成 bundle |
+| 1477 | `scripts/pwsh/devops/Postgres-Toolkit.ps1` | 单文件分发产物；源码已拆到 `scripts/pwsh/devops/postgresql/**` |
+| 1220 | `psutils/modules/oss.psm1` | psutils 公共模块 |
+| 1173 | `scripts/pwsh/devops/start-container.ps1` | 独立运维脚本 |
+| 1016 | `scripts/pwsh/download/Install-GitHubCli.ps1` | 独立下载安装器 |
+| 982 | `psutils/modules/help.psm1` | psutils 公共模块 |
+| 808 | `config/service/oss/rclone/rclone-ops.ps1` | 配置域脚本 |
+| 682 | `psutils/modules/filesystem.psm1` | psutils 公共模块 |
+| 619 | `psutils/modules/env.psm1` | psutils 公共模块 |
+| 600 | `psutils/modules/cache.psm1` | psutils 公共模块 |
+
+结论：大文件问题不是孤例，但 `Postgres-Toolkit` 已提供可借鉴模式：可维护源码拆分，必要时再生成单文件分发产物。`Install-Skills.ps1` 更适合先拆可测试模块；是否保留单文件入口或生成 bundle 需要单独决策。
+
+### Cross-file extraction candidates
+
+横向扫描 500 行以上 PowerShell 文件后，优先候选如下：
+
+| Candidate | Evidence | Proposed Home | Notes |
+|---|---|---|---|
+| Native command execution wrapper | `Install-Skills.ps1` 有 `Invoke-SkillsExternalCommand` / `Resolve-SkillsExecutablePath` / `Format-SkillsCommandLine`；`rclone-ops.ps1` 有 `Invoke-RcloneOpsProcess`；PostgreSQL toolkit 有 `Invoke-PgNativeCommand`；agent runner 有 `Invoke-AiAgentNativeCommand` | `psutils/modules/process.psm1` 或 `psutils/modules/command.psm1` | 最高优先级。公共 API 应只表达 `FilePath`、`ArgumentList`、`WorkingDirectory`、`Environment`、`AllowFailure`、`SuppressOutput`、`LogPath`，不要包含 skills 语义。 |
+| Lightweight run log helper | `Install-Skills.ps1` 自带 `New-SkillsLogFile` / `Write-SkillsLogLine`；Postgres toolkit 有 `Write-PostgresToolkitMessage`；AHK build 有 `Write-BuildLog` | 可并入 `process.psm1`，或独立 `psutils/modules/logging.psm1` | 保持简单行日志即可，不引入完整日志框架。若只服务 native command，可先放进 process module。 |
+| Config object helpers | `Install-Skills.ps1`、`Install-GitHubCli.ps1`、`rclone-ops.ps1` 都有 `ConvertTo-*Hashtable` / `Get-*ConfigValue`；`psutils/src/config` 已有 `ConvertTo-ConfigHashtable` 但未作为清晰公共工具使用 | 第二轮扩展 `psutils/modules/config.psm1` | 不进入第一轮。可以公开/补强大小写不敏感读取、浅层 hashtable 转换、可选 nested value。 |
+| Config path/env placeholder expansion | `Install-Skills.ps1` 与 `Install-GitHubCli.ps1` 都有 `Resolve-*EnvPlaceholder` / `Resolve-*Path`；`rclone-ops.ps1` 有 `${VAR}` 展开 | 第二轮扩展 config 或新增 path 模块 | 不进入第一轮。适合抽“配置路径解析”：`~`、`${VAR}`、`%VAR%`、相对 base path、缺失 env 抛错。 |
+| Plan/confirmation prompt | `Install-Skills.ps1` 当前有计划确认；部分脚本有 `ShouldProcess` / `Read-Host` / fzf 选择 | 暂不优先抽 | 交互文案和计划结构领域差异较大；先保留在调用方，仅复用 PowerShell 原生 `ShouldProcess`。 |
+| Installed-state probes | `Test-ApplicationInstalled`、`Test-ModuleInstalled` 已在 `psutils`；skills 目录检查是 agent-specific | 部分保留现状 | 通用“命令是否存在/模块是否安装”已有；Claude/Codex skill 目录检查留在 `ai/skills` 私有模块。 |
+
+暂不建议抽取：
+
+* `psutils/modules/oss.psm1` 的 OSS 签名/HTTP 逻辑：虽大但领域内聚。
+* `psutils/modules/help.psm1` 的帮助搜索：虽大但已是单一公共模块。
+* `Sync-ClaudeConfig.ps1` 的 manifest merge / symlink 逻辑：Claude 配置领域语义强。
+* Docker、Tailscale、rclone 的命令编排本体：可以复用 native command wrapper，但业务流程不进 `psutils`。
+
+### Decision: psutils extraction boundary
+
+**Context**: `Install-Skills.ps1` 已成为仓库最大的 PowerShell 单文件，但横向扫描显示多个 500+ 行脚本都存在基础设施重复。抽象边界如果过宽，会把 skills、Docker、rclone、Claude 等业务概念污染到 `psutils`；如果过窄，则只能局部瘦身，无法改善后续脚本复用。
+
+**Decision**: `psutils` 只抽通用基础设施。第一轮只抽外部命令执行 wrapper 与轻量命令日志。配置对象读取 helper、配置路径/env placeholder 解析以及更多大文件拆分子任务放到第二轮。skills 安装计划、Claude/Codex skill 目录、ctx7 默认检查、agent 名称映射等领域语义留在 `ai/skills` 私有模块。
+
+**Consequences**: 第一轮先把 `Install-Skills.ps1` 的外部命令与日志能力替换为 `psutils` 公共 API，并保留配置 helper 的本地实现。`psutils` API 必须保持小而稳定，新增函数需要 Pester 覆盖和模块导出；调用方仍负责业务计划、文案和确认流程。第二轮再评估 config helper 与更多大文件拆分。
 
 ### Decision: fixed default log directory
 

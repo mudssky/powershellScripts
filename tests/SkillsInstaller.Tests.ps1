@@ -264,21 +264,6 @@ Describe 'Skills 安装计划执行' {
         Invoke-SkillsToolStep -Tool $tool -LogPath '' -CommandRunner $runner -WhatIf
     }
 
-    It '外部命令成功退出时正确记录退出码' {
-        $logPath = Join-Path $TestDrive 'external-command.log'
-        $pwshPath = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
-
-        $result = Invoke-SkillsExternalCommand `
-            -Command $pwshPath `
-            -Arguments @('-NoLogo', '-NoProfile', '-Command', 'Write-Output "ok"') `
-            -WorkingDirectory $TestDrive `
-            -LogPath $logPath
-
-        $result.ExitCode | Should -Be 0
-        $result.StdOut | Should -Match 'ok'
-        Get-Content -Raw -LiteralPath $logPath | Should -Match 'EXIT 0'
-    }
-
     It '已安装 skill 会从待执行计划中移除' {
         $claudeSkillsDir = Join-Path $TestDrive 'claude-skills'
         $codexSkillsDir = Join-Path $TestDrive 'codex-skills'
@@ -389,6 +374,49 @@ Describe 'Skills 安装计划执行' {
 
         $pendingPlan.Tools.Name | Should -Be @('ctx7')
         $pendingPlan.Steps.Name | Should -Be @('ctx7')
+    }
+
+    It 'tool 命令 check 预过滤时会静默外部输出' {
+        $tool = [pscustomobject]@{
+            Type             = 'Tool'
+            Name             = 'ctx7'
+            Command          = 'npx'
+            Arguments        = @('ctx7@latest', 'setup')
+            WorkingDirectory = $TestDrive
+            Check            = @{
+                command  = 'npx'
+                args     = @('ctx7@latest', 'skills', 'list', '--claude')
+                contains = 'context7'
+            }
+        }
+        $plan = [pscustomobject]@{
+            Tools    = @($tool)
+            Skills   = @()
+            Commands = @()
+            Steps    = @($tool)
+        }
+        $calls = New-Object 'System.Collections.Generic.List[object]'
+        $runner = {
+            param($Command, $Arguments, $WorkingDirectory, $LogPath, $AllowFailure, $SuppressOutput)
+            $calls.Add([pscustomobject]@{
+                    Command        = $Command
+                    AllowFailure   = $AllowFailure
+                    SuppressOutput = $SuppressOutput
+                }) | Out-Null
+            return [pscustomobject]@{
+                ExitCode = 0
+                StdOut   = 'context7'
+                StdErr   = ''
+            }
+        }
+
+        $pendingPlan = Get-SkillsPendingPlan -Plan $plan -LogPath '' -CommandRunner $runner
+
+        $pendingPlan.Steps | Should -HaveCount 0
+        $calls | Should -HaveCount 1
+        $calls[0].Command | Should -Be 'npx'
+        $calls[0].AllowFailure | Should -BeTrue
+        $calls[0].SuppressOutput | Should -BeTrue
     }
 
     It '附带命令按 pre/install/post 顺序进入执行计划' {

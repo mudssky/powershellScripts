@@ -86,6 +86,7 @@
         'modules\network.psm1',
         'modules\oss.psm1',
         'modules\os.psm1',
+        'modules\process.psm1',
         'modules\proxy.psm1',
         'modules\pwsh.psm1',
         'modules\git.psm1',
@@ -132,6 +133,8 @@
         'New-OssContext', 'Test-OssObject', 'Get-OssObjectInfo', 'Get-OssObjectList', 'Publish-OssObject', 'Publish-OssDirectory',
         # 操作系统模块 (os.psm1)
         'Get-OperatingSystem', 'Test-Administrator',
+        # 进程/命令执行模块 (process.psm1)
+        'Format-NativeCommandLine', 'Resolve-NativeExecutablePath', 'New-CommandLogFile', 'Write-CommandLogLine', 'Invoke-NativeCommand',
         # 代理管理模块 (proxy.psm1)
         'Close-Proxy', 'Start-Proxy', 'Set-Proxy',
         # PowerShell 工具模块 (pwsh.psm1)
