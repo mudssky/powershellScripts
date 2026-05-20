@@ -21,6 +21,7 @@ the rest conversationally.
 
 ## Status (update the checkboxes as you complete each item)
 
+- [x] Add PowerShell config loading guidelines based on `psutils/src/config`
 - [ ] Fill guidelines for node-script
 - [ ] Add code examples
 
