@@ -689,4 +689,140 @@ function ConvertTo-TreeJson {
     }
 }
 
-Export-ModuleMember -Function Get-Tree, Show-TreeItem, Get-ItemColor, Get-GitignoreRules, Test-GitignoreMatch, Build-TreeObject, Get-TreeObject, ConvertTo-TreeJson
+<#
+.SYNOPSIS
+    安全复制文件系统项。
+
+.DESCRIPTION
+    递归复制文件或目录，并对符号链接等 reparse point 做显式处理。
+    文件链接优先复制其可解析内容；无法复制时告警并跳过。目录链接默认跳过，
+    避免备份流程进入外部目录或循环路径。
+
+.PARAMETER Item
+    要复制的文件系统项。
+
+.PARAMETER DestinationPath
+    目标路径。
+
+.PARAMETER SkipDirectoryLinks
+    是否跳过目录链接，默认跳过。
+
+.OUTPUTS
+    None。
+#>
+function Copy-FileSystemItemSafe {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [System.IO.FileSystemInfo]$Item,
+
+        [Parameter(Mandatory)]
+        [string]$DestinationPath,
+
+        [switch]$SkipDirectoryLinks = $true
+    )
+
+    if ($Item.Attributes.HasFlag([System.IO.FileAttributes]::ReparsePoint)) {
+        $linkTarget = if ($Item.Target -is [System.Array]) { @($Item.Target) -join ', ' } else { [string]$Item.Target }
+        if ($Item.PSIsContainer -and $SkipDirectoryLinks) {
+            Write-Warning "备份时跳过目录链接：$($Item.FullName) -> $linkTarget"
+            return
+        }
+
+        try {
+            Copy-Item -LiteralPath $Item.FullName -Destination $DestinationPath -Force -ErrorAction Stop
+        }
+        catch {
+            if ([string]::IsNullOrWhiteSpace($linkTarget)) {
+                Write-Warning "备份时跳过无法解析目标的链接：$($Item.FullName)"
+                return
+            }
+
+            Write-Warning "备份时跳过无法复制的链接：$($Item.FullName) -> $linkTarget。$($_.Exception.Message)"
+        }
+        return
+    }
+
+    if ($Item.PSIsContainer) {
+        if (-not (Test-Path -LiteralPath $DestinationPath)) {
+            New-Item -ItemType Directory -Path $DestinationPath -Force | Out-Null
+        }
+
+        foreach ($child in Get-ChildItem -LiteralPath $Item.FullName -Force) {
+            Copy-FileSystemItemSafe -Item $child -DestinationPath (Join-Path $DestinationPath $child.Name) -SkipDirectoryLinks:$SkipDirectoryLinks
+        }
+        return
+    }
+
+    Copy-Item -LiteralPath $Item.FullName -Destination $DestinationPath -Force
+}
+
+<#
+.SYNOPSIS
+    创建目录或文件的备份快照。
+
+.DESCRIPTION
+    如果源路径存在，则在备份根目录下创建带时间戳的快照目录，并复制源内容。
+    调用方可传入外层 `$PSCmdlet` 继承 WhatIf/Confirm 语义。
+
+.PARAMETER SourcePath
+    要备份的源路径。
+
+.PARAMETER BackupRootPath
+    备份根目录。
+
+.PARAMETER NamePrefix
+    备份目录名前缀。
+
+.PARAMETER ShouldProcess
+    可选的外层 cmdlet 对象，用于执行 ShouldProcess 检查。
+
+.OUTPUTS
+    string。备份目录路径；源不存在时返回 $null。
+#>
+function New-BackupSnapshot {
+    [CmdletBinding(SupportsShouldProcess = $true)]
+    param(
+        [Parameter(Mandatory)]
+        [string]$SourcePath,
+
+        [Parameter(Mandatory)]
+        [string]$BackupRootPath,
+
+        [ValidateNotNullOrEmpty()]
+        [string]$NamePrefix = 'backup',
+
+        [AllowNull()]
+        [object]$ShouldProcess = $null
+    )
+
+    if (-not (Test-Path -LiteralPath $SourcePath)) {
+        return $null
+    }
+
+    $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+    $backupPath = Join-Path $BackupRootPath "$NamePrefix-$timestamp"
+    $shouldCopy = if ($null -ne $ShouldProcess -and $ShouldProcess.PSObject.Methods.Name -contains 'ShouldProcess') {
+        $ShouldProcess.ShouldProcess($BackupRootPath, "Create backup snapshot $backupPath")
+    }
+    else {
+        $PSCmdlet.ShouldProcess($BackupRootPath, "Create backup snapshot $backupPath")
+    }
+
+    if ($shouldCopy) {
+        New-Item -ItemType Directory -Path $backupPath -Force | Out-Null
+        $sourceItem = Get-Item -LiteralPath $SourcePath -Force
+        if ($sourceItem.PSIsContainer) {
+            foreach ($child in Get-ChildItem -LiteralPath $SourcePath -Force) {
+                Copy-FileSystemItemSafe -Item $child -DestinationPath (Join-Path $backupPath $child.Name)
+            }
+        }
+        else {
+            Copy-FileSystemItemSafe -Item $sourceItem -DestinationPath (Join-Path $backupPath $sourceItem.Name)
+        }
+    }
+
+    return $backupPath
+}
+
+Export-ModuleMember -Function Get-Tree, Show-TreeItem, Get-ItemColor, Get-GitignoreRules, Test-GitignoreMatch, Build-TreeObject, Get-TreeObject, ConvertTo-TreeJson, Copy-FileSystemItemSafe, New-BackupSnapshot

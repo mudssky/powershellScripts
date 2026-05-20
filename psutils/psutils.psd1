@@ -74,6 +74,7 @@
         'modules\cache.psm1',
         'modules\commandDiscovery.psm1',
         'modules\config.psm1',
+        'modules\docker.psm1',
         'modules\env.psm1',
         'modules\error.psm1',
         'modules\filesystem.psm1',
@@ -82,6 +83,7 @@
         'modules\hardware.psm1',
         'modules\help.psm1',
         'modules\install.psm1',
+        'modules\json.psm1',
         'modules\linux.psm1',
         'modules\network.psm1',
         'modules\oss.psm1',
@@ -107,12 +109,14 @@
         # 配置管理模块 (config.psm1)
         'Resolve-ConfigSources', 'Invoke-WithScopedEnvironment', 'ConvertTo-ConfigHashtable', 'Get-ConfigValue', 'Resolve-ConfigEnvPlaceholder', 'Resolve-ConfigPath', 'ConvertTo-ConfigKeyName', 'ConvertFrom-ConfigCliParameters',
         'Read-ConfigPowerShellDataFile', 'Read-ConfigMarkdownFrontMatter',
+        # Docker 工具模块 (docker.psm1)
+        'Test-DockerComposeAvailable', 'Assert-DockerComposeReady', 'Get-DockerComposeBaseArgs', 'Invoke-DockerComposeCommand',
         # 环境管理模块 (env.psm1)
         'Get-Dotenv', 'Install-Dotenv', 'Import-EnvPath', 'Set-EnvPath', 'Add-EnvPath', 'Get-EnvParam', 'Remove-FromEnvPath', 'Sync-PathFromBash',
         # 错误处理模块 (error.psm1)
         'Debug-CommandExecution',
         # 文件系统模块 (filesystem.psm1)
-        'Get-Tree', 'Show-TreeItem', 'Get-ItemColor', 'Get-GitignoreRules', 'Test-GitignoreMatch', 'Build-TreeObject', 'Get-TreeObject', 'ConvertTo-TreeJson',
+        'Get-Tree', 'Show-TreeItem', 'Get-ItemColor', 'Get-GitignoreRules', 'Test-GitignoreMatch', 'Build-TreeObject', 'Get-TreeObject', 'ConvertTo-TreeJson', 'Copy-FileSystemItemSafe', 'New-BackupSnapshot',
         # 字体管理模块 (font.psm1)
         'Test-Font', 'Install-Font', 'Uninstall-Font',
         # 通用函数模块 (functions.psm1)
@@ -125,6 +129,8 @@
         'Search-ModuleHelp', 'Find-PSUtilsFunction', 'Get-FunctionHelp', 'Test-HelpSearchPerformance', 'Convert-HelpBlock',
         # 安装管理模块 (install.psm1)
         'Test-ModuleInstalled', 'Install-RequiredModule', 'Install-PackageManagerApps', 'Get-PackageInstallCommand',
+        # JSON 工具模块 (json.psm1)
+        'Read-JsonHashtableFile', 'Write-JsonFileAtomic', 'Get-StableJsonKey',
         # Linux 系统模块 (linux.psm1)
         'Set-SSHKeyAuth',
         # 网络工具模块 (network.psm1)

@@ -216,27 +216,8 @@ function ConvertTo-RcloneOpsHashtable {
         [object]$InputObject
     )
 
-    if ($null -eq $InputObject) {
-        return @{}
-    }
-
-    if ($InputObject -is [hashtable]) {
-        return @{} + $InputObject
-    }
-
-    if ($InputObject -is [System.Collections.IDictionary]) {
-        $result = @{}
-        foreach ($key in $InputObject.Keys) {
-            $result[[string]$key] = $InputObject[$key]
-        }
-        return $result
-    }
-
-    $objectResult = @{}
-    foreach ($property in $InputObject.PSObject.Properties) {
-        $objectResult[$property.Name] = $property.Value
-    }
-    return $objectResult
+    Import-RcloneOpsConfigParser
+    return ConvertTo-ConfigHashtable -InputObject $InputObject
 }
 
 function Get-RcloneOpsConfigValue {
@@ -262,13 +243,8 @@ function Get-RcloneOpsConfigValue {
         [string]$Name
     )
 
-    foreach ($entry in $Values.GetEnumerator()) {
-        if ([string]::Equals([string]$entry.Key, $Name, [System.StringComparison]::OrdinalIgnoreCase)) {
-            return $entry.Value
-        }
-    }
-
-    return $null
+    Import-RcloneOpsConfigParser
+    return Get-ConfigValue -Values $Values -Name $Name
 }
 
 function Get-RcloneOpsOptionalConfigValues {
@@ -442,19 +418,8 @@ function Resolve-RcloneOpsEnvPlaceholder {
         return $Value
     }
 
-    $pattern = '\$\{([A-Za-z_][A-Za-z0-9_]*)\}'
-    foreach ($match in [regex]::Matches($Value, $pattern)) {
-        $envName = $match.Groups[1].Value
-        if ($null -eq [Environment]::GetEnvironmentVariable($envName, 'Process')) {
-            throw "环境变量未设置: $envName（$Context）"
-        }
-    }
-
-    return [regex]::Replace($Value, $pattern, {
-            param($Match)
-            $envName = $Match.Groups[1].Value
-            return [Environment]::GetEnvironmentVariable($envName, 'Process')
-        })
+    Import-RcloneOpsConfigParser
+    return Resolve-ConfigEnvPlaceholder -Value $Value -Context $Context
 }
 
 function New-RcloneOpsRemoteSection {

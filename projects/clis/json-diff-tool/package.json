@@ -47,10 +47,10 @@
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
-    "@types/node": "^25.3.3",
-    "@vitest/coverage-v8": "^4.0.18",
-    "typescript": "^5.9.3",
-    "vitest": "^4.0.18"
+    "@types/node": "^25.9.1",
+    "@vitest/coverage-v8": "^4.1.7",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.7"
   },
   "engines": {
     "node": ">=16.0.0"
