@@ -2,14 +2,29 @@
 
 ## Scope
 
-本轮处理上一轮建议顺序的第 2-5 项：
+本轮处理上一轮建议顺序的第 1-5 项：
 
-1. rclone 配置 helper 迁移。
-2. Docker Compose helper 抽取。
-3. JSON/manifest/原子写入工具。
-4. 文件同步/备份 helper。
+1. GitHub CLI 下载器通用 helper 迁移。
+2. rclone 配置 helper 迁移。
+3. Docker Compose helper 抽取。
+4. JSON/manifest/原子写入工具。
+5. 文件同步/备份 helper。
 
-`Install-GitHubCli.ps1` 明确不改。
+`Install-GitHubCli.ps1` 保留对外函数名，底层委托 `psutils`。
+
+## GitHub CLI Download Helpers
+
+GitHub CLI 下载器中的配置对象转换、平台描述、平台映射读取、归档解压、候选文件查找、
+可执行文件安装、PATH 检查与提示都属于通用基础设施。迁移到：
+
+* `psutils/modules/config.psm1`
+* `psutils/modules/os.psm1`
+* `psutils/modules/filesystem.psm1`
+* `psutils/modules/install.psm1`
+* `psutils/modules/env.psm1`
+
+脚本内保留 `ConvertTo-GitHubCliHashtable`、`New-GitHubCliPlatform`、`Expand-GitHubCliArchive`
+等旧函数名作为兼容 wrapper。
 
 ## Config Helpers
 

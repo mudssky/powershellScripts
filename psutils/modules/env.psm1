@@ -567,7 +567,7 @@ function Sync-PathFromBash {
             $source = 'bash-nologin-bashrc'
             if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($bashPathOutput)) {
                 Write-Warning "非登录模式获取 PATH 失败，尝试显式加载 ~/.bashrc。"
-                $bashPathOutput = bash --noprofile --norc -c 'source ~/.bashrc 2>/dev/null; echo $PATH'
+                $bashPathOutput = bash '--noprofile' '--norc' '-c' 'source ~/.bashrc 2>/dev/null; echo $PATH'
                 $source = 'bash-nologin-bashrc-fallback'
                 if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($bashPathOutput)) {
                     $msg = "无法从非登录模式获取 PATH。请检查 Bash 安装或 .bashrc 配置。"
@@ -662,5 +662,134 @@ function Sync-PathFromBash {
     }
 }
 
+function Test-DirectoryInPath {
+    <#
+    .SYNOPSIS
+        判断目录是否已经位于 PATH 中。
 
-Export-ModuleMember -Function Get-Dotenv, Install-Dotenv, Import-EnvPath, Set-EnvPath, Add-EnvPath, Get-EnvParam, Remove-FromEnvPath, Sync-PathFromBash
+    .DESCRIPTION
+        将目标目录和 PATH 中的条目都规范化为完整路径后比较。Windows 平台默认忽略大小写，
+        Linux/macOS 默认区分大小写；调用方也可以显式传入比较方式。
+
+    .PARAMETER Directory
+        待检查的目录路径。
+
+    .PARAMETER PathValue
+        可选 PATH 字符串；默认读取当前进程 PATH。
+
+    .PARAMETER Comparison
+        路径比较方式；未传入时根据平台自动选择。
+
+    .OUTPUTS
+        bool
+        目录已在 PATH 中时返回 true。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Directory,
+
+        [AllowNull()]
+        [string]$PathValue = $env:PATH,
+
+        [AllowNull()]
+        [object]$Comparison = $null
+    )
+
+    if ([string]::IsNullOrWhiteSpace($PathValue)) {
+        return $false
+    }
+
+    [System.StringComparison]$effectiveComparison = if ($null -ne $Comparison) {
+        if ($Comparison -is [System.StringComparison]) {
+            $Comparison
+        }
+        else {
+            [System.StringComparison]::Parse([System.StringComparison], [string]$Comparison, $true)
+        }
+    }
+    elseif ($IsWindows) {
+        [System.StringComparison]::OrdinalIgnoreCase
+    }
+    else {
+        [System.StringComparison]::Ordinal
+    }
+
+    $target = [System.IO.Path]::GetFullPath($Directory).TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
+    foreach ($entry in ($PathValue -split [regex]::Escape([System.IO.Path]::PathSeparator))) {
+        if ([string]::IsNullOrWhiteSpace($entry)) {
+            continue
+        }
+
+        try {
+            $entryPath = [System.IO.Path]::GetFullPath($entry.Trim()).TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
+        }
+        catch {
+            continue
+        }
+
+        if ([string]::Equals($target, $entryPath, $effectiveComparison)) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
+function Get-PathAddHint {
+    <#
+    .SYNOPSIS
+        生成平台化 PATH 添加提示。
+
+    .DESCRIPTION
+        根据平台输出适合展示给用户的 PATH 添加命令或操作方法。该函数只生成文本，
+        不修改环境变量。
+
+    .PARAMETER Directory
+        需要加入 PATH 的目录。
+
+    .PARAMETER OperatingSystem
+        目标操作系统，支持 `windows`、`linux`、`macos`。
+
+    .OUTPUTS
+        string[]
+        返回多行提示文本。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Directory,
+
+        [ValidateSet('windows', 'linux', 'macos')]
+        [string]$OperatingSystem = $(if ($IsWindows) { 'windows' } elseif ($IsMacOS) { 'macos' } else { 'linux' })
+    )
+
+    $escapedForSingleQuote = $Directory -replace "'", "''"
+    switch ($OperatingSystem) {
+        'windows' {
+            return @(
+                '安装目录尚未在 PATH 中。可在 PowerShell 中执行：',
+                "[Environment]::SetEnvironmentVariable('Path', [Environment]::GetEnvironmentVariable('Path', 'User') + ';$escapedForSingleQuote', 'User')",
+                '然后重新打开终端。'
+            )
+        }
+        'macos' {
+            return @(
+                '安装目录尚未在 PATH 中。zsh 用户可执行：',
+                "mkdir -p '$escapedForSingleQuote'",
+                ('echo ''export PATH="{0}:$PATH"'' >> ~/.zshrc' -f $escapedForSingleQuote),
+                '然后执行 source ~/.zshrc 或重新打开终端。'
+            )
+        }
+        default {
+            return @(
+                '安装目录尚未在 PATH 中。bash/zsh 用户可执行：',
+                "mkdir -p '$escapedForSingleQuote'",
+                ('echo ''export PATH="{0}:$PATH"'' >> ~/.profile' -f $escapedForSingleQuote),
+                '然后执行 source ~/.profile 或重新打开终端。'
+            )
+        }
+    }
+}
+
+Export-ModuleMember -Function Get-Dotenv, Install-Dotenv, Import-EnvPath, Set-EnvPath, Add-EnvPath, Get-EnvParam, Remove-FromEnvPath, Sync-PathFromBash, Test-DirectoryInPath, Get-PathAddHint

@@ -6,7 +6,7 @@
 
 ## Requirements
 
-- 跳过前一轮建议中的第 1 项：不修改 `scripts/pwsh/download/Install-GitHubCli.ps1`。
+- 补做前一轮建议中的第 1 项：迁移 `scripts/pwsh/download/Install-GitHubCli.ps1` 中可复用的通用基础设施。
 - 迁移 rclone 运维脚本中的配置 helper，优先复用 `psutils/modules/config.psm1`。
 - 抽取 Docker Compose 相关通用 helper，并至少迁移一个已有 start 脚本调用点。
 - 抽取 JSON/manifest/原子写入 helper，不包含 Claude、Tailscale、rclone 等领域规则。
@@ -15,7 +15,7 @@
 
 ## Acceptance Criteria
 
-- [ ] `Install-GitHubCli.ps1` 未被修改。
+- [ ] `Install-GitHubCli.ps1` 保留现有脚本入口和测试可见函数名，但通用配置、平台、归档、PATH 与安装 helper 复用 `psutils`。
 - [ ] `rclone-ops.ps1` 不再维护重复的 env placeholder / hashtable / case-insensitive lookup 实现。
 - [ ] 至少一个 Docker Compose start 脚本复用共享 helper，原测试行为保持兼容。
 - [ ] `psutils` 提供 JSON 原子读写或稳定键 helper，并有 Pester 覆盖。
@@ -24,4 +24,4 @@
 
 ## Notes
 
-- 用户明确指定“2 3 4 5 改一下，1 先不改了”，此处的 1 指上一轮建议顺序中的 GitHub CLI 下载器迁移。
+- 用户最初指定“2 3 4 5 改一下，1 先不改了”，随后补充“第一项也改一下”；此处的 1 指上一轮建议顺序中的 GitHub CLI 下载器迁移。

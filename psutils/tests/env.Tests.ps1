@@ -304,6 +304,26 @@ Describe "Sync-PathFromBash 函数测试" {
     }
 }
 
+Describe "PATH 检查与提示 helper" {
+    It "能检测目录是否已在 PATH 中" {
+        $targetDir = Join-Path $TestDrive "path-target"
+        New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+        $pathValue = (Join-Path $TestDrive 'other') + [IO.Path]::PathSeparator + $targetDir
+
+        Test-DirectoryInPath -Directory $targetDir -PathValue $pathValue | Should -BeTrue
+    }
+
+    It "按平台输出 PATH 添加提示" {
+        $windowsHint = Get-PathAddHint -Directory 'C:\Users\me\.local\bin' -OperatingSystem windows
+        $linuxHint = Get-PathAddHint -Directory '/home/me/.local/bin' -OperatingSystem linux
+        $macHint = Get-PathAddHint -Directory '/Users/me/.local/bin' -OperatingSystem macos
+
+        ($windowsHint -join "`n") | Should -Match 'SetEnvironmentVariable'
+        ($linuxHint -join "`n") | Should -Match '~/.profile'
+        ($macHint -join "`n") | Should -Match '~/.zshrc'
+    }
+}
+
 AfterAll {
     Remove-Module env -Force -ErrorAction SilentlyContinue
 }

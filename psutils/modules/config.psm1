@@ -20,6 +20,7 @@ Export-ModuleMember -Function @(
     'Get-ConfigValue'
     'Resolve-ConfigEnvPlaceholder'
     'Resolve-ConfigPath'
+    'Resolve-ConfigPlatformValue'
     'ConvertTo-ConfigKeyName'
     'ConvertFrom-ConfigCliParameters'
     'Read-ConfigPowerShellDataFile'

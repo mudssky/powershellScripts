@@ -108,15 +108,15 @@
         'Find-ExecutableCommand',
         # 配置管理模块 (config.psm1)
         'Resolve-ConfigSources', 'Invoke-WithScopedEnvironment', 'ConvertTo-ConfigHashtable', 'Get-ConfigValue', 'Resolve-ConfigEnvPlaceholder', 'Resolve-ConfigPath', 'ConvertTo-ConfigKeyName', 'ConvertFrom-ConfigCliParameters',
-        'Read-ConfigPowerShellDataFile', 'Read-ConfigMarkdownFrontMatter',
+        'Resolve-ConfigPlatformValue', 'Read-ConfigPowerShellDataFile', 'Read-ConfigMarkdownFrontMatter',
         # Docker 工具模块 (docker.psm1)
         'Test-DockerComposeAvailable', 'Assert-DockerComposeReady', 'Get-DockerComposeBaseArgs', 'Invoke-DockerComposeCommand',
         # 环境管理模块 (env.psm1)
-        'Get-Dotenv', 'Install-Dotenv', 'Import-EnvPath', 'Set-EnvPath', 'Add-EnvPath', 'Get-EnvParam', 'Remove-FromEnvPath', 'Sync-PathFromBash',
+        'Get-Dotenv', 'Install-Dotenv', 'Import-EnvPath', 'Set-EnvPath', 'Add-EnvPath', 'Get-EnvParam', 'Remove-FromEnvPath', 'Sync-PathFromBash', 'Test-DirectoryInPath', 'Get-PathAddHint',
         # 错误处理模块 (error.psm1)
         'Debug-CommandExecution',
         # 文件系统模块 (filesystem.psm1)
-        'Get-Tree', 'Show-TreeItem', 'Get-ItemColor', 'Get-GitignoreRules', 'Test-GitignoreMatch', 'Build-TreeObject', 'Get-TreeObject', 'ConvertTo-TreeJson', 'Copy-FileSystemItemSafe', 'New-BackupSnapshot',
+        'Get-Tree', 'Show-TreeItem', 'Get-ItemColor', 'Get-GitignoreRules', 'Test-GitignoreMatch', 'Build-TreeObject', 'Get-TreeObject', 'ConvertTo-TreeJson', 'Copy-FileSystemItemSafe', 'New-BackupSnapshot', 'Get-ArchiveKind', 'Expand-ArchiveFile', 'Find-FileCandidate',
         # 字体管理模块 (font.psm1)
         'Test-Font', 'Install-Font', 'Uninstall-Font',
         # 通用函数模块 (functions.psm1)
@@ -128,7 +128,7 @@
         # 帮助搜索模块 (help.psm1)
         'Search-ModuleHelp', 'Find-PSUtilsFunction', 'Get-FunctionHelp', 'Test-HelpSearchPerformance', 'Convert-HelpBlock',
         # 安装管理模块 (install.psm1)
-        'Test-ModuleInstalled', 'Install-RequiredModule', 'Install-PackageManagerApps', 'Get-PackageInstallCommand',
+        'Test-ModuleInstalled', 'Install-RequiredModule', 'Install-PackageManagerApps', 'Install-ExecutableFile', 'Get-PackageInstallCommand',
         # JSON 工具模块 (json.psm1)
         'Read-JsonHashtableFile', 'Write-JsonFileAtomic', 'Get-StableJsonKey',
         # Linux 系统模块 (linux.psm1)
@@ -138,7 +138,7 @@
         # OSS 工具模块 (oss.psm1)
         'New-OssContext', 'Test-OssObject', 'Get-OssObjectInfo', 'Get-OssObjectList', 'Publish-OssObject', 'Publish-OssDirectory',
         # 操作系统模块 (os.psm1)
-        'Get-OperatingSystem', 'Test-Administrator',
+        'Get-OperatingSystem', 'Test-Administrator', 'New-PlatformDescriptor',
         # 进程/命令执行模块 (process.psm1)
         'Format-NativeCommandLine', 'Resolve-NativeExecutablePath', 'New-CommandLogFile', 'Write-CommandLogLine', 'Invoke-NativeCommand',
         # 代理管理模块 (proxy.psm1)

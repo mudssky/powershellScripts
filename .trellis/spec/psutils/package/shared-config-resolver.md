@@ -26,6 +26,7 @@
   - `Get-ConfigValue -Values <hashtable> -Name <string> [-DefaultValue <object>]`
   - `Resolve-ConfigEnvPlaceholder -Value <string> -Context <string>`
   - `Resolve-ConfigPath -Path <string> -BasePath <string> -Context <string>`
+  - `Resolve-ConfigPlatformValue -Value <object> -Platform <pscustomobject> -Label <string> [-AllowScalar]`
   - `ConvertTo-ConfigKeyName -Name <string>`
   - `ConvertFrom-ConfigCliParameters -Parameters <hashtable> [-ExcludeKeys <string[]>]`
 - Scoped env:
@@ -43,6 +44,7 @@
 - `Get-ConfigValue` performs shallow case-insensitive lookup only; it must not expand paths, environment variables, nested paths, or normalize key names.
 - `Resolve-ConfigEnvPlaceholder` expands `${VAR}` and `%VAR%`; missing `${VAR}` throws with context instead of silently preserving the placeholder.
 - `Resolve-ConfigPath` expands env placeholders, supports `~`, resolves relative paths against `BasePath`, and returns an absolute path. It does not validate existence or create directories.
+- `Resolve-ConfigPlatformValue` reads platform maps in `<os>-<arch>` -> `<os>` -> `default` order; scalar strings are accepted only when `-AllowScalar` is explicitly set.
 - Missing file sources return an empty table by default; `-ErrorOnMissing` changes that to `配置文件不存在: <path>`.
 - `Invoke-WithScopedEnvironment` must restore overwritten variables and remove newly created variables even when the script block throws.
 - `psutils/modules/config.psm1` must export public resolver functions and must not contain a second implementation of the parser.
@@ -60,6 +62,7 @@
 | CLI parameter value is `$null` or whitespace | Omit it from merged config |
 | `${VAR}` placeholder references a missing env var | Throw `环境变量未设置: VAR（context）` |
 | `Resolve-ConfigPath` receives an empty path | Throw `路径配置不能为空: context` |
+| Platform map is a scalar without `-AllowScalar` | Throw `<label> 需要按平台配置` |
 
 ### 5. Good/Base/Bad Cases
 

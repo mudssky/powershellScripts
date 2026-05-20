@@ -134,6 +134,45 @@ Describe 'Config object helpers' {
 
         $result | Should -Be 'fallback'
     }
+
+    It '按平台优先级读取映射值' {
+        $platform = [pscustomobject]@{
+            OperatingSystem = 'linux'
+            Architecture    = 'x64'
+            Key             = 'linux-x64'
+        }
+
+        $result = Resolve-ConfigPlatformValue -Value @{
+            default     = 'generic'
+            linux       = 'linux-any'
+            'linux-x64' = 'linux-x64-value'
+        } -Platform $platform -Label 'asset_patterns'
+
+        $result | Should -Be 'linux-x64-value'
+    }
+
+    It '允许调用方显式接受标量平台值' {
+        $platform = [pscustomobject]@{
+            OperatingSystem = 'linux'
+            Architecture    = 'x64'
+            Key             = 'linux-x64'
+        }
+
+        $result = Resolve-ConfigPlatformValue -Value 'tool' -Platform $platform -Label 'executables' -AllowScalar
+
+        $result | Should -Be 'tool'
+    }
+
+    It '默认拒绝标量平台映射值' {
+        $platform = [pscustomobject]@{
+            OperatingSystem = 'linux'
+            Architecture    = 'x64'
+            Key             = 'linux-x64'
+        }
+
+        { Resolve-ConfigPlatformValue -Value 'tool' -Platform $platform -Label 'executables' } |
+            Should -Throw 'executables 需要按平台配置*'
+    }
 }
 
 Describe 'Config path helpers' {

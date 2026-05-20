@@ -825,4 +825,153 @@ function New-BackupSnapshot {
     return $backupPath
 }
 
-Export-ModuleMember -Function Get-Tree, Show-TreeItem, Get-ItemColor, Get-GitignoreRules, Test-GitignoreMatch, Build-TreeObject, Get-TreeObject, ConvertTo-TreeJson, Copy-FileSystemItemSafe, New-BackupSnapshot
+<#
+.SYNOPSIS
+    判断归档文件的压缩格式。
+
+.DESCRIPTION
+    根据文件扩展名识别常见发布包格式。当前支持 `.zip`、`.tar.gz` 与 `.tgz`，
+    适合下载器或安装器在解压前做轻量分派。
+
+.PARAMETER Path
+    归档文件路径。
+
+.OUTPUTS
+    string
+    返回 `Zip` 或 `TarGz`；不支持的格式会抛出异常。
+#>
+function Get-ArchiveKind {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
+
+    if ($Path.EndsWith('.zip', [System.StringComparison]::OrdinalIgnoreCase)) {
+        return 'Zip'
+    }
+
+    if ($Path.EndsWith('.tar.gz', [System.StringComparison]::OrdinalIgnoreCase) -or $Path.EndsWith('.tgz', [System.StringComparison]::OrdinalIgnoreCase)) {
+        return 'TarGz'
+    }
+
+    throw "不支持的压缩格式: $Path"
+}
+
+<#
+.SYNOPSIS
+    解压常见归档文件。
+
+.DESCRIPTION
+    统一处理 `.zip`、`.tar.gz` 与 `.tgz` 文件解压。ZIP 使用 PowerShell
+    `Expand-Archive`，tarball 使用系统 `tar` 命令，便于调用方复用一致的错误语义。
+
+.PARAMETER ArchivePath
+    待解压的归档文件路径。
+
+.PARAMETER Destination
+    解压目标目录。
+
+.OUTPUTS
+    None。
+#>
+function Expand-ArchiveFile {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$ArchivePath,
+
+        [Parameter(Mandatory)]
+        [string]$Destination
+    )
+
+    New-Item -ItemType Directory -Path $Destination -Force | Out-Null
+    $kind = Get-ArchiveKind -Path $ArchivePath
+    if ($kind -eq 'Zip') {
+        Expand-Archive -LiteralPath $ArchivePath -DestinationPath $Destination -Force
+        return
+    }
+
+    $tarCommand = Get-Command tar -ErrorAction SilentlyContinue
+    if (-not $tarCommand) {
+        throw '未找到 tar 命令，无法解压 .tar.gz 文件。'
+    }
+
+    & $tarCommand.Source -xzf $ArchivePath -C $Destination
+    if ($LASTEXITCODE -ne 0) {
+        throw "解压 tar.gz 文件失败: $ArchivePath"
+    }
+}
+
+<#
+.SYNOPSIS
+    在目录中定位唯一同名文件。
+
+.DESCRIPTION
+    可选传入相对路径直接定位文件；未传入时递归查找指定文件名，并在无匹配或多匹配时抛出
+    带上下文的异常。适合安装器从解压目录中选择待安装的可执行文件。
+
+.PARAMETER RootDirectory
+    查找根目录。
+
+.PARAMETER FileName
+    目标文件名。
+
+.PARAMETER RelativePath
+    可选的根目录内相对路径；传入时不再递归搜索。
+
+.PARAMETER MissingRelativePathMessage
+    指定相对路径不存在时的错误消息模板，`{0}` 会被替换为相对路径。
+
+.PARAMETER MissingFileMessage
+    递归查找未命中时的错误消息模板，`{0}` 会被替换为文件名。
+
+.PARAMETER MultipleMatchesMessage
+    递归查找出现多匹配时的错误消息模板，`{0}` 会被替换为匹配路径列表。
+
+.OUTPUTS
+    string
+    返回匹配文件的完整路径。
+#>
+function Find-FileCandidate {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RootDirectory,
+
+        [Parameter(Mandatory)]
+        [string]$FileName,
+
+        [string]$RelativePath = '',
+
+        [string]$MissingRelativePathMessage = '未找到配置的相对路径: {0}',
+
+        [string]$MissingFileMessage = '目录中未找到文件: {0}',
+
+        [string]$MultipleMatchesMessage = '目录中找到多个同名文件: {0}'
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($RelativePath)) {
+        $candidate = Join-Path $RootDirectory $RelativePath
+        if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) {
+            throw ($MissingRelativePathMessage -f $RelativePath)
+        }
+
+        return $candidate
+    }
+
+    $matches = @(Get-ChildItem -LiteralPath $RootDirectory -Recurse -File | Where-Object {
+            [string]::Equals($_.Name, $FileName, [System.StringComparison]::OrdinalIgnoreCase)
+        } | Sort-Object FullName)
+    if ($matches.Count -eq 0) {
+        throw ($MissingFileMessage -f $FileName)
+    }
+
+    if ($matches.Count -gt 1) {
+        throw ($MultipleMatchesMessage -f ($matches.FullName -join ', '))
+    }
+
+    return $matches[0].FullName
+}
+
+Export-ModuleMember -Function Get-Tree, Show-TreeItem, Get-ItemColor, Get-GitignoreRules, Test-GitignoreMatch, Build-TreeObject, Get-TreeObject, ConvertTo-TreeJson, Copy-FileSystemItemSafe, New-BackupSnapshot, Get-ArchiveKind, Expand-ArchiveFile, Find-FileCandidate

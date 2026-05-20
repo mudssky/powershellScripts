@@ -281,6 +281,69 @@ function ConvertFrom-ConfigCliParameters {
 
 <#
 .SYNOPSIS
+    从平台映射配置中读取当前平台值。
+
+.DESCRIPTION
+    按 `<系统>-<架构>`、`<系统>`、`default` 的顺序读取配置，例如先匹配
+    `linux-x64`，再匹配 `linux`，最后匹配 `default`。该函数只处理配置映射
+    选择，不负责解析路径、校验文件或处理具体业务字段。
+
+.PARAMETER Value
+    平台映射对象；允许调用方通过 `AllowScalar` 接受单个字符串值。
+
+.PARAMETER Platform
+    平台描述对象，需包含 `Key` 与 `OperatingSystem` 属性。
+
+.PARAMETER Label
+    配置字段名称，用于错误提示。
+
+.PARAMETER AllowScalar
+    允许直接传入字符串值；未启用时字符串会被视为配置错误。
+
+.OUTPUTS
+    object
+    返回命中的平台配置值；未命中时返回 `$null`。
+#>
+function Resolve-ConfigPlatformValue {
+    [CmdletBinding()]
+    param(
+        [AllowNull()]
+        [object]$Value,
+
+        [Parameter(Mandatory)]
+        [pscustomobject]$Platform,
+
+        [Parameter(Mandatory)]
+        [string]$Label,
+
+        [switch]$AllowScalar
+    )
+
+    if ($null -eq $Value) {
+        return $null
+    }
+
+    if ($Value -is [string]) {
+        if ($AllowScalar) {
+            return $Value
+        }
+
+        throw "$Label 需要按平台配置，不能是单个字符串。"
+    }
+
+    $table = ConvertTo-ConfigHashtable -InputObject $Value
+    foreach ($key in @($Platform.Key, $Platform.OperatingSystem, 'default')) {
+        $mappedValue = Get-ConfigValue -Values $table -Name $key
+        if ($null -ne $mappedValue -and -not [string]::IsNullOrWhiteSpace([string]$mappedValue)) {
+            return $mappedValue
+        }
+    }
+
+    return $null
+}
+
+<#
+.SYNOPSIS
     规范化单个配置来源描述。
 
 .DESCRIPTION

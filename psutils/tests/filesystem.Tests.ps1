@@ -188,6 +188,36 @@ Describe "文件系统安全复制与备份 helper" {
     }
 }
 
+Describe "归档与候选文件 helper" {
+    It "识别 zip 与 tarball 归档格式" {
+        Get-ArchiveKind -Path 'tool.zip' | Should -Be 'Zip'
+        Get-ArchiveKind -Path 'tool.tar.gz' | Should -Be 'TarGz'
+        Get-ArchiveKind -Path 'tool.tgz' | Should -Be 'TarGz'
+    }
+
+    It "能解压 zip 文件" {
+        $sourceDir = Join-Path $TestDrive 'archive-source'
+        $archivePath = Join-Path $TestDrive 'tool.zip'
+        $extractDir = Join-Path $TestDrive 'archive-extract'
+        New-Item -ItemType Directory -Path (Join-Path $sourceDir 'nested') -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $sourceDir 'nested/tool') -Encoding utf8NoBOM -Value 'tool'
+        Compress-Archive -Path (Join-Path $sourceDir '*') -DestinationPath $archivePath
+
+        Expand-ArchiveFile -ArchivePath $archivePath -Destination $extractDir
+
+        Test-Path -LiteralPath (Join-Path $extractDir 'nested/tool') | Should -BeTrue
+    }
+
+    It "按相对路径或唯一文件名定位候选文件" {
+        $root = Join-Path $TestDrive 'candidate-root'
+        New-Item -ItemType Directory -Path (Join-Path $root 'nested') -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $root 'nested/tool') -Encoding utf8NoBOM -Value 'tool'
+
+        Find-FileCandidate -RootDirectory $root -FileName 'tool' | Should -Be (Join-Path $root 'nested/tool')
+        Find-FileCandidate -RootDirectory $root -FileName 'tool' -RelativePath 'nested/tool' | Should -Be (Join-Path $root 'nested/tool')
+    }
+}
+
 Describe "Get-GitignoreRules 函数测试" {
     BeforeAll {
         # 创建测试目录和.gitignore文件

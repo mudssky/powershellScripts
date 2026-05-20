@@ -128,6 +128,21 @@ Describe "Test-Administrator 函数测试" {
     }
 }
 
+Describe "New-PlatformDescriptor 函数测试" {
+    It "规范化操作系统和 CPU 架构" {
+        $platform = New-PlatformDescriptor -OperatingSystem linux -Architecture AMD64
+
+        $platform.OperatingSystem | Should -Be 'linux'
+        $platform.Architecture | Should -Be 'x64'
+        $platform.Key | Should -Be 'linux-x64'
+    }
+
+    It "拒绝不支持的 CPU 架构" {
+        { New-PlatformDescriptor -OperatingSystem linux -Architecture riscv64 } |
+            Should -Throw '不支持的 CPU 架构*'
+    }
+}
+
 AfterAll {
     Remove-Module os -Force -ErrorAction SilentlyContinue
 }

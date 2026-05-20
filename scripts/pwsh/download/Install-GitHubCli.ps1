@@ -92,27 +92,8 @@ function ConvertTo-GitHubCliHashtable {
         [object]$InputObject
     )
 
-    if ($null -eq $InputObject) {
-        return @{}
-    }
-
-    if ($InputObject -is [hashtable]) {
-        return @{} + $InputObject
-    }
-
-    if ($InputObject -is [System.Collections.IDictionary]) {
-        $result = @{}
-        foreach ($key in $InputObject.Keys) {
-            $result[[string]$key] = $InputObject[$key]
-        }
-        return $result
-    }
-
-    $objectResult = @{}
-    foreach ($property in $InputObject.PSObject.Properties) {
-        $objectResult[$property.Name] = $property.Value
-    }
-    return $objectResult
+    Import-GitHubCliConfigModule
+    return ConvertTo-ConfigHashtable -InputObject $InputObject
 }
 
 function Get-GitHubCliConfigValue {
@@ -144,26 +125,21 @@ function Get-GitHubCliConfigValue {
         [object]$DefaultValue = $null
     )
 
-    foreach ($entry in $Values.GetEnumerator()) {
-        if ([string]::Equals([string]$entry.Key, $Name, [System.StringComparison]::OrdinalIgnoreCase)) {
-            return $entry.Value
-        }
-    }
-
-    return $DefaultValue
+    Import-GitHubCliConfigModule
+    return Get-ConfigValue -Values $Values -Name $Name -DefaultValue $DefaultValue
 }
 
 function Import-GitHubCliConfigModule {
     <#
     .SYNOPSIS
-        加载仓库共享配置模块。
+        加载仓库共享 PowerShell helper 模块。
 
     .DESCRIPTION
-        通过 `psutils/modules/config.psm1` 复用 `psutils/src/config` 的 JSON 配置读取逻辑，
-        避免下载脚本维护独立配置解析器。
+        加载 `psutils` 中的配置、平台、文件系统、安装与 PATH helper。下载脚本保留
+        原有函数名作为兼容 wrapper，底层基础设施统一复用共享模块。
 
     .OUTPUTS
-        None。加载 `Resolve-ConfigSources` 到当前会话。
+        None。加载共享 helper 到当前会话。
     #>
     [CmdletBinding()]
     param()
@@ -173,12 +149,15 @@ function Import-GitHubCliConfigModule {
     }
 
     $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $script:GitHubCliDownloadRoot '../../..'))
-    $configModulePath = Join-Path $repoRoot 'psutils/modules/config.psm1'
-    if (-not (Test-Path -LiteralPath $configModulePath -PathType Leaf)) {
-        throw "未找到共享配置解析器模块: $configModulePath"
+    foreach ($moduleName in @('config', 'env', 'filesystem', 'install', 'os')) {
+        $modulePath = Join-Path $repoRoot "psutils/modules/$moduleName.psm1"
+        if (-not (Test-Path -LiteralPath $modulePath -PathType Leaf)) {
+            throw "未找到共享 PowerShell helper 模块: $modulePath"
+        }
+
+        Import-Module $modulePath -Force
     }
 
-    Import-Module $configModulePath -Force
     $script:GitHubCliConfigModuleLoaded = $true
 }
 
@@ -209,21 +188,8 @@ function Resolve-GitHubCliEnvPlaceholder {
         [string]$Context
     )
 
-    $pattern = '\$\{([A-Za-z_][A-Za-z0-9_]*)\}'
-    foreach ($match in [regex]::Matches($Value, $pattern)) {
-        $envName = $match.Groups[1].Value
-        if ($null -eq [Environment]::GetEnvironmentVariable($envName, 'Process')) {
-            throw "环境变量未设置: $envName（$Context）"
-        }
-    }
-
-    $resolved = [regex]::Replace($Value, $pattern, {
-            param($Match)
-            $envName = $Match.Groups[1].Value
-            return [Environment]::GetEnvironmentVariable($envName, 'Process')
-        })
-
-    return [Environment]::ExpandEnvironmentVariables($resolved)
+    Import-GitHubCliConfigModule
+    return Resolve-ConfigEnvPlaceholder -Value $Value -Context $Context
 }
 
 function Resolve-GitHubCliPath {
@@ -260,33 +226,8 @@ function Resolve-GitHubCliPath {
         [string]$Context
     )
 
-    if ([string]::IsNullOrWhiteSpace($Path)) {
-        throw "路径配置不能为空: $Context"
-    }
-
-    $expanded = Resolve-GitHubCliEnvPlaceholder -Value $Path.Trim() -Context $Context
-    if ($expanded -eq '~' -or $expanded.StartsWith('~/') -or $expanded.StartsWith('~\')) {
-        $userHome = [Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile)
-        if ([string]::IsNullOrWhiteSpace($userHome)) {
-            throw "无法解析用户主目录: $Context"
-        }
-
-        if ($expanded -eq '~') {
-            $expanded = $userHome
-        }
-        else {
-            $expanded = Join-Path $userHome $expanded.Substring(2)
-        }
-    }
-
-    $combined = if ([System.IO.Path]::IsPathRooted($expanded)) {
-        $expanded
-    }
-    else {
-        Join-Path $BasePath $expanded
-    }
-
-    return [System.IO.Path]::GetFullPath($combined)
+    Import-GitHubCliConfigModule
+    return Resolve-ConfigPath -Path $Path -BasePath $BasePath -Context $Context
 }
 
 function New-GitHubCliPlatform {
@@ -314,44 +255,8 @@ function New-GitHubCliPlatform {
         [string]$Architecture = ''
     )
 
-    $os = if (-not [string]::IsNullOrWhiteSpace($OperatingSystem)) {
-        $OperatingSystem.Trim().ToLowerInvariant()
-    }
-    elseif ($IsWindows) {
-        'windows'
-    }
-    elseif ($IsMacOS) {
-        'macos'
-    }
-    elseif ($IsLinux) {
-        'linux'
-    }
-    else {
-        throw '无法识别当前操作系统。'
-    }
-
-    if ($os -notin @('windows', 'linux', 'macos')) {
-        throw "不支持的操作系统: $OperatingSystem"
-    }
-
-    $rawArchitecture = if (-not [string]::IsNullOrWhiteSpace($Architecture)) {
-        $Architecture
-    }
-    else {
-        [System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture.ToString()
-    }
-
-    $arch = switch ($rawArchitecture.Trim().ToLowerInvariant()) {
-        { $_ -in @('x64', 'amd64') } { 'x64'; break }
-        { $_ -in @('arm64', 'aarch64') } { 'arm64'; break }
-        default { throw "不支持的 CPU 架构: $rawArchitecture" }
-    }
-
-    return [pscustomobject]@{
-        OperatingSystem = $os
-        Architecture    = $arch
-        Key             = "$os-$arch"
-    }
+    Import-GitHubCliConfigModule
+    return New-PlatformDescriptor -OperatingSystem $OperatingSystem -Architecture $Architecture
 }
 
 function Get-GitHubCliDefaultInstallDir {
@@ -416,27 +321,8 @@ function Resolve-GitHubCliPlatformValue {
         [switch]$AllowScalar
     )
 
-    if ($null -eq $Value) {
-        return $null
-    }
-
-    if ($Value -is [string]) {
-        if ($AllowScalar) {
-            return $Value
-        }
-
-        throw "$Label 需要按平台配置，不能是单个字符串。"
-    }
-
-    $table = ConvertTo-GitHubCliHashtable -InputObject $Value
-    foreach ($key in @($Platform.Key, $Platform.OperatingSystem, 'default')) {
-        $mappedValue = Get-GitHubCliConfigValue -Values $table -Name $key
-        if ($null -ne $mappedValue -and -not [string]::IsNullOrWhiteSpace([string]$mappedValue)) {
-            return $mappedValue
-        }
-    }
-
-    return $null
+    Import-GitHubCliConfigModule
+    return Resolve-ConfigPlatformValue -Value $Value -Platform $Platform -Label $Label -AllowScalar:$AllowScalar
 }
 
 function Read-GitHubCliDownloadConfig {
@@ -807,15 +693,8 @@ function Get-GitHubCliArchiveKind {
         [string]$Path
     )
 
-    if ($Path.EndsWith('.zip', [System.StringComparison]::OrdinalIgnoreCase)) {
-        return 'Zip'
-    }
-
-    if ($Path.EndsWith('.tar.gz', [System.StringComparison]::OrdinalIgnoreCase) -or $Path.EndsWith('.tgz', [System.StringComparison]::OrdinalIgnoreCase)) {
-        return 'TarGz'
-    }
-
-    throw "不支持的压缩格式: $Path"
+    Import-GitHubCliConfigModule
+    return Get-ArchiveKind -Path $Path
 }
 
 function Get-GitHubCliDownloadedAsset {
@@ -870,22 +749,8 @@ function Expand-GitHubCliArchive {
         [string]$Destination
     )
 
-    New-Item -ItemType Directory -Path $Destination -Force | Out-Null
-    $kind = Get-GitHubCliArchiveKind -Path $ArchivePath
-    if ($kind -eq 'Zip') {
-        Expand-Archive -LiteralPath $ArchivePath -DestinationPath $Destination -Force
-        return
-    }
-
-    $tarCommand = Get-Command tar -ErrorAction SilentlyContinue
-    if (-not $tarCommand) {
-        throw '未找到 tar 命令，无法解压 .tar.gz 文件。'
-    }
-
-    & $tarCommand.Source -xzf $ArchivePath -C $Destination
-    if ($LASTEXITCODE -ne 0) {
-        throw "解压 tar.gz 文件失败: $ArchivePath"
-    }
+    Import-GitHubCliConfigModule
+    Expand-ArchiveFile -ArchivePath $ArchivePath -Destination $Destination
 }
 
 function Find-GitHubCliExecutableCandidate {
@@ -917,25 +782,20 @@ function Find-GitHubCliExecutableCandidate {
     )
 
     if (-not [string]::IsNullOrWhiteSpace($BinaryPath)) {
-        $candidate = Join-Path $ExtractDirectory $BinaryPath
-        if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) {
-            throw "压缩包内未找到配置的 binary_path: $BinaryPath"
-        }
-        return $candidate
+        Import-GitHubCliConfigModule
+        return Find-FileCandidate `
+            -RootDirectory $ExtractDirectory `
+            -FileName $ExecutableName `
+            -RelativePath $BinaryPath `
+            -MissingRelativePathMessage '压缩包内未找到配置的 binary_path: {0}'
     }
 
-    $matches = @(Get-ChildItem -LiteralPath $ExtractDirectory -Recurse -File | Where-Object {
-            [string]::Equals($_.Name, $ExecutableName, [System.StringComparison]::OrdinalIgnoreCase)
-        } | Sort-Object FullName)
-    if ($matches.Count -eq 0) {
-        throw "解压目录中未找到可执行文件: $ExecutableName"
-    }
-
-    if ($matches.Count -gt 1) {
-        throw "解压目录中找到多个同名可执行文件，请配置 binary_path: $($matches.FullName -join ', ')"
-    }
-
-    return $matches[0].FullName
+    Import-GitHubCliConfigModule
+    return Find-FileCandidate `
+        -RootDirectory $ExtractDirectory `
+        -FileName $ExecutableName `
+        -MissingFileMessage '解压目录中未找到可执行文件: {0}' `
+        -MultipleMatchesMessage '解压目录中找到多个同名可执行文件，请配置 binary_path: {0}'
 }
 
 function Install-GitHubCliExecutable {
@@ -978,27 +838,13 @@ function Install-GitHubCliExecutable {
         [switch]$NoOverwrite
     )
 
-    New-Item -ItemType Directory -Path $InstallDirectory -Force | Out-Null
-    $targetPath = Join-Path $InstallDirectory $ExecutableName
-    if ($NoOverwrite -and (Test-Path -LiteralPath $targetPath -PathType Leaf)) {
-        return [pscustomobject]@{
-            Status = 'Skipped'
-            Path   = $targetPath
-        }
-    }
-
-    Copy-Item -LiteralPath $SourcePath -Destination $targetPath -Force
-    if ($Platform.OperatingSystem -ne 'windows') {
-        $chmodCommand = Get-Command chmod -ErrorAction SilentlyContinue
-        if ($chmodCommand) {
-            & $chmodCommand.Source '+x' $targetPath
-        }
-    }
-
-    return [pscustomobject]@{
-        Status = 'Installed'
-        Path   = $targetPath
-    }
+    Import-GitHubCliConfigModule
+    return Install-ExecutableFile `
+        -SourcePath $SourcePath `
+        -InstallDirectory $InstallDirectory `
+        -ExecutableName $ExecutableName `
+        -OperatingSystem $Platform.OperatingSystem `
+        -NoOverwrite:$NoOverwrite
 }
 
 function Test-GitHubCliDirectoryInPath {
@@ -1030,30 +876,15 @@ function Test-GitHubCliDirectoryInPath {
         [string]$PathValue = $env:PATH
     )
 
-    if ([string]::IsNullOrWhiteSpace($PathValue)) {
-        return $false
-    }
-
     $comparison = if ($Platform.OperatingSystem -eq 'windows') {
         [System.StringComparison]::OrdinalIgnoreCase
     }
     else {
         [System.StringComparison]::Ordinal
     }
-    $target = [System.IO.Path]::GetFullPath($Directory).TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
 
-    foreach ($entry in ($PathValue -split [regex]::Escape([System.IO.Path]::PathSeparator))) {
-        if ([string]::IsNullOrWhiteSpace($entry)) {
-            continue
-        }
-
-        $entryPath = [System.IO.Path]::GetFullPath($entry).TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
-        if ([string]::Equals($target, $entryPath, $comparison)) {
-            return $true
-        }
-    }
-
-    return $false
+    Import-GitHubCliConfigModule
+    return Test-DirectoryInPath -Directory $Directory -PathValue $PathValue -Comparison $comparison
 }
 
 function Get-GitHubCliPathHint {
@@ -1079,32 +910,8 @@ function Get-GitHubCliPathHint {
         [pscustomobject]$Platform
     )
 
-    $escapedForSingleQuote = $InstallDirectory -replace "'", "''"
-    switch ($Platform.OperatingSystem) {
-        'windows' {
-            return @(
-                '安装目录尚未在 PATH 中。可在 PowerShell 中执行：',
-                "[Environment]::SetEnvironmentVariable('Path', [Environment]::GetEnvironmentVariable('Path', 'User') + ';$escapedForSingleQuote', 'User')",
-                '然后重新打开终端。'
-            )
-        }
-        'macos' {
-            return @(
-                '安装目录尚未在 PATH 中。zsh 用户可执行：',
-                "mkdir -p '$escapedForSingleQuote'",
-                ('echo ''export PATH="{0}:$PATH"'' >> ~/.zshrc' -f $escapedForSingleQuote),
-                '然后执行 source ~/.zshrc 或重新打开终端。'
-            )
-        }
-        default {
-            return @(
-                '安装目录尚未在 PATH 中。bash/zsh 用户可执行：',
-                "mkdir -p '$escapedForSingleQuote'",
-                ('echo ''export PATH="{0}:$PATH"'' >> ~/.profile' -f $escapedForSingleQuote),
-                '然后执行 source ~/.profile 或重新打开终端。'
-            )
-        }
-    }
+    Import-GitHubCliConfigModule
+    return Get-PathAddHint -Directory $InstallDirectory -OperatingSystem $Platform.OperatingSystem
 }
 
 function Invoke-GitHubCliToolInstall {
