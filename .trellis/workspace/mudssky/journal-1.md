@@ -142,3 +142,41 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 5: 拆分 skills 安装器私有模块
+
+**Date**: 2026-05-21
+**Task**: 拆分 skills 安装器私有模块
+**Branch**: `master`
+
+### Summary
+
+修复 skills 安装器外部命令与已安装检查语义，抽取 psutils 通用执行、配置对象与路径解析 helper，并将 Install-Skills.ps1 的领域逻辑拆分到 ai/skills/private 私有脚本。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c1291c1` | (see git log) |
+| `f2b24b6` | (see git log) |
+| `a5e11df` | (see git log) |
+| `b6faff8` | (see git log) |
+| `ea21a8d` | (see git log) |
+| `4134cab` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
