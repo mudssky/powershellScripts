@@ -362,104 +362,6 @@ function Test-SkillsDirectoryCheck {
     return $false
 }
 
-function Resolve-SkillsEnvPlaceholder {
-    <#
-    .SYNOPSIS
-        展开路径中的环境变量占位符。
-
-    .DESCRIPTION
-        支持 `${NAME}` 与平台原生 `%NAME%` 形式。`${NAME}` 缺失时抛错，
-        防止本地 skill 路径意外解析到错误位置。
-
-    .PARAMETER Value
-        原始路径字符串。
-
-    .PARAMETER Context
-        当前配置位置，用于错误提示。
-
-    .OUTPUTS
-        string。展开后的路径文本。
-    #>
-    [CmdletBinding()]
-    param(
-        [AllowEmptyString()]
-        [string]$Value,
-
-        [Parameter(Mandatory)]
-        [string]$Context
-    )
-
-    $pattern = '\$\{([A-Za-z_][A-Za-z0-9_]*)\}'
-    foreach ($match in [regex]::Matches($Value, $pattern)) {
-        $envName = $match.Groups[1].Value
-        if ($null -eq [Environment]::GetEnvironmentVariable($envName, 'Process')) {
-            throw "环境变量未设置: $envName（$Context）"
-        }
-    }
-
-    $resolved = [regex]::Replace($Value, $pattern, {
-            param($Match)
-            $envName = $Match.Groups[1].Value
-            return [Environment]::GetEnvironmentVariable($envName, 'Process')
-        })
-
-    return [Environment]::ExpandEnvironmentVariables($resolved)
-}
-
-function Resolve-SkillsPath {
-    <#
-    .SYNOPSIS
-        将配置中的路径解析为绝对路径。
-
-    .PARAMETER Path
-        原始路径配置值。
-
-    .PARAMETER BasePath
-        相对路径解析基准目录。
-
-    .PARAMETER Context
-        当前配置位置，用于错误提示。
-
-    .OUTPUTS
-        string。解析后的绝对路径。
-    #>
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [AllowEmptyString()]
-        [string]$Path,
-
-        [Parameter(Mandatory)]
-        [string]$BasePath,
-
-        [Parameter(Mandatory)]
-        [string]$Context
-    )
-
-    if ([string]::IsNullOrWhiteSpace($Path)) {
-        throw "路径配置不能为空: $Context"
-    }
-
-    $expanded = Resolve-SkillsEnvPlaceholder -Value $Path.Trim() -Context $Context
-    if ($expanded -eq '~' -or $expanded.StartsWith('~/') -or $expanded.StartsWith('~\')) {
-        $home = [Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile)
-        if ([string]::IsNullOrWhiteSpace($home)) {
-            throw "无法解析用户主目录: $Context"
-        }
-
-        $expanded = if ($expanded -eq '~') { $home } else { Join-Path $home $expanded.Substring(2) }
-    }
-
-    $combined = if ([System.IO.Path]::IsPathRooted($expanded)) {
-        $expanded
-    }
-    else {
-        Join-Path $BasePath $expanded
-    }
-
-    return [System.IO.Path]::GetFullPath($combined)
-}
-
 function Resolve-SkillsProjectRoot {
     <#
     .SYNOPSIS
@@ -488,7 +390,7 @@ function Resolve-SkillsProjectRoot {
     )
 
     if (-not [string]::IsNullOrWhiteSpace($ProjectPath)) {
-        $resolved = Resolve-SkillsPath -Path $ProjectPath -BasePath $BasePath -Context 'projectPath'
+        $resolved = Resolve-ConfigPath -Path $ProjectPath -BasePath $BasePath -Context 'projectPath'
         if (-not (Test-Path -LiteralPath $resolved -PathType Container)) {
             throw "projectPath 不存在或不是目录: $resolved"
         }
@@ -755,7 +657,7 @@ function Resolve-SkillsSource {
     $sourceType = [string](Get-ConfigValue -Values $Item -Name 'sourceType' -DefaultValue '')
     $isLocal = Test-SkillsLocalSource -Source $source -SourceType $sourceType
     $resolvedSource = if ($isLocal) {
-        $localPath = Resolve-SkillsPath -Path $source -BasePath $BasePath -Context "$SkillName.source"
+        $localPath = Resolve-ConfigPath -Path $source -BasePath $BasePath -Context "$SkillName.source"
         $skillFile = Join-Path $localPath 'SKILL.md'
         if (-not (Test-Path -LiteralPath $skillFile -PathType Leaf)) {
             throw "本地 skill 缺少 SKILL.md: $localPath"
@@ -889,7 +791,7 @@ function ConvertTo-SkillsCommandPlan {
             $BasePath
         }
         else {
-            Resolve-SkillsPath -Path $workingDirectoryValue -BasePath $BasePath -Context "$OwnerName.commands[$index].workingDirectory"
+            Resolve-ConfigPath -Path $workingDirectoryValue -BasePath $BasePath -Context "$OwnerName.commands[$index].workingDirectory"
         }
 
         $plans.Add([pscustomobject]@{
@@ -992,7 +894,7 @@ function New-SkillsPlanFromConfig {
             $Config.BasePath
         }
         else {
-            Resolve-SkillsPath -Path $workingDirectoryValue -BasePath $Config.BasePath -Context "$toolName.workingDirectory"
+            Resolve-ConfigPath -Path $workingDirectoryValue -BasePath $Config.BasePath -Context "$toolName.workingDirectory"
         }
 
         $toolPlan = [pscustomobject]@{

@@ -18,6 +18,8 @@ Export-ModuleMember -Function @(
     'Invoke-WithScopedEnvironment'
     'ConvertTo-ConfigHashtable'
     'Get-ConfigValue'
+    'Resolve-ConfigEnvPlaceholder'
+    'Resolve-ConfigPath'
     'ConvertTo-ConfigKeyName'
     'ConvertFrom-ConfigCliParameters'
     'Read-ConfigPowerShellDataFile'

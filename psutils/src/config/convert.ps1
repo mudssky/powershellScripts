@@ -93,6 +93,115 @@ function Get-ConfigValue {
 
 <#
 .SYNOPSIS
+    展开配置字符串中的环境变量占位符。
+
+.DESCRIPTION
+    支持 `${VAR_NAME}` 与平台原生 `%VAR_NAME%` 形式。`${...}` 缺失时抛错，
+    避免路径配置因为未设置环境变量而静默落到错误目录。
+
+.PARAMETER Value
+    待解析的字符串。
+
+.PARAMETER Context
+    当前配置位置，用于错误提示。
+
+.OUTPUTS
+    string
+    返回环境变量展开后的字符串。
+#>
+function Resolve-ConfigEnvPlaceholder {
+    [CmdletBinding()]
+    param(
+        [AllowEmptyString()]
+        [string]$Value,
+
+        [Parameter(Mandatory)]
+        [string]$Context
+    )
+
+    $pattern = '\$\{([A-Za-z_][A-Za-z0-9_]*)\}'
+    foreach ($match in [regex]::Matches($Value, $pattern)) {
+        $envName = $match.Groups[1].Value
+        if ($null -eq [Environment]::GetEnvironmentVariable($envName, 'Process')) {
+            throw "环境变量未设置: $envName（$Context）"
+        }
+    }
+
+    $resolved = [regex]::Replace($Value, $pattern, {
+            param($Match)
+            $envName = $Match.Groups[1].Value
+            return [Environment]::GetEnvironmentVariable($envName, 'Process')
+        })
+
+    return [Environment]::ExpandEnvironmentVariables($resolved)
+}
+
+<#
+.SYNOPSIS
+    将配置路径解析为绝对路径。
+
+.DESCRIPTION
+    处理环境变量占位符、用户主目录 `~` 和相对路径。相对路径按调用方传入的
+    `BasePath` 解析，适合配置文件随仓库移动的场景。
+
+.PARAMETER Path
+    原始路径配置值。
+
+.PARAMETER BasePath
+    相对路径解析基准目录。
+
+.PARAMETER Context
+    当前配置位置，用于错误提示。
+
+.OUTPUTS
+    string
+    返回解析后的绝对路径。
+#>
+function Resolve-ConfigPath {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$Path,
+
+        [Parameter(Mandatory)]
+        [string]$BasePath,
+
+        [Parameter(Mandatory)]
+        [string]$Context
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        throw "路径配置不能为空: $Context"
+    }
+
+    $expanded = Resolve-ConfigEnvPlaceholder -Value $Path.Trim() -Context $Context
+    if ($expanded -eq '~' -or $expanded.StartsWith('~/') -or $expanded.StartsWith('~\')) {
+        $userHome = [Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile)
+        if ([string]::IsNullOrWhiteSpace($userHome)) {
+            throw "无法解析用户主目录: $Context"
+        }
+
+        $expanded = if ($expanded -eq '~') {
+            $userHome
+        }
+        else {
+            Join-Path $userHome $expanded.Substring(2)
+        }
+    }
+
+    $combined = if ([System.IO.Path]::IsPathRooted($expanded)) {
+        $expanded
+    }
+    else {
+        Join-Path $BasePath $expanded
+    }
+
+    return [System.IO.Path]::GetFullPath($combined)
+}
+
+<#
+.SYNOPSIS
     将配置键名转换为下划线风格。
 
 .DESCRIPTION

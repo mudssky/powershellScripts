@@ -24,6 +24,8 @@
 - Conversion helpers:
   - `ConvertTo-ConfigHashtable -InputObject <object>`
   - `Get-ConfigValue -Values <hashtable> -Name <string> [-DefaultValue <object>]`
+  - `Resolve-ConfigEnvPlaceholder -Value <string> -Context <string>`
+  - `Resolve-ConfigPath -Path <string> -BasePath <string> -Context <string>`
   - `ConvertTo-ConfigKeyName -Name <string>`
   - `ConvertFrom-ConfigCliParameters -Parameters <hashtable> [-ExcludeKeys <string[]>]`
 - Scoped env:
@@ -39,6 +41,8 @@
 - `CliParameters` converts explicit PowerShell parameters to snake_case keys and skips `$null`、empty strings and `ExcludeKeys`.
 - `MarkdownFrontMatter` returns parsed metadata plus `__content` for the Markdown body.
 - `Get-ConfigValue` performs shallow case-insensitive lookup only; it must not expand paths, environment variables, nested paths, or normalize key names.
+- `Resolve-ConfigEnvPlaceholder` expands `${VAR}` and `%VAR%`; missing `${VAR}` throws with context instead of silently preserving the placeholder.
+- `Resolve-ConfigPath` expands env placeholders, supports `~`, resolves relative paths against `BasePath`, and returns an absolute path. It does not validate existence or create directories.
 - Missing file sources return an empty table by default; `-ErrorOnMissing` changes that to `配置文件不存在: <path>`.
 - `Invoke-WithScopedEnvironment` must restore overwritten variables and remove newly created variables even when the script block throws.
 - `psutils/modules/config.psm1` must export public resolver functions and must not contain a second implementation of the parser.
@@ -54,6 +58,8 @@
 | Missing file source with `-ErrorOnMissing` | Throw `配置文件不存在: <path>` |
 | Unknown source `Type` | Throw `不支持的配置来源类型` |
 | CLI parameter value is `$null` or whitespace | Omit it from merged config |
+| `${VAR}` placeholder references a missing env var | Throw `环境变量未设置: VAR（context）` |
+| `Resolve-ConfigPath` receives an empty path | Throw `路径配置不能为空: context` |
 
 ### 5. Good/Base/Bad Cases
 

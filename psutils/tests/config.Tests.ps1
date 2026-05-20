@@ -136,6 +136,46 @@ Describe 'Config object helpers' {
     }
 }
 
+Describe 'Config path helpers' {
+    AfterEach {
+        Remove-Item Env:\CONFIG_PATH_TEST_ROOT -ErrorAction SilentlyContinue
+    }
+
+    It '展开 ${VAR} 环境变量占位符' {
+        $env:CONFIG_PATH_TEST_ROOT = Join-Path $TestDrive 'env-root'
+
+        $result = Resolve-ConfigEnvPlaceholder -Value '${CONFIG_PATH_TEST_ROOT}/skills' -Context 'test.path'
+
+        [System.IO.Path]::GetFullPath($result) | Should -Be ([System.IO.Path]::GetFullPath((Join-Path $env:CONFIG_PATH_TEST_ROOT 'skills')))
+    }
+
+    It '缺失 ${VAR} 时抛出包含上下文的错误' {
+        { Resolve-ConfigEnvPlaceholder -Value '${CONFIG_PATH_TEST_MISSING}/skills' -Context 'tool.path' } |
+            Should -Throw '环境变量未设置: CONFIG_PATH_TEST_MISSING（tool.path）'
+    }
+
+    It '相对路径按 BasePath 解析为绝对路径' {
+        $basePath = Join-Path $TestDrive 'config-root'
+
+        $result = Resolve-ConfigPath -Path './dev/my-skill' -BasePath $basePath -Context 'skill.source'
+
+        $result | Should -Be ([System.IO.Path]::GetFullPath((Join-Path $basePath './dev/my-skill')))
+    }
+
+    It '支持用户主目录 ~ 路径' {
+        $userHome = [Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile)
+
+        $result = Resolve-ConfigPath -Path '~/skills' -BasePath $TestDrive -Context 'tool.path'
+
+        $result | Should -Be ([System.IO.Path]::GetFullPath((Join-Path $userHome 'skills')))
+    }
+
+    It '空白路径会抛出明确错误' {
+        { Resolve-ConfigPath -Path '   ' -BasePath $TestDrive -Context 'projectPath' } |
+            Should -Throw '路径配置不能为空: projectPath'
+    }
+}
+
 Describe 'Invoke-WithScopedEnvironment' {
     AfterEach {
         Remove-Item Env:\CONFIG_TEST_NEW -ErrorAction SilentlyContinue
