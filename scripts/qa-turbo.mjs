@@ -369,6 +369,8 @@ function runRootBashQa(modeValue, sinceRef) {
   }
 
   const pathspecs = [
+    'shell/shared.d',
+    'shell/deploy.sh',
     'scripts/bash/build.sh',
     'scripts/bash/tests',
     'scripts/bash/vitest.config.ts',
