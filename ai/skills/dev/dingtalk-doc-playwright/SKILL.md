@@ -18,11 +18,17 @@ description: 使用 Playwright 自动编辑钉钉文档，包括写入 Markdown/
 5. 文档是虚拟滚动，不能只用 `window.scrollTo`。内部滚动容器通常是 `#layout_body`。
 6. 完成后校验“已保存”、关键标题、占位文字和图片数量。
 
+## 省 token 原则
+
+- 默认不要跑 `snapshot --depth=8`，钉钉文档 DOM 很大。先用 `--raw run-code` 调脚本拿紧凑 JSON。
+- 脚本默认只返回状态、计数、少量坐标；需要正文片段时再设置 `DINGTALK_VERBOSE=1`。
+- 上传图片后 ref 会失效，不要反复 snapshot 找 ref；用占位文本 + 脚本重新定位。
+- 验证只扫占位和图片数，避免输出整段正文。
+
 ## 常用命令
 
 ```powershell
-playwright-cli -s=docs snapshot --depth=8
-playwright-cli -s=docs run-code --filename="$env:USERPROFILE\.agents\skills\dingtalk-doc-playwright\scripts\inspect-doc.js"
+playwright-cli --raw -s=docs run-code --filename="$env:USERPROFILE\.agents\skills\dingtalk-doc-playwright\scripts\inspect-doc.js"
 playwright-cli -s=docs drop "<ref-or-selector>" --path="C:\path\to\screenshot.png"
 ```
 
@@ -43,7 +49,7 @@ playwright-cli -s=docs drop "<ref-or-selector>" --path="C:\path\to\screenshot.pn
 然后用占位文本定位并拖放图片：
 
 ```powershell
-playwright-cli -s=docs run-code --filename="$env:USERPROFILE\.agents\skills\dingtalk-doc-playwright\scripts\drop-image-after-placeholder.js"
+playwright-cli --raw -s=docs run-code --filename="$env:USERPROFILE\.agents\skills\dingtalk-doc-playwright\scripts\drop-image-after-placeholder.js"
 ```
 
 脚本默认通过环境变量传参：
@@ -51,7 +57,7 @@ playwright-cli -s=docs run-code --filename="$env:USERPROFILE\.agents\skills\ding
 ```powershell
 $env:DINGTALK_PLACEHOLDER='截图：设置页面'
 $env:DINGTALK_IMAGE_PATH='C:\path\to\settings.png'
-playwright-cli -s=docs run-code --filename="$env:USERPROFILE\.agents\skills\dingtalk-doc-playwright\scripts\drop-image-after-placeholder.js"
+playwright-cli --raw -s=docs run-code --filename="$env:USERPROFILE\.agents\skills\dingtalk-doc-playwright\scripts\drop-image-after-placeholder.js"
 ```
 
 ## 修正错图
@@ -69,4 +75,3 @@ playwright-cli -s=docs run-code --filename="$env:USERPROFILE\.agents\skills\ding
 - 不要假设滚动是 `window`；钉钉文档正文滚动多半在 `#layout_body`。
 - 上传图片后 DOM ref 会失效，需要重新 snapshot 或重新按文本定位。
 - 校验图片去重时不要截断 URL 前缀，钉钉资源 URL 前缀高度相似。
-

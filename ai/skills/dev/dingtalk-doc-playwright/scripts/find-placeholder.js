@@ -5,7 +5,7 @@ async (page) => {
   const frame = page.frames().find((item) => item.url().includes('/note/edit'))
   if (!frame) throw new Error('未找到 /note/edit iframe')
 
-  return await frame.evaluate(async (target) => {
+  return await frame.evaluate(async ({ target, verbose }) => {
     const scroller = document.querySelector('#layout_body')
     if (!scroller) throw new Error('未找到 #layout_body 滚动容器')
 
@@ -38,11 +38,11 @@ async (page) => {
       }
     }
 
-    return {
+    const result = {
       ok: false,
       scrollTop: scroller.scrollTop,
-      textTail: document.body.innerText.slice(-1000),
     }
-  }, placeholder)
+    if (verbose) result.textTail = document.body.innerText.slice(-500)
+    return result
+  }, { target: placeholder, verbose: process.env.DINGTALK_VERBOSE === '1' })
 }
-

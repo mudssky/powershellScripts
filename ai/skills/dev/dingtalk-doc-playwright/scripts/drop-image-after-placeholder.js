@@ -48,4 +48,3 @@ async (page) => {
     }
   }, placeholder)
 }
-
