@@ -26,8 +26,8 @@
       "Read(~/.aws/**)",
       "Read(~/.gnupg/**)",
       "Bash(sudo:*)",
-      "Bash(curl:*|*sh*)",
-      "Bash(wget:*|*sh*)"
+      "Bash(*curl*|*sh*)",
+      "Bash(*wget*|*sh*)"
     ],
     "ask": [
       "Bash(git:push*)",
