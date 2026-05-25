@@ -18,6 +18,7 @@
   },
   "includeCoAuthoredBy": false,
   "permissions": {
+    "defaultMode": "bypassPermissions",
     "deny": [
       "Read(.env)",
       "Read(.env.*)",
