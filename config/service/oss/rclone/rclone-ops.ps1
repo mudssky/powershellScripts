@@ -642,6 +642,46 @@ function Test-RcloneOpsMountPathOption {
     return $Name -in @('cache-dir', 'log-file')
 }
 
+function Test-RcloneOpsMountPoint {
+    <#
+    .SYNOPSIS
+        判断路径当前是否为系统挂载点。
+
+    .PARAMETER Path
+        需要检查的本地路径。
+
+    .OUTPUTS
+        System.Boolean。路径是挂载点时返回 true，否则返回 false。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return $false
+    }
+
+    if ($IsMacOS) {
+        & diskutil info $Path *> $null
+        return $LASTEXITCODE -eq 0
+    }
+
+    if ($IsLinux -and (Get-Command 'findmnt' -ErrorAction SilentlyContinue)) {
+        & findmnt --mountpoint $Path *> $null
+        return $LASTEXITCODE -eq 0
+    }
+
+    $mountLines = if ($IsWindows) { @() } else { & mount 2>$null }
+    foreach ($line in $mountLines) {
+        if ($line -match '\son\s(.+?)\s\(' -and $Matches[1] -eq $Path) {
+            return $true
+        }
+    }
+    return $false
+}
+
 function New-RcloneOpsRemoteSection {
     <#
     .SYNOPSIS
@@ -1050,6 +1090,9 @@ function Invoke-RcloneOpsProcess {
     .PARAMETER PidFile
         后台进程 PID 文件路径。
 
+    .PARAMETER FailureLogFile
+        后台进程快速退出时读取的日志文件，用于输出真实失败原因。
+
     .OUTPUTS
         System.Int32。前台命令退出码；后台启动成功返回 0。
     #>
@@ -1066,7 +1109,10 @@ function Invoke-RcloneOpsProcess {
         [switch]$Background,
 
         [Parameter(Mandatory = $false)]
-        [string]$PidFile
+        [string]$PidFile,
+
+        [Parameter(Mandatory = $false)]
+        [string]$FailureLogFile
     )
 
     if ($Background) {
@@ -1074,6 +1120,21 @@ function Invoke-RcloneOpsProcess {
             New-Item -ItemType Directory -Path (Split-Path -Parent $PidFile) -Force | Out-Null
         }
         $process = Start-Process -FilePath $FilePath -ArgumentList $Arguments -PassThru
+        Start-Sleep -Milliseconds 300
+        if ($process.HasExited) {
+            if ($PidFile -and (Test-Path -LiteralPath $PidFile)) {
+                Remove-Item -LiteralPath $PidFile -Force
+            }
+            if ($FailureLogFile -and (Test-Path -LiteralPath $FailureLogFile)) {
+                $lastLines = @(Get-Content -LiteralPath $FailureLogFile -Tail 12 -ErrorAction SilentlyContinue)
+                if ($lastLines.Count -gt 0) {
+                    Write-Warning "后台进程日志 $FailureLogFile：`n$($lastLines -join [Environment]::NewLine)"
+                }
+            }
+            Write-Warning "后台进程启动后已退出：$FilePath，ExitCode=$($process.ExitCode)"
+            return $process.ExitCode
+        }
+
         if ($PidFile) {
             Set-Content -LiteralPath $PidFile -Value $process.Id -Encoding utf8NoBOM
         }
@@ -1185,7 +1246,8 @@ function Start-RcloneOpsWebUi {
         Write-Host '  提示: 如需命令立即返回，请使用 --background --no-open-browser。'
     }
 
-    Invoke-RcloneOpsProcess -FilePath $context.Rclone -Arguments $rcloneArgs -Background:$isBackground -PidFile (Join-Path $script:DefaultRuntimeDir 'webui.pid')
+    $failureLogFile = if ($isBackground) { $logFile } else { $null }
+    Invoke-RcloneOpsProcess -FilePath $context.Rclone -Arguments $rcloneArgs -Background:$isBackground -PidFile (Join-Path $script:DefaultRuntimeDir 'webui.pid') -FailureLogFile $failureLogFile
 }
 
 function Stop-RcloneOpsWebUi {
@@ -1205,7 +1267,15 @@ function Stop-RcloneOpsWebUi {
         return
     }
     $processId = [int](Get-Content -LiteralPath $pidFile -Raw)
+    $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
+    if ($null -eq $process) {
+        Remove-Item -LiteralPath $pidFile -Force
+        Write-Host "WebUI PID 文件已过期，已清理：$processId"
+        return
+    }
+
     Stop-Process -Id $processId -ErrorAction Stop
+    Remove-Item -LiteralPath $pidFile -Force
     Write-Host "已停止 WebUI 进程：$processId"
 }
 
@@ -1252,7 +1322,15 @@ function Start-RcloneOpsConfiguredMounts {
         }
 
         Write-Host "准备挂载 $($definition.Name)：$($definition.Remote) -> $($definition.MountPoint)"
-        $exitCode = Invoke-RcloneOpsProcess -FilePath $context.Rclone -Arguments $arguments -Background -PidFile $definition.PidFile
+        $failureLogFile = $null
+        foreach ($argument in $arguments) {
+            if ($argument -like '--log-file=*') {
+                $failureLogFile = $argument.Substring($argument.IndexOf('=') + 1)
+                break
+            }
+        }
+
+        $exitCode = Invoke-RcloneOpsProcess -FilePath $context.Rclone -Arguments $arguments -Background -PidFile $definition.PidFile -FailureLogFile $failureLogFile
         if ($exitCode -ne 0) {
             $failed.Add($definition.Name)
         }
@@ -1292,6 +1370,14 @@ function Stop-RcloneOpsConfiguredMounts {
     $failed = [System.Collections.Generic.List[string]]::new()
     foreach ($definition in ([array]$definitions)[($definitions.Count - 1)..0]) {
         Write-Host "准备卸载 $($definition.Name)：$($definition.MountPoint)"
+        if (-not (Test-RcloneOpsMountPoint -Path $definition.MountPoint)) {
+            Write-Host "  跳过：当前路径不是挂载点。"
+            if (Test-Path -LiteralPath $definition.PidFile) {
+                Remove-Item -LiteralPath $definition.PidFile -Force
+            }
+            continue
+        }
+
         $exitCode = Dismount-RcloneOpsMount -Positionals @($definition.MountPoint)
         if ($exitCode -ne 0) {
             $failed.Add($definition.Name)
@@ -1327,15 +1413,13 @@ function Start-RcloneOpsStack {
     )
 
     $context = Get-RcloneOpsServiceContext -Flags $Flags -RequireSource
-    if (-not (Test-Path -LiteralPath $context.ConfigPath -PathType Leaf)) {
-        Write-Host "未找到 rclone.conf，先从 $($context.SourcePath) 生成。"
-        $initFlags = @{}
-        foreach ($entry in $Flags.GetEnumerator()) {
-            $initFlags[$entry.Key] = $entry.Value
-        }
-        $initFlags['overwrite'] = $true
-        Initialize-RcloneOpsConfig -Flags $initFlags
+    $initFlags = @{}
+    foreach ($entry in $Flags.GetEnumerator()) {
+        $initFlags[$entry.Key] = $entry.Value
     }
+    $initFlags['overwrite'] = $true
+    Write-Host "从 $($context.SourcePath) 刷新 rclone.conf。"
+    Initialize-RcloneOpsConfig -Flags $initFlags
 
     $webUiFlags = @{} + $Flags
     $webUiFlags['background'] = $true
@@ -1460,6 +1544,11 @@ function Dismount-RcloneOpsMount {
     )
 
     if ($Positionals.Count -lt 1) { throw 'unmount 需要 <mount-point> 参数。' }
+    if (-not (Test-RcloneOpsMountPoint -Path $Positionals[0])) {
+        Write-Host "当前路径不是挂载点，跳过卸载：$($Positionals[0])"
+        return 0
+    }
+
     if ($IsMacOS) { return Invoke-RcloneOpsProcess -FilePath 'diskutil' -Arguments @('unmount', $Positionals[0]) }
     if ($IsLinux) { return Invoke-RcloneOpsProcess -FilePath 'fusermount' -Arguments @('-u', $Positionals[0]) }
     return Invoke-RcloneOpsProcess -FilePath 'umount' -Arguments @($Positionals[0])

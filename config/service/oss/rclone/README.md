@@ -80,7 +80,8 @@
 
 1. 安装 PowerShell 7+。
 2. 安装 rclone，并确保 `rclone version` 可执行。
-3. 准备 JSON 配置文件：
+3. 如果需要在 macOS 上使用 `mount` / `mount-all` / `up` 的自动挂载能力，不要使用 Homebrew 安装的 rclone；Homebrew 版可能不支持 `rclone mount`。请安装 rclone 官方预编译二进制，并确保 macFUSE 或 FUSE-T 可用。
+4. 准备 JSON 配置文件：
 
 ```bash
 cp rclone.config.example.json rclone.config.local.json
@@ -153,7 +154,7 @@ pwsh ./rclone-ops.ps1 stop-webui
 
 ## 一键启动 WebUI 与自动挂载
 
-`up` 会在缺少 `rclone.conf` 时先从 JSON 主配置生成本地配置，然后后台启动 WebUI，并挂载 `mounts` 中所有 `enabled: true` 的 profile。WebUI 默认不自动打开浏览器，适合日常部署。
+`up` 会先从 JSON 主配置刷新本地 `rclone.conf`，然后后台启动 WebUI，并挂载 `mounts` 中所有 `enabled: true` 的 profile。WebUI 默认不自动打开浏览器，适合日常部署。
 
 ```bash
 RCLONE_RC_PASS='强密码' pwsh ./rclone-ops.ps1 up
@@ -260,6 +261,12 @@ pwsh ./rclone-ops.ps1 sync ./local-dir cloud-main:bucket-name/path --run -- --pr
 ```bash
 pwsh ./rclone-ops.ps1 check ./local-dir cloud-main:bucket-name/path -- --one-way
 ```
+
+## 常见故障
+
+`up` 会分两步执行：先启动 WebUI，再启动配置中的 mounts。因此看到 WebUI 可访问，只能说明 RC/WebUI 启动成功，不代表每个 OSS 挂载都成功。后台进程如果刚启动就退出，脚本会清理对应 PID 文件，并把 `log-file` 的末尾内容直接打印到终端，便于看到 rclone 的真实错误。
+
+如果 macOS 上出现类似 `rclone mount is not supported on MacOS when rclone is installed via Homebrew` 的错误，原因是当前 `rclone` 二进制不支持 mount。处理方式是改用 rclone 官方预编译二进制，或自行用 `cmount` 标签构建，并确保 macFUSE 或 FUSE-T 已安装可用。
 
 ## Node.js 版本
 

@@ -39,6 +39,10 @@ AfterAll {
             'ConvertTo-RcloneOpsMountDefinitions',
             'New-RcloneOpsMountArguments',
             'New-RcloneOpsManualMountPidFile',
+            'Test-RcloneOpsMountPoint',
+            'Dismount-RcloneOpsMount',
+            'Stop-RcloneOpsWebUi',
+            'Invoke-RcloneOpsProcess',
             'Split-RcloneOpsArguments',
             'Get-RcloneOpsOptionWithConfig',
             'Get-RcloneOpsWebUiLogFile'
@@ -266,5 +270,45 @@ Describe 'rclone-ops.ps1 JSON 配置生成逻辑' {
 
         $pidFile | Should -Match 'manual-mounts_cloud-main\.pid'
         $pidFile | Should -Not -Match 'mount\.pid$'
+    }
+
+    It '卸载普通目录时跳过并返回成功' {
+        $plainDirectory = Join-Path $TestDrive 'plain-directory'
+        New-Item -ItemType Directory -Path $plainDirectory -Force | Out-Null
+
+        $exitCode = Dismount-RcloneOpsMount -Positionals @($plainDirectory)
+
+        $exitCode | Should -Be 0
+    }
+
+    It '停止 WebUI 时会清理过期 PID 文件' {
+        $runtimeDirectory = Join-Path (Split-Path -Parent $script:RcloneOpsScriptPath) '.runtime'
+        $pidFile = Join-Path $runtimeDirectory 'webui.pid'
+        New-Item -ItemType Directory -Path $runtimeDirectory -Force | Out-Null
+        Set-Content -LiteralPath $pidFile -Value '999999' -Encoding utf8NoBOM
+
+        Stop-RcloneOpsWebUi
+
+        Test-Path -LiteralPath $pidFile | Should -BeFalse
+    }
+
+    It 'up 会强制刷新生成 rclone.conf' {
+        $commandText = (Get-Command Start-RcloneOpsStack).ScriptBlock.ToString()
+
+        $commandText | Should -Match '\[''overwrite''\]\s*=\s*\$true'
+        $commandText | Should -Not -Match 'if \(-not \(Test-Path -LiteralPath \$context\.ConfigPath'
+    }
+
+    It '后台进程快速退出时清理 PID 并返回失败' {
+        $pidFile = Join-Path $TestDrive 'failed.pid'
+        $logFile = Join-Path $TestDrive 'failed.log'
+        Set-Content -LiteralPath $logFile -Value '模拟后台失败日志' -Encoding utf8NoBOM
+
+        $warningMessages = @()
+        $exitCode = Invoke-RcloneOpsProcess -FilePath 'pwsh' -Arguments @('-NoLogo', '-NoProfile', '-Command', 'exit 7') -Background -PidFile $pidFile -FailureLogFile $logFile -WarningVariable warningMessages
+
+        $exitCode | Should -Be 7
+        Test-Path -LiteralPath $pidFile | Should -BeFalse
+        ($warningMessages -join "`n") | Should -Match '模拟后台失败日志'
     }
 }
