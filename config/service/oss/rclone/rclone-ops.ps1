@@ -1120,7 +1120,15 @@ function Invoke-RcloneOpsProcess {
             New-Item -ItemType Directory -Path (Split-Path -Parent $PidFile) -Force | Out-Null
         }
         $process = Start-Process -FilePath $FilePath -ArgumentList $Arguments -PassThru
-        Start-Sleep -Milliseconds 300
+        $startupProbeTimeoutMs = 3000
+        $startupProbe = [System.Diagnostics.Stopwatch]::StartNew()
+        while (-not $process.HasExited -and $startupProbe.ElapsedMilliseconds -lt $startupProbeTimeoutMs) {
+            Start-Sleep -Milliseconds 100
+            # Windows CI 上新建 pwsh 进程可能超过 300ms 才可观察到退出，刷新进程快照避免误写可用 PID。
+            $process.Refresh()
+        }
+        $startupProbe.Stop()
+        $process.Refresh()
         if ($process.HasExited) {
             if ($PidFile -and (Test-Path -LiteralPath $PidFile)) {
                 Remove-Item -LiteralPath $PidFile -Force
