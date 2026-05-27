@@ -36,8 +36,12 @@ AfterAll {
             'Get-RcloneOpsRemoteName',
             'Read-RcloneOpsConfigValues',
             'Resolve-RcloneOpsEnvPlaceholder',
+            'ConvertTo-RcloneOpsMountDefinitions',
+            'New-RcloneOpsMountArguments',
+            'New-RcloneOpsManualMountPidFile',
             'Split-RcloneOpsArguments',
-            'Get-RcloneOpsOptionWithConfig'
+            'Get-RcloneOpsOptionWithConfig',
+            'Get-RcloneOpsWebUiLogFile'
         )) {
         Remove-Item -Path ("Function:\{0}" -f $functionName) -ErrorAction SilentlyContinue
     }
@@ -151,11 +155,116 @@ Describe 'rclone-ops.ps1 JSON 配置生成逻辑' {
         $password | Should -Be 'json-rc-pass'
     }
 
+    It '能从 JSON webui section 读取后台日志路径' {
+        $values = @{
+            webui = [pscustomobject]@{
+                'log-file' = 'logs/webui.log'
+            }
+        }
+
+        $logFile = Get-RcloneOpsWebUiLogFile -Flags @{} -ConfigValues $values -BasePath $TestDrive
+
+        $logFile | Should -Be (Join-Path $TestDrive 'logs/webui.log')
+    }
+
     It '能解析透传参数与布尔开关' {
         $parsed = Split-RcloneOpsArguments -ArgumentList @('source', 'dest', '--run', '--', '--progress')
 
         $parsed.Positionals | Should -Be @('source', 'dest')
         $parsed.Flags['run'] | Should -BeTrue
         $parsed.Passthrough | Should -Be @('--progress')
+    }
+
+    It '能从 JSON mounts 生成 enabled profile 并解析本地路径' {
+        $values = @{
+            mounts = @(
+                [pscustomobject]@{
+                    name       = 'cloud-main'
+                    enabled    = $true
+                    remote     = 'cloud-main:bucket'
+                    mountPoint = 'mounts/cloud-main'
+                    options    = [pscustomobject]@{
+                        'vfs-cache-mode'       = 'writes'
+                        'cache-dir'            = '.runtime/cache/cloud-main'
+                        'vfs-fast-fingerprint' = $true
+                    }
+                },
+                [pscustomobject]@{
+                    name       = 'archive'
+                    enabled    = $false
+                    remote     = 'archive:'
+                    mountPoint = 'mounts/archive'
+                }
+            )
+        }
+
+        $definitions = ConvertTo-RcloneOpsMountDefinitions -ConfigValues $values -BasePath $TestDrive
+
+        $definitions.Count | Should -Be 1
+        $definitions[0].Name | Should -Be 'cloud-main'
+        $definitions[0].Remote | Should -Be 'cloud-main:bucket'
+        $definitions[0].MountPoint | Should -Be (Join-Path $TestDrive 'mounts/cloud-main')
+        $definitions[0].PidFile | Should -Match 'mounts.cloud-main\.pid|mounts/cloud-main\.pid'
+    }
+
+    It '能将 mount options 转换为 rclone 参数' {
+        $definition = [pscustomobject]@{
+            Name       = 'cloud-main'
+            Remote     = 'cloud-main:'
+            MountPoint = Join-Path $TestDrive 'mounts/cloud-main'
+            Options    = @{
+                'vfs-cache-mode'       = 'writes'
+                'cache-dir'            = '.runtime/cache/cloud-main'
+                'vfs-fast-fingerprint' = $true
+                'read-only'            = $false
+                'log-file'             = '.runtime/logs/mount-cloud-main.log'
+            }
+        }
+
+        $arguments = New-RcloneOpsMountArguments -Definition $definition -ConfigPath 'rclone.conf' -BasePath $TestDrive
+
+        $arguments | Should -Contain 'mount'
+        $arguments | Should -Contain 'cloud-main:'
+        $arguments | Should -Contain "--config=rclone.conf"
+        $arguments | Should -Contain '--vfs-cache-mode=writes'
+        $arguments | Should -Contain '--vfs-fast-fingerprint'
+        $arguments | Should -Not -Contain '--read-only'
+        $arguments | Should -Contain ("--cache-dir={0}" -f (Join-Path $TestDrive '.runtime/cache/cloud-main'))
+        $arguments | Should -Contain ("--log-file={0}" -f (Join-Path $TestDrive '.runtime/logs/mount-cloud-main.log'))
+    }
+
+    It '缺少 mount 必填字段时抛出清晰错误' {
+        $values = @{
+            mounts = @(
+                [pscustomobject]@{
+                    name       = 'broken'
+                    mountPoint = 'mounts/broken'
+                }
+            )
+        }
+
+        { ConvertTo-RcloneOpsMountDefinitions -ConfigValues $values -BasePath $TestDrive } |
+            Should -Throw '*缺少 remote*'
+    }
+
+    It 'mounts 缺失或全部禁用时返回空集合' {
+        @(ConvertTo-RcloneOpsMountDefinitions -ConfigValues @{} -BasePath $TestDrive).Count | Should -Be 0
+        @(ConvertTo-RcloneOpsMountDefinitions -ConfigValues @{
+                mounts = @(
+                    [pscustomobject]@{
+                        name       = 'disabled'
+                        enabled    = $false
+                        remote     = 'disabled:'
+                        mountPoint = 'mounts/disabled'
+                    }
+                )
+            } -BasePath $TestDrive).Count | Should -Be 0
+    }
+
+    It '手工后台 mount 使用独立 PID 文件' {
+        $pidFile = New-RcloneOpsManualMountPidFile -Positionals @('cloud-main:', 'mounts/cloud-main')
+
+        $pidFile | Should -Match 'manual-mounts_cloud-main\.pid'
+        $pidFile | Should -Not -Match 'mount\.pid$'
     }
 }

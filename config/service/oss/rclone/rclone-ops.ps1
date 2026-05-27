@@ -387,6 +387,53 @@ function Get-RcloneOpsOptionWithConfig {
     return $DefaultValue
 }
 
+function Get-RcloneOpsWebUiLogFile {
+    <#
+    .SYNOPSIS
+        解析 WebUI 后台日志文件路径。
+
+    .PARAMETER Flags
+        Split-RcloneOpsArguments 返回的 Flags 哈希表。
+
+    .PARAMETER ConfigValues
+        顶层 JSON 配置键值。
+
+    .PARAMETER BasePath
+        JSON 主配置所在目录，用于解析 JSON 中的相对日志路径。
+
+    .OUTPUTS
+        System.String。WebUI 后台日志文件路径。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Flags,
+
+        [Parameter(Mandatory = $true)]
+        [hashtable]$ConfigValues,
+
+        [Parameter(Mandatory = $true)]
+        [string]$BasePath
+    )
+
+    if ($Flags.ContainsKey('log-file') -and $Flags['log-file'] -is [string] -and -not [string]::IsNullOrWhiteSpace($Flags['log-file'])) {
+        return [string]$Flags['log-file']
+    }
+
+    $envValue = [Environment]::GetEnvironmentVariable('RCLONE_LOG_FILE', 'Process')
+    if (-not [string]::IsNullOrWhiteSpace($envValue)) {
+        return $envValue
+    }
+
+    $configValue = Get-RcloneOpsNestedConfigValue -ConfigValues $ConfigValues -Section 'webui' -Name 'log-file'
+    if ($null -ne $configValue -and -not [string]::IsNullOrWhiteSpace([string]$configValue)) {
+        $resolvedValue = Resolve-RcloneOpsEnvPlaceholder -Value $configValue -Context 'webui.log-file'
+        return Resolve-RcloneOpsFileSystemPath -Path $resolvedValue -BasePath $BasePath -Context 'webui.log-file'
+    }
+
+    return (Join-Path $script:DefaultLogDir 'webui.log')
+}
+
 function Resolve-RcloneOpsEnvPlaceholder {
     <#
     .SYNOPSIS
@@ -420,6 +467,179 @@ function Resolve-RcloneOpsEnvPlaceholder {
 
     Import-RcloneOpsConfigParser
     return Resolve-ConfigEnvPlaceholder -Value $Value -Context $Context
+}
+
+function Resolve-RcloneOpsFileSystemPath {
+    <#
+    .SYNOPSIS
+        按配置文件上下文解析文件系统路径。
+
+    .PARAMETER Path
+        待解析路径，支持 `~`、环境变量占位符与相对路径。
+
+    .PARAMETER BasePath
+        相对路径解析基准目录。
+
+    .PARAMETER Context
+        当前路径所在配置位置，用于错误提示。
+
+    .OUTPUTS
+        System.String。解析后的绝对路径。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyString()]
+        [string]$Path,
+
+        [Parameter(Mandatory = $true)]
+        [string]$BasePath,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Context
+    )
+
+    Import-RcloneOpsConfigParser
+    return Resolve-ConfigPath -Path $Path -BasePath $BasePath -Context $Context
+}
+
+function Resolve-RcloneOpsLocalPath {
+    <#
+    .SYNOPSIS
+        将命令行路径解析成本地绝对路径。
+
+    .PARAMETER Path
+        命令行或默认路径，可为相对路径或绝对路径。
+
+    .OUTPUTS
+        System.String。基于当前工作目录解析后的绝对路径。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    $resolvedPath = if ([System.IO.Path]::IsPathRooted($Path)) {
+        $Path
+    }
+    else {
+        Join-Path (Get-Location).Path $Path
+    }
+    return [System.IO.Path]::GetFullPath($resolvedPath)
+}
+
+function Get-RcloneOpsConfigDirectory {
+    <#
+    .SYNOPSIS
+        获取 JSON 主配置所在目录。
+
+    .PARAMETER ConfigPath
+        JSON 主配置路径，可为相对路径或绝对路径。
+
+    .OUTPUTS
+        System.String。配置文件目录的绝对路径。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ConfigPath
+    )
+
+    return (Split-Path -Parent (Resolve-RcloneOpsLocalPath -Path $ConfigPath))
+}
+
+function ConvertTo-RcloneOpsBoolean {
+    <#
+    .SYNOPSIS
+        将 JSON 配置值转换为布尔值。
+
+    .PARAMETER Value
+        JSON 配置中的布尔、数字或字符串值。
+
+    .PARAMETER Context
+        当前值所在配置位置，用于错误提示。
+
+    .PARAMETER DefaultValue
+        值缺失或为空字符串时使用的默认值。
+
+    .OUTPUTS
+        System.Boolean。解析后的布尔值。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $false)]
+        [AllowNull()]
+        [object]$Value,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Context,
+
+        [Parameter(Mandatory = $true)]
+        [bool]$DefaultValue
+    )
+
+    if ($null -eq $Value) {
+        return $DefaultValue
+    }
+    if ($Value -is [bool]) {
+        return [bool]$Value
+    }
+
+    $text = [string](Resolve-RcloneOpsEnvPlaceholder -Value $Value -Context $Context)
+    if ([string]::IsNullOrWhiteSpace($text)) {
+        return $DefaultValue
+    }
+
+    switch ($text.Trim().ToLowerInvariant()) {
+        { $_ -in @('1', 'true', 'yes', 'on') } { return $true }
+        { $_ -in @('0', 'false', 'no', 'off') } { return $false }
+        default { throw "$Context 需要布尔值，当前值为 '$text'。" }
+    }
+}
+
+function ConvertTo-RcloneOpsSafeName {
+    <#
+    .SYNOPSIS
+        将配置名称转换为适合文件名使用的安全片段。
+
+    .PARAMETER Name
+        mount profile、remote 或挂载点名称。
+
+    .OUTPUTS
+        System.String。仅包含字母、数字、点、下划线和短横线的名称。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Name
+    )
+
+    $safeName = [regex]::Replace($Name, '[^A-Za-z0-9_.-]+', '_').Trim('_')
+    if ([string]::IsNullOrWhiteSpace($safeName)) {
+        throw "名称 '$Name' 无法转换为安全文件名。"
+    }
+    return $safeName
+}
+
+function Test-RcloneOpsMountPathOption {
+    <#
+    .SYNOPSIS
+        判断 mount option 是否表示本地路径。
+
+    .PARAMETER Name
+        rclone mount option 名称，不包含 `--` 前缀。
+
+    .OUTPUTS
+        System.Boolean。需要按本地路径解析时返回 true。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Name
+    )
+
+    return $Name -in @('cache-dir', 'log-file')
 }
 
 function New-RcloneOpsRemoteSection {
@@ -566,6 +786,171 @@ function ConvertTo-RcloneOpsConfig {
     return (($sections.ToArray() -join "`n`n") + "`n")
 }
 
+function ConvertTo-RcloneOpsMountDefinitions {
+    <#
+    .SYNOPSIS
+        将 JSON mounts 数组转换为 mount profile 定义。
+
+    .PARAMETER ConfigValues
+        Read-RcloneOpsConfigValues 返回的配置键值。
+
+    .PARAMETER BasePath
+        本地路径解析基准目录，通常为 JSON 主配置所在目录。
+
+    .OUTPUTS
+        PSCustomObject[]。每个对象包含 Name、Remote、MountPoint、Options、PidFile 等字段。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$ConfigValues,
+
+        [Parameter(Mandatory = $true)]
+        [string]$BasePath
+    )
+
+    $mountsValue = Get-RcloneOpsConfigValue -Values $ConfigValues -Name 'mounts'
+    if ($null -eq $mountsValue) {
+        return @()
+    }
+
+    $mountItems = @($mountsValue)
+    $definitions = [System.Collections.Generic.List[pscustomobject]]::new()
+    for ($index = 0; $index -lt $mountItems.Count; $index++) {
+        $mountTable = ConvertTo-RcloneOpsHashtable -InputObject $mountItems[$index]
+        $context = "mounts[$index]"
+        $name = [string](Get-RcloneOpsConfigValue -Values $mountTable -Name 'name')
+        if ([string]::IsNullOrWhiteSpace($name)) {
+            throw "$context 缺少 name。"
+        }
+
+        $enabledValue = Get-RcloneOpsConfigValue -Values $mountTable -Name 'enabled'
+        $enabled = ConvertTo-RcloneOpsBoolean -Value $enabledValue -Context "$context.enabled" -DefaultValue $true
+        if (-not $enabled) {
+            continue
+        }
+
+        $remote = [string](Resolve-RcloneOpsEnvPlaceholder -Value (Get-RcloneOpsConfigValue -Values $mountTable -Name 'remote') -Context "$context.remote")
+        if ([string]::IsNullOrWhiteSpace($remote)) {
+            throw "$context 缺少 remote。"
+        }
+
+        $mountPointValue = [string](Get-RcloneOpsConfigValue -Values $mountTable -Name 'mountPoint')
+        if ([string]::IsNullOrWhiteSpace($mountPointValue)) {
+            throw "$context 缺少 mountPoint。"
+        }
+        $mountPoint = Resolve-RcloneOpsFileSystemPath -Path $mountPointValue -BasePath $BasePath -Context "$context.mountPoint"
+
+        $optionsValue = Get-RcloneOpsConfigValue -Values $mountTable -Name 'options'
+        $options = if ($null -eq $optionsValue) { @{} } else { ConvertTo-RcloneOpsHashtable -InputObject $optionsValue }
+        $safeName = ConvertTo-RcloneOpsSafeName -Name $name
+        $defaultLogFile = Resolve-RcloneOpsFileSystemPath -Path ".runtime/logs/mount-$safeName.log" -BasePath $BasePath -Context "$context.options.log-file"
+        $defaultCacheDir = Resolve-RcloneOpsFileSystemPath -Path ".runtime/cache/$safeName" -BasePath $BasePath -Context "$context.options.cache-dir"
+        if (-not (Get-RcloneOpsConfigValue -Values $options -Name 'log-file')) {
+            $options['log-file'] = $defaultLogFile
+        }
+        if (-not (Get-RcloneOpsConfigValue -Values $options -Name 'cache-dir')) {
+            $options['cache-dir'] = $defaultCacheDir
+        }
+
+        $definitions.Add([PSCustomObject]@{
+                Name       = $name
+                SafeName   = $safeName
+                Remote     = $remote
+                MountPoint = $mountPoint
+                Options    = $options
+                PidFile    = (Join-Path $script:DefaultRuntimeDir "mounts/$safeName.pid")
+            })
+    }
+
+    return [pscustomobject[]]$definitions.ToArray()
+}
+
+function New-RcloneOpsMountArguments {
+    <#
+    .SYNOPSIS
+        根据 mount profile 创建 rclone mount 参数。
+
+    .PARAMETER Definition
+        ConvertTo-RcloneOpsMountDefinitions 返回的单个 mount profile。
+
+    .PARAMETER ConfigPath
+        rclone.conf 路径。
+
+    .PARAMETER BasePath
+        本地路径解析基准目录，通常为 JSON 主配置所在目录。
+
+    .OUTPUTS
+        System.String[]。传给 rclone 的参数数组。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [pscustomobject]$Definition,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ConfigPath,
+
+        [Parameter(Mandatory = $true)]
+        [string]$BasePath
+    )
+
+    $arguments = [System.Collections.Generic.List[string]]::new()
+    $arguments.Add('mount')
+    $arguments.Add([string]$Definition.Remote)
+    $arguments.Add([string]$Definition.MountPoint)
+    $arguments.Add("--config=$ConfigPath")
+
+    $optionTable = ConvertTo-RcloneOpsHashtable -InputObject $Definition.Options
+    foreach ($key in ($optionTable.Keys | Sort-Object)) {
+        $name = [string]$key
+        $value = $optionTable[$key]
+        if ($null -eq $value) {
+            continue
+        }
+
+        if ($value -is [bool]) {
+            if ([bool]$value) {
+                $arguments.Add("--$name")
+            }
+            continue
+        }
+
+        $resolvedValue = [string](Resolve-RcloneOpsEnvPlaceholder -Value $value -Context "mounts.$($Definition.Name).options.$name")
+        if ([string]::IsNullOrWhiteSpace($resolvedValue)) {
+            continue
+        }
+        if (Test-RcloneOpsMountPathOption -Name $name) {
+            $resolvedValue = Resolve-RcloneOpsFileSystemPath -Path $resolvedValue -BasePath $BasePath -Context "mounts.$($Definition.Name).options.$name"
+        }
+        $arguments.Add("--$name=$resolvedValue")
+    }
+
+    return [string[]]$arguments.ToArray()
+}
+
+function New-RcloneOpsManualMountPidFile {
+    <#
+    .SYNOPSIS
+        为手工后台 mount 生成独立 PID 文件路径。
+
+    .PARAMETER Positionals
+        mount 命令的位置参数，包含 remote 与 mount-point。
+
+    .OUTPUTS
+        System.String。PID 文件路径。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]]$Positionals
+    )
+
+    $nameSource = if ($Positionals.Count -ge 2) { $Positionals[1] } elseif ($Positionals.Count -ge 1) { $Positionals[0] } else { 'manual' }
+    $safeName = ConvertTo-RcloneOpsSafeName -Name $nameSource
+    return (Join-Path $script:DefaultRuntimeDir "mounts/manual-$safeName.pid")
+}
+
 function Get-RcloneOpsRemoteName {
     <#
     .SYNOPSIS
@@ -700,6 +1085,46 @@ function Invoke-RcloneOpsProcess {
     return $LASTEXITCODE
 }
 
+function Get-RcloneOpsServiceContext {
+    <#
+    .SYNOPSIS
+        解析 rclone-ops 服务类命令的公共上下文。
+
+    .PARAMETER Flags
+        Split-RcloneOpsArguments 返回的 Flags 哈希表。
+
+    .PARAMETER RequireSource
+        是否要求 JSON 主配置必须存在。
+
+    .OUTPUTS
+        PSCustomObject。包含 SourcePath、SourceValues、SourceBasePath、ConfigPath 与 Rclone。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Flags,
+
+        [Parameter(Mandatory = $false)]
+        [switch]$RequireSource
+    )
+
+    $sourcePath = Get-RcloneOpsOption -Flags $Flags -Name 'source' -EnvName 'RCLONE_SOURCE_CONFIG_PATH' -DefaultValue $script:DefaultSourcePath
+    $sourceValues = if ($RequireSource) {
+        Read-RcloneOpsConfigValues -ConfigPath $sourcePath
+    }
+    else {
+        Get-RcloneOpsOptionalConfigValues -ConfigPath $sourcePath
+    }
+
+    [PSCustomObject]@{
+        SourcePath     = $sourcePath
+        SourceValues   = $sourceValues
+        SourceBasePath = Get-RcloneOpsConfigDirectory -ConfigPath $sourcePath
+        Rclone         = Get-RcloneOpsOption -Flags $Flags -Name 'rclone' -EnvName 'RCLONE_BIN' -DefaultValue 'rclone'
+        ConfigPath     = Get-RcloneOpsOption -Flags $Flags -Name 'config' -EnvName 'RCLONE_CONFIG_PATH' -DefaultValue $script:DefaultConfigPath
+    }
+}
+
 function Start-RcloneOpsWebUi {
     <#
     .SYNOPSIS
@@ -724,25 +1149,22 @@ function Start-RcloneOpsWebUi {
         [string[]]$Passthrough
     )
 
-    $sourcePath = Get-RcloneOpsOption -Flags $Flags -Name 'source' -EnvName 'RCLONE_SOURCE_CONFIG_PATH' -DefaultValue $script:DefaultSourcePath
-    $sourceValues = Get-RcloneOpsOptionalConfigValues -ConfigPath $sourcePath
-    $rclone = Get-RcloneOpsOption -Flags $Flags -Name 'rclone' -EnvName 'RCLONE_BIN' -DefaultValue 'rclone'
-    $configPath = Get-RcloneOpsOption -Flags $Flags -Name 'config' -EnvName 'RCLONE_CONFIG_PATH' -DefaultValue $script:DefaultConfigPath
-    $rcAddr = Get-RcloneOpsOptionWithConfig -Flags $Flags -Name 'addr' -EnvName 'RCLONE_RC_ADDR' -ConfigValues $sourceValues -Section 'webui' -ConfigName 'addr' -DefaultValue $script:DefaultRcAddr
-    $rcPass = Get-RcloneOpsOptionWithConfig -Flags $Flags -Name 'pass' -EnvName 'RCLONE_RC_PASS' -ConfigValues $sourceValues -Section 'webui' -ConfigName 'pass' -DefaultValue ''
-    $rcUser = if ($rcPass) { Get-RcloneOpsOptionWithConfig -Flags $Flags -Name 'user' -EnvName 'RCLONE_RC_USER' -ConfigValues $sourceValues -Section 'webui' -ConfigName 'user' -DefaultValue $script:DefaultRcUser } else { '' }
+    $context = Get-RcloneOpsServiceContext -Flags $Flags
+    $rcAddr = Get-RcloneOpsOptionWithConfig -Flags $Flags -Name 'addr' -EnvName 'RCLONE_RC_ADDR' -ConfigValues $context.SourceValues -Section 'webui' -ConfigName 'addr' -DefaultValue $script:DefaultRcAddr
+    $rcPass = Get-RcloneOpsOptionWithConfig -Flags $Flags -Name 'pass' -EnvName 'RCLONE_RC_PASS' -ConfigValues $context.SourceValues -Section 'webui' -ConfigName 'pass' -DefaultValue ''
+    $rcUser = if ($rcPass) { Get-RcloneOpsOptionWithConfig -Flags $Flags -Name 'user' -EnvName 'RCLONE_RC_USER' -ConfigValues $context.SourceValues -Section 'webui' -ConfigName 'user' -DefaultValue $script:DefaultRcUser } else { '' }
     $isBackground = $Flags.ContainsKey('background')
-    $logFile = Get-RcloneOpsOption -Flags $Flags -Name 'log-file' -EnvName 'RCLONE_LOG_FILE' -DefaultValue (Join-Path $script:DefaultLogDir 'webui.log')
+    $logFile = Get-RcloneOpsWebUiLogFile -Flags $Flags -ConfigValues $context.SourceValues -BasePath $context.SourceBasePath
     if ($isBackground) {
         New-Item -ItemType Directory -Path (Split-Path -Parent $logFile) -Force | Out-Null
     }
 
-    if (-not (Get-Command $rclone -ErrorAction SilentlyContinue)) {
-        throw "未找到 rclone 命令：$rclone。请先安装 rclone，或通过 --rclone / RCLONE_BIN 指定路径。"
+    if (-not (Get-Command $context.Rclone -ErrorAction SilentlyContinue)) {
+        throw "未找到 rclone 命令：$($context.Rclone)。请先安装 rclone，或通过 --rclone / RCLONE_BIN 指定路径。"
     }
 
     # 前台模式保留 rclone 的 stderr/stdout，后台模式才写日志文件，避免用户误判“没反应”。
-    $rcloneArgs = @('rcd', '--rc-web-gui', "--rc-addr=$rcAddr", "--config=$configPath")
+    $rcloneArgs = @('rcd', '--rc-web-gui', "--rc-addr=$rcAddr", "--config=$($context.ConfigPath)")
     if ($isBackground) { $rcloneArgs += "--log-file=$logFile" }
     if ($rcPass) { $rcloneArgs += @("--rc-user=$rcUser", "--rc-pass=$rcPass") }
     if ($Flags.ContainsKey('no-open-browser')) { $rcloneArgs += '--rc-web-gui-no-open-browser' }
@@ -750,7 +1172,7 @@ function Start-RcloneOpsWebUi {
 
     Write-Host '准备启动 rclone WebUI/RC：'
     Write-Host "  地址: http://$rcAddr"
-    Write-Host "  配置: $configPath"
+    Write-Host "  配置: $($context.ConfigPath)"
     Write-Host ("  日志: {0}" -f ($(if ($isBackground) { $logFile } else { '当前终端（rclone stdout/stderr）' })))
     if (-not $rcPass) {
         Write-Host '  认证: 未设置 RCLONE_RC_PASS，rclone 会生成临时认证信息；建议日常运维显式设置强密码。'
@@ -763,7 +1185,7 @@ function Start-RcloneOpsWebUi {
         Write-Host '  提示: 如需命令立即返回，请使用 --background --no-open-browser。'
     }
 
-    Invoke-RcloneOpsProcess -FilePath $rclone -Arguments $rcloneArgs -Background:$isBackground -PidFile (Join-Path $script:DefaultRuntimeDir 'webui.pid')
+    Invoke-RcloneOpsProcess -FilePath $context.Rclone -Arguments $rcloneArgs -Background:$isBackground -PidFile (Join-Path $script:DefaultRuntimeDir 'webui.pid')
 }
 
 function Stop-RcloneOpsWebUi {
@@ -785,6 +1207,167 @@ function Stop-RcloneOpsWebUi {
     $processId = [int](Get-Content -LiteralPath $pidFile -Raw)
     Stop-Process -Id $processId -ErrorAction Stop
     Write-Host "已停止 WebUI 进程：$processId"
+}
+
+function Start-RcloneOpsConfiguredMounts {
+    <#
+    .SYNOPSIS
+        启动 JSON 主配置中的所有 enabled mount profile。
+
+    .PARAMETER Flags
+        Split-RcloneOpsArguments 返回的 Flags 哈希表。
+
+    .OUTPUTS
+        System.Int32。所有挂载启动成功返回 0，否则返回 1。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Flags
+    )
+
+    $context = Get-RcloneOpsServiceContext -Flags $Flags -RequireSource
+    $definitions = @(ConvertTo-RcloneOpsMountDefinitions -ConfigValues $context.SourceValues -BasePath $context.SourceBasePath)
+    if ($definitions.Count -eq 0) {
+        Write-Host '未找到 enabled mounts，跳过挂载。'
+        return 0
+    }
+    if (-not (Get-Command $context.Rclone -ErrorAction SilentlyContinue)) {
+        throw "未找到 rclone 命令：$($context.Rclone)。请先安装 rclone，或通过 --rclone / RCLONE_BIN 指定路径。"
+    }
+
+    $failed = [System.Collections.Generic.List[string]]::new()
+    foreach ($definition in $definitions) {
+        New-Item -ItemType Directory -Path $definition.MountPoint -Force | Out-Null
+        $arguments = New-RcloneOpsMountArguments -Definition $definition -ConfigPath $context.ConfigPath -BasePath $context.SourceBasePath
+        foreach ($argument in $arguments) {
+            if ($argument -like '--cache-dir=*') {
+                $targetPath = $argument.Substring($argument.IndexOf('=') + 1)
+                New-Item -ItemType Directory -Path $targetPath -Force | Out-Null
+            }
+            elseif ($argument -like '--log-file=*') {
+                $targetPath = $argument.Substring($argument.IndexOf('=') + 1)
+                New-Item -ItemType Directory -Path (Split-Path -Parent $targetPath) -Force | Out-Null
+            }
+        }
+
+        Write-Host "准备挂载 $($definition.Name)：$($definition.Remote) -> $($definition.MountPoint)"
+        $exitCode = Invoke-RcloneOpsProcess -FilePath $context.Rclone -Arguments $arguments -Background -PidFile $definition.PidFile
+        if ($exitCode -ne 0) {
+            $failed.Add($definition.Name)
+        }
+    }
+
+    if ($failed.Count -gt 0) {
+        Write-Error "以下挂载启动失败：$($failed -join ', ')"
+        return 1
+    }
+    return 0
+}
+
+function Stop-RcloneOpsConfiguredMounts {
+    <#
+    .SYNOPSIS
+        卸载 JSON 主配置中的所有 enabled mount profile。
+
+    .PARAMETER Flags
+        Split-RcloneOpsArguments 返回的 Flags 哈希表。
+
+    .OUTPUTS
+        System.Int32。所有卸载命令成功返回 0，否则返回 1。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Flags
+    )
+
+    $context = Get-RcloneOpsServiceContext -Flags $Flags -RequireSource
+    $definitions = @(ConvertTo-RcloneOpsMountDefinitions -ConfigValues $context.SourceValues -BasePath $context.SourceBasePath)
+    if ($definitions.Count -eq 0) {
+        Write-Host '未找到 enabled mounts，跳过卸载。'
+        return 0
+    }
+
+    $failed = [System.Collections.Generic.List[string]]::new()
+    foreach ($definition in ([array]$definitions)[($definitions.Count - 1)..0]) {
+        Write-Host "准备卸载 $($definition.Name)：$($definition.MountPoint)"
+        $exitCode = Dismount-RcloneOpsMount -Positionals @($definition.MountPoint)
+        if ($exitCode -ne 0) {
+            $failed.Add($definition.Name)
+            continue
+        }
+        if (Test-Path -LiteralPath $definition.PidFile) {
+            Remove-Item -LiteralPath $definition.PidFile -Force
+        }
+    }
+
+    if ($failed.Count -gt 0) {
+        Write-Error "以下挂载卸载失败：$($failed -join ', ')"
+        return 1
+    }
+    return 0
+}
+
+function Start-RcloneOpsStack {
+    <#
+    .SYNOPSIS
+        启动 rclone WebUI 并自动挂载配置中的 OSS/S3 remote。
+
+    .PARAMETER Flags
+        Split-RcloneOpsArguments 返回的 Flags 哈希表。
+
+    .OUTPUTS
+        System.Int32。启动成功返回 0，否则返回非 0。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Flags
+    )
+
+    $context = Get-RcloneOpsServiceContext -Flags $Flags -RequireSource
+    if (-not (Test-Path -LiteralPath $context.ConfigPath -PathType Leaf)) {
+        Write-Host "未找到 rclone.conf，先从 $($context.SourcePath) 生成。"
+        $initFlags = @{}
+        foreach ($entry in $Flags.GetEnumerator()) {
+            $initFlags[$entry.Key] = $entry.Value
+        }
+        $initFlags['overwrite'] = $true
+        Initialize-RcloneOpsConfig -Flags $initFlags
+    }
+
+    $webUiFlags = @{} + $Flags
+    $webUiFlags['background'] = $true
+    $webUiFlags['no-open-browser'] = $true
+    $webUiExitCode = Start-RcloneOpsWebUi -Flags $webUiFlags -Passthrough @()
+    if ($webUiExitCode -ne 0) {
+        return $webUiExitCode
+    }
+
+    return Start-RcloneOpsConfiguredMounts -Flags $Flags
+}
+
+function Stop-RcloneOpsStack {
+    <#
+    .SYNOPSIS
+        卸载配置中的 mounts 并停止后台 WebUI。
+
+    .PARAMETER Flags
+        Split-RcloneOpsArguments 返回的 Flags 哈希表。
+
+    .OUTPUTS
+        System.Int32。停止流程成功返回 0，否则返回非 0。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Flags
+    )
+
+    $mountExitCode = Stop-RcloneOpsConfiguredMounts -Flags $Flags
+    Stop-RcloneOpsWebUi
+    return $mountExitCode
 }
 
 function Invoke-RcloneOpsTransfer {
@@ -850,7 +1433,13 @@ function Invoke-RcloneOpsGeneric {
 
     $rclone = Get-RcloneOpsOption -Flags $ParsedArgs.Flags -Name 'rclone' -EnvName 'RCLONE_BIN' -DefaultValue 'rclone'
     $configPath = Get-RcloneOpsOption -Flags $ParsedArgs.Flags -Name 'config' -EnvName 'RCLONE_CONFIG_PATH' -DefaultValue $script:DefaultConfigPath
-    Invoke-RcloneOpsProcess -FilePath $rclone -Arguments @($Action) + $ParsedArgs.Positionals + @("--config=$configPath") + $ParsedArgs.Passthrough -Background:($ParsedArgs.Flags.ContainsKey('background')) -PidFile (Join-Path $script:DefaultRuntimeDir "$Action.pid")
+    $pidFile = if ($Action -eq 'mount') {
+        New-RcloneOpsManualMountPidFile -Positionals $ParsedArgs.Positionals
+    }
+    else {
+        Join-Path $script:DefaultRuntimeDir "$Action.pid"
+    }
+    Invoke-RcloneOpsProcess -FilePath $rclone -Arguments @($Action) + $ParsedArgs.Positionals + @("--config=$configPath") + $ParsedArgs.Passthrough -Background:($ParsedArgs.Flags.ContainsKey('background')) -PidFile $pidFile
 }
 
 function Dismount-RcloneOpsMount {
@@ -893,8 +1482,12 @@ rclone 通用运维脚本（PowerShell）
 用法：
   pwsh ./rclone-ops.ps1 init-config [--overwrite] [--source rclone.config.local.json] [--config rclone.conf]
   pwsh ./rclone-ops.ps1 doctor [--config rclone.conf]
+  pwsh ./rclone-ops.ps1 up [--source rclone.config.local.json] [--config rclone.conf]
+  pwsh ./rclone-ops.ps1 down [--source rclone.config.local.json]
   pwsh ./rclone-ops.ps1 webui [--background] [--addr 127.0.0.1:5572] [--user admin] [--pass ***] [--no-open-browser]
   pwsh ./rclone-ops.ps1 stop-webui
+  pwsh ./rclone-ops.ps1 mount-all [--source rclone.config.local.json] [--config rclone.conf]
+  pwsh ./rclone-ops.ps1 unmount-all [--source rclone.config.local.json]
   pwsh ./rclone-ops.ps1 lsd <remote:>
   pwsh ./rclone-ops.ps1 ls <remote:path>
   pwsh ./rclone-ops.ps1 mount <remote:path> <mount-point> [--background] -- [额外 rclone 参数]
@@ -939,8 +1532,12 @@ function Invoke-RcloneOpsMain {
         { $_ -in @('help', '--help', '-h') } { Show-RcloneOpsHelp; return 0 }
         'init-config' { Initialize-RcloneOpsConfig -Flags $parsed.Flags; return 0 }
         'doctor' { Invoke-RcloneOpsDoctor -Flags $parsed.Flags; return 0 }
+        'up' { return Start-RcloneOpsStack -Flags $parsed.Flags }
+        'down' { return Stop-RcloneOpsStack -Flags $parsed.Flags }
         'webui' { return Start-RcloneOpsWebUi -Flags $parsed.Flags -Passthrough $parsed.Passthrough }
         'stop-webui' { Stop-RcloneOpsWebUi; return 0 }
+        'mount-all' { return Start-RcloneOpsConfiguredMounts -Flags $parsed.Flags }
+        'unmount-all' { return Stop-RcloneOpsConfiguredMounts -Flags $parsed.Flags }
         { $_ -in @('copy', 'sync', 'check') } { return Invoke-RcloneOpsTransfer -Action $Command -ParsedArgs $parsed }
         { $_ -in @('ls', 'lsd', 'mount', 'serve') } { return Invoke-RcloneOpsGeneric -Action $Command -ParsedArgs $parsed }
         'unmount' { return Dismount-RcloneOpsMount -Positionals $parsed.Positionals }

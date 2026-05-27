@@ -25,6 +25,39 @@
   "webui": {
     "addr": "127.0.0.1:5572",
     "user": "admin",
-    "pass": "${RCLONE_RC_PASS}"
-  }
+    "pass": "${RCLONE_RC_PASS}",
+    "log-file": ".runtime/logs/webui.log"
+  },
+  "mounts": [
+    {
+      "name": "cloud-main",
+      "enabled": true,
+      "remote": "cloud-main:",
+      "mountPoint": "mounts/cloud-main",
+      "options": {
+        "vfs-cache-mode": "writes",
+        "cache-dir": ".runtime/cache/cloud-main",
+        "vfs-cache-max-size": "20G",
+        "vfs-cache-max-age": "24h",
+        "dir-cache-time": "10m",
+        "vfs-fast-fingerprint": true,
+        "log-file": ".runtime/logs/mount-cloud-main.log"
+      }
+    },
+    {
+      "name": "archive",
+      "enabled": false,
+      "remote": "archive:",
+      "mountPoint": "mounts/archive",
+      "options": {
+        "vfs-cache-mode": "writes",
+        "cache-dir": ".runtime/cache/archive",
+        "vfs-cache-max-size": "20G",
+        "vfs-cache-max-age": "24h",
+        "dir-cache-time": "10m",
+        "vfs-fast-fingerprint": true,
+        "log-file": ".runtime/logs/mount-archive.log"
+      }
+    }
+  ]
 }
