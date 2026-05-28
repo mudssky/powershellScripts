@@ -1,6 +1,9 @@
 model_list:
   # 显式注册 OpenAI 系列模型，确保 `/models` 能直接返回可用模型名。
   - model_name: "gpt-5.5"
+    model_info:
+      # GPT-5.5 渠道支持图片输入，显式声明后客户端可按视觉能力筛选。
+      supports_vision: true
     litellm_params: &newapi_openai_params
       # 这里顺手定义 NewAPI OpenAI 兼容入口的公共连接参数，后续同上游模型通过 merge 复用。
       api_base: "os.environ/NEWAPI_API_BASE"  # 从环境变量读 NewAPI 地址
@@ -9,6 +12,9 @@ model_list:
       model: "openai/gpt-5.5"
   # 显式注册 Gemini 系列模型，避免 wildcard 路由只返回 `*`。
   - model_name: "gemini-3.1-pro"
+    model_info:
+      # Gemini Pro 渠道支持多模态输入，显式声明视觉能力供客户端发现。
+      supports_vision: true
     litellm_params:
       # 复用同一个 NewAPI OpenAI 兼容入口，只覆盖具体模型名。
       <<: *newapi_openai_params
@@ -23,6 +29,9 @@ model_list:
       # 使用 LiteLLM 的 Anthropic provider，把 Claude 请求按原生协议发给上游。
       model: "anthropic/claude-opus-4-6"
   - model_name: "claude-opus-4-7"
+    model_info:
+      # Claude Opus 4.7 支持图片输入，显式声明视觉能力供客户端发现。
+      supports_vision: true
     litellm_params:
       # 复用同一个 Claude 原生上游入口，只覆盖具体模型名。
       <<: *newapi_anthropic_params
@@ -36,6 +45,9 @@ model_list:
       # 兼容别名与默认模型共享同一上游，避免行为分叉。
       model: "anthropic/claude-opus-4-6"
   - model_name: "compat/claude-opus-4-7"
+    model_info:
+      # 兼容别名与 claude-opus-4-7 使用同一上游，也应暴露相同视觉能力。
+      supports_vision: true
     litellm_params:
       # 复用 Claude 原生上游，只通过模型名表达“兼容入口”的使用语义。
       <<: *newapi_anthropic_params
@@ -105,6 +117,16 @@ model_list:
       <<: *zai_openai_params
       # 显式锁定到当前 Coding Plan 主模型。
       model: "openai/GLM-5.1"
+  # MiniMax Mimo Pro 支持视觉输入，作为 NewAPI 下的显式可调用模型暴露给客户端。
+  - model_name: "mimo-v2.5-pro"
+    model_info:
+      # 显式声明视觉能力，便于 `/model/info` 和客户端按能力筛选模型。
+      supports_vision: true
+    litellm_params:
+      # 复用 NewAPI OpenAI 兼容入口，由 NewAPI 负责路由到具体 Mimo 模型。
+      <<: *newapi_openai_params
+      # 保持上游模型名直通，避免 LiteLLM 对外别名与 NewAPI 模型名脱节。
+      model: "openai/mimo-v2.5-pro"
   # claw OpenAI 兼容链路的 DeepSeek 轻量兜底入口。
   - model_name: "claw-deepseek-v4-flash"
     litellm_params:
