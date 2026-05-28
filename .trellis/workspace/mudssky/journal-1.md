@@ -283,3 +283,36 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 9: 整理 Hermes 官方安装目录
+
+**Date**: 2026-05-28
+**Task**: 整理 Hermes 官方安装目录
+**Branch**: `master`
+
+### Summary
+
+按官方布局恢复 Hermes 程序目录，使用仓库内 HERMES_HOME 保存本地状态，补充 ignore、README 和 infra spec。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `996aa6e` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

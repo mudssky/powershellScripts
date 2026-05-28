@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 8
+- **Total Sessions**: 9
 - **Last Active**: 2026-05-28
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~285 | Active |
+| `journal-1.md` | ~318 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 9 | 2026-05-28 | 整理 Hermes 官方安装目录 | `996aa6e` | `master` |
 | 8 | 2026-05-28 | 创建仓库运维 Skill | `dec8040` | `master` |
 | 7 | 2026-05-28 | LiteLLM claw agent fallback | `1eff4c5` | `master` |
 | 6 | 2026-05-27 | 归档 rclone、内存诊断与 Claude profile 任务 | `dd811b0`, `5cf6840`, `3a82adc`, `7506acd`, `bd0966c` | `master` |
