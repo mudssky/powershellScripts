@@ -10,7 +10,7 @@
 - `start.ps1`：统一入口，封装常用 `docker compose` 操作。
 - `.env.example`：开发环境变量示例。
 - `.env.production.example`：生产环境变量示例。
-- `.env.local`：本地私有环境变量，保存 `NEWAPI_API_BASE`、`NEWAPI_KEY`、可选的 `NEWAPI_ANTHROPIC_API_BASE` / `NEWAPI_ANTHROPIC_KEY`、`Z_AI_CODING_API_BASE`、`Z_AI_ANTHROPIC_API_BASE`、`Z_AI_API_KEY`、`DEEPSEEK_ANTHROPIC_API_BASE`、`DEEPSEEK_OPENAI_API_BASE`、`DEEPSEEK_API_KEY`、`MIMO_API_BASE`、`MIMO_API_KEY`、`LITELLM_MASTER_KEY`、可选 `DATABASE_URL`。
+- `.env.local`：本地私有环境变量，保存 `NEWAPI_API_BASE`、`NEWAPI_KEY`、`NEWAPI_BOT_KEY`、可选的 `NEWAPI_ANTHROPIC_API_BASE` / `NEWAPI_ANTHROPIC_KEY`、`Z_AI_CODING_API_BASE`、`Z_AI_ANTHROPIC_API_BASE`、`Z_AI_API_KEY`、`DEEPSEEK_ANTHROPIC_API_BASE`、`DEEPSEEK_OPENAI_API_BASE`、`DEEPSEEK_API_KEY`、`MIMO_API_BASE`、`MIMO_API_KEY`、`LITELLM_MASTER_KEY`、可选 `DATABASE_URL`。
 
 固定常量如 `PORT=4000`、`CONFIG_FILE_PATH=/app/config.yaml` 保留在 `compose.yaml` 内部；环境差异值建议集中在 `.env.local`，再通过 `start.ps1` 追加的 `--env-file` 和 `compose.yaml` 的 `environment` 白名单注入到容器。
 
@@ -23,6 +23,7 @@ LITELLM_IMAGE=docker.litellm.ai/berriai/litellm:main-latest
 LITELLM_HOST_PORT=34000
 NEWAPI_API_BASE=http://new-api.example.com/v1
 NEWAPI_KEY=sk-newapi-dev-xxxx
+NEWAPI_BOT_KEY=sk-newapi-bot-dev-xxxx
 # 可选：只有 Claude 需要单独上游时才覆盖；否则默认复用 NEWAPI_API_BASE / NEWAPI_KEY
 # NEWAPI_ANTHROPIC_API_BASE=http://anthropic-api.example.com
 # NEWAPI_ANTHROPIC_KEY=sk-anthropic-dev-xxxx
@@ -45,6 +46,7 @@ DATABASE_URL=postgresql://postgres:12345678@host.docker.internal:5432/litellm
 - `LITELLM_HOST_PORT`：宿主机暴露端口，默认 `34000`。
 - `NEWAPI_API_BASE`：NewAPI 的 OpenAI 兼容接口地址，建议带上 `/v1`。
 - `NEWAPI_KEY`：LiteLLM 转发到 NewAPI 时使用的上游密钥。
+- `NEWAPI_BOT_KEY`：LiteLLM 转发 `newapi/mimo-v2.5-pro` 与 `newapi/mimo-v2.5` 时使用的 bot 专用密钥；不配置时 compose 会回退到 `NEWAPI_KEY`。
 - `NEWAPI_ANTHROPIC_API_BASE`：可选覆盖项；如果 Claude 需要走独立 Anthropic 兼容入口，可填写已被 Claude Code 验证可用的地址。不配置时，Claude 默认复用 `NEWAPI_API_BASE`。
 - `NEWAPI_ANTHROPIC_KEY`：可选覆盖项；如果 Claude 需要独立上游密钥可单独提供。不配置时，Claude 默认复用 `NEWAPI_KEY`。
 - `LITELLM_ANTHROPIC_DISABLE_URL_SUFFIX`：可选开关；如果 Claude 实际使用的 Anthropic 上游地址已经包含完整 API 路径，可设置为 `true` 禁止 LiteLLM 自动追加后缀。
@@ -203,8 +205,8 @@ curl http://127.0.0.1:34000/v1/chat/completions `
 
 - `claw-plan` 是推荐给 agent 配置使用的稳定入口；当前底层为 `GLM-5.1`，未来升级底层模型时可尽量不改客户端配置。
 - `claw-glmplan-5.1` 是显式版本入口，适合调试或需要固定 GLM 版本的调用。
-- `newapi/mimo-v2.5-pro` 是 `claw-plan` 的文本 fallback，走 NewAPI OpenAI 兼容入口。
-- `newapi/mimo-v2.5` 是 `claw-plan` 的默认视觉入口，显式声明 `supports_vision: true`；`newapi/mimo-v2.5-pro` 不支持视觉，不应声明视觉能力。
+- `newapi/mimo-v2.5-pro` 是 `claw-plan` 的文本 fallback，走 NewAPI OpenAI 兼容入口，并使用 `NEWAPI_BOT_KEY` 隔离 bot 流量。
+- `newapi/mimo-v2.5` 是 `claw-plan` 的默认视觉入口，使用同一个 NewAPI bot key，并显式声明 `supports_vision: true`；`newapi/mimo-v2.5-pro` 不支持视觉，不应声明视觉能力。
 - `mimo-v2.5-pro` / `mimo-v2.5` 保留为小米直连排查入口，便于和 NewAPI 中转行为对比。
 - `claw-deepseek-v4-flash` 是 `claw-glmplan-5.1` 的 DeepSeek OpenAI 兼容 fallback 入口，底层模型为 `deepseek-v4-flash`，并默认传递 `reasoning_effort: "max"` 开启最大思考模式。
 - `claw-` 路由使用 OpenAI provider；默认 Mimo 兜底使用 `NEWAPI_API_BASE`，直连 Mimo 排查入口使用 `MIMO_API_BASE`，DeepSeek fallback 使用 `DEEPSEEK_OPENAI_API_BASE`，不会复用 Claude Code 的 Anthropic messages 兜底路由，也不会进入 DeepSeek thinking sanitizer 的语义边界。
@@ -320,8 +322,8 @@ curl "$env:Z_AI_CODING_API_BASE/models" `
 - `claude-code-deepseek-*` 参数策略：这是 Claude Code Anthropic messages 专用兜底入口，不配置 `additional_drop_params` 丢弃 `thinking` / `reasoning_effort`；如需 Chat/Responses 保守兼容，应新增独立 safe 路由。
 - `claw-plan`：为 OpenAI 兼容 agent 提供稳定默认入口；纯文本优先走智谱 `GLM-5.1` OpenAI 兼容端点，图片请求由 callback 提前切到 NewAPI 中转 `newapi/mimo-v2.5`。
 - `claw-glmplan-5.1`：为 OpenAI 兼容 agent 提供显式 GLM 版本入口，便于调试和固定版本调用。
-- `newapi/mimo-v2.5-pro`：作为 `claw-plan` 的文本 GLM 兜底，走 NewAPI OpenAI 兼容端点；该模型不声明视觉能力。
-- `newapi/mimo-v2.5`：作为 `claw-plan` 的默认视觉入口，走 NewAPI OpenAI 兼容端点，并声明 `supports_vision: true`。
+- `newapi/mimo-v2.5-pro`：作为 `claw-plan` 的文本 GLM 兜底，走 NewAPI OpenAI 兼容端点，并使用 `NEWAPI_BOT_KEY`；该模型不声明视觉能力。
+- `newapi/mimo-v2.5`：作为 `claw-plan` 的默认视觉入口，走 NewAPI OpenAI 兼容端点，使用 `NEWAPI_BOT_KEY`，并声明 `supports_vision: true`。
 - `mimo-v2.5-pro` / `mimo-v2.5`：小米直连排查入口，不作为 `claw-plan` 默认兜底。
 - `claw-deepseek-v4-flash`：作为 `claw-glmplan-5.1` 的 DeepSeek OpenAI 兼容兜底，底层模型为 `deepseek-v4-flash`，默认 `reasoning_effort=max`。
 - `callbacks/gateway_callback.py`：LiteLLM 统一 callback hub。配置层只挂载这个入口，hub 再把生命周期 hook 分发给启用的 adapter。

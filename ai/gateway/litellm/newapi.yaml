@@ -141,9 +141,10 @@ model_list:
       model: "openai/mimo-v2.5"
   # claw-plan 文本兜底默认走 NewAPI 中转的 Mimo Pro，便于复用 NewAPI 渠道调度。
   - model_name: "newapi/mimo-v2.5-pro"
-    litellm_params:
-      # 复用 NewAPI OpenAI 兼容入口，只固定具体 Mimo 模型。
+    litellm_params: &newapi_bot_openai_params
+      # 复用 NewAPI OpenAI 兼容入口与地址，但用 Mimo 专用 bot key 隔离 agent 兜底额度。
       <<: *newapi_openai_params
+      api_key: "os.environ/NEWAPI_BOT_KEY"
       # Pro 版本作为文本 fallback，不声明视觉能力。
       model: "openai/mimo-v2.5-pro"
   # claw-plan 视觉请求默认走 NewAPI 中转的 Mimo 2.5。
@@ -152,8 +153,8 @@ model_list:
       # 显式声明视觉能力，便于 `/model/info` 和客户端按能力筛选模型。
       supports_vision: true
     litellm_params:
-      # 复用 NewAPI OpenAI 兼容入口，只固定具体 Mimo 模型。
-      <<: *newapi_openai_params
+      # 复用 NewAPI Mimo 专用连接参数，只覆盖具体视觉模型名。
+      <<: *newapi_bot_openai_params
       # 保持上游模型名直通，避免 LiteLLM 对外别名与 NewAPI 模型名脱节。
       model: "openai/mimo-v2.5"
   # claw OpenAI 兼容链路的 DeepSeek 轻量兜底入口。

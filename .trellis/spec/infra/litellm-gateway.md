@@ -39,8 +39,9 @@
 - Required environment keys:
   - `Z_AI_CODING_API_BASE`: 智谱 GLM Coding Plan OpenAI 兼容端点。
   - `Z_AI_API_KEY`: 智谱 Coding Plan 密钥。
-  - `NEWAPI_API_BASE`: NewAPI OpenAI 兼容端点，用于默认 Mimo 中转兜底与通用模型透传。
-  - `NEWAPI_KEY`: NewAPI OpenAI 兼容密钥。
+  - `NEWAPI_API_BASE`: NewAPI OpenAI 兼容端点，用于 Mimo 中转兜底与通用模型透传。
+  - `NEWAPI_KEY`: NewAPI OpenAI 兼容通用密钥。
+  - `NEWAPI_BOT_KEY`: NewAPI bot 专用密钥，用于 `newapi/mimo-v2.5-pro` 与 `newapi/mimo-v2.5`；compose 可回退到 `NEWAPI_KEY` 以兼容旧环境。
   - `MIMO_API_BASE`: 小米 Mimo OpenAI 兼容端点，默认 `https://token-plan-cn.xiaomimimo.com/v1`，仅作为手动直连排查入口。
   - `MIMO_API_KEY`: 小米 Mimo 密钥，仅作为手动直连排查入口。
   - `DEEPSEEK_OPENAI_API_BASE`: DeepSeek OpenAI 兼容端点，默认 `https://api.deepseek.com/v1`，用于显式 GLM 入口兜底。
@@ -63,7 +64,7 @@
 | GLM 返回 429 / `RateLimitError` | LiteLLM 先按 retry policy 短重试 |
 | `claw-plan` GLM 短重试耗尽 | Router fallback 到 NewAPI 中转 `newapi/mimo-v2.5-pro` |
 | `claw-glmplan-5.1` GLM 短重试耗尽 | Router fallback 到 `claw-deepseek-v4-flash` |
-| Mimo fallback 被选中 | 请求走 `NEWAPI_API_BASE`，模型为 `mimo-v2.5-pro` |
+| Mimo fallback 被选中 | 请求走 `NEWAPI_API_BASE`，使用 `NEWAPI_BOT_KEY`，模型为 `mimo-v2.5-pro` |
 | `DEEPSEEK_OPENAI_API_BASE` 未注入容器 | `claw-deepseek-v4-flash` 配置解析或运行时请求失败，应检查 compose 白名单和 `.env.local` |
 | Claude Code fallback 触发 | 仍走 `claude-code-deepseek-*` Anthropic messages 路由，不应落到 `claw-deepseek-v4-flash` |
 
@@ -80,7 +81,7 @@
 
 - Config parse: `litellm.local.yaml` 与 `newapi.yaml` 必须能被项目现有 YAML 解析方式读取。
 - Config sync: 两份配置都必须包含 `claw-plan`、`claw-glmplan-5.1`、`newapi/mimo-v2.5-pro`、`newapi/mimo-v2.5`、`mimo-v2.5-pro`、`mimo-v2.5`、`claw-deepseek-v4-flash` 以及对应 fallback 规则。
-- Env contract: `compose.yaml`、`.env.example`、`.env.production.example` 必须包含 `NEWAPI_API_BASE`、`NEWAPI_KEY`、`DEEPSEEK_OPENAI_API_BASE`、`MIMO_API_BASE` 与 `MIMO_API_KEY`。
+- Env contract: `compose.yaml`、`.env.example`、`.env.production.example` 必须包含 `NEWAPI_API_BASE`、`NEWAPI_KEY`、`NEWAPI_BOT_KEY`、`DEEPSEEK_OPENAI_API_BASE`、`MIMO_API_BASE` 与 `MIMO_API_KEY`。
 - Parameter contract: `claw-deepseek-v4-flash` 必须配置 `reasoning_effort: "max"`。
 - Runtime note: 真实 fallback 依赖上游额度、密钥和实时响应；本地配置验证不能证明线上额度恢复或供应商端协议行为。
 

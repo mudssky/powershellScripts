@@ -57,7 +57,8 @@
 
 ### Provider 参数模式
 
-- NewAPI OpenAI 兼容模型：使用 `api_base: os.environ/NEWAPI_API_BASE`、`api_key: os.environ/NEWAPI_KEY`、`model: openai/<上游模型名>`。常见入口包括 `gpt-5.5`、`gemini-3.1-pro`、`newapi/mimo-v2.5*` 与最后的 `*` 透传兜底。
+- NewAPI OpenAI 兼容模型：使用 `api_base: os.environ/NEWAPI_API_BASE`、`api_key: os.environ/NEWAPI_KEY`、`model: openai/<上游模型名>`。常见入口包括 `gpt-5.5`、`gemini-3.1-pro` 与最后的 `*` 透传兜底。
+- NewAPI Mimo 中转模型：继续使用 `NEWAPI_API_BASE`，但 `newapi/mimo-v2.5-pro` 与 `newapi/mimo-v2.5` 的 `api_key` 覆盖为 `NEWAPI_BOT_KEY`，用于 bot 专用额度隔离。
 - NewAPI Anthropic / Claude 模型：使用 `api_base: os.environ/NEWAPI_ANTHROPIC_API_BASE`、`api_key: os.environ/NEWAPI_ANTHROPIC_KEY`、`model: anthropic/<上游模型名>`。不要把默认 Claude 原生上游写成 `openai/<claude>`。
 - 智谱 Coding Plan OpenAI 链路：使用 `Z_AI_CODING_API_BASE` / `Z_AI_API_KEY`，模型写 `openai/GLM-5.1` 或 `openai/GLM-*`。`claw-plan` 与 `claw-glmplan-5.1` 都走这条链路。
 - 智谱 Claude Code Anthropic 链路：使用 `Z_AI_ANTHROPIC_API_BASE` / `Z_AI_API_KEY`，模型写 `anthropic/GLM-5.1`，只服务 `cc-glmplan-*`。
@@ -119,6 +120,7 @@ router_settings:
 - `LITELLM_HOST_PORT`
 - `NEWAPI_API_BASE`
 - `NEWAPI_KEY`
+- `NEWAPI_BOT_KEY`
 - `NEWAPI_ANTHROPIC_API_BASE`
 - `NEWAPI_ANTHROPIC_KEY`
 - `Z_AI_CODING_API_BASE`

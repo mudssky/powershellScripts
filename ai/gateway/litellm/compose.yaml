@@ -18,6 +18,8 @@ services:
       # 当前本地配置同时走 NewAPI 与智谱 OpenAI 兼容接口；变量必须显式注入容器，LiteLLM 才能解析 os.environ/...。
       NEWAPI_API_BASE: ${NEWAPI_API_BASE:-}
       NEWAPI_KEY: ${NEWAPI_KEY:-}
+      # NewAPI Mimo 可使用 bot 专用 key；未配置时回退到通用 NewAPI key，保持旧环境可启动。
+      NEWAPI_BOT_KEY: ${NEWAPI_BOT_KEY:-${NEWAPI_KEY:-}}
       # Claude 优先走专用 Anthropic 兼容上游；若未单独配置，则自动复用通用 NewAPI 地址。
       NEWAPI_ANTHROPIC_API_BASE: ${NEWAPI_ANTHROPIC_API_BASE:-${NEWAPI_API_BASE:-}}
       NEWAPI_ANTHROPIC_KEY: ${NEWAPI_ANTHROPIC_KEY:-${NEWAPI_KEY:-}}
@@ -33,7 +35,7 @@ services:
       # DeepSeek OpenAI 兼容端点作为 claw OpenAI 兼容 agent 链路的兜底。
       DEEPSEEK_OPENAI_API_BASE: ${DEEPSEEK_OPENAI_API_BASE:-https://api.deepseek.com/v1}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
-      # 小米 Mimo OpenAI 兼容端点作为 claw agent 的视觉入口与 GLM 兜底，不经过 NewAPI。
+      # 小米 Mimo OpenAI 兼容端点仅作为直连排查入口；claw 默认 Mimo 流量走 NewAPI 中转。
       MIMO_API_BASE: ${MIMO_API_BASE:-https://token-plan-cn.xiaomimimo.com/v1}
       MIMO_API_KEY: ${MIMO_API_KEY:-}
       # GLM 429 返回 reset 时间后，callback adapter 会在 reset 时间后额外等待该秒数再恢复探测。
