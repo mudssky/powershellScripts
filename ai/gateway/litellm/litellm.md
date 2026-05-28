@@ -54,8 +54,8 @@ DATABASE_URL=postgresql://postgres:12345678@host.docker.internal:5432/litellm
 - `DEEPSEEK_ANTHROPIC_API_BASE`：DeepSeek 的 Anthropic 兼容接口地址，默认用于 Claude Code 的兜底路由。
 - `DEEPSEEK_OPENAI_API_BASE`：DeepSeek 的 OpenAI 兼容接口地址，默认用于 `claw-` agent 兜底路由。
 - `DEEPSEEK_API_KEY`：LiteLLM 转发 DeepSeek 兜底请求时使用的上游密钥。
-- `MIMO_API_BASE`：小米 Mimo 的 OpenAI 兼容接口地址，建议带上 `/v1`；`claw-plan` 的视觉请求与 GLM 兜底会直连这里。
-- `MIMO_API_KEY`：LiteLLM 转发到小米 Mimo 时使用的上游密钥。
+- `MIMO_API_BASE`：小米 Mimo 的 OpenAI 兼容接口地址，建议带上 `/v1`；当前保留为 Mimo 直连排查入口。
+- `MIMO_API_KEY`：LiteLLM 转发到小米 Mimo 直连入口时使用的上游密钥。
 - `LITELLM_MASTER_KEY`：LiteLLM Proxy 对外暴露的网关密钥。
 - `DATABASE_URL`：LiteLLM 的数据库连接串；如果未配置，会回退到默认的宿主机 PostgreSQL 地址。
 - `DASHSCOPE_API_KEY` / `DASHSCOPE_API_BASE`：可选兼容项；只有切回 `qwen.yaml` 或其他百炼配置时才需要提供。
@@ -190,7 +190,7 @@ curl http://127.0.0.1:34000/v1/chat/completions `
 
 ## OpenAI 兼容 agent 的 claw 入口
 
-Hermes 等 OpenAI 兼容 agent 后续可以把模型固定为 `claw-plan`，由 LiteLLM 先走智谱 `GLM-5.1` OpenAI 兼容端点；如果 GLM 额度耗尽或临时不可用，网关会 fallback 到直连小米 `mimo-v2.5-pro`。带图片的请求会在 Router 选择部署前切到直连小米 `mimo-v2.5`，避免误打不支持视觉的 GLM：
+Hermes 等 OpenAI 兼容 agent 后续可以把模型固定为 `claw-plan`，由 LiteLLM 先走智谱 `GLM-5.1` OpenAI 兼容端点；如果 GLM 额度耗尽或临时不可用，网关会 fallback 到 NewAPI 中转的 `newapi/mimo-v2.5-pro`。带图片的请求会在 Router 选择部署前切到 NewAPI 中转的 `newapi/mimo-v2.5`，避免误打不支持视觉的 GLM：
 
 ```powershell
 curl http://127.0.0.1:34000/v1/chat/completions `
@@ -203,10 +203,11 @@ curl http://127.0.0.1:34000/v1/chat/completions `
 
 - `claw-plan` 是推荐给 agent 配置使用的稳定入口；当前底层为 `GLM-5.1`，未来升级底层模型时可尽量不改客户端配置。
 - `claw-glmplan-5.1` 是显式版本入口，适合调试或需要固定 GLM 版本的调用。
-- `mimo-v2.5-pro` 是 `claw-plan` 的文本 fallback，直连小米 OpenAI 兼容端点，不经过 NewAPI。
-- `mimo-v2.5` 是 `claw-plan` 的视觉入口，显式声明 `supports_vision: true`；`mimo-v2.5-pro` 不支持视觉，不应声明视觉能力。
+- `newapi/mimo-v2.5-pro` 是 `claw-plan` 的文本 fallback，走 NewAPI OpenAI 兼容入口。
+- `newapi/mimo-v2.5` 是 `claw-plan` 的默认视觉入口，显式声明 `supports_vision: true`；`newapi/mimo-v2.5-pro` 不支持视觉，不应声明视觉能力。
+- `mimo-v2.5-pro` / `mimo-v2.5` 保留为小米直连排查入口，便于和 NewAPI 中转行为对比。
 - `claw-deepseek-v4-flash` 是 `claw-glmplan-5.1` 的 DeepSeek OpenAI 兼容 fallback 入口，底层模型为 `deepseek-v4-flash`，并默认传递 `reasoning_effort: "max"` 开启最大思考模式。
-- `claw-` 路由使用 OpenAI provider；Mimo 路由使用 `MIMO_API_BASE`，DeepSeek fallback 使用 `DEEPSEEK_OPENAI_API_BASE`，不会复用 Claude Code 的 Anthropic messages 兜底路由，也不会进入 DeepSeek thinking sanitizer 的语义边界。
+- `claw-` 路由使用 OpenAI provider；默认 Mimo 兜底使用 `NEWAPI_API_BASE`，直连 Mimo 排查入口使用 `MIMO_API_BASE`，DeepSeek fallback 使用 `DEEPSEEK_OPENAI_API_BASE`，不会复用 Claude Code 的 Anthropic messages 兜底路由，也不会进入 DeepSeek thinking sanitizer 的语义边界。
 - 本仓库当前尚未创建 Hermes 配置文件，因此这里只记录网关入口；创建 Hermes 配置时把 Base URL 指向 `http://127.0.0.1:34000/v1`，API Key 使用 `LITELLM_MASTER_KEY`，模型名使用 `claw-plan`。
 
 ## Claude Code 的 GLM 优先入口
@@ -250,7 +251,7 @@ curl "http://127.0.0.1:34000/models?return_wildcard_routes=true" `
   -H "x-litellm-api-key: sk-litellm-123456"
 ```
 
-当前 `litellm.local.yaml` 默认显式注册了 `gpt-5.5`、`gemini-3.1-pro`、`claude-opus-4-6`、`claude-opus-4-7`、`compat/claude-opus-4-6`、`compat/claude-opus-4-7`、四条 Claude Code 专用模型、三条 `claw-` OpenAI 兼容 agent 模型、两条 Mimo 直连模型、`GLM-5.1` 与 `gpt*spark` 等主模型，并在末尾保留 `GLM-*` 与 `*` 两条 fallback 路由。因此 `/models` 会返回显式模型加上两条通配兜底路由。默认会看到类似下面的结果：
+当前 `litellm.local.yaml` 默认显式注册了 `gpt-5.5`、`gemini-3.1-pro`、`claude-opus-4-6`、`claude-opus-4-7`、`compat/claude-opus-4-6`、`compat/claude-opus-4-7`、四条 Claude Code 专用模型、三条 `claw-` OpenAI 兼容 agent 模型、两条 NewAPI Mimo 中转模型、两条 Mimo 直连模型、`GLM-5.1` 与 `gpt*spark` 等主模型，并在末尾保留 `GLM-*` 与 `*` 两条 fallback 路由。因此 `/models` 会返回显式模型加上两条通配兜底路由。默认会看到类似下面的结果：
 
 ```json
 {
@@ -269,6 +270,8 @@ curl "http://127.0.0.1:34000/models?return_wildcard_routes=true" `
     {"id": "GLM-*", "object": "model"},
     {"id": "claw-plan", "object": "model"},
     {"id": "claw-glmplan-5.1", "object": "model"},
+    {"id": "newapi/mimo-v2.5-pro", "object": "model"},
+    {"id": "newapi/mimo-v2.5", "object": "model"},
     {"id": "mimo-v2.5-pro", "object": "model"},
     {"id": "mimo-v2.5", "object": "model"},
     {"id": "claw-deepseek-v4-flash", "object": "model"},
@@ -298,7 +301,7 @@ curl "$env:Z_AI_CODING_API_BASE/models" `
 - 不要在当前配置下使用 `only_model_access_groups=true`，因为默认没有配置 model access groups，请求结果会是空数组。
 - 如果客户端直接传 `model=qwen-plus` 之类的名称，前提是该名称必须真实存在于 NewAPI 的 `/models` 返回结果中。
 - 如果客户端使用 OpenAI 兼容接口访问 Claude，建议显式传 `compat/claude-opus-*`，不要再把默认 `claude-opus-*` 当作 OpenAI 上游模型名理解。
-- 如果客户端是 Hermes 等 OpenAI 兼容 agent，建议显式传 `claw-plan`，由网关统一处理文本 GLM 优先、文本 Mimo Pro 兜底和图片 Mimo 2.5 路由。
+- 如果客户端是 Hermes 等 OpenAI 兼容 agent，建议显式传 `claw-plan`，由网关统一处理文本 GLM 优先、文本 NewAPI Mimo Pro 兜底和图片 NewAPI Mimo 2.5 路由。
 - 如果客户端直接传 `model=GLM-4.7` 之类的官方名称，前提是该名称必须真实存在于智谱 Coding Plan 的 `/models` 返回结果中。
 - 显式注册之外的 GLM 模型不会自动展开进 LiteLLM 的 `/models` 列表；它们会优先通过 `GLM-*` fallback 转发到智谱上游。
 - 其它显式注册之外的非 GLM 模型，仍然通过最后的 `*` fallback 透传到 NewAPI。
@@ -315,10 +318,11 @@ curl "$env:Z_AI_CODING_API_BASE/models" `
 - `cc-glmplan-haiku`：为 Claude Code Haiku / subagent 流量提供独立入口，优先走智谱 `GLM-5.1` 的 Anthropic 兼容端点。
 - `claude-code-deepseek-v4-pro` / `claude-code-deepseek-v4-flash`：作为 GLM 额度耗尽或临时不可用时的 DeepSeek 兜底路由。
 - `claude-code-deepseek-*` 参数策略：这是 Claude Code Anthropic messages 专用兜底入口，不配置 `additional_drop_params` 丢弃 `thinking` / `reasoning_effort`；如需 Chat/Responses 保守兼容，应新增独立 safe 路由。
-- `claw-plan`：为 OpenAI 兼容 agent 提供稳定默认入口；纯文本优先走智谱 `GLM-5.1` OpenAI 兼容端点，图片请求由 callback 提前切到直连小米 `mimo-v2.5`。
+- `claw-plan`：为 OpenAI 兼容 agent 提供稳定默认入口；纯文本优先走智谱 `GLM-5.1` OpenAI 兼容端点，图片请求由 callback 提前切到 NewAPI 中转 `newapi/mimo-v2.5`。
 - `claw-glmplan-5.1`：为 OpenAI 兼容 agent 提供显式 GLM 版本入口，便于调试和固定版本调用。
-- `mimo-v2.5-pro`：作为 `claw-plan` 的文本 GLM 兜底，直连小米 OpenAI 兼容端点，不经过 NewAPI；该模型不声明视觉能力。
-- `mimo-v2.5`：作为 `claw-plan` 的视觉入口，直连小米 OpenAI 兼容端点，不经过 NewAPI，并声明 `supports_vision: true`。
+- `newapi/mimo-v2.5-pro`：作为 `claw-plan` 的文本 GLM 兜底，走 NewAPI OpenAI 兼容端点；该模型不声明视觉能力。
+- `newapi/mimo-v2.5`：作为 `claw-plan` 的默认视觉入口，走 NewAPI OpenAI 兼容端点，并声明 `supports_vision: true`。
+- `mimo-v2.5-pro` / `mimo-v2.5`：小米直连排查入口，不作为 `claw-plan` 默认兜底。
 - `claw-deepseek-v4-flash`：作为 `claw-glmplan-5.1` 的 DeepSeek OpenAI 兼容兜底，底层模型为 `deepseek-v4-flash`，默认 `reasoning_effort=max`。
 - `callbacks/gateway_callback.py`：LiteLLM 统一 callback hub。配置层只挂载这个入口，hub 再把生命周期 hook 分发给启用的 adapter。
 - `callbacks/framework/`：LiteLLM callback framework 基础设施，包含 hub 与 adapter 抽象。顶层 `callbacks/gateway_callback.py` 只作为 LiteLLM 配置可 import 的薄入口。
@@ -329,7 +333,7 @@ curl "$env:Z_AI_CODING_API_BASE/models" `
 - `litellm_settings.callbacks`：加载 `callbacks.gateway_callback.proxy_handler_instance`；`compose.yaml` 必须挂载 `./callbacks:/app/callbacks:ro`，修改后需要重建容器才能让新挂载生效。
 - `litellm_settings.modify_params`：允许 LiteLLM 对 Anthropic tool/thinking 消息做兼容修正；但它不能替代上面的 sanitizer，因为 DeepSeek 报错来自原生 `messages[].content[]` 历史块校验。
 - `router_settings.num_retries` / `retry_policy.RateLimitErrorRetries`：让 Claude Code GLM 入口的瞬时 429 先在网关内短重试，避免直接把限流错误透给客户端。
-- `router_settings.fallbacks`：把 Claude Code 的 GLM 主入口分别降级到对应 DeepSeek Anthropic 路由；`claw-plan` 降级到直连小米 `mimo-v2.5-pro`，`claw-glmplan-5.1` 降级到 `claw-deepseek-v4-flash`。LiteLLM 内建 1 小时 cooldown 只处理短期失败；GLM 5 小时额度窗口由 `GlmCooldownAdapter` 按上游 reset 时间做请求前避让。
+- `router_settings.fallbacks`：把 Claude Code 的 GLM 主入口分别降级到对应 DeepSeek Anthropic 路由；`claw-plan` 降级到 NewAPI 中转 `newapi/mimo-v2.5-pro`，`claw-glmplan-5.1` 降级到 `claw-deepseek-v4-flash`。LiteLLM 内建 1 小时 cooldown 只处理短期失败；GLM 5 小时额度窗口由 `GlmCooldownAdapter` 按上游 reset 时间做请求前避让。
 - `GLM-*` fallback：对智谱 Coding Plan 已存在但未显式注册的 GLM 官方模型保留透传能力，同时避免误落到 NewAPI。
 - `*` fallback：对 NewAPI 已存在但未显式注册的非 GLM 模型保留透传能力，减少频繁改本地配置的成本。
 - `litellm_params.model`：OpenAI / Gemini / GLM OpenAI 兼容路由映射到 `openai/<模型名>`；Claude 显式模型、兼容别名与 Claude Code 专用模型映射到 `anthropic/<模型名>`。

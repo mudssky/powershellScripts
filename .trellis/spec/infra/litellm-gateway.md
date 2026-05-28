@@ -4,12 +4,12 @@
 
 ---
 
-## Scenario: OpenAI 兼容 claw agent GLM Fallback 到 DeepSeek V4 Flash
+## Scenario: OpenAI 兼容 claw agent GLM Fallback 到 Mimo / DeepSeek
 
 ### 1. Scope / Trigger
 
 - Trigger: 修改 `ai/gateway/litellm/*.yaml` 中 `claw-` 模型入口、DeepSeek OpenAI 兼容兜底别名、`router_settings.fallbacks`、`DEEPSEEK_OPENAI_API_BASE` 注入或 LiteLLM OpenAI 兼容 agent 文档。
-- Scope: `claw-plan` / `claw-glmplan-5.1` 优先使用智谱 GLM Coding Plan 的 OpenAI 兼容端点；`claw-plan` 的 GLM 短重试后仍失败时 fallback 到直连小米 `mimo-v2.5-pro`，显式 GLM 版本入口仍 fallback 到 `claw-deepseek-v4-flash`。
+- Scope: `claw-plan` / `claw-glmplan-5.1` 优先使用智谱 GLM Coding Plan 的 OpenAI 兼容端点；`claw-plan` 的 GLM 短重试后仍失败时 fallback 到 NewAPI 中转的 `newapi/mimo-v2.5-pro`，显式 GLM 版本入口仍 fallback 到 `claw-deepseek-v4-flash`。
 - Design intent: 为 Hermes 等 OpenAI 兼容 agent 提供稳定模型名，同时与 Claude Code Anthropic messages 链路隔离。
 
 ### 2. Signatures
@@ -17,17 +17,21 @@
 - Client-facing model names:
   - `claw-plan`
   - `claw-glmplan-5.1`
+  - `newapi/mimo-v2.5-pro`
+  - `newapi/mimo-v2.5`
   - `mimo-v2.5-pro`
   - `mimo-v2.5`
   - `claw-deepseek-v4-flash`
 - Provider model mapping:
   - `claw-plan` -> `openai/GLM-5.1`
   - `claw-glmplan-5.1` -> `openai/GLM-5.1`
+  - `newapi/mimo-v2.5-pro` -> `openai/mimo-v2.5-pro` via `NEWAPI_API_BASE`
+  - `newapi/mimo-v2.5` -> `openai/mimo-v2.5` via `NEWAPI_API_BASE`
   - `mimo-v2.5-pro` -> `openai/mimo-v2.5-pro`
   - `mimo-v2.5` -> `openai/mimo-v2.5`
   - `claw-deepseek-v4-flash` -> `openai/deepseek-v4-flash`
 - Router fallback contract:
-  - `claw-plan` -> `mimo-v2.5-pro`
+  - `claw-plan` -> `newapi/mimo-v2.5-pro`
   - `claw-glmplan-5.1` -> `claw-deepseek-v4-flash`
 
 ### 3. Contracts
@@ -35,8 +39,10 @@
 - Required environment keys:
   - `Z_AI_CODING_API_BASE`: 智谱 GLM Coding Plan OpenAI 兼容端点。
   - `Z_AI_API_KEY`: 智谱 Coding Plan 密钥。
-  - `MIMO_API_BASE`: 小米 Mimo OpenAI 兼容端点，默认 `https://token-plan-cn.xiaomimimo.com/v1`。
-  - `MIMO_API_KEY`: 小米 Mimo 密钥。
+  - `NEWAPI_API_BASE`: NewAPI OpenAI 兼容端点，用于默认 Mimo 中转兜底与通用模型透传。
+  - `NEWAPI_KEY`: NewAPI OpenAI 兼容密钥。
+  - `MIMO_API_BASE`: 小米 Mimo OpenAI 兼容端点，默认 `https://token-plan-cn.xiaomimimo.com/v1`，仅作为手动直连排查入口。
+  - `MIMO_API_KEY`: 小米 Mimo 密钥，仅作为手动直连排查入口。
   - `DEEPSEEK_OPENAI_API_BASE`: DeepSeek OpenAI 兼容端点，默认 `https://api.deepseek.com/v1`，用于显式 GLM 入口兜底。
   - `DEEPSEEK_API_KEY`: DeepSeek 密钥。
   - `LITELLM_MASTER_KEY`: LiteLLM 对外鉴权密钥。
@@ -55,15 +61,15 @@
 |-----------|-------------------|
 | GLM 正常可用 | `claw-plan` / `claw-glmplan-5.1` 直接走 `openai/GLM-5.1` |
 | GLM 返回 429 / `RateLimitError` | LiteLLM 先按 retry policy 短重试 |
-| `claw-plan` GLM 短重试耗尽 | Router fallback 到直连小米 `mimo-v2.5-pro` |
+| `claw-plan` GLM 短重试耗尽 | Router fallback 到 NewAPI 中转 `newapi/mimo-v2.5-pro` |
 | `claw-glmplan-5.1` GLM 短重试耗尽 | Router fallback 到 `claw-deepseek-v4-flash` |
-| Mimo fallback 被选中 | 请求走 `MIMO_API_BASE`，模型为 `mimo-v2.5-pro` |
+| Mimo fallback 被选中 | 请求走 `NEWAPI_API_BASE`，模型为 `mimo-v2.5-pro` |
 | `DEEPSEEK_OPENAI_API_BASE` 未注入容器 | `claw-deepseek-v4-flash` 配置解析或运行时请求失败，应检查 compose 白名单和 `.env.local` |
 | Claude Code fallback 触发 | 仍走 `claude-code-deepseek-*` Anthropic messages 路由，不应落到 `claw-deepseek-v4-flash` |
 
 ### 5. Good/Base/Bad Cases
 
-- Good: Hermes 等 OpenAI 兼容 agent 使用 `model=claw-plan`，Base URL 指向 LiteLLM `/v1`，GLM 失败后自动 fallback 到直连小米 Mimo。
+- Good: Hermes 等 OpenAI 兼容 agent 使用 `model=claw-plan`，Base URL 指向 LiteLLM `/v1`，GLM 失败后自动 fallback 到 NewAPI 中转 Mimo。
 - Good: 调试时直接调用 `claw-glmplan-5.1` 或 `claw-deepseek-v4-flash`，两者在 `/models` 中显式可见。
 - Base: 现有 `GLM-5.1` / `GLM-*` 官方模型名仍按原路径转发到智谱 Coding Plan。
 - Bad: 让 `claw-plan` 的 `litellm_params.model` 指向 `claw-glmplan-5.1` 这类对外别名，导致 Router 分组和 fallback 语义依赖二次解析。
@@ -73,8 +79,8 @@
 ### 6. Tests Required
 
 - Config parse: `litellm.local.yaml` 与 `newapi.yaml` 必须能被项目现有 YAML 解析方式读取。
-- Config sync: 两份配置都必须包含 `claw-plan`、`claw-glmplan-5.1`、`mimo-v2.5-pro`、`mimo-v2.5`、`claw-deepseek-v4-flash` 以及对应 fallback 规则。
-- Env contract: `compose.yaml`、`.env.example`、`.env.production.example` 必须包含 `DEEPSEEK_OPENAI_API_BASE`、`MIMO_API_BASE` 与 `MIMO_API_KEY`。
+- Config sync: 两份配置都必须包含 `claw-plan`、`claw-glmplan-5.1`、`newapi/mimo-v2.5-pro`、`newapi/mimo-v2.5`、`mimo-v2.5-pro`、`mimo-v2.5`、`claw-deepseek-v4-flash` 以及对应 fallback 规则。
+- Env contract: `compose.yaml`、`.env.example`、`.env.production.example` 必须包含 `NEWAPI_API_BASE`、`NEWAPI_KEY`、`DEEPSEEK_OPENAI_API_BASE`、`MIMO_API_BASE` 与 `MIMO_API_KEY`。
 - Parameter contract: `claw-deepseek-v4-flash` 必须配置 `reasoning_effort: "max"`。
 - Runtime note: 真实 fallback 依赖上游额度、密钥和实时响应；本地配置验证不能证明线上额度恢复或供应商端协议行为。
 
@@ -290,19 +296,23 @@ router_settings:
 
 ### 1. Scope / Trigger
 
-- Trigger: 修改 `ai/gateway/litellm/*.yaml` 中 `claw-plan`、`mimo-v2.5-pro`、`mimo-v2.5`、`MIMO_API_BASE`、`MIMO_API_KEY`、`model_info.supports_vision`，或修改 `callbacks/adapters/claw/**`、`callbacks/framework/hub.py`。
-- Scope: `claw-plan` 对外入口同时承接文本与图片请求；文本请求继续优先走 GLM Coding Plan，图片请求必须在 Router 选择部署前切到 `mimo-v2.5`。
+- Trigger: 修改 `ai/gateway/litellm/*.yaml` 中 `claw-plan`、`newapi/mimo-v2.5-pro`、`newapi/mimo-v2.5`、`mimo-v2.5-pro`、`mimo-v2.5`、`model_info.supports_vision`，或修改 `callbacks/adapters/claw/**`、`callbacks/framework/hub.py`。
+- Scope: `claw-plan` 对外入口同时承接文本与图片请求；文本请求继续优先走 GLM Coding Plan，图片请求必须在 Router 选择部署前切到 `newapi/mimo-v2.5`。
 - Design intent: GLM 主部署不支持视觉，不能通过把 GLM 标成视觉模型或等待 GLM 429 后 fallback 来处理图片请求。
 
 ### 2. Signatures
 
 - Client-facing model names:
   - `claw-plan`
+  - `newapi/mimo-v2.5`
+  - `newapi/mimo-v2.5-pro`
   - `mimo-v2.5`
   - `mimo-v2.5-pro`
 - Provider model mapping:
   - `claw-plan` 文本请求 -> `openai/GLM-5.1`
-  - `claw-plan` 图片请求 -> pre-call callback 改写为 `mimo-v2.5`
+  - `claw-plan` 图片请求 -> pre-call callback 改写为 `newapi/mimo-v2.5`
+  - `newapi/mimo-v2.5` -> `openai/mimo-v2.5` via `NEWAPI_API_BASE`
+  - `newapi/mimo-v2.5-pro` -> `openai/mimo-v2.5-pro` via `NEWAPI_API_BASE`
   - `mimo-v2.5` -> `openai/mimo-v2.5` via `MIMO_API_BASE`
   - `mimo-v2.5-pro` -> `openai/mimo-v2.5-pro` via `MIMO_API_BASE`
 - Callback entry:
@@ -312,40 +322,41 @@ router_settings:
 ### 3. Contracts
 
 - `claw-plan.model_info.supports_vision: true` 表示对外入口支持视觉，不表示底层 GLM 支持视觉。
-- `mimo-v2.5.model_info.supports_vision: true` 必须保留，供 `/model/info` 与 `/model_group/info` 暴露视觉能力。
-- `mimo-v2.5-pro` 是文本 fallback 模型，不得标记 `supports_vision: true`。
-- `ClawVisionRouterAdapter` 只在 `data["model"] == "claw-plan"` 且 `messages[*].content` 中存在 `type: image_url` 或 `type: input_image` 时改写为 `mimo-v2.5`。
+- `newapi/mimo-v2.5.model_info.supports_vision: true` 必须保留，供 `/model/info` 与 `/model_group/info` 暴露默认视觉能力。
+- `mimo-v2.5.model_info.supports_vision: true` 可保留，作为直连 Mimo 的手动排查入口。
+- `newapi/mimo-v2.5-pro` 与 `mimo-v2.5-pro` 是文本 fallback 模型，不得标记 `supports_vision: true`。
+- `ClawVisionRouterAdapter` 只在 `data["model"] == "claw-plan"` 且 `messages[*].content` 中存在 `type: image_url` 或 `type: input_image` 时改写为 `newapi/mimo-v2.5`。
 - 图片请求路由改写必须发生在 `async_pre_call_hook`，即 Router 选择 deployment 前；否则 Router 会先选择不支持视觉的 GLM 主部署。
-- 真实图片成功依赖小米 Mimo 直连端点具备支持 image input 的 endpoint；不得让 `mimo-v2.5` 继承 `NEWAPI_API_BASE` / `NEWAPI_KEY`。
+- 真实图片成功依赖 NewAPI 对 Mimo 视觉模型的中转能力；直连 `mimo-v2.5` 只作为对比排查入口。
 
 ### 4. Validation & Error Matrix
 
 | Condition | Expected Behavior |
 |-----------|-------------------|
 | `claw-plan` 纯文本请求 | 保持 `model=claw-plan`，继续优先走 GLM |
-| `claw-plan` 带 `image_url` 请求 | `async_pre_call_hook` 改写为 `model=mimo-v2.5` |
+| `claw-plan` 带 `image_url` 请求 | `async_pre_call_hook` 改写为 `model=newapi/mimo-v2.5` |
 | `claw-plan` 视觉请求运行态 `/model_group/info` | `claw-plan.supports_vision=true`，客户端可发现视觉能力 |
-| `mimo-v2.5` 运行态 `/model_group/info` | `mimo-v2.5.supports_vision=true`，客户端可发现视觉能力 |
+| `newapi/mimo-v2.5` 运行态 `/model_group/info` | `newapi/mimo-v2.5.supports_vision=true`，客户端可发现默认视觉能力 |
 | GLM 处于 5 小时额度冷却 | 文本请求仍按 GLM cooldown / fallback 规则处理；图片请求不应先撞 GLM 429 |
-| `mimo-v2.5-pro` 返回 `No endpoints found that support image input` | 说明误把文本 Pro 模型当作视觉入口，应改用 `mimo-v2.5` |
+| `mimo-v2.5-pro` 或 `newapi/mimo-v2.5-pro` 返回 `No endpoints found that support image input` | 说明误把文本 Pro 模型当作视觉入口，应改用 `newapi/mimo-v2.5` |
 | 图片 URL 上游下载失败，例如 403 | 说明图片 URL 对上游不可访问，应换可公开下载的 HTTPS URL 或上游支持的文件输入方式 |
 
 ### 5. Good/Base/Bad Cases
 
-- Good: 用户配置 `model=claw-plan`，文本请求走 GLM，图片请求自动改写到 `mimo-v2.5`。
-- Good: `/model_group/info` 同时显示 `claw-plan` 与 `mimo-v2.5` 的 `supports_vision=true`，且 `mimo-v2.5-pro` 不声明视觉能力。
-- Base: 用户显式调用 `mimo-v2.5` 时直接走小米 Mimo OpenAI 兼容端点并支持图片输入。
+- Good: 用户配置 `model=claw-plan`，文本请求走 GLM，图片请求自动改写到 `newapi/mimo-v2.5`。
+- Good: `/model_group/info` 同时显示 `claw-plan` 与 `newapi/mimo-v2.5` 的 `supports_vision=true`，且 `newapi/mimo-v2.5-pro` 不声明视觉能力。
+- Base: 用户显式调用 `mimo-v2.5` / `mimo-v2.5-pro` 时走小米 Mimo 直连端点，用于和 NewAPI 中转做对比排查。
 - Bad: 给 GLM 路由或 `GLM-5.1` 标记 `supports_vision=true`，导致图片请求落到不支持视觉的 GLM 部署。
 - Bad: 只把 `mimo-v2.5-pro` 配成 fallback，期待 GLM 图片请求先失败再 fallback；这会引入 429、上游错误语义混杂与客户端能力发现不一致。
 
 ### 6. Tests Required
 
 - Adapter unit: `request_contains_image(...)` 必须识别 `image_url` / `input_image`，且纯文本请求返回 False。
-- Adapter unit: `claw-plan` 图片请求必须改写为 `mimo-v2.5`，纯文本请求不得改写。
+- Adapter unit: `claw-plan` 图片请求必须改写为 `newapi/mimo-v2.5`，纯文本请求不得改写。
 - Hub unit: 默认 adapter 列表必须包含 `ClawVisionRouterAdapter`。
-- Config parse: `litellm.local.yaml` 与 `newapi.yaml` 必须可解析，并包含 `claw-plan.model_info.supports_vision=true`、`mimo-v2.5.model_info.supports_vision=true`、`mimo-v2.5.litellm_params.api_base=os.environ/MIMO_API_BASE` 与 `api_key=os.environ/MIMO_API_KEY`，且 `mimo-v2.5-pro` 不声明 `supports_vision`。
-- Runtime smoke: `GET /model_group/info?return_wildcard_routes=true` 应显示 `claw-plan.supports_vision=true` 与 `mimo-v2.5.supports_vision=true`，并确认 `mimo-v2.5-pro` 非视觉入口。
-- Runtime boundary: `POST /v1/chat/completions model=claw-plan` 带图片时，若失败且错误为 `Received Model Group=mimo-v2.5`，说明 LiteLLM 已绕过 GLM；后续排查转向小米 Mimo 视觉模型。
+- Config parse: `litellm.local.yaml` 与 `newapi.yaml` 必须可解析，并包含 `claw-plan.model_info.supports_vision=true`、`newapi/mimo-v2.5.model_info.supports_vision=true`、`newapi/mimo-v2.5.litellm_params.api_base=os.environ/NEWAPI_API_BASE`，且 `newapi/mimo-v2.5-pro` 不声明 `supports_vision`。
+- Runtime smoke: `GET /model_group/info?return_wildcard_routes=true` 应显示 `claw-plan.supports_vision=true` 与 `newapi/mimo-v2.5.supports_vision=true`，并确认 `newapi/mimo-v2.5-pro` 非视觉入口。
+- Runtime boundary: `POST /v1/chat/completions model=claw-plan` 带图片时，若失败且错误为 `Received Model Group=newapi/mimo-v2.5`，说明 LiteLLM 已绕过 GLM；后续排查转向 NewAPI 中转 Mimo 视觉模型。
 
 ### 7. Wrong vs Correct
 
@@ -371,12 +382,12 @@ model_list:
       supports_vision: true
     litellm_params:
       model: "openai/GLM-5.1"
-  - model_name: "mimo-v2.5"
+  - model_name: "newapi/mimo-v2.5"
     model_info:
       supports_vision: true
     litellm_params:
-      api_base: "os.environ/MIMO_API_BASE"
-      api_key: "os.environ/MIMO_API_KEY"
+      api_base: "os.environ/NEWAPI_API_BASE"
+      api_key: "os.environ/NEWAPI_KEY"
       model: "openai/mimo-v2.5"
 
 litellm_settings:

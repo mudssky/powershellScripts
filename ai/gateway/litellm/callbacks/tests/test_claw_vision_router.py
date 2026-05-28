@@ -73,7 +73,7 @@ def main() -> None:
     data = _image_request()
     routed = _run(adapter.async_pre_call_hook(None, None, data, "completion"))
     assert routed is data
-    assert routed["model"] == "mimo-v2.5"
+    assert routed["model"] == "newapi/mimo-v2.5"
 
     text_data = {
         "model": "claw-plan",

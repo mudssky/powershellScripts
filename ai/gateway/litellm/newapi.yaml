@@ -120,7 +120,7 @@ model_list:
       <<: *zai_openai_params
       # 显式锁定到当前 Coding Plan 主模型。
       model: "openai/GLM-5.1"
-  # claw-plan 文本兜底直连小米 Mimo Pro，不经过 NewAPI。
+  # 小米 Mimo Pro 直连排查入口；claw-plan 默认文本兜底走 newapi/mimo-v2.5-pro。
   - model_name: "mimo-v2.5-pro"
     litellm_params:
       # 小米 Mimo 使用独立 OpenAI 兼容端点，避免继承 NewAPI 的渠道能力过滤。
@@ -128,7 +128,7 @@ model_list:
       api_key: "os.environ/MIMO_API_KEY"
       # 保持上游模型名直通，避免 LiteLLM 对外别名与 Mimo 模型名脱节。
       model: "openai/mimo-v2.5-pro"
-  # claw-plan 视觉请求使用小米 Mimo 2.5，避免误把不支持视觉的 Pro 版本暴露给图片请求。
+  # 小米 Mimo 2.5 直连排查入口；claw-plan 默认视觉请求走 newapi/mimo-v2.5。
   - model_name: "mimo-v2.5"
     model_info:
       # 显式声明视觉能力，便于 `/model/info` 和客户端按能力筛选模型。
@@ -138,6 +138,23 @@ model_list:
       api_base: "os.environ/MIMO_API_BASE"
       api_key: "os.environ/MIMO_API_KEY"
       # 保持上游模型名直通，避免 LiteLLM 对外别名与 Mimo 模型名脱节。
+      model: "openai/mimo-v2.5"
+  # claw-plan 文本兜底默认走 NewAPI 中转的 Mimo Pro，便于复用 NewAPI 渠道调度。
+  - model_name: "newapi/mimo-v2.5-pro"
+    litellm_params:
+      # 复用 NewAPI OpenAI 兼容入口，只固定具体 Mimo 模型。
+      <<: *newapi_openai_params
+      # Pro 版本作为文本 fallback，不声明视觉能力。
+      model: "openai/mimo-v2.5-pro"
+  # claw-plan 视觉请求默认走 NewAPI 中转的 Mimo 2.5。
+  - model_name: "newapi/mimo-v2.5"
+    model_info:
+      # 显式声明视觉能力，便于 `/model/info` 和客户端按能力筛选模型。
+      supports_vision: true
+    litellm_params:
+      # 复用 NewAPI OpenAI 兼容入口，只固定具体 Mimo 模型。
+      <<: *newapi_openai_params
+      # 保持上游模型名直通，避免 LiteLLM 对外别名与 NewAPI 模型名脱节。
       model: "openai/mimo-v2.5"
   # claw OpenAI 兼容链路的 DeepSeek 轻量兜底入口。
   - model_name: "claw-deepseek-v4-flash"
@@ -197,7 +214,7 @@ router_settings:
     - cc-glmplan-haiku:
         - claude-code-deepseek-v4-flash
     - claw-plan:
-        - mimo-v2.5-pro
+        - newapi/mimo-v2.5-pro
     - claw-glmplan-5.1:
         - claw-deepseek-v4-flash
   # 连续一次失败即进入冷却；具体冷却时长可由各模型的 `cooldown_time` 覆盖。

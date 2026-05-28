@@ -8,7 +8,7 @@ from callbacks.framework.adapters import GatewayCallbackAdapter
 
 LOGGER = logging.getLogger("ClawVisionRouterAdapter")
 DEFAULT_VISION_FALLBACKS = {
-    "claw-plan": "mimo-v2.5",
+    "claw-plan": "newapi/mimo-v2.5",
 }
 IMAGE_CONTENT_TYPES = {"image_url", "input_image"}
 
