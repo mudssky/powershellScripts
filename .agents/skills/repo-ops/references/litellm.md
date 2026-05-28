@@ -42,7 +42,9 @@
 
 ## 模型入口
 
-- `claw-plan`：OpenAI 兼容 agent 推荐稳定入口，当前优先走智谱 `GLM-5.1`。
+- `claw-plan`：OpenAI 兼容 agent 推荐稳定入口，文本优先走智谱 `GLM-5.1`，文本兜底到直连小米 `mimo-v2.5-pro`，图片请求由 callback 切到直连小米 `mimo-v2.5`。
+- `mimo-v2.5-pro`：直连小米文本兜底模型，不声明视觉能力。
+- `mimo-v2.5`：直连小米视觉模型，声明 `supports_vision: true`。
 - `claw-glmplan-5.1`：显式 GLM 版本入口。
 - `claw-deepseek-v4-flash`：`claw-` 的 DeepSeek OpenAI 兼容兜底，默认 `reasoning_effort=max`。
 - `cc-glmplan-opus` / `cc-glmplan-haiku`：Claude Code GLM 优先入口。
@@ -66,6 +68,8 @@
 - `DEEPSEEK_ANTHROPIC_API_BASE`
 - `DEEPSEEK_OPENAI_API_BASE`
 - `DEEPSEEK_API_KEY`
+- `MIMO_API_BASE`
+- `MIMO_API_KEY`
 - `LITELLM_MASTER_KEY`
 - `DATABASE_URL`
 

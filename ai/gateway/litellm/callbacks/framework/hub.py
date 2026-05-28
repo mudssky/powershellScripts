@@ -20,6 +20,7 @@ except ModuleNotFoundError:
 from callbacks.adapters.deepseek.thinking_sanitizer import (
     DeepSeekThinkingSanitizerAdapter,
 )
+from callbacks.adapters.claw.vision_router import ClawVisionRouterAdapter
 from callbacks.adapters.glm.cooldown import GlmCooldownAdapter
 from callbacks.framework.adapters import GatewayCallbackAdapter
 
@@ -253,6 +254,7 @@ def default_adapters() -> list[GatewayCallbackAdapter]:
         默认启用的 adapter 列表。
     """
     return [
+        ClawVisionRouterAdapter(),
         GlmCooldownAdapter(),
         DeepSeekThinkingSanitizerAdapter(),
     ]

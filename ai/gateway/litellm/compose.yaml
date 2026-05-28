@@ -33,6 +33,9 @@ services:
       # DeepSeek OpenAI 兼容端点作为 claw OpenAI 兼容 agent 链路的兜底。
       DEEPSEEK_OPENAI_API_BASE: ${DEEPSEEK_OPENAI_API_BASE:-https://api.deepseek.com/v1}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      # 小米 Mimo OpenAI 兼容端点作为 claw agent 的视觉入口与 GLM 兜底，不经过 NewAPI。
+      MIMO_API_BASE: ${MIMO_API_BASE:-https://token-plan-cn.xiaomimimo.com/v1}
+      MIMO_API_KEY: ${MIMO_API_KEY:-}
       # GLM 429 返回 reset 时间后，callback adapter 会在 reset 时间后额外等待该秒数再恢复探测。
       LITELLM_GLM_RESET_BUFFER_SECONDS: ${LITELLM_GLM_RESET_BUFFER_SECONDS:-60}
       # 如果 GLM 429 错误体无法解析 reset 时间，使用固定 5 小时冷却兜底。

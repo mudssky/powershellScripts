@@ -105,6 +105,9 @@ model_list:
       model: "openai/GLM-*"
   # OpenAI 兼容 agent 的稳定默认入口，底层先走 GLM Coding Plan。
   - model_name: "claw-plan"
+    model_info:
+      # 对外入口支持视觉请求；callback 会把图片请求提前切到 Mimo，避免误打不支持视觉的 GLM。
+      supports_vision: true
     litellm_params:
       # 直接复用智谱 OpenAI 兼容入口，不通过其它 LiteLLM 别名二次转发。
       <<: *zai_openai_params
@@ -117,16 +120,25 @@ model_list:
       <<: *zai_openai_params
       # 显式锁定到当前 Coding Plan 主模型。
       model: "openai/GLM-5.1"
-  # MiniMax Mimo Pro 支持视觉输入，作为 NewAPI 下的显式可调用模型暴露给客户端。
+  # claw-plan 文本兜底直连小米 Mimo Pro，不经过 NewAPI。
   - model_name: "mimo-v2.5-pro"
+    litellm_params:
+      # 小米 Mimo 使用独立 OpenAI 兼容端点，避免继承 NewAPI 的渠道能力过滤。
+      api_base: "os.environ/MIMO_API_BASE"
+      api_key: "os.environ/MIMO_API_KEY"
+      # 保持上游模型名直通，避免 LiteLLM 对外别名与 Mimo 模型名脱节。
+      model: "openai/mimo-v2.5-pro"
+  # claw-plan 视觉请求使用小米 Mimo 2.5，避免误把不支持视觉的 Pro 版本暴露给图片请求。
+  - model_name: "mimo-v2.5"
     model_info:
       # 显式声明视觉能力，便于 `/model/info` 和客户端按能力筛选模型。
       supports_vision: true
     litellm_params:
-      # 复用 NewAPI OpenAI 兼容入口，由 NewAPI 负责路由到具体 Mimo 模型。
-      <<: *newapi_openai_params
-      # 保持上游模型名直通，避免 LiteLLM 对外别名与 NewAPI 模型名脱节。
-      model: "openai/mimo-v2.5-pro"
+      # 小米 Mimo 使用独立 OpenAI 兼容端点，避免继承 NewAPI 的渠道能力过滤。
+      api_base: "os.environ/MIMO_API_BASE"
+      api_key: "os.environ/MIMO_API_KEY"
+      # 保持上游模型名直通，避免 LiteLLM 对外别名与 Mimo 模型名脱节。
+      model: "openai/mimo-v2.5"
   # claw OpenAI 兼容链路的 DeepSeek 轻量兜底入口。
   - model_name: "claw-deepseek-v4-flash"
     litellm_params:
@@ -178,14 +190,14 @@ litellm_settings:
 router_settings:
   # 开启前置检查，尽早发现不可用部署或无效模型名。
   enable_pre_call_checks: true
-  # GLM 主入口在 429 / RateLimitError 短重试耗尽后切到对应 DeepSeek 兜底。
+  # GLM 主入口在 429 / RateLimitError 短重试耗尽后按入口语义切到对应兜底。
   fallbacks:
     - cc-glmplan-opus:
         - claude-code-deepseek-v4-pro
     - cc-glmplan-haiku:
         - claude-code-deepseek-v4-flash
     - claw-plan:
-        - claw-deepseek-v4-flash
+        - mimo-v2.5-pro
     - claw-glmplan-5.1:
         - claw-deepseek-v4-flash
   # 连续一次失败即进入冷却；具体冷却时长可由各模型的 `cooldown_time` 覆盖。

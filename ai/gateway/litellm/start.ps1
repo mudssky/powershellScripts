@@ -65,7 +65,7 @@ function Assert-DockerComposeReady {
     }
 
     if (-not (Test-Path -LiteralPath $envFile)) {
-        Write-Warning "未找到环境变量文件: $envFile。脚本会继续执行，但 NEWAPI_* 与 LITELLM_MASTER_KEY 可能为空。"
+        Write-Warning "未找到环境变量文件: $envFile。脚本会继续执行，但 NEWAPI_*、MIMO_* 与 LITELLM_MASTER_KEY 可能为空。"
     }
 }
 
