@@ -316,3 +316,36 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 10: Hermes 本地私有仓库管理
+
+**Date**: 2026-05-28
+**Task**: Hermes 本地私有仓库管理
+**Branch**: `master`
+
+### Summary
+
+将 ai/agents/hermes 调整为主仓库忽略、Hermes 目录自持本地私有 git 仓库的布局；初始化 Hermes 私有仓库并提交首版配置与技能快照。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `3a970d2` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
