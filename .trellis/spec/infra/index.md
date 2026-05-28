@@ -10,6 +10,7 @@
 |-------|-------------|--------|
 | [Coding Plan Window Warmer](./coding-plan-window-warmer.md) | 独立窗口预热脚本、直连上游、uv 依赖和 PM2 管理约定 | Active |
 | [LiteLLM Gateway](./litellm-gateway.md) | LiteLLM 路由、fallback、参数兼容和验证边界 | Active |
+| [Hermes Agent Layout](./hermes-agent-layout.md) | Hermes 官方安装目录、`HERMES_HOME`、gateway launchd 与本地状态提交边界 | Active |
 | [Node/Vitest Scripts](./node-vitest-scripts.md) | 根目录 Vitest 发现的 Node 脚本测试与 shebang 行尾约定 | Active |
 | [PostgreSQL Toolkit](./postgresql-toolkit.md) | PostgreSQL / pgBackRest 命令边界、env 解析和备份范围约定 | Active |
 | [rclone Ops](./rclone-ops.md) | rclone JSON 主配置、WebUI/RC、自动挂载、VFS cache 与日志路径契约 | Active |
