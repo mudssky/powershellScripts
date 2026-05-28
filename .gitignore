@@ -51,3 +51,6 @@ vitest-report.xml
 # python
 *.pyc
 .venv/
+
+# Hermes Agent 的 HERMES_HOME 是本机私有嵌套 git 仓库，主仓库不接管其中内容。
+/ai/agents/hermes/
