@@ -217,3 +217,36 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 7: LiteLLM claw agent fallback
+
+**Date**: 2026-05-28
+**Task**: LiteLLM claw agent fallback
+**Branch**: `master`
+
+### Summary
+
+新增 claw-plan / claw-glmplan-5.1 OpenAI 兼容入口与 DeepSeek v4 flash 最大思考兜底，更新 LiteLLM 配置、环境变量示例、文档和网关规范，并完成本地 smoke 验证。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1eff4c5` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
