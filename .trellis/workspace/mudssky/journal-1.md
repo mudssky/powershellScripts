@@ -250,3 +250,36 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 8: 创建仓库运维 Skill
+
+**Date**: 2026-05-28
+**Task**: 创建仓库运维 Skill
+**Branch**: `master`
+
+### Summary
+
+新增 repo-ops skill，覆盖 LiteLLM、LobeHub、项目依赖安装和后续 skill 维护流程，并完成校验与 QA。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `dec8040` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
