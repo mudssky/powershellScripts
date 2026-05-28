@@ -4,6 +4,75 @@
 
 ---
 
+## Scenario: OpenAI 兼容 claw agent GLM Fallback 到 DeepSeek V4 Flash
+
+### 1. Scope / Trigger
+
+- Trigger: 修改 `ai/gateway/litellm/*.yaml` 中 `claw-` 模型入口、DeepSeek OpenAI 兼容兜底别名、`router_settings.fallbacks`、`DEEPSEEK_OPENAI_API_BASE` 注入或 LiteLLM OpenAI 兼容 agent 文档。
+- Scope: `claw-plan` / `claw-glmplan-5.1` 优先使用智谱 GLM Coding Plan 的 OpenAI 兼容端点；GLM 短重试后仍失败时 fallback 到 `claw-deepseek-v4-flash`。
+- Design intent: 为 Hermes 等 OpenAI 兼容 agent 提供稳定模型名，同时与 Claude Code Anthropic messages 链路隔离。
+
+### 2. Signatures
+
+- Client-facing model names:
+  - `claw-plan`
+  - `claw-glmplan-5.1`
+  - `claw-deepseek-v4-flash`
+- Provider model mapping:
+  - `claw-plan` -> `openai/GLM-5.1`
+  - `claw-glmplan-5.1` -> `openai/GLM-5.1`
+  - `claw-deepseek-v4-flash` -> `openai/deepseek-v4-flash`
+- Router fallback contract:
+  - `claw-plan` -> `claw-deepseek-v4-flash`
+  - `claw-glmplan-5.1` -> `claw-deepseek-v4-flash`
+
+### 3. Contracts
+
+- Required environment keys:
+  - `Z_AI_CODING_API_BASE`: 智谱 GLM Coding Plan OpenAI 兼容端点。
+  - `Z_AI_API_KEY`: 智谱 Coding Plan 密钥。
+  - `DEEPSEEK_OPENAI_API_BASE`: DeepSeek OpenAI 兼容端点，默认 `https://api.deepseek.com/v1`。
+  - `DEEPSEEK_API_KEY`: DeepSeek 密钥。
+  - `LITELLM_MASTER_KEY`: LiteLLM 对外鉴权密钥。
+- Naming policy:
+  - `claw-plan` 是推荐给 agent 配置使用的稳定入口；底层 GLM 版本升级时优先保持该对外模型名不变。
+  - `claw-glmplan-5.1` 是显式版本入口，必须直接映射到真实 provider 参数，不得通过 LiteLLM alias 链式转发到 `claw-plan` 或其它对外模型名。
+  - `claw-deepseek-v4-flash` 是 OpenAI 兼容兜底入口，不得复用 `claude-code-deepseek-*` 的 Anthropic messages 语义。
+- Parameter policy:
+  - `claw-deepseek-v4-flash` 必须默认配置 `reasoning_effort: "max"`，用于复杂 agent 场景的最大思考模式。
+  - `claw-` OpenAI 兼容链路不使用 Claude Code 的 `thinking` / `output_config.effort` 合同；不要为它新增 DeepSeek Anthropic sanitizer 依赖。
+  - 不得使用 DeepSeek 旧模型名 `deepseek-chat` 或 `deepseek-reasoner` 创建新路由。
+
+### 4. Validation & Error Matrix
+
+| Condition | Expected Behavior |
+|-----------|-------------------|
+| GLM 正常可用 | `claw-plan` / `claw-glmplan-5.1` 直接走 `openai/GLM-5.1` |
+| GLM 返回 429 / `RateLimitError` | LiteLLM 先按 retry policy 短重试 |
+| GLM 短重试耗尽 | Router fallback 到 `claw-deepseek-v4-flash` |
+| DeepSeek OpenAI fallback 被选中 | 请求走 `DEEPSEEK_OPENAI_API_BASE`，模型为 `deepseek-v4-flash`，默认 `reasoning_effort=max` |
+| `DEEPSEEK_OPENAI_API_BASE` 未注入容器 | `claw-deepseek-v4-flash` 配置解析或运行时请求失败，应检查 compose 白名单和 `.env.local` |
+| Claude Code fallback 触发 | 仍走 `claude-code-deepseek-*` Anthropic messages 路由，不应落到 `claw-deepseek-v4-flash` |
+
+### 5. Good/Base/Bad Cases
+
+- Good: Hermes 等 OpenAI 兼容 agent 使用 `model=claw-plan`，Base URL 指向 LiteLLM `/v1`，GLM 失败后自动 fallback 到 DeepSeek V4 Flash 最大思考模式。
+- Good: 调试时直接调用 `claw-glmplan-5.1` 或 `claw-deepseek-v4-flash`，两者在 `/models` 中显式可见。
+- Base: 现有 `GLM-5.1` / `GLM-*` 官方模型名仍按原路径转发到智谱 Coding Plan。
+- Bad: 让 `claw-plan` 的 `litellm_params.model` 指向 `claw-glmplan-5.1` 这类对外别名，导致 Router 分组和 fallback 语义依赖二次解析。
+- Bad: `claw-deepseek-v4-flash` 复用 `DEEPSEEK_ANTHROPIC_API_BASE` 或 `anthropic/deepseek-v4-flash`，把 OpenAI 兼容 agent 流量混入 Claude Code 专用链路。
+- Bad: 为了复用现有兜底，把 `claw-plan` fallback 到 `claude-code-deepseek-v4-flash`，导致 OpenAI 兼容请求继承 Anthropic messages sanitizer 假设。
+
+### 6. Tests Required
+
+- Config parse: `litellm.local.yaml` 与 `newapi.yaml` 必须能被项目现有 YAML 解析方式读取。
+- Config sync: 两份配置都必须包含 `claw-plan`、`claw-glmplan-5.1`、`claw-deepseek-v4-flash` 以及对应 fallback 规则。
+- Env contract: `compose.yaml`、`.env.example`、`.env.production.example` 必须包含 `DEEPSEEK_OPENAI_API_BASE`。
+- Parameter contract: `claw-deepseek-v4-flash` 必须配置 `reasoning_effort: "max"`。
+- Runtime note: 真实 fallback 依赖上游额度、密钥和实时响应；本地配置验证不能证明线上额度恢复或供应商端协议行为。
+
+---
+
 ## Scenario: Claude Code GLM 429 Fallback 到 DeepSeek
 
 ### 1. Scope / Trigger

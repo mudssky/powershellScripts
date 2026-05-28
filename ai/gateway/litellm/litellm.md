@@ -10,7 +10,7 @@
 - `start.ps1`：统一入口，封装常用 `docker compose` 操作。
 - `.env.example`：开发环境变量示例。
 - `.env.production.example`：生产环境变量示例。
-- `.env.local`：本地私有环境变量，保存 `NEWAPI_API_BASE`、`NEWAPI_KEY`、可选的 `NEWAPI_ANTHROPIC_API_BASE` / `NEWAPI_ANTHROPIC_KEY`、`Z_AI_CODING_API_BASE`、`Z_AI_ANTHROPIC_API_BASE`、`Z_AI_API_KEY`、`DEEPSEEK_ANTHROPIC_API_BASE`、`DEEPSEEK_API_KEY`、`LITELLM_MASTER_KEY`、可选 `DATABASE_URL`。
+- `.env.local`：本地私有环境变量，保存 `NEWAPI_API_BASE`、`NEWAPI_KEY`、可选的 `NEWAPI_ANTHROPIC_API_BASE` / `NEWAPI_ANTHROPIC_KEY`、`Z_AI_CODING_API_BASE`、`Z_AI_ANTHROPIC_API_BASE`、`Z_AI_API_KEY`、`DEEPSEEK_ANTHROPIC_API_BASE`、`DEEPSEEK_OPENAI_API_BASE`、`DEEPSEEK_API_KEY`、`LITELLM_MASTER_KEY`、可选 `DATABASE_URL`。
 
 固定常量如 `PORT=4000`、`CONFIG_FILE_PATH=/app/config.yaml` 保留在 `compose.yaml` 内部；环境差异值建议集中在 `.env.local`，再通过 `start.ps1` 追加的 `--env-file` 和 `compose.yaml` 的 `environment` 白名单注入到容器。
 
@@ -30,6 +30,7 @@ Z_AI_CODING_API_BASE=https://open.bigmodel.cn/api/coding/paas/v4
 Z_AI_ANTHROPIC_API_BASE=https://open.bigmodel.cn/api/anthropic
 Z_AI_API_KEY=sk-zai-dev-xxxx
 DEEPSEEK_ANTHROPIC_API_BASE=https://api.deepseek.com/anthropic
+DEEPSEEK_OPENAI_API_BASE=https://api.deepseek.com/v1
 DEEPSEEK_API_KEY=sk-deepseek-dev-xxxx
 LITELLM_MASTER_KEY=sk-litellm-123456
 DATABASE_URL=postgresql://postgres:12345678@host.docker.internal:5432/litellm
@@ -49,7 +50,8 @@ DATABASE_URL=postgresql://postgres:12345678@host.docker.internal:5432/litellm
 - `Z_AI_ANTHROPIC_API_BASE`：智谱 GLM Coding Plan 的 Anthropic 兼容接口地址，Claude Code GLM 优先入口会使用它。
 - `Z_AI_API_KEY`：LiteLLM 转发 `GLM-*` 请求到智谱 Coding Plan 时使用的上游密钥。
 - `DEEPSEEK_ANTHROPIC_API_BASE`：DeepSeek 的 Anthropic 兼容接口地址，默认用于 Claude Code 的兜底路由。
-- `DEEPSEEK_API_KEY`：LiteLLM 转发 Claude Code DeepSeek 兜底请求时使用的上游密钥。
+- `DEEPSEEK_OPENAI_API_BASE`：DeepSeek 的 OpenAI 兼容接口地址，默认用于 `claw-` agent 兜底路由。
+- `DEEPSEEK_API_KEY`：LiteLLM 转发 DeepSeek 兜底请求时使用的上游密钥。
 - `LITELLM_MASTER_KEY`：LiteLLM Proxy 对外暴露的网关密钥。
 - `DATABASE_URL`：LiteLLM 的数据库连接串；如果未配置，会回退到默认的宿主机 PostgreSQL 地址。
 - `DASHSCOPE_API_KEY` / `DASHSCOPE_API_BASE`：可选兼容项；只有切回 `qwen.yaml` 或其他百炼配置时才需要提供。
@@ -182,6 +184,25 @@ curl http://127.0.0.1:34000/v1/chat/completions `
   -d "{\"model\":\"GLM-5.1\",\"messages\":[{\"role\":\"user\",\"content\":\"你好\"}]}"
 ```
 
+## OpenAI 兼容 agent 的 claw 入口
+
+Hermes 等 OpenAI 兼容 agent 后续可以把模型固定为 `claw-plan`，由 LiteLLM 先走智谱 `GLM-5.1` OpenAI 兼容端点；如果 GLM 额度耗尽或临时不可用，网关会 fallback 到 DeepSeek OpenAI 兼容端点的 `deepseek-v4-flash`：
+
+```powershell
+curl http://127.0.0.1:34000/v1/chat/completions `
+  -H "Content-Type: application/json" `
+  -H "Authorization: Bearer sk-litellm-123456" `
+  -d "{\"model\":\"claw-plan\",\"messages\":[{\"role\":\"user\",\"content\":\"你好\"}]}"
+```
+
+说明：
+
+- `claw-plan` 是推荐给 agent 配置使用的稳定入口；当前底层为 `GLM-5.1`，未来升级底层模型时可尽量不改客户端配置。
+- `claw-glmplan-5.1` 是显式版本入口，适合调试或需要固定 GLM 版本的调用。
+- `claw-deepseek-v4-flash` 是 DeepSeek OpenAI 兼容 fallback 入口，底层模型为 `deepseek-v4-flash`，并默认传递 `reasoning_effort: "max"` 开启最大思考模式。
+- `claw-` 路由使用 OpenAI provider 和 `DEEPSEEK_OPENAI_API_BASE`，不会复用 Claude Code 的 Anthropic messages 兜底路由，也不会进入 DeepSeek thinking sanitizer 的语义边界。
+- 本仓库当前尚未创建 Hermes 配置文件，因此这里只记录网关入口；创建 Hermes 配置时把 Base URL 指向 `http://127.0.0.1:34000/v1`，API Key 使用 `LITELLM_MASTER_KEY`，模型名使用 `claw-plan`。
+
 ## Claude Code 的 GLM 优先入口
 
 如果你想让 Claude Code 优先使用 GLM-5.1，并在 Coding Plan 额度耗尽后自动切到 DeepSeek，可以把 Claude Code 指向 LiteLLM 的 Anthropic 兼容入口：
@@ -223,7 +244,7 @@ curl "http://127.0.0.1:34000/models?return_wildcard_routes=true" `
   -H "x-litellm-api-key: sk-litellm-123456"
 ```
 
-当前 `litellm.local.yaml` 默认显式注册了 `gpt-5.5`、`gemini-3.1-pro`、`claude-opus-4-6`、`claude-opus-4-7`、`compat/claude-opus-4-6`、`compat/claude-opus-4-7`、四条 Claude Code 专用模型、`GLM-5.1` 与 `gpt*spark` 等主模型，并在末尾保留 `GLM-*` 与 `*` 两条 fallback 路由。因此 `/models` 会返回显式模型加上两条通配兜底路由。默认会看到类似下面的结果：
+当前 `litellm.local.yaml` 默认显式注册了 `gpt-5.5`、`gemini-3.1-pro`、`claude-opus-4-6`、`claude-opus-4-7`、`compat/claude-opus-4-6`、`compat/claude-opus-4-7`、四条 Claude Code 专用模型、三条 `claw-` OpenAI 兼容 agent 模型、`GLM-5.1` 与 `gpt*spark` 等主模型，并在末尾保留 `GLM-*` 与 `*` 两条 fallback 路由。因此 `/models` 会返回显式模型加上两条通配兜底路由。默认会看到类似下面的结果：
 
 ```json
 {
@@ -240,6 +261,9 @@ curl "http://127.0.0.1:34000/models?return_wildcard_routes=true" `
     {"id": "claude-code-deepseek-v4-flash", "object": "model"},
     {"id": "GLM-5.1", "object": "model"},
     {"id": "GLM-*", "object": "model"},
+    {"id": "claw-plan", "object": "model"},
+    {"id": "claw-glmplan-5.1", "object": "model"},
+    {"id": "claw-deepseek-v4-flash", "object": "model"},
     {"id": "gpt*spark", "object": "model"},
     {"id": "*", "object": "model"}
   ],
@@ -266,6 +290,7 @@ curl "$env:Z_AI_CODING_API_BASE/models" `
 - 不要在当前配置下使用 `only_model_access_groups=true`，因为默认没有配置 model access groups，请求结果会是空数组。
 - 如果客户端直接传 `model=qwen-plus` 之类的名称，前提是该名称必须真实存在于 NewAPI 的 `/models` 返回结果中。
 - 如果客户端使用 OpenAI 兼容接口访问 Claude，建议显式传 `compat/claude-opus-*`，不要再把默认 `claude-opus-*` 当作 OpenAI 上游模型名理解。
+- 如果客户端是 Hermes 等 OpenAI 兼容 agent，建议显式传 `claw-plan`，由网关统一处理 GLM 优先和 DeepSeek v4 flash 最大思考兜底。
 - 如果客户端直接传 `model=GLM-4.7` 之类的官方名称，前提是该名称必须真实存在于智谱 Coding Plan 的 `/models` 返回结果中。
 - 显式注册之外的 GLM 模型不会自动展开进 LiteLLM 的 `/models` 列表；它们会优先通过 `GLM-*` fallback 转发到智谱上游。
 - 其它显式注册之外的非 GLM 模型，仍然通过最后的 `*` fallback 透传到 NewAPI。
@@ -274,7 +299,7 @@ curl "$env:Z_AI_CODING_API_BASE/models" `
 
 当前 `litellm.local.yaml` 的关键点：
 
-- `model_list`：显式注册 `gpt-5.5`、`gemini-3.1-pro`、两条默认 Claude 原生模型、两条 Claude 兼容别名、四条 Claude Code 专用模型、`GLM-5.1` 与 `gpt*spark`，并追加 `GLM-*` 与 `*` 两层兜底。
+- `model_list`：显式注册 `gpt-5.5`、`gemini-3.1-pro`、两条默认 Claude 原生模型、两条 Claude 兼容别名、四条 Claude Code 专用模型、三条 `claw-` OpenAI 兼容 agent 模型、`GLM-5.1` 与 `gpt*spark`，并追加 `GLM-*` 与 `*` 两层兜底。
 - 显式模型优先：常用模型可以稳定出现在 `/models` 里，也方便客户端按固定名称接入。
 - `claude-opus-*`：默认映射到 LiteLLM 的 Anthropic provider，优先服务 Anthropic 兼容客户端。
 - `compat/claude-opus-*`：为 OpenAI 兼容客户端保留显式 Claude 别名，但底层仍然走同一个 Anthropic 原生上游。
@@ -282,15 +307,19 @@ curl "$env:Z_AI_CODING_API_BASE/models" `
 - `cc-glmplan-haiku`：为 Claude Code Haiku / subagent 流量提供独立入口，优先走智谱 `GLM-5.1` 的 Anthropic 兼容端点。
 - `claude-code-deepseek-v4-pro` / `claude-code-deepseek-v4-flash`：作为 GLM 额度耗尽或临时不可用时的 DeepSeek 兜底路由。
 - `claude-code-deepseek-*` 参数策略：这是 Claude Code Anthropic messages 专用兜底入口，不配置 `additional_drop_params` 丢弃 `thinking` / `reasoning_effort`；如需 Chat/Responses 保守兼容，应新增独立 safe 路由。
+- `claw-plan`：为 OpenAI 兼容 agent 提供稳定默认入口，优先走智谱 `GLM-5.1` OpenAI 兼容端点。
+- `claw-glmplan-5.1`：为 OpenAI 兼容 agent 提供显式 GLM 版本入口，便于调试和固定版本调用。
+- `claw-deepseek-v4-flash`：作为 `claw-` 路由的 DeepSeek OpenAI 兼容兜底，底层模型为 `deepseek-v4-flash`，默认 `reasoning_effort=max`。
 - `callbacks/gateway_callback.py`：LiteLLM 统一 callback hub。配置层只挂载这个入口，hub 再把生命周期 hook 分发给启用的 adapter。
 - `callbacks/framework/`：LiteLLM callback framework 基础设施，包含 hub 与 adapter 抽象。顶层 `callbacks/gateway_callback.py` 只作为 LiteLLM 配置可 import 的薄入口。
 - `callbacks/adapters/deepseek/thinking_sanitizer.py`：只在 DeepSeek Anthropic 请求发出前清理无签名/不完整的历史 `thinking` / `redacted_thinking` / `thinking_blocks` content 块；带 `signature` 的 thinking 和带 `data` 的 redacted thinking 必须保留回传。这是给 Claude Code `/v1/messages` pass-through 路径补的兼容层，不能只靠普通参数丢弃替代。该 adapter 必须原地修改 `messages` 列表引用，因为 Anthropic pass-through handler 会继续使用函数位置参数里的原 messages 对象。
 - `callbacks/adapters/glm/cooldown.py`：在失败事件中解析 GLM 429 中文 reset 时间，按 `reset + LITELLM_GLM_RESET_BUFFER_SECONDS` 记录冷却截止时间；后续请求进入 Router 前，如果模型仍在冷却期，就把 `cc-glmplan-opus` 改写为 `claude-code-deepseek-v4-pro`，把 `cc-glmplan-haiku` 改写为 `claude-code-deepseek-v4-flash`。解析失败但确认是额度/限流错误时使用 `LITELLM_GLM_FALLBACK_COOLDOWN_SECONDS` 兜底；普通上游错误不会触发长冷却。
 - DeepSeek effort 兼容：不要把 `thinking`、`reasoning_effort`、`output_config` 或 `output_config.effort` 加入 DeepSeek Claude Code 兜底路由的丢弃参数；DeepSeek Anthropic 兼容接口使用这些字段承接 Claude Code thinking / effort。
+- DeepSeek OpenAI 兼容兜底：`claw-deepseek-v4-flash` 使用 `DEEPSEEK_OPENAI_API_BASE` 和 OpenAI provider，通过 `reasoning_effort=max` 启用最大思考模式，不复用 Claude Code Anthropic messages sanitizer。
 - `litellm_settings.callbacks`：加载 `callbacks.gateway_callback.proxy_handler_instance`；`compose.yaml` 必须挂载 `./callbacks:/app/callbacks:ro`，修改后需要重建容器才能让新挂载生效。
 - `litellm_settings.modify_params`：允许 LiteLLM 对 Anthropic tool/thinking 消息做兼容修正；但它不能替代上面的 sanitizer，因为 DeepSeek 报错来自原生 `messages[].content[]` 历史块校验。
 - `router_settings.num_retries` / `retry_policy.RateLimitErrorRetries`：让 Claude Code GLM 入口的瞬时 429 先在网关内短重试，避免直接把限流错误透给客户端。
-- `router_settings.fallbacks`：把 Claude Code 的 GLM 主入口分别降级到对应 DeepSeek 路由。LiteLLM 内建 1 小时 cooldown 只处理短期失败；GLM 5 小时额度窗口由 `GlmCooldownAdapter` 按上游 reset 时间做请求前避让。
+- `router_settings.fallbacks`：把 Claude Code 的 GLM 主入口分别降级到对应 DeepSeek Anthropic 路由，并把 `claw-plan` / `claw-glmplan-5.1` 降级到 `claw-deepseek-v4-flash`。LiteLLM 内建 1 小时 cooldown 只处理短期失败；GLM 5 小时额度窗口由 `GlmCooldownAdapter` 按上游 reset 时间做请求前避让。
 - `GLM-*` fallback：对智谱 Coding Plan 已存在但未显式注册的 GLM 官方模型保留透传能力，同时避免误落到 NewAPI。
 - `*` fallback：对 NewAPI 已存在但未显式注册的非 GLM 模型保留透传能力，减少频繁改本地配置的成本。
 - `litellm_params.model`：OpenAI / Gemini / GLM OpenAI 兼容路由映射到 `openai/<模型名>`；Claude 显式模型、兼容别名与 Claude Code 专用模型映射到 `anthropic/<模型名>`。

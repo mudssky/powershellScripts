@@ -28,8 +28,10 @@ services:
       # Claude Code 走智谱 Anthropic 兼容端点，用于 GLM-5.1 优先、DeepSeek 兜底的开发入口。
       Z_AI_ANTHROPIC_API_BASE: ${Z_AI_ANTHROPIC_API_BASE:-https://open.bigmodel.cn/api/anthropic}
       Z_AI_API_KEY: ${Z_AI_API_KEY:-}
-      # DeepSeek Anthropic 兼容端点作为 GLM Coding Plan 额度耗尽后的兜底。
+      # DeepSeek Anthropic 兼容端点作为 Claude Code GLM Coding Plan 额度耗尽后的兜底。
       DEEPSEEK_ANTHROPIC_API_BASE: ${DEEPSEEK_ANTHROPIC_API_BASE:-https://api.deepseek.com/anthropic}
+      # DeepSeek OpenAI 兼容端点作为 claw OpenAI 兼容 agent 链路的兜底。
+      DEEPSEEK_OPENAI_API_BASE: ${DEEPSEEK_OPENAI_API_BASE:-https://api.deepseek.com/v1}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
       # GLM 429 返回 reset 时间后，callback adapter 会在 reset 时间后额外等待该秒数再恢复探测。
       LITELLM_GLM_RESET_BUFFER_SECONDS: ${LITELLM_GLM_RESET_BUFFER_SECONDS:-60}
