@@ -8,7 +8,7 @@ services:
     user: "${FORGEJO_USER_UID:-1000}:${FORGEJO_USER_GID:-1000}"
     ports:
       - "${FORGEJO_HTTP_PORT:-30001}:3000"
-      - "${FORGEJO_SSH_PORT:-2222}:2222"
+      - "${FORGEJO_SSH_PORT:-32222}:2222"
     environment:
       # rootless 镜像通过 USER_UID / USER_GID 生成容器内运行用户，需与挂载目录权限保持一致。
       USER_UID: ${FORGEJO_USER_UID:-1000}
@@ -19,7 +19,7 @@ services:
       FORGEJO__server__DOMAIN: ${FORGEJO_DOMAIN:-localhost}
       FORGEJO__server__HTTP_PORT: "3000"
       FORGEJO__server__SSH_DOMAIN: ${FORGEJO_SSH_DOMAIN:-localhost}
-      FORGEJO__server__SSH_PORT: ${FORGEJO_SSH_PORT:-2222}
+      FORGEJO__server__SSH_PORT: ${FORGEJO_SSH_PORT:-32222}
       FORGEJO__server__SSH_LISTEN_PORT: "2222"
       FORGEJO__server__START_SSH_SERVER: "true"
 

@@ -11,7 +11,7 @@
 ## 默认约定
 
 - HTTP：宿主机 `30001` -> 容器 `3000`
-- SSH：宿主机 `2222` -> 容器 `2222`
+- SSH：宿主机 `32222` -> 容器 `2222`
 - PostgreSQL：`host.docker.internal:5432`
 - 数据库名：`forgejo`
 - 数据库用户：`postgres`
@@ -100,7 +100,7 @@ http://localhost:30001/
 SSH clone 地址默认会使用：
 
 ```text
-ssh://git@localhost:2222/<owner>/<repo>.git
+ssh://git@localhost:32222/<owner>/<repo>.git
 ```
 
 ## 查看状态和日志
