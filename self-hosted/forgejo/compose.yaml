@@ -1,0 +1,42 @@
+name: forgejo
+
+services:
+  forgejo:
+    image: ${FORGEJO_IMAGE:-codeberg.org/forgejo/forgejo:15-rootless}
+    container_name: forgejo
+    restart: ${FORGEJO_RESTART_POLICY:-unless-stopped}
+    user: "${FORGEJO_USER_UID:-1000}:${FORGEJO_USER_GID:-1000}"
+    ports:
+      - "${FORGEJO_HTTP_PORT:-30001}:3000"
+      - "${FORGEJO_SSH_PORT:-2222}:2222"
+    environment:
+      # rootless 镜像通过 USER_UID / USER_GID 生成容器内运行用户，需与挂载目录权限保持一致。
+      USER_UID: ${FORGEJO_USER_UID:-1000}
+      USER_GID: ${FORGEJO_USER_GID:-1000}
+
+      # Forgejo 配置使用 FORGEJO__section__key 映射到 app.ini，避免额外挂载本地私有配置。
+      FORGEJO__server__ROOT_URL: ${FORGEJO_ROOT_URL:-http://localhost:30001/}
+      FORGEJO__server__DOMAIN: ${FORGEJO_DOMAIN:-localhost}
+      FORGEJO__server__HTTP_PORT: "3000"
+      FORGEJO__server__SSH_DOMAIN: ${FORGEJO_SSH_DOMAIN:-localhost}
+      FORGEJO__server__SSH_PORT: ${FORGEJO_SSH_PORT:-2222}
+      FORGEJO__server__SSH_LISTEN_PORT: "2222"
+      FORGEJO__server__START_SSH_SERVER: "true"
+
+      # 数据库复用宿主机共享 PostgreSQL；数据库本身需要提前由运维命令创建。
+      FORGEJO__database__DB_TYPE: postgres
+      FORGEJO__database__HOST: ${FORGEJO_DB_HOST:-host.docker.internal:5432}
+      FORGEJO__database__NAME: ${FORGEJO_DB_NAME:-forgejo}
+      FORGEJO__database__USER: ${FORGEJO_DB_USER:-postgres}
+      FORGEJO__database__PASSWD: ${FORGEJO_DB_PASSWORD:-12345678}
+      FORGEJO__database__SSL_MODE: ${FORGEJO_DB_SSL_MODE:-disable}
+
+      # 保持日志输出到控制台，便于 docker compose logs 统一查看。
+      FORGEJO__log__MODE: console
+      FORGEJO__log__LEVEL: ${FORGEJO_LOG_LEVEL:-info}
+    volumes:
+      - ${FORGEJO_DATA_PATH:-./data/forgejo}:/var/lib/gitea
+      - /etc/localtime:/etc/localtime:ro
+    extra_hosts:
+      # Linux Docker Engine 不一定内置 host.docker.internal，显式补齐后可复用宿主机 PostgreSQL。
+      - "host.docker.internal:host-gateway"
