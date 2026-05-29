@@ -2,6 +2,7 @@
 - 若改动涉及 pwsh 相关内容（如 `scripts/pwsh/**`、`profile/**`、`psutils/**`、`tests/**/*.ps1`、`PesterConfiguration.ps1`、`docker-compose.pester.yml`），提交代码前执行 `pnpm test:pwsh:all`。
 - 如需显式验证 coverage 门槛或改动涉及 coverage 规范，额外执行 `pnpm test:pwsh:coverage`。
 - 若本机 Docker 不可用，至少执行 `pnpm test:pwsh:full`（兼容保留，当前等价 `pnpm test:pwsh:coverage`），并在说明中明确 Linux 覆盖依赖 CI 或 WSL。
+- 修改本地配置文件前，必须先在同目录创建带可读时间戳且以 `.bak` 结尾的备份文件，例如 `litellm.local.yaml.2026-05-29_09-58-00.bak`；适用范围包括 `*.local.*`、`.env.local`、`*.local.yaml`、`*.local.json`、`*.local.toml` 等只面向本机的配置文件。
 - 你必须为所有输出的代码补充清晰规范的注释。公共接口标注核心功能、入参、返回值，非直观逻辑补充设计意图，- 不重复代码本身的语义。
 
 <!-- TRELLIS:START -->
