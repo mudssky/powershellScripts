@@ -1,4 +1,4 @@
 interface:
   display_name: "Repo Ops"
-  short_description: "管理本仓库 LiteLLM、LobeHub 与依赖安装"
+  short_description: "管理本仓库 LiteLLM、LobeHub、Forgejo 与依赖安装"
   default_prompt: "使用 $repo-ops 处理本仓库的运维任务。"

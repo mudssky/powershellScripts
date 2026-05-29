@@ -1,6 +1,6 @@
 ---
 name: repo-ops
-description: 管理 powershellScripts 仓库运维任务时使用，包括 LiteLLM 网关、LobeHub 自托管、项目依赖安装、Docker Compose 服务生命周期、日志状态排查、环境变量示例文件，以及维护本地 repo-ops skill。
+description: 管理 powershellScripts 仓库运维任务时使用，包括 LiteLLM 网关、LobeHub 与 Forgejo 自托管、项目依赖安装、Docker Compose 服务生命周期、日志状态排查、环境变量示例文件，以及维护本地 repo-ops skill。
 ---
 
 # Repo Ops
@@ -11,6 +11,7 @@ description: 管理 powershellScripts 仓库运维任务时使用，包括 LiteL
 
 - LiteLLM 网关：模型路由、fallback、配置同步、启动、重启、日志、运行时 smoke test。
 - LobeHub 自托管：external/internal 模式、服务启动、状态、日志、RustFS bucket 初始化和常见排查。
+- Forgejo 自托管：服务启动、状态、日志、SSH 端口、数据盘、PostgreSQL 复用、Pull Mirror 同步和常见排查。
 - 项目依赖安装：根目录初始化、PowerShell 模块、Node/Bash 工具构建、pnpm QA。
 - 本 skill 维护：新增运维域、更新 reference、刷新 `agents/openai.yaml`、校验 skill 结构。
 
@@ -26,6 +27,7 @@ description: 管理 powershellScripts 仓库运维任务时使用，包括 LiteL
 
 - LiteLLM 网关任务：读取 `references/litellm.md`。
 - LobeHub 自托管任务：读取 `references/lobehub.md`。
+- Forgejo 自托管任务：读取 `references/forgejo.md`。
 - 项目安装、依赖、QA：读取 `references/project-install.md`。
 - 修改本 skill 或新增运维域：读取 `references/skill-maintenance.md`。
 
@@ -35,3 +37,4 @@ description: 管理 powershellScripts 仓库运维任务时使用，包括 LiteL
 - 不默认停止、删除 volume、迁移数据或执行破坏性 Docker 操作；这类操作需要用户明确要求。
 - 不把 LiteLLM 的 OpenAI 兼容 `claw-` 路由和 Claude Code Anthropic messages 兜底路由混用。
 - 不把 LobeHub external 模式误认为项目会启动 PostgreSQL、Redis、RustFS；默认 external 依赖宿主机共享服务。
+- 不把 Forgejo 本机 `.env`、数据盘 `app.ini`、SSH host key、JWT key、数据库密码或访问 token 写入 skill、提交信息或最终答复。
