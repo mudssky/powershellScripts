@@ -383,3 +383,36 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 12: 数据库查询技能开发
+
+**Date**: 2026-05-31
+**Task**: 数据库查询技能开发
+**Branch**: `master`
+
+### Summary
+
+新增 database-query skill，包含统一 CLI、SQL guard、上下文发现、凭据桥接、底层客户端文档与安装提示，并归档相关 Trellis 任务。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ee9ae9f` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
