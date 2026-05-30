@@ -30,13 +30,6 @@
         "skipInstall": true
       },
       {
-        "name": "lsd",
-        "cliName": "lsd",
-        "description": "代替linux的ls命令",
-        "command": "choco install lsd -y",
-        "skipInstall": true
-      },
-      {
         "name": "hyperfine",
         "cliName": "hyperfine",
         "description": "命令行跑分工具",
@@ -68,12 +61,6 @@
         "cliName": "tokei",
         "description": "统计各种语言的代码行数",
         "command": "scoop install tokei"
-      },
-      {
-        "name": "btm",
-        "cliName": "btm",
-        "description": "rust 版本的top，任务管理器bottom",
-        "command": "scoop install bottom"
       },
       {
         "name": "tldr",
@@ -110,12 +97,6 @@
         "cliName": "cargo-watch",
         "description": "监听变动执行cargo操作，和watchexec是同一个开发者",
         "command": "scoop install cargo-watch"
-      },
-      {
-        "name": "broot",
-        "cliName": "broot",
-        "description": "文件目录管理",
-        "command": "scoop install broot"
       },
       {
         "name": "hexyl",
@@ -232,36 +213,34 @@
         "command": "scoop install jq"
       },
       {
-        "name": "tokei",
-        "cliName": "tokei",
-        "description": "rust git仓库代码统计",
-        "command": "scoop install tokei"
+        "name": "xh",
+        "cliName": "xh",
+        "description": "HTTP 请求调试工具，友好快速的 curl/httpie 替代",
+        "command": "scoop install xh"
+      },
+      {
+        "name": "uv",
+        "cliName": "uv",
+        "description": "Rust 编写的 Python 包管理、虚拟环境与工具运行器",
+        "command": "scoop install uv"
+      },
+      {
+        "name": "ast-grep",
+        "cliName": "ast-grep",
+        "description": "基于 AST 的结构化代码搜索、lint 与重写工具",
+        "command": "scoop install ast-grep"
       },
       {
         "name": "just",
         "cliName": "just",
         "description": "命令运行器，类似 make 但更现代",
-        "command": "brew install just",
-        "supportOs": ["linux", "macOS"],
-        "tag": ["linuxserver"]
+        "command": "scoop install just"
       },
       {
         "name": "lazygit",
         "cliName": "lazygit",
         "description": "git的TUI界面",
         "command": "scoop install lazygit"
-      },
-      {
-        "name": "lazydocker",
-        "cliName": "lazydocker",
-        "description": "docker的TUI界面",
-        "command": "scoop install lazydocker"
-      },
-      {
-        "name": "zoxide",
-        "cliName": "zoxide",
-        "description": "更智能的cd",
-        "command": "scoop install zoxide"
       },
       {
         "name": "scc",
@@ -502,13 +481,6 @@
         "skipInstall": true
       },
       {
-        "name": "broot",
-        "cliName": "broot",
-        "description": "文件目录管理",
-        "command": "cargo install broot",
-        "skipInstall": true
-      },
-      {
         "name": "hexyl",
         "cliName": "hexyl",
         "description": "终端查看16进制",
@@ -529,37 +501,56 @@
         "cliName": "fnm",
         "description": "快速切换node版本",
         "command": "brew install fnm",
-        "supportOs": ["macOS", "linux"],
-        "tag": ["linuxserver"]
+        "supportOs": [
+          "macOS",
+          "linux"
+        ],
+        "tag": [
+          "linuxserver"
+        ]
       },
       {
         "name": "powershell",
         "cliName": "pwsh",
         "description": "powershell",
         "command": "brew install powershell",
-        "supportOs": ["macOS", "linux"]
+        "supportOs": [
+          "macOS",
+          "linux"
+        ]
       },
       {
         "name": "pyenv",
         "cliName": "pyenv",
         "description": "python版本管理工具",
         "command": "brew install pyenv",
-        "supportOs": ["macOS", "linux"],
-        "tag": ["linuxserver"]
+        "supportOs": [
+          "macOS",
+          "linux"
+        ],
+        "tag": [
+          "linuxserver"
+        ]
       },
       {
         "name": "xz",
         "cliName": "xz",
         "description": "xz压缩工具",
         "command": "brew install xz",
-        "supportOs": ["macOS", "linux"]
+        "supportOs": [
+          "macOS",
+          "linux"
+        ]
       },
       {
         "name": "go",
         "cliName": "go",
         "description": "golang",
         "command": "brew install go",
-        "supportOs": ["macOS", "linux"],
+        "supportOs": [
+          "macOS",
+          "linux"
+        ],
         "skipInstall": true
       },
       {
@@ -567,14 +558,18 @@
         "cliName": "dockdoor",
         "description": "macOS 的窗口预览和 Alt-Tab",
         "command": "brew install --cask dockdoor",
-        "supportOs": ["macOS"]
+        "supportOs": [
+          "macOS"
+        ]
       },
       {
         "name": "docker",
         "cliName": "docker",
         "description": "macOS的docker可视化工具",
         "command": "brew install --cask docker",
-        "supportOs": ["macOS"]
+        "supportOs": [
+          "macOS"
+        ]
       },
       {
         "name": "docker",
@@ -582,14 +577,19 @@
         "description": "linux docker，系统级工具，不适合用homebrew 安装",
         "skipInstall": true,
         "command": "brew install  docker",
-        "supportOs": ["linux"]
+        "supportOs": [
+          "linux"
+        ]
       },
       {
         "name": "yazi",
         "cliName": "yazi",
         "description": "终端文件管理器",
         "command": "brew install yazi",
-        "supportOs": ["linux", "macOS"]
+        "supportOs": [
+          "linux",
+          "macOS"
+        ]
       },
       {
         "name": "ffmpeg",
@@ -597,120 +597,181 @@
         "description": "音视频处理工具,系统级工具，不推荐homebrew安装",
         "command": "brew install ffmpeg",
         "skipInstall": true,
-        "supportOs": ["linux", "macOS"]
+        "supportOs": [
+          "linux",
+          "macOS"
+        ]
       },
       {
         "name": "sevenzip",
         "cliName": "sevenzip",
         "description": "7zip压缩工具",
         "command": "brew install sevenzip",
-        "supportOs": ["linux", "macOS"]
+        "supportOs": [
+          "linux",
+          "macOS"
+        ]
       },
       {
         "name": "jq",
         "cliName": "jq",
         "description": "命令行JSON处理工具",
         "command": "brew install jq",
-        "supportOs": ["linux", "macOS"],
-        "tag": ["linuxserver"]
+        "supportOs": [
+          "linux",
+          "macOS"
+        ],
+        "tag": [
+          "linuxserver"
+        ]
       },
       {
         "name": "poppler",
         "cliName": "pdfinfo",
         "description": "PDF处理工具集",
         "command": "brew install poppler",
-        "supportOs": ["linux", "macOS"]
+        "supportOs": [
+          "linux",
+          "macOS"
+        ]
       },
       {
         "name": "fd",
         "cliName": "fd",
         "description": "快速文件搜索工具",
         "command": "brew install fd",
-        "supportOs": ["linux", "macOS"],
-        "tag": ["linuxserver"]
+        "supportOs": [
+          "linux",
+          "macOS"
+        ],
+        "tag": [
+          "linuxserver"
+        ]
       },
       {
         "name": "eza",
         "cliName": "eza",
         "description": "现代 ls 替代品，支持丰富展示",
         "command": "brew install eza",
-        "supportOs": ["linux", "macOS"],
-        "tag": ["linuxserver"]
+        "supportOs": [
+          "linux",
+          "macOS"
+        ],
+        "tag": [
+          "linuxserver"
+        ]
       },
       {
         "name": "ripgrep",
         "cliName": "rg",
         "description": "快速文本搜索工具",
         "command": "brew install ripgrep",
-        "supportOs": ["linux", "macOS"],
-        "tag": ["linuxserver"]
+        "supportOs": [
+          "linux",
+          "macOS"
+        ],
+        "tag": [
+          "linuxserver"
+        ]
       },
       {
         "name": "fzf",
         "cliName": "fzf",
         "description": "模糊查找工具",
         "command": "brew install fzf",
-        "supportOs": ["linux", "macOS"],
-        "tag": ["linuxserver"]
+        "supportOs": [
+          "linux",
+          "macOS"
+        ],
+        "tag": [
+          "linuxserver"
+        ]
       },
       {
         "name": "zoxide",
         "cliName": "zoxide",
         "description": "智能目录跳转工具",
         "command": "brew install zoxide",
-        "supportOs": ["linux", "macOS"],
-        "tag": ["linuxserver"]
+        "supportOs": [
+          "linux",
+          "macOS"
+        ],
+        "tag": [
+          "linuxserver"
+        ]
       },
       {
         "name": "resvg",
         "cliName": "resvg",
         "description": "SVG渲染工具",
         "command": "brew install resvg",
-        "supportOs": ["linux", "macOS"]
+        "supportOs": [
+          "linux",
+          "macOS"
+        ]
       },
       {
         "name": "imagemagick",
         "cliName": "magick",
         "description": "图像处理工具",
         "command": "brew install imagemagick",
-        "supportOs": ["linux", "macOS"]
+        "supportOs": [
+          "linux",
+          "macOS"
+        ]
       },
       {
         "name": "font-symbols-only-nerd-font",
         "cliName": "font-symbols-only-nerd-font",
         "description": "Nerd Font符号字体",
         "command": "brew install --cask font-symbols-only-nerd-font",
-        "supportOs": ["macOS"]
+        "supportOs": [
+          "macOS"
+        ]
       },
       {
         "name": "jordanbaird-ice",
         "cliName": "jordanbaird-ice",
         "description": "macOS 菜单栏管理工具",
         "command": "brew install --cask jordanbaird-ice",
-        "supportOs": ["macOS"]
+        "supportOs": [
+          "macOS"
+        ]
       },
       {
         "name": "hammerspoon",
         "cliName": "hammerspoon",
         "description": "macOS 自动化工具",
         "command": "brew install --cask hammerspoon",
-        "supportOs": ["macOS"]
+        "supportOs": [
+          "macOS"
+        ]
       },
       {
         "name": "starship",
         "cliName": "starship",
         "description": "跨平台shell提示符",
         "command": "brew install starship",
-        "supportOs": ["linux", "macOS"],
-        "tag": ["linuxserver"]
+        "supportOs": [
+          "linux",
+          "macOS"
+        ],
+        "tag": [
+          "linuxserver"
+        ]
       },
       {
         "name": "bat",
         "cliName": "bat",
         "description": "cat的替代品",
         "command": "brew install bat",
-        "supportOs": ["linux", "macOS"],
-        "tag": ["linuxserver"]
+        "supportOs": [
+          "linux",
+          "macOS"
+        ],
+        "tag": [
+          "linuxserver"
+        ]
       },
       {
         "name": "dust",
@@ -724,82 +785,174 @@
         "cliName": "duf",
         "description": "磁盘使用情况工具",
         "command": "brew install duf",
-        "supportOs": ["linux", "macOS"],
-        "tag": ["linuxserver"]
+        "supportOs": [
+          "linux",
+          "macOS"
+        ],
+        "tag": [
+          "linuxserver"
+        ]
       },
       {
         "name": "dua-cli",
         "cliName": "dua",
         "description": "磁盘占用情况分析工具 (dua)",
         "command": "brew install dua-cli",
-        "supportOs": ["linux", "macOS"],
-        "tag": ["linuxserver"]
+        "supportOs": [
+          "linux",
+          "macOS"
+        ],
+        "tag": [
+          "linuxserver"
+        ]
       },
       {
         "name": "lazygit",
         "cliName": "lazygit",
         "description": "git的TUI界面",
         "command": "brew install lazygit",
-        "supportOs": ["linux", "macOS"],
-        "tag": ["linuxserver"]
+        "supportOs": [
+          "linux",
+          "macOS"
+        ],
+        "tag": [
+          "linuxserver"
+        ]
+      },
+      {
+        "name": "xh",
+        "cliName": "xh",
+        "description": "HTTP 请求调试工具，友好快速的 curl/httpie 替代",
+        "command": "brew install xh",
+        "supportOs": [
+          "linux",
+          "macOS"
+        ],
+        "tag": [
+          "linuxserver"
+        ]
+      },
+      {
+        "name": "uv",
+        "cliName": "uv",
+        "description": "Rust 编写的 Python 包管理、虚拟环境与工具运行器",
+        "command": "brew install uv",
+        "supportOs": [
+          "linux",
+          "macOS"
+        ],
+        "tag": [
+          "linuxserver"
+        ]
+      },
+      {
+        "name": "ast-grep",
+        "cliName": "ast-grep",
+        "description": "基于 AST 的结构化代码搜索、lint 与重写工具",
+        "command": "brew install ast-grep",
+        "supportOs": [
+          "linux",
+          "macOS"
+        ],
+        "tag": [
+          "linuxserver"
+        ]
+      },
+      {
+        "name": "just",
+        "cliName": "just",
+        "description": "命令运行器，类似 make 但更现代",
+        "command": "brew install just",
+        "supportOs": [
+          "linux",
+          "macOS"
+        ],
+        "tag": [
+          "linuxserver"
+        ]
       },
       {
         "name": "yq",
         "cliName": "yq",
         "description": "YAML/JSON处理器",
         "command": "brew install yq",
-        "supportOs": ["linux", "macOS"]
+        "supportOs": [
+          "linux",
+          "macOS"
+        ]
       },
       {
         "name": "bottom",
         "cliName": "btm",
         "description": "rust 版本的top，任务管理器bottom",
         "command": "brew install bottom",
-        "supportOs": ["linux", "macOS"]
+        "supportOs": [
+          "linux",
+          "macOS"
+        ]
       },
       {
         "name": "neovim",
         "cliName": "nvim",
         "description": "现代化的 Vim 文本编辑器",
         "command": "brew install neovim",
-        "supportOs": ["linux", "macOS"],
-        "tag": ["linuxserver"]
+        "supportOs": [
+          "linux",
+          "macOS"
+        ],
+        "tag": [
+          "linuxserver"
+        ]
       },
       {
         "name": "neovide",
         "cliName": "neovide",
         "description": "Neovim的GUI前端",
         "command": "brew install --cask neovide",
-        "supportOs": ["macOS"]
+        "supportOs": [
+          "macOS"
+        ]
       },
       {
         "name": "font-fira-code-nerd-font",
         "cliName": "font-fira-code-nerd-font",
         "description": "Fira Code Nerd Font",
         "command": "brew install --cask font-fira-code-nerd-font",
-        "supportOs": ["macOS"]
+        "supportOs": [
+          "macOS"
+        ]
       },
       {
         "name": "font-jetbrains-mono-nerd-font",
         "cliName": "font-jetbrains-mono-nerd-font",
         "description": "JetBrains Mono Nerd Font",
         "command": "brew install --cask font-jetbrains-mono-nerd-font",
-        "supportOs": ["macOS"]
+        "supportOs": [
+          "macOS"
+        ]
       },
       {
         "name": "zellij",
         "cliName": "zellij",
         "description": "现代终端复用器",
         "command": "brew install zellij",
-        "supportOs": ["macOS", "linux"],
-        "tag": ["linuxserver"]
+        "supportOs": [
+          "macOS",
+          "linux"
+        ],
+        "tag": [
+          "linuxserver"
+        ]
       },
       {
         "name": "llmfit",
         "cliName": "llmfit",
         "description": "llmfit 命令行工具",
         "command": "brew install llmfit",
-        "supportOs": ["macOS", "linux"]
+        "supportOs": [
+          "macOS",
+          "linux"
+        ]
       }
     ],
     "npm": [
@@ -844,7 +997,9 @@
         "cliName": "uipro",
         "description": "UIPro 命令行工具",
         "command": "npm install -g uipro-cli",
-        "tag": ["aicoding"]
+        "tag": [
+          "aicoding"
+        ]
       }
     ],
     "bun": [
