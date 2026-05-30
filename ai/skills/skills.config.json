@@ -35,6 +35,16 @@
       "sourceUrl": "https://github.com/vercel-labs/agent-browser.git",
       "skillPath": "skills/agent-browser/SKILL.md"
     },
+    "api-example-test-writer": {
+      "description": "在项目中为 HTTP/API 接口编写可执行 .http 活示例和 httpyac 测试。",
+      "source": "./dev/api-example-test-writer",
+      "sourceType": "local"
+    },
+    "database-query": {
+      "description": "安全连接和查询多个数据库实例，并在执行关系型 SQL 前运行静态 guard。",
+      "source": "./dev/database-query",
+      "sourceType": "local"
+    },
     "mattpocock-skills": {
       "description": "Matt Pocock 维护的精选编码、诊断、架构与评审 skill 集合。",
       "source": "mattpocock/skills",

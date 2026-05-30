@@ -1,0 +1,103 @@
+{
+  "defaults": {
+    "defaultInstance": "local-postgres",
+    "limit": 50,
+    "maxLimit": 1000,
+    "permissionLevel": "readonly",
+    "outputFormat": "text",
+    "redactFields": ["password", "uri", "url", "token"],
+    "allowedActions": {
+      "postgres": ["sql"],
+      "mysql": ["sql"],
+      "sqlite": ["sql"],
+      "mongodb": ["list-collections", "count", "find"],
+      "redis": ["ping", "info", "scan", "type", "ttl", "get", "hget", "lrange"],
+      "milvus": ["list-collections", "describe-collection", "query", "search"]
+    }
+  },
+  "instances": [
+    {
+      "id": "local-postgres",
+      "type": "postgres",
+      "environment": "local",
+      "host": "localhost",
+      "port": 5432,
+      "username": "${env:DB_LOCAL_POSTGRES_USER}",
+      "password": "${env:DB_LOCAL_POSTGRES_PASSWORD}",
+      "defaultDatabase": "app",
+      "readonly": true,
+      "databases": [
+        {
+          "name": "app",
+          "schemas": ["public"]
+        },
+        {
+          "name": "analytics",
+          "schemas": ["public", "mart"]
+        }
+      ]
+    },
+    {
+      "id": "local-mysql",
+      "type": "mysql",
+      "environment": "local",
+      "host": "localhost",
+      "port": 3306,
+      "username": "${env:DB_LOCAL_MYSQL_USER}",
+      "password": "${env:DB_LOCAL_MYSQL_PASSWORD}",
+      "defaultDatabase": "app",
+      "readonly": true,
+      "databases": [{ "name": "app" }, { "name": "reporting" }]
+    },
+    {
+      "id": "local-sqlite",
+      "type": "sqlite",
+      "environment": "local",
+      "path": "./data/app.sqlite",
+      "readonly": true,
+      "databases": [{ "name": "main", "schemas": ["main"] }]
+    },
+    {
+      "id": "local-mongo",
+      "type": "mongodb",
+      "environment": "local",
+      "uri": "${env:DB_LOCAL_MONGO_URI}",
+      "defaultDatabase": "app",
+      "readonly": true,
+      "databases": [
+        {
+          "name": "app",
+          "collections": ["users", "orders"],
+          "defaultCollection": "users"
+        },
+        {
+          "name": "logs"
+        }
+      ]
+    },
+    {
+      "id": "local-redis",
+      "type": "redis",
+      "environment": "local",
+      "url": "${env:DB_LOCAL_REDIS_URL}",
+      "readonly": true,
+      "databases": [{ "name": "0" }]
+    },
+    {
+      "id": "local-milvus",
+      "type": "milvus",
+      "environment": "local",
+      "address": "${env:DB_LOCAL_MILVUS_ADDRESS}",
+      "token": "${env:DB_LOCAL_MILVUS_TOKEN}",
+      "defaultDatabase": "default",
+      "readonly": true,
+      "databases": [
+        {
+          "name": "default",
+          "collections": ["documents"],
+          "defaultCollection": "documents"
+        }
+      ]
+    }
+  ]
+}

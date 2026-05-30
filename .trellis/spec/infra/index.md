@@ -11,6 +11,7 @@
 | [Coding Plan Window Warmer](./coding-plan-window-warmer.md) | 独立窗口预热脚本、直连上游、uv 依赖和 PM2 管理约定 | Active |
 | [LiteLLM Gateway](./litellm-gateway.md) | LiteLLM 路由、fallback、参数兼容和验证边界 | Active |
 | [Hermes Agent Layout](./hermes-agent-layout.md) | Hermes 官方安装目录、`HERMES_HOME`、gateway launchd 与本地状态提交边界 | Active |
+| [Agent Skill Development](./agent-skill-dev.md) | `ai/skills/dev` 本地 skill、TypeScript 脚本、scripts 分发产物和安装态运行契约 | Active |
 | [Node/Vitest Scripts](./node-vitest-scripts.md) | 根目录 Vitest 发现的 Node 脚本测试与 shebang 行尾约定 | Active |
 | [PostgreSQL Toolkit](./postgresql-toolkit.md) | PostgreSQL / pgBackRest 命令边界、env 解析和备份范围约定 | Active |
 | [Self-Hosted Compose](./self-hosted-compose.md) | 根目录 self-hosted 应用 compose、外部基础设施复用、本机数据盘与 env 忽略契约 | Active |

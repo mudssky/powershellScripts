@@ -8,6 +8,9 @@ enableProxy
 macEnableProxy.ps1
 gitconfig_company.ps1
 *.local.json
+*.local.yaml
+*.local.yml
+database-query.local.*
 
 # 本地运行数据与工具状态
 .shrimp-data/

@@ -5,3 +5,4 @@ packages:
   - 'scripts/node'
   - 'scripts/pwsh'
   - 'psutils'
+  - 'ai/skills/dev/*'
