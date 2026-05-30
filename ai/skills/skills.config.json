@@ -1,17 +1,30 @@
 {
   "version": 1,
   "scope": "global",
-  "agents": ["claude", "codex"],
+  "agents": [
+    "claude",
+    "codex"
+  ],
   "tools": {
     "ctx7": {
       "description": "安装并配置 Context7 文档检索能力。",
       "phase": "preInstall",
       "check": {
-        "agents": ["claude", "codex"],
-        "skills": ["find-docs"]
+        "agents": [
+          "claude",
+          "codex"
+        ],
+        "skills": [
+          "find-docs"
+        ]
       },
       "command": "npx",
-      "args": ["ctx7@latest", "setup", "--cli", "--claude"]
+      "args": [
+        "ctx7@latest",
+        "setup",
+        "--cli",
+        "--claude"
+      ]
     }
   },
   "skills": {
@@ -21,6 +34,24 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/vercel-labs/agent-browser.git",
       "skillPath": "skills/agent-browser/SKILL.md"
+    },
+    "mattpocock-skills": {
+      "description": "Matt Pocock 维护的精选编码、诊断、架构与评审 skill 集合。",
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/mattpocock/skills.git",
+      "skill": [
+        "diagnose",
+        "grill-with-docs",
+        "grill-me",
+        "improve-codebase-architecture",
+        "prototype",
+        "tdd",
+        "zoom-out",
+        "design-an-interface",
+        "review",
+        "to-prd"
+      ]
     },
     "supabase-postgres-best-practices": {
       "description": "Supabase Postgres 查询、schema 与性能优化最佳实践。",
