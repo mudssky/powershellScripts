@@ -349,3 +349,37 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 11: macOS 内存诊断与 pwshfmt 回退修复
+
+**Date**: 2026-05-30
+**Task**: macOS 内存诊断与 pwshfmt 回退修复
+**Branch**: `master`
+
+### Summary
+
+优化 macOS memory-diagnostics 输出，补充 memory_pressure、压缩内存、Docker Desktop VM 上限和建议规则；修复 pwshfmt-rs strict fallback 通过 PowerShell 适配层递归调用自身的问题。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c03da80` | (see git log) |
+| `f5a3c4d` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
