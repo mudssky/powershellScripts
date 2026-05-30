@@ -5,7 +5,7 @@ use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::config::Config;
+use crate::config::{Config, FALLBACK_ACTIVE_ENV};
 use crate::discovery::discover_files;
 use crate::error::{AppError, Result};
 use crate::formatter::format_content;
@@ -36,6 +36,7 @@ impl FallbackRunner for PwshFallbackRunner {
     fn run_strict(&self, path: &Path) -> Result<()> {
         let output = Command::new("pwsh")
             .current_dir(&self.working_dir)
+            .env(FALLBACK_ACTIVE_ENV, "1")
             .args(["-NoProfile", "-File"])
             .arg(&self.script_path)
             .arg(path)
@@ -123,10 +124,7 @@ fn process_file(
 
     if correction.unsafe_detected {
         if !config.strict_fallback {
-            eprintln!(
-                "SKIPPED {} (检测到不安全语法，跳过格式化)",
-                path.display()
-            );
+            eprintln!("SKIPPED {} (检测到不安全语法，跳过格式化)", path.display());
             return FileReport::unchanged(path.to_path_buf(), 0, 0);
         }
 
@@ -177,7 +175,11 @@ fn process_file(
     }
 }
 
-fn run_fallback_check(path: &Path, original: &str, fallback_runner: &dyn FallbackRunner) -> Result<bool> {
+fn run_fallback_check(
+    path: &Path,
+    original: &str,
+    fallback_runner: &dyn FallbackRunner,
+) -> Result<bool> {
     let temp_file = build_temp_path(path);
     fs::write(&temp_file, original.as_bytes())
         .map_err(|source| AppError::io("写入临时文件", &temp_file, source))?;
@@ -196,7 +198,11 @@ fn run_fallback_check(path: &Path, original: &str, fallback_runner: &dyn Fallbac
     Ok(formatted != original)
 }
 
-fn run_fallback_write(path: &Path, original: &str, fallback_runner: &dyn FallbackRunner) -> Result<bool> {
+fn run_fallback_write(
+    path: &Path,
+    original: &str,
+    fallback_runner: &dyn FallbackRunner,
+) -> Result<bool> {
     fallback_runner.run_strict(path)?;
     let formatted =
         fs::read_to_string(path).map_err(|source| AppError::io("读取回退结果", path, source))?;

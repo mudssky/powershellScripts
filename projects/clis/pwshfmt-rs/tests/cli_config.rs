@@ -3,19 +3,23 @@ mod common;
 use clap::{Parser, error::ErrorKind};
 use pwshfmt_rs::{
     cli::Cli,
-    config::{self, Config},
+    config::{self, Config, FALLBACK_ACTIVE_ENV},
 };
 
 #[test]
 fn cli_supports_help_output() {
-    let error = Cli::try_parse_from(["pwshfmt-rs", "--help"]).expect_err("help should short-circuit");
+    let error =
+        Cli::try_parse_from(["pwshfmt-rs", "--help"]).expect_err("help should short-circuit");
     assert_eq!(error.kind(), ErrorKind::DisplayHelp);
 }
 
 #[test]
 fn cli_requires_subcommand() {
     let error = Cli::try_parse_from(["pwshfmt-rs"]).expect_err("subcommand should be required");
-    assert_eq!(error.kind(), ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand);
+    assert_eq!(
+        error.kind(),
+        ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand
+    );
 }
 
 #[test]
@@ -39,13 +43,16 @@ fn config_uses_defaults_when_file_missing() {
 
     let config = config::load(&cli, workspace.path()).expect("load config");
 
-    assert_eq!(config, Config {
-        git_changed: false,
-        paths: vec!["scripts/demo.ps1".to_string()],
-        recurse: false,
-        strict_fallback: false,
-        fallback_script: std::path::PathBuf::from("fallback.ps1"),
-    });
+    assert_eq!(
+        config,
+        Config {
+            git_changed: false,
+            paths: vec!["scripts/demo.ps1".to_string()],
+            recurse: false,
+            strict_fallback: false,
+            fallback_script: std::path::PathBuf::from("fallback.ps1"),
+        }
+    );
 }
 
 #[test]
@@ -87,6 +94,40 @@ fallback_script = "from-config-fallback.ps1"
         assert_eq!(config.paths, vec!["from-cli.ps1".to_string()]);
         assert!(config.recurse);
         assert!(config.strict_fallback);
-        assert_eq!(config.fallback_script, std::path::PathBuf::from("fallback.ps1"));
+        assert_eq!(
+            config.fallback_script,
+            std::path::PathBuf::from("fallback.ps1")
+        );
+    });
+}
+
+#[test]
+fn config_disables_strict_fallback_inside_internal_fallback_context() {
+    let workspace = common::create_workspace();
+    let fallback = common::write_file(workspace.path(), "fallback.ps1", "# fallback");
+
+    let cli = Cli::try_parse_from([
+        "pwshfmt-rs",
+        "write",
+        "--path",
+        "unsafe.ps1",
+        "--strict-fallback",
+        "--fallback-script",
+        fallback
+            .strip_prefix(workspace.path())
+            .expect("relative fallback")
+            .to_string_lossy()
+            .as_ref(),
+    ])
+    .expect("parse cli");
+
+    temp_env::with_var(FALLBACK_ACTIVE_ENV, Some("1"), || {
+        let config = config::load(&cli, workspace.path()).expect("load guarded config");
+
+        assert!(!config.strict_fallback);
+        assert_eq!(
+            config.fallback_script,
+            std::path::PathBuf::from("fallback.ps1")
+        );
     });
 }
