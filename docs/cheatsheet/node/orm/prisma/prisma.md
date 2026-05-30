@@ -1,3 +1,5 @@
+# Prisma 速查
+
 ### Prisma 全流程速查表 (Cheatsheet)
 
 本文档涵盖了使用 Prisma 的完整生命周期：从项目初始化、定义数据模型、数据库迁移，到在应用程序中使用 Prisma Client 进行数据操作。

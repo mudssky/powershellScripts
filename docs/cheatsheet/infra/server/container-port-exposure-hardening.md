@@ -289,6 +289,6 @@ ss -ltnp | rg ':5432\b'
 
 ## 相关阅读
 
-- [Linux 开发服务器最佳实践速查表](./development_server_best_practices.md)
+- [Linux 开发服务器最佳实践速查表](./development-server-best-practices.md)
 - [Tailscale 速查表](../../network/tailscale/index.md)
 - [Caddy 静态站点最佳实践](./caddy/静态站点最佳实践.md)

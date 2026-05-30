@@ -1,3 +1,5 @@
+# telescope.nvim 速查
+
 ## Neovim Telescope 速查表
 
 Telescope 是 Neovim 的一个高度可扩展的模糊查找器，可让您快速查找、筛选、预览和选取文件、缓冲区、Git 提交等。这份速查表旨在帮助您快速掌握 Telescope 的常用命令和快捷键。

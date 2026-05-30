@@ -1,3 +1,5 @@
+# Deno TypeScript 跨平台单文件脚本最佳实践
+
 使用 TypeScript 编写跨平台、单文件、可直接执行的脚本，目前的**最佳实践是使用 Deno**（或者 Google 的 `zx` 库）。
 
 传统的 Node.js 需要 `package.json`、`node_modules` 文件夹以及编译步骤（`tsc`），这违背了“轻量级脚本”的初衷。而 **Deno** 天生支持 TypeScript，支持 URL 导入依赖（无需 `node_modules`），并且拥有强大的权限控制。

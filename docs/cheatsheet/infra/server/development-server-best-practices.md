@@ -19,7 +19,7 @@
 - 基础包：`build-essential`、`curl`、`git`、`htop`/`btop`、`vim`/`neovim`
 - 本地化：时区 `timedatectl set-timezone`、Locale 统一（避免构建差异）
 - 磁盘与健康：`smartctl`、`df -h`、`du -sh`、inode 与日志占用监控
-- 参考：`../env.md`、`../apt.md`
+- 参考：`../../linux/env.md`、`../../linux/apt.md`
 
 ## 用户与权限
 
@@ -76,5 +76,5 @@
 
 ## 参考
 
-- 相关文档：`../env.md`、`../apt.md`、`../server/caddy/caddy.md`、`../server/caddy/静态站点最佳实践.md`
+- 相关文档：`../../linux/env.md`、`../../linux/apt.md`、`./caddy/caddy.md`、`./caddy/静态站点最佳实践.md`
 - 端口与容器暴露治理：`./container-port-exposure-hardening.md`

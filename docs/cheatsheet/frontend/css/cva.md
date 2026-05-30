@@ -1,3 +1,5 @@
+# CVA 使用速查
+
 ### CVA (class-variance-authority) 速查表
 
 `cva` 是一个用于创建和管理 UI 组件样式变体 (variants) 的强大工具，尤其适合与 Tailwind CSS 结合使用。

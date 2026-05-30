@@ -1,3 +1,5 @@
+# Windows Hosts 与 DNS 排障速查
+
 ## Windows hosts 失效 / 被 DNS 忽略排错记录
 
 > 目标：记录一次 Windows 上 `hosts` 完全被忽略的排错过程，并给出可复用的排查步骤。文中出现的 IP（例如公网 IP）均为示例，已做脱敏处理。

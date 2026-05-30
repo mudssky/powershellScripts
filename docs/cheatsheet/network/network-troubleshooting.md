@@ -1,3 +1,5 @@
+# PowerShell 网络排障速查
+
 这是一个关于使用 PowerShell (pwsh) 进行网络故障排查的速查表（Cheatsheet）。
 
 需要特别注意的是：**PowerShell Core (pwsh 6/7+) 是跨平台的，但很多强大的网络模组（如 `NetTCPIP`，包含 `Test-NetConnection` 等）主要依赖 Windows 的 WMI/CIM 接口，因此在 Linux 上原生不可用。**

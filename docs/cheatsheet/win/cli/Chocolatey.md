@@ -1,3 +1,5 @@
+# Chocolatey 速查
+
 这份 **Chocolatey (Choco) 命令行速查表** 涵盖了从安装、日常使用到高级管理的常用命令。建议在使用前确保以 **管理员身份 (Administrator)** 运行 PowerShell 或 CMD。
 
 ---

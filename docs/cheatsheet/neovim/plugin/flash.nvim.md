@@ -1,3 +1,5 @@
+# flash.nvim 速查
+
 ## Flash.nvim 速查表：光速导航你的代码
 
 Flash.nvim 是一款 Neovim 插件，它能让你在代码中进行闪电般快速的导航。通过搜索标签、增强的字符移动和 Treesitter 集成，你可以瞬间跳转到屏幕上的任何位置。

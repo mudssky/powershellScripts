@@ -1,3 +1,5 @@
+# Dependabot 速查
+
 这是一份适用于 2026 年的 Dependabot 配置速查表（Cheatsheet）。包含了你需要的 **Node.js (pnpm monorepo)**、**GitHub Actions** 以及最新的 **Python (uv)** 配置案例。
 
 这份配置使用了最新的 **`directories`（通配符支持）** 和 **`groups`（分组更新）** 功能，旨在减少 PR 噪音。

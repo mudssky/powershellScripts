@@ -1,3 +1,4 @@
+# systemd-run 速查
 
 `systemd-run` 是一个非常强大的工具，它允许你将普通的命令封装成**临时的 (transient)** systemd 单元（Service、Scope 或 Timer）来运行。这对于后台运行任务、限制资源使用（CPU/内存）、定时执行以及与终端会话解绑非常有用。
 
