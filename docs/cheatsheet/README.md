@@ -5,6 +5,7 @@
 ## 分类规则
 
 - `infra/`：基础设施、服务器、反向代理、容器暴露、运维安全等跨平台或偏服务端的主题。
+- `api/`：接口调试、HTTP 客户端、接口活示例、契约冒烟测试和 API 自动化测试工具。
 - `network/`：Tailscale、DNS、端口连通性、跨平台网络排障等通用网络工具。
 - `linux/`、`win/`、`macos/`：平台专属命令、系统配置和平台专属排障。
 - `pwsh/`、`python/`、`rust/`、`golang/`、`lua/`、`typescript/`：语言或脚本运行时相关实践。
@@ -18,6 +19,7 @@
 ## 常用入口
 
 - 服务器与反向代理：[`infra/server/`](./infra/server/)
+- 接口调试与测试：[`api/`](./api/)
 - 通用网络工具：[`network/`](./network/)
 - 平台网络排障：[`linux/network/`](./linux/network/)、[`win/network/`](./win/network/)
 - VS Code 远程开发：[`vscode/remote/`](./vscode/remote/)
