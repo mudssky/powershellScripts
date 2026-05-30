@@ -95,7 +95,7 @@ origin: docs/brainstorms/2026-03-15-pwsh-test-host-priority-brainstorm.md
    - `Invoke-Benchmark` 的默认日志噪音已经基本收口，而 `cache.Tests.ps1` 仍是当前共享最慢文件。
 4. `docs/solutions/developer-experience/benchmark-interactive-selection-psutils-20260314.md:59-61,117-130`
    - benchmark 入口已经沉淀了统一交互选择能力；后续不要把 `fzf` / 文本降级逻辑重新散落回脚本或测试里。
-5. `todos/002-ready-p2-pwsh-test-followups.md:31-40,69-88,116-119`
+5. `docs/todos/002-ready-p2-pwsh-test-followups.md:31-40,69-88,116-119`
    - 仓库已经明确记录过后续建议：`Invoke-Benchmark.Tests.ps1` 保留 1 条真实 smoke，其余下沉；coverage 补强更适合单独推进，不应继续夹在本轮热点提速里。
 
 ### External Research Decision
@@ -534,4 +534,4 @@ pnpm test:pwsh:all
 - `docs/plans/2026-03-15-002-refactor-separate-pwsh-coverage-gate-plan.md`
 - `docs/solutions/workflow-issues/pwsh-cross-platform-test-workflow-stability-system-20260314.md`
 - `docs/solutions/developer-experience/benchmark-interactive-selection-psutils-20260314.md`
-- `todos/002-ready-p2-pwsh-test-followups.md`
+- `docs/todos/002-ready-p2-pwsh-test-followups.md`
