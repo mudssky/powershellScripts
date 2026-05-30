@@ -118,6 +118,113 @@ function ConvertFrom-DockerStatsJsonLine {
 
 <#
 .SYNOPSIS
+    解析 Docker Desktop 虚拟机进程命令行。
+
+.DESCRIPTION
+    macOS Docker Desktop 的 Linux VM 会在 `com.docker.virtualization` 命令行暴露 `--memoryMiB`，该函数只读取并转换这一只读线索。
+
+.PARAMETER Line
+    `ps -ww -axo pid=,command=` 输出的一行文本。
+
+.OUTPUTS
+    PSCustomObject
+    返回 Docker Desktop VM 内存上限摘要；无法解析时返回 `$null`。
+#>
+function ConvertFrom-DockerDesktopVmProcessLine {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Line
+    )
+
+    $processMatch = [regex]::Match($Line, '^\s*(?<pid>\d+)\s+(?<command>.+)$')
+    if (-not $processMatch.Success) {
+        return $null
+    }
+
+    $command = $processMatch.Groups['command'].Value
+    if ($command -notmatch 'com\.docker\.virtualization') {
+        return $null
+    }
+
+    $memoryMatch = [regex]::Match($command, '--memoryMiB\s+(?<memory>\d+)')
+    if (-not $memoryMatch.Success) {
+        return $null
+    }
+
+    $memoryLimitMB = [double]$memoryMatch.Groups['memory'].Value
+    return [pscustomobject]@{
+        desktopVmProcessId       = [int]$processMatch.Groups['pid'].Value
+        desktopVmMemoryLimitMB   = [math]::Round($memoryLimitMB, 2)
+        desktopVmMemoryLimitGB   = [math]::Round($memoryLimitMB / 1024, 2)
+        desktopVmMemoryLimitText = "$([int]$memoryLimitMB) MiB"
+        source                   = 'docker-desktop-ps'
+    }
+}
+
+<#
+.SYNOPSIS
+    获取 macOS Docker Desktop VM 内存上限。
+
+.DESCRIPTION
+    通过只读 `ps` 输出解析 Docker Desktop VM 启动参数；采集失败不影响容器内存报告。
+
+.OUTPUTS
+    PSCustomObject
+    返回 `Snapshot` 与 `Warnings`。
+#>
+function Get-DockerDesktopVmSnapshot {
+    [CmdletBinding()]
+    param()
+
+    $emptySnapshot = [pscustomobject]@{
+        desktopVmProcessId       = $null
+        desktopVmMemoryLimitMB   = $null
+        desktopVmMemoryLimitGB   = $null
+        desktopVmMemoryLimitText = $null
+        source                   = 'docker-desktop-ps'
+    }
+
+    if (-not $IsMacOS) {
+        return [pscustomobject]@{
+            Snapshot = $emptySnapshot
+            Warnings = @()
+        }
+    }
+
+    try {
+        $lines = @(ps -ww -axo pid=,command= 2>$null)
+        foreach ($line in $lines) {
+            $snapshot = ConvertFrom-DockerDesktopVmProcessLine -Line ([string]$line)
+            if ($null -ne $snapshot) {
+                return [pscustomobject]@{
+                    Snapshot = $snapshot
+                    Warnings = @()
+                }
+            }
+        }
+
+        return [pscustomobject]@{
+            Snapshot = $emptySnapshot
+            Warnings = @()
+        }
+    }
+    catch {
+        return [pscustomobject]@{
+            Snapshot = $emptySnapshot
+            Warnings = @(
+                New-MemoryDiagnosticsWarning `
+                    -Code 'docker.desktop_vm_failed' `
+                    -Source 'docker' `
+                    -Message 'Docker Desktop VM 参数采集失败。' `
+                    -Details @{ error = $_.Exception.Message }
+            )
+        }
+    }
+}
+
+<#
+.SYNOPSIS
     获取 Docker 容器内存快照。
 
 .DESCRIPTION
@@ -131,6 +238,8 @@ function Get-DockerMemorySnapshot {
     [CmdletBinding()]
     param()
 
+    $desktopVmSnapshot = Get-DockerDesktopVmSnapshot
+    $desktopVm = $desktopVmSnapshot.Snapshot
     $dockerCommand = Get-Command docker -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($null -eq $dockerCommand) {
         $warning = New-MemoryDiagnosticsWarning `
@@ -143,7 +252,11 @@ function Get-DockerMemorySnapshot {
             status        = 'command_missing'
             totalMemoryMB = 0
             items         = @()
-            warnings      = @($warning)
+            desktopVmProcessId       = $desktopVm.desktopVmProcessId
+            desktopVmMemoryLimitMB   = $desktopVm.desktopVmMemoryLimitMB
+            desktopVmMemoryLimitGB   = $desktopVm.desktopVmMemoryLimitGB
+            desktopVmMemoryLimitText = $desktopVm.desktopVmMemoryLimitText
+            warnings      = @($desktopVmSnapshot.Warnings + $warning)
         }
     }
 
@@ -162,11 +275,15 @@ function Get-DockerMemorySnapshot {
                 status        = 'stats_failed'
                 totalMemoryMB = 0
                 items         = @()
-                warnings      = @($warning)
+                desktopVmProcessId       = $desktopVm.desktopVmProcessId
+                desktopVmMemoryLimitMB   = $desktopVm.desktopVmMemoryLimitMB
+                desktopVmMemoryLimitGB   = $desktopVm.desktopVmMemoryLimitGB
+                desktopVmMemoryLimitText = $desktopVm.desktopVmMemoryLimitText
+                warnings      = @($desktopVmSnapshot.Warnings + $warning)
             }
         }
 
-        $warnings = @()
+        $warnings = @($desktopVmSnapshot.Warnings)
         $items = foreach ($line in $output) {
             if ([string]::IsNullOrWhiteSpace([string]$line)) {
                 continue
@@ -200,6 +317,10 @@ function Get-DockerMemorySnapshot {
             status        = $status
             totalMemoryMB = $totalMemoryMB
             items         = @($items)
+            desktopVmProcessId       = $desktopVm.desktopVmProcessId
+            desktopVmMemoryLimitMB   = $desktopVm.desktopVmMemoryLimitMB
+            desktopVmMemoryLimitGB   = $desktopVm.desktopVmMemoryLimitGB
+            desktopVmMemoryLimitText = $desktopVm.desktopVmMemoryLimitText
             warnings      = @($warnings)
         }
     }
@@ -215,7 +336,11 @@ function Get-DockerMemorySnapshot {
             status        = 'snapshot_failed'
             totalMemoryMB = 0
             items         = @()
-            warnings      = @($warning)
+            desktopVmProcessId       = $desktopVm.desktopVmProcessId
+            desktopVmMemoryLimitMB   = $desktopVm.desktopVmMemoryLimitMB
+            desktopVmMemoryLimitGB   = $desktopVm.desktopVmMemoryLimitGB
+            desktopVmMemoryLimitText = $desktopVm.desktopVmMemoryLimitText
+            warnings      = @($desktopVmSnapshot.Warnings + $warning)
         }
     }
 }

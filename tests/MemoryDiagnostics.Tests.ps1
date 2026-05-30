@@ -98,6 +98,65 @@ Describe 'Memory diagnostics parsers' {
         $container.memoryLimitMB | Should -Be 2048
         $container.memoryPercent | Should -Be 25
     }
+
+    It '解析 macOS vm_stat 的压缩内存和换页指标' {
+        $system = ConvertFrom-MacOSVmStat -Lines @(
+            'Mach Virtual Memory Statistics: (page size of 16384 bytes)'
+            'Pages free:                                     1024.'
+            'Pages active:                                   2048.'
+            'Pages inactive:                                 4096.'
+            'Pages speculative:                               512.'
+            'Pages wired down:                                256.'
+            'Pages purgeable:                                 128.'
+            'Pages stored in compressor:                     8192.'
+            'Pages occupied by compressor:                   2048.'
+            'Pageins:                                        3000.'
+            'Pageouts:                                         20.'
+            'Swapins:                                          10.'
+            'Swapouts:                                         30.'
+        ) -TotalBytes 17179869184
+
+        $system.totalPhysicalGB | Should -Be 16
+        $system.availableGB | Should -Be 0.09
+        $system.compressedGB | Should -Be 0.12
+        $system.compressorGB | Should -Be 0.03
+        $system.wiredGB | Should -Be 0
+        $system.swapins | Should -Be 10
+        $system.swapouts | Should -Be 30
+        $system.pageouts | Should -Be 20
+    }
+
+    It '解析 macOS memory_pressure 的可用比例' {
+        $pressure = ConvertFrom-MacOSMemoryPressure -Lines @(
+            ''
+            'Stats:'
+            'System-wide memory free percentage: 42%'
+        )
+
+        $pressure.memoryPressureFreePercent | Should -Be 42
+    }
+
+    It '解析 macOS 宽格式 ps 行并保留完整命令' {
+        $line = ' 43159 43147 240816 1892520208  1.4 /Applications/Visual Studio Code.app/Contents/Frameworks/Code Helper (Renderer).app/Contents/MacOS/Code Helper (Renderer)'
+
+        $process = ConvertFrom-MacOSTopProcessLine -Line $line
+
+        $process.id | Should -Be 43159
+        $process.parentId | Should -Be 43147
+        $process.workingSetMB | Should -Be 235.2
+        $process.processName | Should -Match 'Visual Studio Code.app'
+        $process.processName | Should -Match 'Code Helper \(Renderer\)'
+    }
+
+    It '解析 Docker Desktop VM 内存上限' {
+        $line = '2489 /Applications/Docker.app/Contents/MacOS/com.docker.virtualization --kernel kernel --memoryMiB 8092 --console-log vm.log'
+
+        $snapshot = ConvertFrom-DockerDesktopVmProcessLine -Line $line
+
+        $snapshot.desktopVmProcessId | Should -Be 2489
+        $snapshot.desktopVmMemoryLimitMB | Should -Be 8092
+        $snapshot.desktopVmMemoryLimitGB | Should -Be 7.9
+    }
 }
 
 Describe 'Memory diagnostics recommendations' {
@@ -160,6 +219,35 @@ Describe 'Memory diagnostics recommendations' {
         $recommendations = Get-MemoryDiagnosticsRecommendations -Report $report
 
         $recommendations.code | Should -Contain 'docker.unavailable'
+    }
+
+    It 'macOS 当前压力健康时提示不必只为已用内存关应用' {
+        $report = [pscustomobject]@{
+            system       = [pscustomobject]@{
+                platform                  = 'macOS'
+                totalPhysicalGB           = 16
+                availablePercent          = 20
+                memoryPressureFreePercent = 42
+                vmPressureLevel           = 2
+                swapUsedGB                = 3.55
+                compressorGB              = 7.25
+                pageouts                  = 433569
+            }
+            topProcesses = @()
+            containers   = [pscustomobject]@{
+                available               = $true
+                status                  = 'available'
+                totalMemoryMB           = 2569
+                desktopVmMemoryLimitMB  = 8092
+            }
+        }
+
+        $recommendations = Get-MemoryDiagnosticsRecommendations -Report $report
+
+        $recommendations.code | Should -Contain 'macos.memory_pressure_ok'
+        $recommendations.code | Should -Contain 'macos.swap_compression_signal'
+        $recommendations.code | Should -Contain 'macos.docker_desktop_vm_limit_high'
+        ($recommendations | Where-Object code -eq 'macos.docker_desktop_vm_limit_high').message | Should -Match 'Docker Desktop VM'
     }
 }
 
