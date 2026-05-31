@@ -303,11 +303,26 @@ Describe 'rclone-ops.ps1 JSON 配置生成逻辑' {
         $pidFile = Join-Path $TestDrive 'failed.pid'
         $logFile = Join-Path $TestDrive 'failed.log'
         Set-Content -LiteralPath $logFile -Value '模拟后台失败日志' -Encoding utf8NoBOM
+        # 使用平台原生命令构造稳定的快速失败进程，避免 Windows CI 中 pwsh 冷启动超过探测窗口。
+        $failedProcess = if ($IsWindows) {
+            @{
+                FilePath         = 'cmd.exe'
+                Arguments        = @('/d', '/c', 'exit 7')
+                ExpectedExitCode = 7
+            }
+        }
+        else {
+            @{
+                FilePath         = 'false'
+                Arguments        = @()
+                ExpectedExitCode = 1
+            }
+        }
 
         $warningMessages = @()
-        $exitCode = Invoke-RcloneOpsProcess -FilePath 'pwsh' -Arguments @('-NoLogo', '-NoProfile', '-Command', 'exit 7') -Background -PidFile $pidFile -FailureLogFile $logFile -WarningVariable warningMessages
+        $exitCode = Invoke-RcloneOpsProcess -FilePath $failedProcess.FilePath -Arguments $failedProcess.Arguments -Background -PidFile $pidFile -FailureLogFile $logFile -WarningVariable warningMessages
 
-        $exitCode | Should -Be 7
+        $exitCode | Should -Be $failedProcess.ExpectedExitCode
         Test-Path -LiteralPath $pidFile | Should -BeFalse
         ($warningMessages -join "`n") | Should -Match '模拟后台失败日志'
     }
