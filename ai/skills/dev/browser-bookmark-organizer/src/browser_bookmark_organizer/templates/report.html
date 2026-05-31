@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>浏览器书签整理报告</title>
+  <style>{{ report_css | safe }}</style>
+</head>
+<body>
+  <main class="report-shell">
+    <header class="report-header">
+      <div>
+        <p class="eyebrow">BOOKMARK ORGANIZER REPORT</p>
+        <h1>浏览器书签整理报告</h1>
+        <p class="muted">输入：<code>{{ input_path }}</code></p>
+        <p class="muted">生成时间：<code>{{ generated_at }}</code></p>
+      </div>
+      <div class="report-status">
+        <span class="badge">{{ "已检测链接" if link_checks.enabled else "离线分析" }}</span>
+      </div>
+    </header>
+
+    <section class="metric-grid" aria-label="摘要">
+      <article class="metric"><span class="muted">书签</span><strong>{{ summary.bookmarkCount }}</strong></article>
+      <article class="metric"><span class="muted">文件夹</span><strong>{{ summary.folderCount }}</strong></article>
+      <article class="metric"><span class="muted">最大深度</span><strong>{{ summary.maxDepth }}</strong></article>
+      <article class="metric"><span class="muted">重复组</span><strong>{{ summary.duplicateGroupCount }}</strong></article>
+      <article class="metric"><span class="muted">空文件夹</span><strong>{{ summary.emptyFolderCount }}</strong></article>
+      <article class="metric"><span class="muted">可疑标题</span><strong>{{ summary.suspiciousTitleCount }}</strong></article>
+    </section>
+
+    <section class="two-column">
+      <article class="panel">
+        <div class="panel-header">
+          <h2>Domain Top 10</h2>
+          <p class="muted">用于判断主要整理主题。</p>
+        </div>
+        {% if domain_bars %}
+          <div class="bar-list">
+            {% for item in domain_bars %}
+              <div class="bar-row">
+                <span class="bar-label">{{ item.label }}</span>
+                <span class="bar-track">
+                  <span class="bar-fill" style="width: {{ item.width }}%"></span>
+                </span>
+                <span class="bar-count">{{ item.count }}</span>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="empty">暂无数据。</p>
+        {% endif %}
+      </article>
+      <article class="panel">
+        <div class="panel-header">
+          <h2>链接检测状态</h2>
+          <p class="muted">错误与 4xx/5xx 建议优先处理。</p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>状态</th><th>数量</th></tr></thead>
+            <tbody>
+              {% for item in status_items %}
+                <tr><td>{{ item.status }}</td><td>{{ item.count }}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>重点待处理项</h2>
+        <p class="muted">包括可疑标题、空文件夹、重复项和异常链接。</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>类型</th><th>对象</th><th>位置</th><th>状态</th></tr></thead>
+          <tbody>
+            {% if issue_items %}
+              {% for item in issue_items %}
+                <tr>
+                  <td>{{ item.kind }}</td>
+                  <td><code>{{ item.target }}</code></td>
+                  <td>{{ item.location }}</td>
+                  <td><span class="badge {{ item.level }}">{{ item.status }}</span></td>
+                </tr>
+              {% endfor %}
+            {% else %}
+              <tr><td colspan="4">当前没有重点待处理项。</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>重复 URL Top 20</h2>
+        <p class="muted">后续可按组确认合并策略。</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>规范化 URL</th><th>数量</th></tr></thead>
+          <tbody>
+            {% if duplicate_items %}
+              {% for item in duplicate_items %}
+                <tr><td><code>{{ item.normalizedUrl }}</code></td><td>{{ item.count }}</td></tr>
+              {% endfor %}
+            {% else %}
+              <tr><td>未发现重复 URL</td><td>0</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+  <script type="application/json" id="reportData">{{ payload | tojson }}</script>
+</body>
+</html>

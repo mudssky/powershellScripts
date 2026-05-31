@@ -1,0 +1,1 @@
+{"file": ".trellis/spec/infra/agent-skill-dev.md", "reason": "新增依赖型 Python 脚本 skill，需遵守 uv 项目、入口命令、测试和锁文件契约。"}

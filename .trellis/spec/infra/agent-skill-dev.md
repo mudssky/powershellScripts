@@ -177,6 +177,7 @@ uv run python -m <package>.cli [args]
 - `SKILL.md` 的 Python 示例命令不得要求用户先手工 `pip install`、激活本机 venv 或运行未记录的环境准备步骤。
 - Python 代码应使用类型标注；公共函数和 CLI 入口应通过 docstring 或相邻注释说明核心功能、入参、返回值和退出码语义。注释解释复杂业务逻辑与设计意图，避免复述基础语法。
 - 如果脚本会写文件、调用外部命令、检查危险操作或处理复杂输入，核心逻辑必须拆成可测试函数，CLI 层只负责参数解析、IO 与退出码。
+- Python skill 如果输出或服务端渲染较复杂的 HTML 页面，应使用包内模板和静态资源文件维护，例如 `templates/*.html`、`static/*.css`、`static/*.js`；不要把大段 HTML/CSS/JS 作为 Python 三引号字符串常量。模板依赖如 Jinja2 必须写入 `pyproject.toml` 和 `uv.lock`，并确认打包配置包含模板/静态资源。
 - Python lint/format 复用仓库根目录 `uvx ruff` 约定；不要在轻量脚本 skill 内重复声明 formatter/linter 依赖。
 - 私有配置示例使用 `*.local.*` 命名时，必须确认仓库 `.gitignore` 或目录局部 `.gitignore` 已忽略对应真实私有文件。
 
@@ -201,6 +202,7 @@ uv run python -m <package>.cli [args]
 | 轻量脚本直接读取 YAML | 不合规；YAML 读取需要依赖，应升级为 uv 项目或改用 JSON |
 | `.env` 承载复杂嵌套配置 | 不推荐；`.env` 只放 secret 或机器差异值 |
 | 脚本把 secret 写回可提交配置 | 不合规，存在密钥误提交风险 |
+| 大段 HTML/CSS/JS 内联在 Python 字符串中 | 不推荐；应拆为包内模板和静态资源，降低维护成本 |
 | 高风险脚本只有 smoke test | 不合规；核心业务规则、危险操作保护或复杂解析必须有单元测试 |
 | 低风险轻量脚本没有任何 smoke 验证 | 不合规；至少要验证 `--help` 或最小成功命令 |
 
@@ -251,3 +253,90 @@ uv run python -m report_skill.cli --input report.json
 ```
 
 理由：复杂依赖由 `pyproject.toml` 与 `uv.lock` 声明和锁定，`uv run` 从 skill 根目录执行时可以复现运行环境。
+
+---
+
+## Scenario: Agent Skill 本地临时 WebUI 服务
+
+### 1. Scope / Trigger
+
+- Trigger: `ai/skills/dev/<skill-name>/` 下的 skill 提供本地 WebUI、review server、dashboard、preview server 或其他长时间运行的本机 HTTP 服务。
+- Scope: Python/FastAPI、Node/Express、静态预览服务等本地交互入口。
+- Design intent: 交互型 skill 应把可访问 URL 作为第一入口，而不是只生成静态 HTML 文件；同时必须避免服务长期占用后台或意外暴露到局域网。
+
+### 2. Signatures
+
+- 推荐命令签名：
+
+```bash
+uv run python -m <package>.cli analyze <input> --workspace <dir> [--review|--no-review] [--host 127.0.0.1] [--port 0] [--open] [--shutdown-after 3600]
+uv run python -m <package>.cli review --workspace <dir> [--host 127.0.0.1] [--port 0] [--open] [--foreground] [--shutdown-after 3600]
+```
+
+- 如果不是 Python 项目，也应提供等价参数名或在 `SKILL.md` 明确说明差异。
+
+### 3. Contracts
+
+- 默认绑定 `127.0.0.1`，不得默认绑定 `0.0.0.0`。
+- `--port 0` 表示自动选择空闲端口；启动后必须在 stdout 打印完整 URL，例如 `Review UI: http://127.0.0.1:59401`。
+- 默认应设置自动关停时间，推荐 `--shutdown-after 3600`；`0` 可表示不自动关闭，但不能作为默认。
+- 面向 agent 的默认路径应后台启动本地服务并立即返回，避免命令长时间阻塞；需要调试时提供 `--foreground` 或等价参数。
+- 后台启动成功后，stdout 必须打印 URL、PID、日志路径和自动关闭时间；服务内部事件使用语言标准 logging 机制写入日志文件。Python 项目使用 `logger = logging.getLogger(__name__)`，不要用散落的手写文件追加替代 logging。
+- CLI stdout 保留给用户/agent 需要立即看到的入口信息、路径和错误摘要；详细运行日志进入日志文件。
+- 时间戳应通过包内统一时间封装生成，默认使用系统本地时区；不要在业务代码里散落 `datetime.now(UTC)` 或固定时区，方便未来集中调整。
+- 交互型主流程应默认启动 WebUI；批处理、测试或 CI 使用 `--no-review` / `--no-server` 禁用。
+- 原始用户数据、选择记录、操作日志和导出文件写入用户指定 workspace，不写入 skill 安装目录。
+- 静态 HTML 报告可以作为副产物，但不能替代全程交互状态入口。
+
+### 4. Validation & Error Matrix
+
+| Condition | Expected Behavior |
+|-----------|-------------------|
+| `--host` 不是 `127.0.0.1` | 默认拒绝并给出清晰错误；若确需开放网络，必须是显式高风险改动 |
+| `--port` 小于 0 或大于 65535 | 非零退出并提示端口范围 |
+| `--shutdown-after` 小于 0 | 非零退出并提示不能为负数 |
+| workspace 缺少必要状态文件 | 非零退出并提示先运行初始化或 analyze 命令 |
+| 服务启动成功但未打印 URL | 不合规；用户无法知道入口 |
+| 默认主流程阻塞在 HTTP 服务进程 | 不合规；agent 无法继续工作，应默认后台启动或提供非阻塞启动器 |
+| 测试调用默认主流程被服务阻塞 | 测试应传 `--no-review`，或 mock 后台服务启动函数 |
+| 服务日志用零散 `open(...).write(...)` 实现 | 不推荐；应使用标准 logging，stdout 只输出入口信息 |
+
+### 5. Good/Base/Bad Cases
+
+- Good: `analyze bookmarks.html --workspace run-001` 完成分析后后台启动服务，打印 `Workspace: ...`、`Review UI: http://127.0.0.1:<port>`、`Review PID: ...`、`Review log: ...`，1 小时后自动退出。
+- Good: `analyze ... --workspace run-001 --no-review` 只写文件并立即返回，适合测试和批处理。
+- Good: `review --workspace run-001 --foreground` 前台运行服务，用于开发调试。
+- Base: 纯静态报告型 skill 不启动服务，但 `SKILL.md` 应明确输出文件路径。
+- Bad: 命令启动了 FastAPI/Express 服务但 stdout 没有 URL，调用端只看到 `(No output)`。
+- Bad: 服务默认绑定 `0.0.0.0` 或默认不自动关闭。
+
+### 6. Tests Required
+
+- Unit test: 默认交互主流程会调用后台服务启动函数，并传递 workspace、host、port、open 和 shutdown 参数。
+- Unit test: `--foreground` 会调用前台服务启动函数。
+- Unit test: `--no-review` / `--no-server` 路径只写文件，不启动服务。
+- Smoke test: 使用极短 TTL（例如 `--shutdown-after 1`）验证服务会打印 URL 并自动退出。
+- API test: WebUI 服务能读取 workspace 状态并保存用户选择。
+- Project gate: 代码改动完成后执行根目录 `pnpm qa`。
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```bash
+uv run python -m browser_bookmark_organizer.cli analyze bookmarks.html --workspace run-001
+# 没有 stdout，用户不知道服务是否启动或报告在哪里
+```
+
+问题：交互型流程没有入口反馈，容易让 agent 和用户都卡在“命令执行了但没看到结果”。
+
+#### Correct
+
+```bash
+uv run python -m browser_bookmark_organizer.cli analyze bookmarks.html --workspace run-001
+# Workspace: /abs/path/run-001
+# Review UI: http://127.0.0.1:59401
+# Auto shutdown: 1h
+```
+
+理由：URL、workspace 和 TTL 都是可执行契约，用户能立即进入工作台，后台服务也不会无期限常驻。
