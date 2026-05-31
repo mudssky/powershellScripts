@@ -416,3 +416,37 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 13: 创建通用整理分类技能
+
+**Date**: 2026-05-31
+**Task**: 创建通用整理分类技能
+**Branch**: `master`
+
+### Summary
+
+新增 organize-classify 文档型 skill，提供通用整理分类流程、风险边界、方法论 reference，以及 Python、JavaScript/TypeScript、Go、Rust、JVM、.NET、脚本型项目的通用目录结构参考。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e78a885` | (see git log) |
+| `3fa292e` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
