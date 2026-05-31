@@ -120,6 +120,7 @@ class BookmarkAnalysis:
         domain_counts: domain 计数。
         duplicate_groups: 规范化 URL 重复项。
         empty_folders: 无书签后代的文件夹。
+        dedup_at_risk_folders: 去重后可能变空的文件夹（仅含重复书签的叶目录）。
         suspicious_titles: 空标题或疑似乱码标题。
         max_depth: 最大目录深度。
 
@@ -137,3 +138,4 @@ class BookmarkAnalysis:
     empty_folders: tuple[Folder, ...]
     suspicious_titles: tuple[SuspiciousTitle, ...]
     max_depth: int
+    dedup_at_risk_folders: tuple[Folder, ...] = ()

@@ -18,6 +18,7 @@
         </div>
       </div>
       <div class="topbar-actions">
+        <button class="button ghost" id="refreshButton" type="button">刷新状态</button>
         <a class="button ghost mono" id="serverUrl" href="/" target="_blank" rel="noreferrer">本地服务</a>
         <a class="button ghost" href="/api/analysis" target="_blank" rel="noreferrer">查看 JSON</a>
         <button class="button primary" id="saveButton" type="button">保存选择</button>
@@ -40,112 +41,125 @@
           <button class="step" type="button" data-view="operations">5. 操作与导出</button>
         </nav>
       </aside>
-      <section class="content">
-        <div class="summary-grid" id="summaryGrid"></div>
-        <section class="panel" data-panel="overview">
-          <div class="panel-header">
-            <div>
-              <h2>当前工作</h2>
-              <p class="muted">先看证据，再生成目录操作和链接移动操作；这里保存的是审核选择，不会改原始文件。</p>
+      <section class="workspace">
+        <section class="content">
+          <div class="summary-grid" id="summaryGrid" aria-label="状态摘要"></div>
+          <section class="panel" data-panel="overview">
+            <div class="panel-header">
+              <div>
+                <h2>当前工作</h2>
+                <p class="muted">先看证据，再生成目录操作和链接移动操作；这里保存的是审核选择，不会改原始文件。</p>
+              </div>
             </div>
-          </div>
-          <div class="action-grid" id="actionGrid"></div>
+            <div class="action-grid" id="actionGrid"></div>
+          </section>
+          <section class="panel hidden" data-panel="tree">
+            <div class="panel-header">
+              <div>
+                <h2>当前目录结构</h2>
+                <p class="muted">来自原始 snapshot 加已批准 operations 的 replay 结果。</p>
+              </div>
+            </div>
+            <div class="tree-list mono" id="treeList"></div>
+          </section>
+          <section class="panel hidden" data-panel="links">
+            <div class="panel-header">
+              <div>
+                <h2>链接状态</h2>
+                <p class="muted">私网、公司内网和 Tailscale 链接默认只标记为需要上下文。</p>
+              </div>
+              <label class="filter">
+                <span class="sr-only">搜索链接</span>
+                <input id="linkSearchInput" type="search" placeholder="搜索标题、URL、状态码...">
+              </label>
+            </div>
+            <div class="link-progress-bar hidden" id="linkProgressBar"></div>
+            <div class="link-progress-text" id="linkProgressText"></div>
+            <div class="link-summary" id="linkSummary"></div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>状态</th>
+                    <th>标题 / URL</th>
+                    <th>目录</th>
+                    <th>提示</th>
+                    <th>耗时</th>
+                  </tr>
+                </thead>
+                <tbody id="linkRows"></tbody>
+              </table>
+            </div>
+            <div class="link-pagination" id="linkPagination"></div>
+          </section>
+          <section class="panel hidden" data-panel="duplicates">
+            <div class="panel-header">
+              <div>
+                <h2>重复项</h2>
+                <p class="muted">重复 URL 需要保留更清晰的标题或更合适的目录，不建议直接批量删除。</p>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>URL</th>
+                    <th>数量</th>
+                    <th>所在目录</th>
+                  </tr>
+                </thead>
+                <tbody id="duplicateRows"></tbody>
+              </table>
+            </div>
+          </section>
+          <section class="panel hidden" data-panel="operations">
+            <div class="panel-header">
+              <div>
+                <h2>操作与导出</h2>
+                <p class="muted">已批准操作由 CLI 写入 operations.jsonl，刷新页面即可看到 replay 后状态。</p>
+              </div>
+            </div>
+            <div class="operation-list" id="operationList"></div>
+          </section>
+          <section class="panel" data-panel="overview">
+            <div class="panel-header">
+              <div>
+                <h2>待处理项</h2>
+                <p class="muted">勾选要关注的问题，后续由 agent 生成批量 operation 给你审核。</p>
+              </div>
+              <label class="filter">
+                <span class="sr-only">搜索</span>
+                <input id="searchInput" type="search" placeholder="搜索标题、URL 或目录">
+              </label>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>选择</th>
+                    <th>类型</th>
+                    <th>标题 / URL</th>
+                    <th>目录</th>
+                    <th>状态</th>
+                  </tr>
+                </thead>
+                <tbody id="issueRows"></tbody>
+              </table>
+            </div>
+          </section>
         </section>
-        <section class="panel hidden" data-panel="tree">
-          <div class="panel-header">
-            <div>
-              <h2>当前目录结构</h2>
-              <p class="muted">来自原始 snapshot 加已批准 operations 的 replay 结果。</p>
-            </div>
+        <section class="decision-panel" aria-label="当前选择">
+          <div>
+            <h2>当前选择</h2>
+            <p class="muted">提交后写入 workspace 的 <span class="mono">decisions.json</span>，不会修改原始书签。</p>
           </div>
-          <div class="tree-list mono" id="treeList"></div>
-        </section>
-        <section class="panel hidden" data-panel="links">
-          <div class="panel-header">
-            <div>
-              <h2>链接状态</h2>
-              <p class="muted">私网、公司内网和 Tailscale 链接默认只标记为需要上下文。</p>
-            </div>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>类型</th>
-                  <th>标题 / URL</th>
-                  <th>目录</th>
-                  <th>状态</th>
-                </tr>
-              </thead>
-              <tbody id="linkRows"></tbody>
-            </table>
-          </div>
-        </section>
-        <section class="panel hidden" data-panel="duplicates">
-          <div class="panel-header">
-            <div>
-              <h2>重复项</h2>
-              <p class="muted">重复 URL 需要保留更清晰的标题或更合适的目录，不建议直接批量删除。</p>
-            </div>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>URL</th>
-                  <th>数量</th>
-                  <th>所在目录</th>
-                </tr>
-              </thead>
-              <tbody id="duplicateRows"></tbody>
-            </table>
-          </div>
-        </section>
-        <section class="panel hidden" data-panel="operations">
-          <div class="panel-header">
-            <div>
-              <h2>操作与导出</h2>
-              <p class="muted">已批准操作由 CLI 写入 operations.jsonl，刷新页面即可看到 replay 后状态。</p>
-            </div>
-          </div>
-          <div class="operation-list" id="operationList"></div>
-        </section>
-        <section class="panel">
-          <div class="panel-header">
-            <div>
-              <h2>待处理项</h2>
-              <p class="muted">这里用于先勾选要关注的问题，后续再由 agent 生成批量 operation 给你审核。</p>
-            </div>
-            <label class="filter">
-              <span class="sr-only">搜索链接</span>
-              <input id="searchInput" type="search" placeholder="搜索标题、URL 或目录">
-            </label>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>选择</th>
-                  <th>类型</th>
-                  <th>标题 / URL</th>
-                  <th>目录</th>
-                  <th>状态</th>
-                </tr>
-              </thead>
-              <tbody id="issueRows"></tbody>
-            </table>
-          </div>
+          <label class="field">
+            <span>整理备注</span>
+            <textarea id="noteInput" rows="5" placeholder="例如：先保留死链，重复项只合并官方文档。"></textarea>
+          </label>
+          <div class="status" id="saveStatus" role="status" aria-live="polite">尚未保存</div>
         </section>
       </section>
-      <aside class="detail">
-        <h2>当前选择</h2>
-        <p class="muted">提交后会写入 workspace 的 <span class="mono">decisions.json</span>，不会修改原始书签。</p>
-        <label class="field">
-          <span>整理备注</span>
-          <textarea id="noteInput" rows="8" placeholder="例如：先保留死链，重复项只合并官方文档。"></textarea>
-        </label>
-        <div class="status" id="saveStatus" role="status" aria-live="polite">尚未保存</div>
-      </aside>
     </main>
   </div>
   <script>

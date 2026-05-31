@@ -182,6 +182,24 @@ def create_app(workspace: Path, server_info: ReviewServerInfo | None = None) -> 
 
         return JSONResponse(server_info_to_payload(server_info))
 
+    @app.get("/api/link-progress")
+    async def get_link_progress() -> JSONResponse:
+        """返回链接检测进度。
+
+        Args:
+            None.
+
+        Returns:
+            JSONResponse: 进度文件内容；不存在时返回空闲状态。
+        """
+
+        if not paths.link_progress.is_file():
+            return JSONResponse({"running": False})
+        try:
+            return JSONResponse(read_json(paths.link_progress))
+        except (ValueError, OSError):
+            return JSONResponse({"running": False})
+
     return app
 
 

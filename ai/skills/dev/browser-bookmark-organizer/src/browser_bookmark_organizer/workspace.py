@@ -24,6 +24,7 @@ class WorkspacePaths:
         markdown_report: Markdown 报告路径。
         html_report: HTML 报告路径。
         decisions: 用户选择 JSON 路径。
+        link_progress: 链接检测进度 JSON 路径。
 
     Returns:
         WorkspacePaths: workspace 文件路径集合。
@@ -38,6 +39,8 @@ class WorkspacePaths:
     markdown_report: Path
     html_report: Path
     decisions: Path
+    link_progress: Path
+    server_port: Path
 
 
 def resolve_workspace(path: str | Path) -> WorkspacePaths:
@@ -61,6 +64,8 @@ def resolve_workspace(path: str | Path) -> WorkspacePaths:
         markdown_report=root / "bookmark-report.md",
         html_report=root / "bookmark-report.html",
         decisions=root / "decisions.json",
+        link_progress=root / "link-progress.json",
+        server_port=root / "review-server.port",
     )
 
 

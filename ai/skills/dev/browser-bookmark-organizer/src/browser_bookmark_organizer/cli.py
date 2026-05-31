@@ -216,7 +216,7 @@ def add_link_check_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--concurrency",
         type=int,
-        default=5,
+        default=32,
         help="链接检测最大并发数。",
     )
     parser.add_argument(
@@ -299,6 +299,59 @@ def normalize_argv(argv: list[str] | None) -> list[str] | None:
     return ["analyze", *raw_args]
 
 
+def make_link_progress_writer(progress_path: Path | None):
+    """创建链接检测进度回调函数。
+
+    每完成一个检测后写入进度文件，供 WebUI 轮询。
+
+    Args:
+        progress_path: 进度文件路径；为 None 时返回空回调。
+
+    Returns:
+        Callable: 进度回调函数 (done, total, results) -> None。
+    """
+
+    if progress_path is None:
+        return lambda done, total, results: None
+
+    from browser_bookmark_organizer.report import link_status_bucket
+
+    def write_progress(done: int, total: int, results: list) -> None:
+        """写入进度 JSON。
+
+        Args:
+            done: 已完成数量。
+            total: 总数量。
+            results: 已完成的检测结果列表。
+        """
+        status_summary: dict[str, int] = {}
+        problem_items = []
+        for r in results[-20:]:
+            bucket = link_status_bucket(r)
+            status_summary[bucket] = status_summary.get(bucket, 0) + 1
+            if r.is_problem or r.skipped_reason == "context_required":
+                problem_items.append(
+                    {
+                        "title": r.title,
+                        "url": r.url,
+                        "bucket": bucket,
+                        "statusCode": r.status_code,
+                        "errorCategory": r.error_category,
+                    }
+                )
+        payload = {
+            "running": True,
+            "done": done,
+            "total": total,
+            "percent": round(done / total * 100, 1) if total > 0 else 0,
+            "statusSummary": status_summary,
+            "recentProblems": problem_items[-10:],
+        }
+        progress_path.write_text(json.dumps(payload, ensure_ascii=False) + "\n", encoding="utf-8")
+
+    return write_progress
+
+
 def run_analyze_command(args: argparse.Namespace) -> int:
     """执行书签分析命令。
 
@@ -331,7 +384,30 @@ def run_analyze_command(args: argparse.Namespace) -> int:
             check_private_links=args.check_private_links,
             network_context=args.network_context,
         )
-        link_results = asyncio.run(check_links(analysis.bookmarks, link_options))
+        workspace_dir = Path(args.workspace).expanduser().resolve() if args.workspace else None
+        progress_path = resolve_workspace(workspace_dir).link_progress if workspace_dir else None
+        link_results = asyncio.run(
+            check_links(
+                analysis.bookmarks,
+                link_options,
+                on_progress=make_link_progress_writer(progress_path),
+            )
+        )
+        # 检测完成，标记进度为已完成
+        if progress_path and progress_path.is_file():
+            progress_path.write_text(
+                json.dumps(
+                    {
+                        "running": False,
+                        "done": len(link_results),
+                        "total": len(link_results),
+                        "percent": 100,
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
 
     payload = build_report_payload(analysis, link_results, link_options)
     markdown = render_markdown_report(analysis, link_results, link_options)
@@ -458,6 +534,44 @@ def configure_logging(log_file: Path | None = None) -> None:
     )
 
 
+def _read_saved_port(port_path: Path) -> int | None:
+    """读取上一次保存的服务端口。
+
+    Args:
+        port_path: 端口文件路径。
+
+    Returns:
+        int | None: 有效端口号；不存在或无效时返回 None。
+    """
+
+    try:
+        if port_path.is_file():
+            return int(port_path.read_text(encoding="utf-8").strip())
+    except (ValueError, OSError):
+        pass
+    return None
+
+
+def _is_port_reachable(host: str, port: int) -> bool:
+    """检查端口是否可连接（已有服务在监听）。
+
+    Args:
+        host: 监听地址。
+        port: 端口号。
+
+    Returns:
+        bool: 可连接返回 True。
+    """
+
+    import socket as _socket
+
+    try:
+        with _socket.create_connection((host, port), timeout=0.5):
+            return True
+    except (OSError, TimeoutError):
+        return False
+
+
 def start_review_server_background(
     workspace: Path,
     host: str,
@@ -480,8 +594,24 @@ def start_review_server_background(
         BackgroundReviewServer: 后台服务启动信息。
     """
 
+    paths = resolve_workspace(workspace)
+    # 端口复用：检查已保存的端口是否仍可用
+    saved_port = _read_saved_port(paths.server_port)
+    if port == 0 and saved_port is not None and _is_port_reachable(host, saved_port):
+        url = f"http://{host}:{saved_port}"
+        logger.info("复用已有 review 服务 url=%s", url)
+        return BackgroundReviewServer(
+            url=url,
+            pid=None,
+            log_path=log_file or workspace / "review-server.log",
+            pid_path=workspace / "review-server.pid",
+            shutdown_after_seconds=shutdown_after_seconds,
+        )
     selected_port = find_available_port(host) if port == 0 else port
     url = f"http://{host}:{selected_port}"
+    # 保存端口供下次复用
+    if port == 0:
+        paths.server_port.write_text(str(selected_port), encoding="utf-8")
     log_path = log_file or workspace / "review-server.log"
     pid_path = workspace / "review-server.pid"
     command = [

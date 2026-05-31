@@ -1,7 +1,7 @@
 {
-  "id": "browser-bookmark-organizer",
-  "name": "browser-bookmark-organizer",
-  "title": "创建浏览器书签整理技能",
+  "id": "webui-tree-sync",
+  "name": "webui-tree-sync",
+  "title": "WebUI 可折叠目录树与 ops 状态同步",
   "description": "",
   "status": "in_progress",
   "dev_type": null,
@@ -18,10 +18,8 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [
-    "05-31-webui-tree-sync"
-  ],
-  "parent": null,
+  "children": [],
+  "parent": "05-31-browser-bookmark-organizer",
   "relatedFiles": [],
   "notes": "",
   "meta": {}

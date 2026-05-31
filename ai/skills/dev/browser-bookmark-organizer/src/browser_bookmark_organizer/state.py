@@ -305,15 +305,17 @@ def build_tree_payload(state: dict[str, Any]) -> dict[str, Any]:
         state: 当前状态。
 
     Returns:
-        dict[str, Any]: 目录树摘要。
+        dict[str, Any]: 目录树摘要，包含扁平列表和嵌套树结构。
     """
 
     bookmark_counts: dict[tuple[str, ...], int] = {}
+    folder_bookmarks: dict[tuple[str, ...], list[dict[str, Any]]] = {}
     for bookmark in state["bookmarks"]:
         if bookmark.get("deleted"):
             continue
         path = tuple(bookmark["folderPath"])
         bookmark_counts[path] = bookmark_counts.get(path, 0) + 1
+        folder_bookmarks.setdefault(path, []).append(bookmark)
 
     folders = sorted(
         [folder for folder in state["folders"] if folder["path"]],
@@ -331,7 +333,53 @@ def build_tree_payload(state: dict[str, Any]) -> dict[str, Any]:
             }
             for folder in folders
         ],
+        "tree": _build_nested_tree(state, folder_bookmarks),
     }
+
+
+def _build_nested_tree(
+    state: dict[str, Any],
+    folder_bookmarks: dict[tuple[str, ...], list[dict[str, Any]]],
+) -> dict[str, Any]:
+    """递归构建嵌套目录树。
+
+    Args:
+        state: 当前状态。
+        folder_bookmarks: 路径到直属书签列表的映射。
+
+    Returns:
+        dict[str, Any]: 嵌套树根节点。
+    """
+
+    def build_node(path: tuple[str, ...]) -> dict[str, Any]:
+        """构建单个目录节点。
+
+        Args:
+            path: 目录路径。
+
+        Returns:
+            dict[str, Any]: 包含 children、bookmarks 的目录节点。
+        """
+        direct_bookmarks = [
+            {
+                "id": bm["id"],
+                "title": bm["title"],
+                "url": bm["url"],
+            }
+            for bm in folder_bookmarks.get(path, [])
+        ]
+        child_names = child_folder_names(state, path)
+        children = [build_node((*path, name)) for name in child_names]
+        return {
+            "name": path[-1] if path else "ROOT",
+            "path": list(path),
+            "bookmarkCount": len(direct_bookmarks),
+            "bookmarks": direct_bookmarks,
+            "children": children,
+        }
+
+    root_children = [build_node((name,)) for name in child_folder_names(state, ())]
+    return {"children": root_children}
 
 
 def render_tree_markdown(tree_payload: dict[str, Any]) -> str:

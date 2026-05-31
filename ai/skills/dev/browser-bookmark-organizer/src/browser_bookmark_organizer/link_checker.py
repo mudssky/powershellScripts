@@ -4,14 +4,18 @@ from __future__ import annotations
 
 import asyncio
 import ipaddress
+import logging
+import ssl
 import time
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import urlsplit
 
 import httpx
 
 from browser_bookmark_organizer.models import Bookmark
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,7 +37,7 @@ class LinkCheckOptions:
 
     timeout: float = 10.0
     follow_redirects: bool = True
-    concurrency: int = 5
+    concurrency: int = 32
     delay: float = 0.2
     max_links: int | None = None
     check_private_links: bool = False
@@ -97,6 +101,7 @@ async def check_links(
     bookmarks: tuple[Bookmark, ...] | list[Bookmark],
     options: LinkCheckOptions,
     transport: httpx.AsyncBaseTransport | None = None,
+    on_progress: Callable[[int, int, list[LinkCheckResult]], None] | None = None,
 ) -> list[LinkCheckResult]:
     """并发检测书签链接状态。
 
@@ -104,6 +109,7 @@ async def check_links(
         bookmarks: 待检测书签。
         options: 链接检测选项。
         transport: 测试注入的 HTTPX transport；生产运行保持 None。
+        on_progress: 每完成一个检测后的进度回调 (done, total, results)。
 
     Returns:
         list[LinkCheckResult]: 按原始书签顺序排列的检测结果。
@@ -115,17 +121,35 @@ async def check_links(
     headers = {"User-Agent": "browser-bookmark-organizer/0.1"}
     timeout = httpx.Timeout(options.timeout)
 
+    total = len(selected)
+    completed: list[LinkCheckResult] = []
+    lock = asyncio.Lock()
+
+    async def _check_and_track(bookmark: Bookmark) -> LinkCheckResult:
+        """检测单个链接并追踪进度。
+
+        Args:
+            bookmark: 待检测书签。
+
+        Returns:
+            LinkCheckResult: 检测结果。
+        """
+        result = await _check_one(bookmark, options, client, semaphore, rate_limiter)
+        async with lock:
+            completed.append(result)
+            if on_progress:
+                on_progress(len(completed), total, completed)
+        return result
+
     async with httpx.AsyncClient(
         timeout=timeout,
         follow_redirects=options.follow_redirects,
         headers=headers,
         transport=transport,
     ) as client:
-        tasks = [
-            _check_one(bookmark, options, client, semaphore, rate_limiter) for bookmark in selected
-        ]
-        results = await asyncio.gather(*tasks)
-    return sorted(results, key=lambda item: item.order)
+        tasks = [_check_and_track(bookmark) for bookmark in selected]
+        await asyncio.gather(*tasks)
+    return sorted(completed, key=lambda item: item.order)
 
 
 def select_bookmarks_for_check(
@@ -370,6 +394,8 @@ async def _check_one(
             return error_result(bookmark, start, "connect_error", exc)
         except httpx.TransportError as exc:
             return error_result(bookmark, start, "transport_error", exc)
+        except ssl.SSLError as exc:
+            return error_result(bookmark, start, "ssl_error", exc)
 
 
 def base_result(bookmark: Bookmark, **overrides: Any) -> LinkCheckResult:

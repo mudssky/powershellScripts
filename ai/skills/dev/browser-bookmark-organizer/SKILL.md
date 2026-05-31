@@ -75,7 +75,7 @@ uv run python -m browser_bookmark_organizer.cli review --workspace <dir>
 - `--shutdown-after <seconds>`：WebUI 自动关闭秒数，默认 `3600`；`0` 表示不自动关闭。
 - `--check-links`：启用 HTTP/HTTPS 链接检测；默认不联网。
 - `--timeout <seconds>`：单个请求超时，默认 `10`。
-- `--concurrency <n>`：链接检测并发数，默认 `5`。
+- `--concurrency <n>`：链接检测并发数，默认 `32`。
 - `--delay <seconds>`：请求启动间隔，默认 `0.2`。
 - `--no-follow-redirects`：不跟随重定向。
 - `--max-links <n>`：只检测前 N 个 HTTP/HTTPS 链接，适合先做小样本。

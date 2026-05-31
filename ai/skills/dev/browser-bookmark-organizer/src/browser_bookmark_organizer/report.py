@@ -49,6 +49,7 @@ def build_report_payload(
             for group in analysis.duplicate_groups
         ],
         "emptyFolders": [folder_to_dict(folder) for folder in analysis.empty_folders],
+        "dedupAtRiskFolders": [folder_to_dict(folder) for folder in analysis.dedup_at_risk_folders],
         "suspiciousTitles": [
             {
                 "reason": item.reason,
@@ -135,6 +136,7 @@ def render_markdown_report(
     lines.extend(render_counts("Domain Top 30", "Domain", analysis.domain_counts, limit=30))
     lines.extend(render_duplicates(analysis))
     lines.extend(render_empty_folders(analysis))
+    lines.extend(render_dedup_at_risk_folders(analysis))
     lines.extend(render_suspicious_titles(analysis))
     lines.extend(render_link_section(link_results, link_options))
     return "\n".join(lines).rstrip() + "\n"
@@ -334,6 +336,26 @@ def render_empty_folders(analysis: BookmarkAnalysis) -> list[str]:
     if not analysis.empty_folders:
         return [*lines, "未发现空文件夹。", ""]
     lines.extend(f"- `{folder.display_path}`" for folder in analysis.empty_folders[:100])
+    lines.append("")
+    return lines
+
+
+def render_dedup_at_risk_folders(analysis: BookmarkAnalysis) -> list[str]:
+    """渲染去重后可能变空的文件夹列表。
+
+    Args:
+        analysis: 离线分析结果。
+
+    Returns:
+        list[str]: Markdown 行列表。
+    """
+
+    lines = ["## 去重后可能变空的文件夹", ""]
+    if not analysis.dedup_at_risk_folders:
+        return [*lines, "未发现去重后会变空的文件夹。", ""]
+    lines.append("以下文件夹当前包含书签，但书签全部属于重复组，去重后会变空：")
+    lines.append("")
+    lines.extend(f"- `{folder.display_path}`" for folder in analysis.dedup_at_risk_folders[:100])
     lines.append("")
     return lines
 

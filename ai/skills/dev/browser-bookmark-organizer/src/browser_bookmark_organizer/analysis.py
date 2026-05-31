@@ -47,6 +47,7 @@ def analyze_bookmarks(root: Folder, input_path: Path | str) -> BookmarkAnalysis:
     bookmarks = tuple(flatten_bookmarks(root))
     duplicate_groups = find_duplicate_groups(bookmarks)
     empty_folders = tuple(folder for folder in folders if count_descendant_bookmarks(folder) == 0)
+    dedup_at_risk_folders = tuple(find_dedup_at_risk_folders(folders, duplicate_groups))
     suspicious_titles = tuple(find_suspicious_titles(bookmarks))
     return BookmarkAnalysis(
         input_path=str(input_path),
@@ -57,6 +58,7 @@ def analyze_bookmarks(root: Folder, input_path: Path | str) -> BookmarkAnalysis:
         domain_counts=count_domains(bookmarks),
         duplicate_groups=duplicate_groups,
         empty_folders=empty_folders,
+        dedup_at_risk_folders=dedup_at_risk_folders,
         suspicious_titles=suspicious_titles,
         max_depth=max_depth(root),
     )
@@ -246,6 +248,63 @@ def suspicious_title_reason(title: str) -> str | None:
     if len(hits) >= 2:
         return "mojibake_markers:" + ",".join(hits[:4])
     return None
+
+
+def find_dedup_at_risk_folders(
+    folders: tuple[Folder, ...],
+    duplicate_groups: tuple[DuplicateGroup, ...],
+) -> list[Folder]:
+    """查找去重后可能变空的文件夹。
+
+    模拟每组重复书签只保留第一个，计算哪些文件夹的后代书签数会降为零。
+
+    Args:
+        folders: 所有文件夹。
+        duplicate_groups: 重复书签分组。
+
+    Returns:
+        list[Folder]: 去重后会变空的文件夹列表。
+    """
+
+    if not duplicate_groups:
+        return []
+    # 收集需要移除的书签 id（每组保留第一个）
+    ids_to_remove: set[tuple[str, str]] = set()
+    for group in duplicate_groups:
+        for bookmark in group.bookmarks[1:]:
+            ids_to_remove.add((bookmark.url, bookmark.folder_path, bookmark.order))
+    if not ids_to_remove:
+        return []
+    # 重新计算每个文件夹的去重后后代书签数
+    at_risk: list[Folder] = []
+    for folder in folders:
+        original = count_descendant_bookmarks(folder)
+        if original == 0:
+            continue
+        remaining = count_descendant_bookmarks_excluding(folder, ids_to_remove)
+        if remaining == 0:
+            at_risk.append(folder)
+    return at_risk
+
+
+def count_descendant_bookmarks_excluding(
+    folder: Folder,
+    excluded: set[tuple[str, str, int]],
+) -> int:
+    """统计文件夹后代中排除指定书签后的数量。
+
+    Args:
+        folder: 要统计的文件夹。
+        excluded: 需要排除的书签标识集合 (url, folder_path, order)。
+
+    Returns:
+        int: 排除后的后代书签数量。
+    """
+
+    count = sum(1 for bm in folder.bookmarks if (bm.url, bm.folder_path, bm.order) not in excluded)
+    return count + sum(
+        count_descendant_bookmarks_excluding(child, excluded) for child in folder.folders
+    )
 
 
 def max_depth(root: Folder) -> int:
