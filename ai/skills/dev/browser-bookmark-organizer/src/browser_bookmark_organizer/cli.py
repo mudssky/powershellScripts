@@ -124,14 +124,23 @@ def build_arg_parser() -> argparse.ArgumentParser:
     apply_parser = subparsers.add_parser("apply-ops", help="验证并追加已批准 operations。")
     apply_parser.add_argument("--workspace", required=True, help="workspace 目录。")
     apply_parser.add_argument(
-        "--ops-file",
         "--input",
+        "--ops-file",
         dest="ops_file",
         required=True,
         help="operation JSON 或 JSONL 文件。",
     )
     apply_parser.add_argument(
         "--dry-run", action="store_true", help="只验证，不写入 operations.jsonl。"
+    )
+
+    undo_parser = subparsers.add_parser("undo", help="回退最近 N 个操作。")
+    undo_parser.add_argument("--workspace", required=True, help="workspace 目录。")
+    undo_parser.add_argument(
+        "--last", type=int, required=True, help="回退最近 N 个操作。"
+    )
+    undo_parser.add_argument(
+        "--dry-run", action="store_true", help="只预览要回退的操作，不实际删除。"
     )
 
     export_parser = subparsers.add_parser("export", help="导出新的 Netscape Bookmark HTML。")
@@ -268,6 +277,8 @@ def main(argv: list[str] | None = None) -> int:
             return run_status_command(args)
         if args.command == "apply-ops":
             return run_apply_ops_command(args)
+        if args.command == "undo":
+            return run_undo_command(args)
         if args.command == "export":
             return run_export_command(args)
         parser.print_help()
@@ -600,11 +611,19 @@ def start_review_server_background(
     if port == 0 and saved_port is not None and _is_port_reachable(host, saved_port):
         url = f"http://{host}:{saved_port}"
         logger.info("复用已有 review 服务 url=%s", url)
+        # 尝试从 pid 文件读取实际 PID
+        pid: int | None = None
+        pid_file = workspace / "review-server.pid"
+        if pid_file.is_file():
+            try:
+                pid = int(pid_file.read_text(encoding="utf-8").strip())
+            except (ValueError, OSError):
+                pass
         return BackgroundReviewServer(
             url=url,
-            pid=None,
+            pid=pid,
             log_path=log_file or workspace / "review-server.log",
-            pid_path=workspace / "review-server.pid",
+            pid_path=pid_file,
             shutdown_after_seconds=shutdown_after_seconds,
         )
     selected_port = find_available_port(host) if port == 0 else port
@@ -693,7 +712,7 @@ def print_background_review_server(server: BackgroundReviewServer) -> None:
     """
 
     print(f"Review UI: {server.url}", flush=True)
-    print(f"Review PID: {server.pid}", flush=True)
+    print(f"Review PID: {server.pid if server.pid else '运行中'}", flush=True)
     print(f"Review log: {server.log_path}", flush=True)
     print(f"Review pid file: {server.pid_path}", flush=True)
     if server.shutdown_after_seconds > 0:
@@ -757,20 +776,120 @@ def run_apply_ops_command(args: argparse.Namespace) -> int:
         int: 退出码。0 表示成功。
     """
 
+    from browser_bookmark_organizer.state import validate_operation
+
     paths = resolve_workspace(args.workspace)
     existing_operations = read_jsonl(paths.operations)
     incoming = [
         normalize_operation(operation, index)
         for index, operation in enumerate(load_operations_file(Path(args.ops_file)), start=1)
     ]
+    # 校验必填字段
+    for i, op in enumerate(incoming, start=1):
+        try:
+            validate_operation(op)
+        except ValueError as exc:
+            print(json.dumps({"ok": False, "error": f"操作 #{i}: {exc}"}, ensure_ascii=False), file=sys.stderr)
+            return 1
     snapshot = read_json(paths.snapshot)
     replay_operations(snapshot, approved_operations([*existing_operations, *incoming]))
     if not args.dry_run:
         append_jsonl(paths.operations, incoming)
         write_current_tree(paths.root)
+    # 生成操作摘要
+    summaries = [_op_summary(op) for op in incoming]
     print(
         json.dumps(
-            {"ok": True, "dryRun": args.dry_run, "operationCount": len(incoming)},
+            {
+                "ok": True,
+                "dryRun": args.dry_run,
+                "operationCount": len(incoming),
+                "operations": summaries,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    return 0
+
+
+def _op_summary(op: dict[str, Any]) -> dict[str, str]:
+    """生成单条操作的可读摘要。
+
+    Args:
+        op: 操作对象。
+
+    Returns:
+        dict[str, str]: 包含 op 和 summary 的摘要。
+    """
+
+    from browser_bookmark_organizer.state import path_tuple
+
+    s = op.get("op", "?")
+    if s in ("move_folder", "rename_folder", "merge_folder"):
+        f = " / ".join(op.get("fromPath", []))
+        t = " / ".join(op.get("toPath", []))
+        return {"op": s, "summary": f"{f} → {t}"}
+    if s in ("create_folder", "delete_empty_folder"):
+        p = " / ".join(op.get("path", []))
+        return {"op": s, "summary": p}
+    if s == "move_bookmark":
+        t = " / ".join(op.get("toPath", []))
+        return {"op": s, "summary": f"{op.get('bookmarkId', '?')} → {t}"}
+    if s in ("rename_bookmark", "update_url", "mark_bookmark"):
+        return {"op": s, "summary": f"{op.get('bookmarkId', '?')}"}
+    if s == "archive_bookmark":
+        t = " / ".join(op.get("toPath", ["_Archive"]))
+        return {"op": s, "summary": f"{op.get('bookmarkId', '?')} → {t}"}
+    return {"op": s, "summary": str(op)[:100]}
+
+
+def run_undo_command(args: argparse.Namespace) -> int:
+    """回退最近 N 个操作。
+
+    Args:
+        args: argparse 解析后的参数对象。
+
+    Returns:
+        int: 退出码。0 表示成功。
+    """
+
+    paths = resolve_workspace(args.workspace)
+    operations = read_jsonl(paths.operations)
+    n = args.last
+    if n <= 0:
+        print(json.dumps({"ok": False, "error": "--last 必须 > 0"}, ensure_ascii=False), file=sys.stderr)
+        return 1
+    if n > len(operations):
+        print(
+            json.dumps(
+                {"ok": False, "error": f"只有 {len(operations)} 个操作，无法回退 {n} 个"},
+                ensure_ascii=False,
+            ),
+            file=sys.stderr,
+        )
+        return 1
+    undone = operations[-n:]
+    summaries = [_op_summary(op) for op in undone]
+    if args.dry_run:
+        print(
+            json.dumps(
+                {"ok": True, "dryRun": True, "undoCount": n, "operations": summaries},
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 0
+    # 截断
+    remaining = operations[:-n]
+    paths.operations.write_text(
+        "\n".join(json.dumps(op, ensure_ascii=False) for op in remaining) + ("\n" if remaining else ""),
+        encoding="utf-8",
+    )
+    write_current_tree(paths.root)
+    print(
+        json.dumps(
+            {"ok": True, "undoCount": n, "remainingCount": len(remaining), "operations": summaries},
             ensure_ascii=False,
             indent=2,
         )

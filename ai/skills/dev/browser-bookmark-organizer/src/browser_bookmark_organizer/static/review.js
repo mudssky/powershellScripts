@@ -40,7 +40,7 @@ const stepButtons = Array.from(document.querySelectorAll("[data-view]"));
 const panels = Array.from(document.querySelectorAll("[data-panel]"));
 
 workspacePath.textContent = window.__BOOKMARK_WORKSPACE__;
-if (window.__BOOKMARK_SERVER__?.url) {
+if (serverUrl && window.__BOOKMARK_SERVER__?.url) {
   serverUrl.textContent = window.__BOOKMARK_SERVER__.url;
   serverUrl.href = window.__BOOKMARK_SERVER__.url;
 }
@@ -737,18 +737,24 @@ saveButton.addEventListener("click", async () => {
     return;
   }
   const result = await response.json();
-  saveStatus.textContent = `已保存到 ${result.path}`;
+  saveStatus.textContent = `已保存 (${new Date().toLocaleTimeString()})`;
 });
 
 exportButton.addEventListener("click", async () => {
-  saveStatus.textContent = "正在导出...";
+  saveStatus.textContent = "正在生成...";
   const response = await fetch("/api/export", { method: "POST" });
   if (!response.ok) {
     saveStatus.textContent = "导出失败，请查看 review-server.log。";
     return;
   }
-  const result = await response.json();
-  saveStatus.textContent = `已导出到 ${result.path}`;
+  // 触发浏览器下载
+  const a = document.createElement("a");
+  a.href = "/api/export/download";
+  a.download = "bookmarks_cleaned.html";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  saveStatus.textContent = `已导出 (${new Date().toLocaleTimeString()})`;
 });
 
 if (refreshButton) {

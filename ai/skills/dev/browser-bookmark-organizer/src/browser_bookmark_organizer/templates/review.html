@@ -15,22 +15,15 @@
         <div class="topbar-meta">
           <span class="muted mono" id="workspacePath"></span>
           <span class="muted" id="serverTtl"></span>
+          <span class="stage-copy"><strong>下一步：</strong><span id="nextActionText">加载 workspace 状态...</span></span>
         </div>
       </div>
       <div class="topbar-actions">
-        <button class="button ghost" id="refreshButton" type="button">刷新状态</button>
-        <a class="button ghost mono" id="serverUrl" href="/" target="_blank" rel="noreferrer">本地服务</a>
-        <a class="button ghost" href="/api/analysis" target="_blank" rel="noreferrer">查看 JSON</a>
+        <button class="button icon-only" id="refreshButton" type="button" title="刷新状态">↻</button>
         <button class="button primary" id="saveButton" type="button">保存选择</button>
+        <button class="button action" id="exportButton" type="button">导出</button>
       </div>
     </header>
-    <div class="stage-strip">
-      <div class="stage-copy">
-        <strong>下一步</strong>
-        <span id="nextActionText">加载 workspace 状态...</span>
-      </div>
-      <button class="button action" id="exportButton" type="button">导出当前书签 HTML</button>
-    </div>
     <main class="layout" id="mainContent">
       <aside class="sidebar" aria-label="整理阶段">
         <nav class="step-list" aria-label="审核阶段">

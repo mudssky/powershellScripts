@@ -14,6 +14,7 @@ SUPPORTED_OPS = {
     "create_folder",
     "rename_folder",
     "move_folder",
+    "merge_folder",
     "delete_empty_folder",
     "move_bookmark",
     "rename_bookmark",
@@ -21,6 +22,44 @@ SUPPORTED_OPS = {
     "mark_bookmark",
     "archive_bookmark",
 }
+
+# 每种 op 的必填字段
+REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
+    "create_folder": ("path",),
+    "rename_folder": ("fromPath", "toPath"),
+    "move_folder": ("fromPath", "toPath"),
+    "merge_folder": ("fromPath", "toPath"),
+    "delete_empty_folder": ("path",),
+    "move_bookmark": ("bookmarkId", "toPath"),
+    "rename_bookmark": ("bookmarkId", "title"),
+    "update_url": ("bookmarkId", "url"),
+    "mark_bookmark": ("bookmarkId", "mark"),
+    "archive_bookmark": ("bookmarkId",),
+}
+
+
+def validate_operation(operation: dict[str, Any]) -> None:
+    """校验操作的必填字段。
+
+    Args:
+        operation: 操作对象。
+
+    Returns:
+        None: 校验通过。
+
+    Raises:
+        ValueError: 缺少必填字段或 op 类型无效。
+    """
+
+    op = operation.get("op")
+    if not op:
+        raise ValueError("操作缺少 op 字段")
+    if op not in SUPPORTED_OPS:
+        raise ValueError(f"不支持的 operation: {op}")
+    required = REQUIRED_FIELDS.get(op, ())
+    missing = [f for f in required if f not in operation]
+    if missing:
+        raise ValueError(f"操作 {op} 缺少必填字段: {', '.join(missing)}")
 
 
 def build_snapshot(root: Folder, input_path: str) -> dict[str, Any]:
@@ -126,6 +165,8 @@ def apply_operation(state: dict[str, Any], operation: dict[str, Any]) -> None:
         rename_folder(state, path_tuple(operation["fromPath"]), path_tuple(operation["toPath"]))
     elif op == "move_folder":
         move_folder(state, path_tuple(operation["fromPath"]), path_tuple(operation["toPath"]))
+    elif op == "merge_folder":
+        merge_folder_op(state, path_tuple(operation["fromPath"]), path_tuple(operation["toPath"]))
     elif op == "delete_empty_folder":
         delete_empty_folder(state, path_tuple(operation["path"]))
     elif op == "move_bookmark":
@@ -142,6 +183,38 @@ def apply_operation(state: dict[str, Any], operation: dict[str, Any]) -> None:
         to_path = path_tuple(operation.get("toPath", ["_Archive"]))
         move_bookmark(state, str(operation["bookmarkId"]), to_path)
         find_bookmark(state, str(operation["bookmarkId"]))["archived"] = True
+
+
+def merge_folder_op(
+    state: dict[str, Any], from_path: tuple[str, ...], to_path: tuple[str, ...]
+) -> None:
+    """合并目录：把源目录的直接书签和子目录移到目标目录，然后删除源目录。
+
+    Args:
+        state: 当前状态。
+        from_path: 源目录路径。
+        to_path: 目标目录路径。
+
+    Returns:
+        None: 合并完成后返回。
+    """
+
+    if not from_path:
+        raise ValueError("不能合并根目录")
+    ensure_folder(state, to_path)
+    # 移动源目录的子目录到目标目录下
+    for folder in state["folders"]:
+        fp = tuple(folder["path"])
+        if len(fp) == len(from_path) + 1 and fp[: len(from_path)] == from_path:
+            child_name = fp[-1]
+            new_path = (*to_path, child_name)
+            move_folder(state, fp, new_path)
+    # 移动源目录的直接书签到目标目录
+    for bookmark in state["bookmarks"]:
+        if tuple(bookmark["folderPath"]) == from_path and not bookmark.get("deleted"):
+            bookmark["folderPath"] = list(to_path)
+    # 删除源目录（此时应为空）
+    state["folders"] = [f for f in state["folders"] if tuple(f["path"]) != from_path]
 
 
 def ensure_folder(state: dict[str, Any], path: tuple[str, ...]) -> None:

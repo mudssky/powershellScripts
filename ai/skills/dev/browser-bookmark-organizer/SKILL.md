@@ -37,11 +37,12 @@ uv run python -m browser_bookmark_organizer.cli review --workspace ./bookmark-ru
 
 `review` 默认同样后台启动；只想在批处理或测试里生成文件，不启动服务时显式使用 `--no-review`。需要让命令阻塞在当前终端用于调试时，加 `--foreground`。
 
-整理过程中查看状态、应用操作和导出：
+整理过程中查看状态、应用操作、回退和导出：
 
 ```bash
 uv run python -m browser_bookmark_organizer.cli tree --workspace ./bookmark-runs/run-001
 uv run python -m browser_bookmark_organizer.cli apply-ops --workspace ./bookmark-runs/run-001 --input approved-ops.json
+uv run python -m browser_bookmark_organizer.cli undo --workspace ./bookmark-runs/run-001 --last 5
 uv run python -m browser_bookmark_organizer.cli status --workspace ./bookmark-runs/run-001
 uv run python -m browser_bookmark_organizer.cli export --workspace ./bookmark-runs/run-001 --output bookmarks.cleaned.html
 ```
@@ -54,6 +55,7 @@ uv run python -m browser_bookmark_organizer.cli export --workspace ./bookmark-ru
 uv run python -m browser_bookmark_organizer.cli analyze [options] <bookmarks.html>
 uv run python -m browser_bookmark_organizer.cli tree --workspace <dir>
 uv run python -m browser_bookmark_organizer.cli apply-ops --workspace <dir> --input <ops.json>
+uv run python -m browser_bookmark_organizer.cli undo --workspace <dir> --last <n>
 uv run python -m browser_bookmark_organizer.cli status --workspace <dir>
 uv run python -m browser_bookmark_organizer.cli export --workspace <dir> --output <bookmarks.cleaned.html>
 uv run python -m browser_bookmark_organizer.cli review --workspace <dir>
@@ -61,7 +63,7 @@ uv run python -m browser_bookmark_organizer.cli review --workspace <dir>
 
 常用参数：
 
-- `--workspace <dir>`：分析结果、报告和用户选择记录目录。
+- `--workspace <dir>`：分析结果、报告和用户选择记录目录。省略时由 `analyze` 子命令自动在当前目录下生成带时间戳的子目录；`apply-ops`、`undo`、`export` 等子命令必须显式指定。
 - `--output-dir <dir>`：兼容旧入口；同时输出 `bookmark-report.md`、`bookmark-report.html` 和 `bookmark-report.json`。
 - `--markdown-out <file>`：单独指定 Markdown 报告路径。
 - `--json-out <file>`：单独指定 JSON 数据路径。
@@ -84,7 +86,26 @@ uv run python -m browser_bookmark_organizer.cli review --workspace <dir>
 - `review --host 127.0.0.1 --port 0 --open --shutdown-after 3600`：重新打开本地审核页，默认后台启动。
 - `review --foreground --log-file <file>`：以前台方式运行，并把服务日志写入指定文件。
 
-`apply-ops` 支持 JSON 数组或 `{ "operations": [...] }`，也支持 JSONL。当前 operation 会追加到 `operations.jsonl`；CLI replay `snapshot.json + operations.jsonl` 得到当前状态。
+`apply-ops` 支持 JSON 数组或 `{ "operations": [...] }`，也支持 JSONL。当前 operation 会追加到 `operations.jsonl`；CLI replay `snapshot.json + operations.jsonl` 得到当前状态。`--input` 为主参数名，`--ops-file` 为隐藏别名。`--dry-run` 时只验证并输出操作摘要，不写入文件。
+
+`undo` 从 `operations.jsonl` 尾部截断指定数量的操作并重新生成 `current-tree.json`。`--last N` 指定回退条数，`--dry-run` 只预览不执行。
+
+## 支持的 Operation 类型
+
+| op | 必填字段 | 说明 |
+| --- | --- | --- |
+| `create_folder` | `path` | 创建新目录 |
+| `rename_folder` | `fromPath`, `toPath` | 重命名目录 |
+| `move_folder` | `fromPath`, `toPath` | 移动目录到新位置 |
+| `merge_folder` | `fromPath`, `toPath` | 合并源目录内容到目标目录，然后删除源目录 |
+| `delete_empty_folder` | `path` | 删除空目录 |
+| `move_bookmark` | `bookmarkId`, `toPath` | 移动书签到目标目录 |
+| `rename_bookmark` | `bookmarkId`, `title` | 重命名书签标题 |
+| `update_url` | `bookmarkId`, `url` | 更新书签 URL |
+| `mark_bookmark` | `bookmarkId`, `mark` | 给书签添加标记 |
+| `archive_bookmark` | `bookmarkId` | 归档书签 |
+
+字段缺失时会返回明确的错误提示，列出缺少的字段名。`path`/`fromPath`/`toPath` 为字符串数组，表示从根到目标的层级路径（如 `["开发", "Python"]`）。
 
 ## 输出内容
 

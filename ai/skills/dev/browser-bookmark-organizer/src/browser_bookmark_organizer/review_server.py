@@ -14,7 +14,7 @@ from typing import Any
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from browser_bookmark_organizer.clock import now_local
@@ -151,7 +151,7 @@ def create_app(workspace: Path, server_info: ReviewServerInfo | None = None) -> 
 
     @app.post("/api/export")
     async def export_current_bookmarks() -> JSONResponse:
-        """导出当前已批准状态为新的 bookmarks HTML。
+        """导出当前已批准状态为新的 bookmarks HTML 并触发浏览器下载。
 
         Args:
             None.
@@ -165,9 +165,30 @@ def create_app(workspace: Path, server_info: ReviewServerInfo | None = None) -> 
         state = replay_operations(
             read_json(paths.snapshot), approved_operations(read_jsonl(paths.operations))
         )
-        paths.cleaned_html.write_text(export_netscape_html(state), encoding="utf-8")
+        html_content = export_netscape_html(state)
+        paths.cleaned_html.write_text(html_content, encoding="utf-8")
         logger.info("Exported cleaned bookmarks path=%s", paths.cleaned_html)
         return JSONResponse({"ok": True, "path": str(paths.cleaned_html)})
+
+    @app.get("/api/export/download")
+    async def download_exported_bookmarks() -> Response:
+        """下载导出的书签 HTML 文件。
+
+        Args:
+            None.
+
+        Returns:
+            Response: HTML 文件响应，带下载头。
+        """
+
+        if not paths.cleaned_html.is_file():
+            raise HTTPException(status_code=404, detail="请先点击导出按钮生成文件")
+        content = paths.cleaned_html.read_text(encoding="utf-8")
+        return Response(
+            content=content,
+            media_type="text/html",
+            headers={"Content-Disposition": "attachment; filename=bookmarks_cleaned.html"},
+        )
 
     @app.get("/api/server")
     async def get_server_info() -> JSONResponse:
