@@ -450,3 +450,36 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 14: database-query 开箱即用体验
+
+**Date**: 2026-06-01
+**Task**: database-query 开箱即用体验
+**Branch**: `master`
+
+### Summary
+
+允许 defaultDatabase 省略 databases，新增 init-config，强化 doctor 安装决策提示，并更新 Codex 全局 skill 安装态。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `f5647e4` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

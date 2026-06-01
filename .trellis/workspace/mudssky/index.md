@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 13
-- **Last Active**: 2026-05-31
+- **Total Sessions**: 14
+- **Last Active**: 2026-06-01
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~452 | Active |
+| `journal-1.md` | ~485 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 14 | 2026-06-01 | database-query 开箱即用体验 | `f5647e4` | `master` |
 | 13 | 2026-05-31 | 创建通用整理分类技能 | `e78a885`, `3fa292e` | `master` |
 | 12 | 2026-05-31 | 数据库查询技能开发 | `ee9ae9f` | `master` |
 | 11 | 2026-05-30 | macOS 内存诊断与 pwshfmt 回退修复 | `c03da80`, `f5a3c4d` | `master` |
