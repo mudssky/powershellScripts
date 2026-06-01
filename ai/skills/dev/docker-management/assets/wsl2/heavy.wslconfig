@@ -1,0 +1,21 @@
+[wsl2]
+# 高负载开发：适合 64GB+ 内存机器、多个数据库/搜索/消息队列、较重构建任务。
+
+# 建议不超过主机物理内存的 50%-65%，避免 Windows 侧卡死。
+memory=32GB
+# 建议保留至少 2-4 个逻辑核心给 Windows 与 IDE。
+processors=8
+swap=16GB
+
+localhostForwarding=true
+nestedVirtualization=true
+guiApplications=true
+
+networkingMode=mirrored
+dnsTunneling=true
+firewall=true
+autoProxy=true
+
+[experimental]
+autoMemoryReclaim=gradual
+sparseVhd=true

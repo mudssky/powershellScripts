@@ -108,4 +108,4 @@ docker compose --profile db up -d
 docker compose up -d --build <service>
 ```
 
-本仓库开发容器入口位于 `scripts/pwsh/devops/start-container.ps1` 与 `config/dockerfiles/compose/`。在该仓库内优先使用仓库入口；在独立项目中按项目自己的 compose 约定执行。
+如果项目已经提供统一启动脚本或 compose wrapper，优先使用项目约定；否则直接使用上面的 `docker compose` 命令。

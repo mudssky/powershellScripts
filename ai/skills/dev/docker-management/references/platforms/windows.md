@@ -6,7 +6,7 @@
 - [方案 C：WSL2-CLI + Docker Engine + Portainer](#方案-cwsl2-cli--docker-engine--portainer)
 - [Docker Desktop 迁到 Rancher Desktop](#docker-desktop-迁到-rancher-desktop)
 - [Docker Desktop 迁到 WSL2-CLI](#docker-desktop-迁到-wsl2-cli)
-- [本仓库参考实现](#本仓库参考实现)
+- [内置配置模板](#内置配置模板)
 
 ## 三种方案
 
@@ -42,27 +42,7 @@ wsl --status
 wsl --list --verbose
 ```
 
-在 `%UserProfile%\.wslconfig` 使用全局 WSL2 VM 配置。资源值按主机实际调整：
-
-```ini
-[wsl2]
-# 建议从物理内存的 25%-50% 起步，开发数据库多时再上调。
-memory=16GB
-# 建议约为主机逻辑核心数的 50%。
-processors=4
-swap=8GB
-localhostForwarding=true
-nestedVirtualization=true
-guiApplications=true
-networkingMode=mirrored
-dnsTunneling=true
-firewall=true
-autoProxy=true
-
-[experimental]
-autoMemoryReclaim=gradual
-sparseVhd=true
-```
+在 `%UserProfile%\.wslconfig` 使用全局 WSL2 VM 配置。优先按 `../wsl2-config-templates.md` 选择轻量、均衡或高负载模板，并直接复制 `assets/wsl2/*.wslconfig` 中的一个文件。
 
 修改后执行：
 
@@ -72,22 +52,7 @@ wsl --shutdown
 
 ### 2. 配置发行版内 `/etc/wsl.conf`
 
-在目标 WSL 发行版内写入：
-
-```ini
-[boot]
-systemd=true
-
-[automount]
-enabled=true
-root=/mnt/
-options="metadata,umask=022,fmask=011"
-mountFsTab=true
-
-[interop]
-enabled=true
-appendWindowsPath=true
-```
+在目标 WSL 发行版内写入 `/etc/wsl.conf`。在 WSL2 内直接运行 Docker Engine 时，复制 `assets/wsl2/docker-engine.wsl.conf`；只需要 systemd 时，复制 `assets/wsl2/minimal-systemd.wsl.conf`。
 
 保存后在 Windows 侧执行 `wsl --shutdown`，再重新进入发行版。确认 systemd：
 
@@ -167,12 +132,46 @@ volumes:
 
 ### 5. 代理与端口策略
 
-本仓库使用 `shell/shared.d/proxy.sh` 作为现役代理管理器：
+代理配置不要依赖某个项目里的脚本。需要代理时，直接按当前环境写入 shell 环境变量、Docker daemon systemd drop-in 或 Docker CLI 容器代理配置。
+
+当前 shell 临时代理：
 
 ```bash
-proxy on
-proxy docker on
-proxy container on
+export http_proxy="http://127.0.0.1:7890"
+export https_proxy="$http_proxy"
+export HTTP_PROXY="$http_proxy"
+export HTTPS_PROXY="$http_proxy"
+```
+
+Docker daemon 拉取代理：
+
+```bash
+sudo mkdir -p /etc/systemd/system/docker.service.d
+sudo tee /etc/systemd/system/docker.service.d/http-proxy.conf >/dev/null <<'EOF'
+[Service]
+Environment="HTTP_PROXY=http://127.0.0.1:7890"
+Environment="HTTPS_PROXY=http://127.0.0.1:7890"
+Environment="NO_PROXY=localhost,127.0.0.1,::1"
+EOF
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+```
+
+新建容器默认代理：
+
+```bash
+mkdir -p ~/.docker
+cat >~/.docker/config.json <<'EOF'
+{
+  "proxies": {
+    "default": {
+      "httpProxy": "http://127.0.0.1:7890",
+      "httpsProxy": "http://127.0.0.1:7890",
+      "noProxy": "localhost,127.0.0.1,::1"
+    }
+  }
+}
+EOF
 ```
 
 WSL mirrored 网络中，优先使用 `127.0.0.1:<port>` 访问 Windows 侧代理。旧式解析 `/etc/resolv.conf` nameserver 的代理脚本只适合早期 NAT 模式，不再作为默认方案。
@@ -248,13 +247,13 @@ wsl --unregister docker-desktop-data
 
 `wsl --unregister` 会删除对应发行版数据，执行前必须确认迁移完成或已经导出保底。
 
-## 本仓库参考实现
+## 内置配置模板
 
-本仓库提供一份 Windows + WSL2 方案 C 的参考配置：
+本 skill 自带可复制模板，不依赖任何仓库文件：
 
-- `linux/wsl2/.wslconfig`：复制到 `%UserProfile%\.wslconfig` 后执行 `wsl --shutdown`。
-- `linux/wsl2/wsl.conf`：复制到目标发行版 `/etc/wsl.conf` 后执行 `wsl --shutdown`。
-- `linux/wsl2/loadWslConfig.ps1`：用于加载仓库内 `.wslconfig`。
-- `shell/shared.d/proxy.sh`：现役代理管理器，覆盖 shell、Docker daemon 和新建容器代理。
+- `../wsl2-config-templates.md`：WSL2 模板选择说明和复制命令。
+- `../../assets/wsl2/`：轻量、均衡、高负载 `.wslconfig` 文件，以及 Docker Engine 推荐 `/etc/wsl.conf` 文件。
+- `../daily-ops.md`：日志轮转、代理、端口绑定和清理命令。
+- `../migration-strategy.md`：镜像、卷、bind mount、compose 配置的备份/恢复命令。
 
 跨平台迁移命令见 `../migration-strategy.md`，日常运维见 `../daily-ops.md`。

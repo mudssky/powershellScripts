@@ -79,7 +79,7 @@ services:
       - "127.0.0.1:5432:5432"
 ```
 
-这与仓库 `docs/cheatsheet/linux/docker/docker-bind-localhost.md` 的结论一致：宿主机本机仍可访问，同一 Docker 网络内的容器通常仍可通过服务名互联，外部机器不能直接连到该宿主端口。
+绑定到 `127.0.0.1` 后，宿主机本机仍可访问，同一 Docker 网络内的容器通常仍可通过服务名互联，外部机器不能直接连到该宿主端口。
 
 ## 清理与 prune
 
@@ -111,21 +111,63 @@ docker volume prune
 
 ## 代理
 
-本仓库现役代理入口是 `shell/shared.d/proxy.sh`，适合 WSL2 与原生 Linux 共用。
+代理分三层处理：当前 shell、Docker daemon 拉取镜像、新建容器运行环境。不要假设项目内存在代理脚本；直接写入对应层的标准配置。
 
-常用命令：
+当前 shell 临时代理：
 
 ```bash
-proxy on
-proxy off
-proxy status
-proxy docker on
-proxy container on
+export http_proxy="http://127.0.0.1:7890"
+export https_proxy="$http_proxy"
+export HTTP_PROXY="$http_proxy"
+export HTTPS_PROXY="$http_proxy"
+export no_proxy="localhost,127.0.0.1,::1"
+export NO_PROXY="$no_proxy"
 ```
 
-- `proxy on` 设置当前 shell 的 `http_proxy` / `https_proxy`。
-- `proxy docker on` 写入 Docker daemon systemd drop-in，影响 `docker pull`，会重启 Docker。
-- `proxy container on` 写入 `~/.docker/config.json` 的容器代理配置，只影响新建容器。
+关闭当前 shell 代理：
+
+```bash
+unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY no_proxy NO_PROXY
+```
+
+Docker daemon 拉取代理，影响 `docker pull`，需要重启 Docker：
+
+```bash
+sudo mkdir -p /etc/systemd/system/docker.service.d
+sudo tee /etc/systemd/system/docker.service.d/http-proxy.conf >/dev/null <<'EOF'
+[Service]
+Environment="HTTP_PROXY=http://127.0.0.1:7890"
+Environment="HTTPS_PROXY=http://127.0.0.1:7890"
+Environment="NO_PROXY=localhost,127.0.0.1,::1"
+EOF
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+```
+
+移除 Docker daemon 代理：
+
+```bash
+sudo rm -f /etc/systemd/system/docker.service.d/http-proxy.conf
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+```
+
+新建容器默认代理，写入 `~/.docker/config.json`，只影响之后创建的容器：
+
+```bash
+mkdir -p ~/.docker
+cat >~/.docker/config.json <<'EOF'
+{
+  "proxies": {
+    "default": {
+      "httpProxy": "http://127.0.0.1:7890",
+      "httpsProxy": "http://127.0.0.1:7890",
+      "noProxy": "localhost,127.0.0.1,::1"
+    }
+  }
+}
+EOF
+```
 
 在 WSL mirrored 网络中，优先使用 `127.0.0.1:<port>` 或显式 `PROXY_DEFAULT_HOST/PORT`，不要再依赖解析 `/etc/resolv.conf` 的旧 NAT 主机 IP 方案。
 
