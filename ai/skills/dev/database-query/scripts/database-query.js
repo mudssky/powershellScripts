@@ -570,6 +570,33 @@ async function loadConfig(configPath) {
 	};
 }
 /**
+* 解析默认配置查找路径，用于 CLI 向用户解释查找顺序。
+*
+* @param projectDirectory 项目级查找目录，默认使用当前工作目录。
+* @returns 配置查找路径摘要。
+*/
+function getConfigSearchPaths(projectDirectory = process.cwd()) {
+	const projectRoot = resolve(projectDirectory);
+	const globalDirectory = getGlobalConfigDirectory();
+	return {
+		projectDirectory: projectRoot,
+		globalDirectory,
+		globalLocalConfigPath: getGlobalLocalConfigPath(),
+		filenames: [...DEFAULT_CONFIG_FILES],
+		projectCandidates: DEFAULT_CONFIG_FILES.map((file) => resolve(projectRoot, file)),
+		globalCandidates: DEFAULT_CONFIG_FILES.map((file) => resolve(globalDirectory, file))
+	};
+}
+/**
+* 查找默认配置文件，不加载配置内容。
+*
+* @param projectDirectory 项目级查找目录，默认使用当前工作目录。
+* @returns 命中的配置文件绝对路径；未找到返回 undefined。
+*/
+function findDefaultConfigPath(projectDirectory = process.cwd()) {
+	return findConfigInDirectory(resolve(projectDirectory)) ?? findConfigInDirectory(getGlobalConfigDirectory());
+}
+/**
 * 获取带默认值的全局策略。
 *
 * @param config database-query 配置。
@@ -662,7 +689,7 @@ function resolveEnvPlaceholders(value) {
 * @returns 找到的绝对路径；未找到返回 undefined。
 */
 function findDefaultConfig() {
-	return findConfigInDirectory(process.cwd()) ?? findConfigInDirectory(getGlobalConfigDirectory());
+	return findDefaultConfigPath();
 }
 /**
 * 在指定目录按默认文件名查找配置。
@@ -754,7 +781,7 @@ function resolveOptionalDatabase(instance, databases, options) {
 	if (databases.length === 0) {
 		const databaseName = options.database ?? instance.defaultDatabase;
 		if (databaseName) return { name: databaseName };
-		if (options.requireDatabase) throw new ConfigError(`instance ${instance.id} 需要 database。请提供 --database，或配置 defaultDatabase。`);
+		if (options.requireDatabase && instance.type !== "sqlite") throw new ConfigError(`instance ${instance.id} 需要 database。请提供 --database，或配置 defaultDatabase。`);
 		return;
 	}
 	if (options.requireDatabase || options.database || instance.defaultDatabase) return resolveByName(databases, options.database, instance.defaultDatabase, "database", (item) => item.name);
@@ -1604,6 +1631,9 @@ function createCli(io) {
 	cli.command("doctor", "检查底层客户端可用性。").action(async () => {
 		io.stdout(await formatDoctor());
 	});
+	cli.command("config <action>", "输出配置文件查找路径或当前配置。").option("--config <path>", "显式配置文件路径。").option("--format <format>", "输出格式：text 或 json。", { default: "text" }).action((action, options) => {
+		runConfigCommand(action, options, io);
+	});
 	cli.command("init-config", "生成最小 database-query 配置模板。").option("--global", "写入 XDG 用户级全局配置路径。").option("--path <path>", "写入指定配置路径。").option("--print", "只打印模板，不写文件。").option("--force", "允许覆盖已有配置文件。").action(async (options) => {
 		await runInitConfig(options, io);
 	});
@@ -1773,21 +1803,22 @@ async function runClient(passthrough, options, io) {
 * @returns 无返回值。
 */
 async function runPlan(plan, options) {
-	if (options.verbose || options.printCommand) options.io.stdout(formatExecutionPlan(plan));
+	const resolvedPlan = resolvePlanTool(plan);
+	if (options.verbose || options.printCommand) options.io.stdout(formatExecutionPlan(resolvedPlan));
 	if (options.printCommand) return;
-	if (plan.sdk) {
-		const result = await runSdkPlan(plan.sdk);
+	if (resolvedPlan.sdk) {
+		const result = await runSdkPlan(resolvedPlan.sdk);
 		options.io.stdout(JSON.stringify(result, null, 2));
 		return;
 	}
-	if (plan.args.length === 0) {
-		options.io.stdout(plan.summary);
+	if (resolvedPlan.args.length === 0) {
+		options.io.stdout(resolvedPlan.summary);
 		return;
 	}
-	const result = spawnSync(plan.tool, plan.args, {
+	const result = spawnSync(resolvedPlan.tool, resolvedPlan.args, {
 		env: {
 			...process.env,
-			...plan.env
+			...resolvedPlan.env
 		},
 		encoding: "utf8",
 		stdio: "pipe"
@@ -1795,7 +1826,22 @@ async function runPlan(plan, options) {
 	if (result.stdout) options.io.stdout(result.stdout.trimEnd());
 	if (result.stderr) options.io.stderr(result.stderr.trimEnd());
 	if (result.error) throw new CliError(result.error.message);
-	if (result.status && result.status !== 0) throw new CliError(`${plan.tool} 退出码: ${result.status}`, result.status);
+	if (result.status && result.status !== 0) throw new CliError(`${resolvedPlan.tool} 退出码: ${result.status}`, result.status);
+}
+/**
+* 将执行计划中的底层命令解析为当前环境可用命令。
+*
+* @param plan 原始执行计划。
+* @returns 使用可用命令名的执行计划。
+*/
+function resolvePlanTool(plan) {
+	if (plan.sdk || plan.args.length === 0) return plan;
+	const result = probeTool(plan.tool);
+	if (!result.command || result.command === plan.tool) return plan;
+	return {
+		...plan,
+		tool: result.command
+	};
 }
 /**
 * 执行 SDK 计划。
@@ -1864,6 +1910,79 @@ function formatContext(snapshot) {
 	return lines.join("\n");
 }
 /**
+* 执行配置元信息子命令。
+*
+* @param action 子动作名称。
+* @param options CLI 选项。
+* @param io 输出抽象。
+* @returns 无返回值。
+*/
+function runConfigCommand(action, options, io) {
+	if (action === "paths") {
+		const paths = getConfigSearchPaths();
+		io.stdout(options.format === "json" ? JSON.stringify(paths, null, 2) : formatConfigPaths(paths));
+		return;
+	}
+	if (action === "current") {
+		const current = resolveCurrentConfigPath(options.config);
+		io.stdout(options.format === "json" ? JSON.stringify(current, null, 2) : formatCurrentConfig(current));
+		if (!current.path) throw new CliError("未找到配置文件。", 1);
+		return;
+	}
+	throw new CliError(`不支持的 config action: ${action}`);
+}
+/**
+* 格式化配置查找路径。
+*
+* @param paths 配置查找路径摘要。
+* @returns 人类可读文本。
+*/
+function formatConfigPaths(paths) {
+	return [
+		"database-query config paths:",
+		`projectDirectory: ${paths.projectDirectory}`,
+		`globalDirectory: ${paths.globalDirectory}`,
+		`globalLocalConfigPath: ${paths.globalLocalConfigPath}`,
+		`filenames: ${paths.filenames.join(", ")}`,
+		"searchOrder:",
+		...paths.projectCandidates.map((path) => `- ${path}`),
+		...paths.globalCandidates.map((path) => `- ${path}`)
+	].join("\n");
+}
+/**
+* 解析当前应使用的配置路径，不读取配置内容。
+*
+* @param configPath 显式配置文件路径。
+* @returns 当前配置路径摘要。
+*/
+function resolveCurrentConfigPath(configPath) {
+	const explicitPath = configPath ? resolve(configPath) : void 0;
+	const resolvedPath = explicitPath ?? findDefaultConfigPath();
+	const paths = getConfigSearchPaths();
+	return {
+		mode: explicitPath ? "explicit" : "default",
+		path: resolvedPath,
+		globalDirectory: paths.globalDirectory,
+		globalLocalConfigPath: paths.globalLocalConfigPath,
+		searchOrder: [...paths.projectCandidates, ...paths.globalCandidates]
+	};
+}
+/**
+* 格式化当前配置路径。
+*
+* @param current 当前配置路径摘要。
+* @returns 人类可读文本。
+*/
+function formatCurrentConfig(current) {
+	const lines = [
+		"database-query config current:",
+		`mode: ${current.mode}`,
+		`path: ${current.path ?? "<not-found>"}`
+	];
+	if (!current.path) lines.push(`hint: 请提供 --config，或创建 ${current.globalLocalConfigPath}。`);
+	return lines.join("\n");
+}
+/**
 * 格式化 doctor 检查结果。
 *
 * @returns doctor 文本。
@@ -1878,18 +1997,69 @@ async function formatDoctor() {
 	];
 	const lines = ["database-query doctor:", "install policy: 不自动安装底层客户端；agent 应根据当前平台、权限和 PATH 自行选择安装方式。"];
 	for (const tool of tools) {
-		const result = spawnSync(tool, ["--version"], {
-			encoding: "utf8",
-			stdio: "pipe"
-		});
-		lines.push(`- ${tool}: ${result.error ? "missing" : "ok"}`);
-		if (result.error) lines.push(...formatInstallHints(tool));
+		const result = probeTool(tool);
+		if (result.command) lines.push(`- ${tool}: ok (${result.origin}) command=${result.command}${result.version ? ` version="${result.version}"` : ""}`);
+		else {
+			lines.push(`- ${tool}: missing`);
+			lines.push(...formatInstallHints(tool));
+		}
 	}
 	const milvusSdkAvailable = await hasMilvusSdk();
 	lines.push(`- @zilliz/milvus2-sdk-node: ${milvusSdkAvailable ? "ok" : "missing"} (Milvus exec actions)`);
 	if (!milvusSdkAvailable) lines.push(...formatInstallHints("@zilliz/milvus2-sdk-node"));
 	lines.push("install reference: references/client-installation.md");
 	return lines.join("\n");
+}
+/**
+* 探测底层客户端命令，WSL 场景下原生命令缺失时尝试 `.exe`。
+*
+* @param name 客户端命令基础名称。
+* @param runner 命令执行抽象，便于测试模拟 PATH。
+* @returns 客户端探测结果。
+*/
+function probeTool(name, runner = runToolVersion) {
+	const nativeResult = runner(name, ["--version"]);
+	if (nativeResult.ok) return {
+		name,
+		command: name,
+		origin: "native",
+		version: firstOutputLine(nativeResult.output)
+	};
+	const windowsCommand = `${name}.exe`;
+	const windowsResult = runner(windowsCommand, ["--version"]);
+	if (windowsResult.ok) return {
+		name,
+		command: windowsCommand,
+		origin: "windows-exe",
+		version: firstOutputLine(windowsResult.output)
+	};
+	return { name };
+}
+/**
+* 运行客户端版本命令。
+*
+* @param command 客户端命令。
+* @param args 命令参数。
+* @returns 命令是否可运行及版本输出。
+*/
+function runToolVersion(command, args) {
+	const result = spawnSync(command, args, {
+		encoding: "utf8",
+		stdio: "pipe"
+	});
+	return {
+		ok: !result.error && result.status === 0,
+		output: result.stdout || result.stderr || void 0
+	};
+}
+/**
+* 获取命令输出第一行。
+*
+* @param output 原始命令输出。
+* @returns 去空白后的第一行。
+*/
+function firstOutputLine(output) {
+	return output?.split(/\r?\n/).map((line) => line.trim()).find(Boolean);
 }
 /**
 * 检查 Milvus Node SDK 是否可动态加载。

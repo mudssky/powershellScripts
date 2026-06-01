@@ -7,6 +7,8 @@ import { cac } from 'cac'
 import {
   ConfigError,
   createContextSnapshot,
+  findDefaultConfigPath,
+  getConfigSearchPaths,
   getEffectiveDefaults,
   getGlobalLocalConfigPath,
   loadConfig,
@@ -39,6 +41,22 @@ const LEVELS = new Set<PermissionLevel>([
 ])
 const DEFAULT_STDOUT = console.log.bind(console)
 const DEFAULT_STDERR = console.error.bind(console)
+
+type ToolOrigin = 'native' | 'windows-exe'
+
+interface ToolProbeResult {
+  name: string
+  command?: string
+  origin?: ToolOrigin
+  version?: string
+}
+
+interface ToolRunResult {
+  ok: boolean
+  output?: string
+}
+
+type ToolRunner = (command: string, args: string[]) => ToolRunResult
 
 interface CliIo {
   stdout: (message: string) => void
@@ -76,6 +94,11 @@ interface ConfigOptions extends GlobalOptions {
   verbose?: boolean
   printCommand?: boolean
   __clientPassthrough?: string[]
+}
+
+interface ConfigCommandOptions extends GlobalOptions {
+  config?: string
+  format?: string
 }
 
 interface InitConfigOptions extends GlobalOptions {
@@ -224,6 +247,16 @@ function createCli(io: CliIo) {
   cli.command('doctor', '检查底层客户端可用性。').action(async () => {
     io.stdout(await formatDoctor())
   })
+
+  cli
+    .command('config <action>', '输出配置文件查找路径或当前配置。')
+    .option('--config <path>', '显式配置文件路径。')
+    .option('--format <format>', '输出格式：text 或 json。', {
+      default: 'text',
+    })
+    .action((action: string, options: ConfigCommandOptions) => {
+      runConfigCommand(action, options, io)
+    })
 
   cli
     .command('init-config', '生成最小 database-query 配置模板。')
@@ -496,27 +529,29 @@ async function runPlan(
     printCommand?: boolean
   },
 ): Promise<void> {
+  const resolvedPlan = resolvePlanTool(plan)
+
   if (options.verbose || options.printCommand) {
-    options.io.stdout(formatExecutionPlan(plan))
+    options.io.stdout(formatExecutionPlan(resolvedPlan))
   }
 
   if (options.printCommand) {
     return
   }
 
-  if (plan.sdk) {
-    const result = await runSdkPlan(plan.sdk)
+  if (resolvedPlan.sdk) {
+    const result = await runSdkPlan(resolvedPlan.sdk)
     options.io.stdout(JSON.stringify(result, null, 2))
     return
   }
 
-  if (plan.args.length === 0) {
-    options.io.stdout(plan.summary)
+  if (resolvedPlan.args.length === 0) {
+    options.io.stdout(resolvedPlan.summary)
     return
   }
 
-  const result = spawnSync(plan.tool, plan.args, {
-    env: { ...process.env, ...plan.env },
+  const result = spawnSync(resolvedPlan.tool, resolvedPlan.args, {
+    env: { ...process.env, ...resolvedPlan.env },
     encoding: 'utf8',
     stdio: 'pipe',
   })
@@ -531,7 +566,32 @@ async function runPlan(
     throw new CliError(result.error.message)
   }
   if (result.status && result.status !== 0) {
-    throw new CliError(`${plan.tool} 退出码: ${result.status}`, result.status)
+    throw new CliError(
+      `${resolvedPlan.tool} 退出码: ${result.status}`,
+      result.status,
+    )
+  }
+}
+
+/**
+ * 将执行计划中的底层命令解析为当前环境可用命令。
+ *
+ * @param plan 原始执行计划。
+ * @returns 使用可用命令名的执行计划。
+ */
+function resolvePlanTool(plan: ExecutionPlan): ExecutionPlan {
+  if (plan.sdk || plan.args.length === 0) {
+    return plan
+  }
+
+  const result = probeTool(plan.tool)
+  if (!result.command || result.command === plan.tool) {
+    return plan
+  }
+
+  return {
+    ...plan,
+    tool: result.command,
   }
 }
 
@@ -637,6 +697,116 @@ function formatContext(
 }
 
 /**
+ * 执行配置元信息子命令。
+ *
+ * @param action 子动作名称。
+ * @param options CLI 选项。
+ * @param io 输出抽象。
+ * @returns 无返回值。
+ */
+function runConfigCommand(
+  action: string,
+  options: ConfigCommandOptions,
+  io: CliIo,
+): void {
+  if (action === 'paths') {
+    const paths = getConfigSearchPaths()
+    io.stdout(
+      options.format === 'json'
+        ? JSON.stringify(paths, null, 2)
+        : formatConfigPaths(paths),
+    )
+    return
+  }
+
+  if (action === 'current') {
+    const current = resolveCurrentConfigPath(options.config)
+    io.stdout(
+      options.format === 'json'
+        ? JSON.stringify(current, null, 2)
+        : formatCurrentConfig(current),
+    )
+    if (!current.path) {
+      throw new CliError('未找到配置文件。', 1)
+    }
+    return
+  }
+
+  throw new CliError(`不支持的 config action: ${action}`)
+}
+
+/**
+ * 格式化配置查找路径。
+ *
+ * @param paths 配置查找路径摘要。
+ * @returns 人类可读文本。
+ */
+function formatConfigPaths(
+  paths: ReturnType<typeof getConfigSearchPaths>,
+): string {
+  return [
+    'database-query config paths:',
+    `projectDirectory: ${paths.projectDirectory}`,
+    `globalDirectory: ${paths.globalDirectory}`,
+    `globalLocalConfigPath: ${paths.globalLocalConfigPath}`,
+    `filenames: ${paths.filenames.join(', ')}`,
+    'searchOrder:',
+    ...paths.projectCandidates.map((path) => `- ${path}`),
+    ...paths.globalCandidates.map((path) => `- ${path}`),
+  ].join('\n')
+}
+
+/**
+ * 解析当前应使用的配置路径，不读取配置内容。
+ *
+ * @param configPath 显式配置文件路径。
+ * @returns 当前配置路径摘要。
+ */
+function resolveCurrentConfigPath(configPath?: string): {
+  mode: 'explicit' | 'default'
+  path: string | undefined
+  globalDirectory: string
+  globalLocalConfigPath: string
+  searchOrder: string[]
+} {
+  const explicitPath = configPath ? resolve(configPath) : undefined
+  const resolvedPath = explicitPath ?? findDefaultConfigPath()
+  const paths = getConfigSearchPaths()
+
+  return {
+    mode: explicitPath ? 'explicit' : 'default',
+    path: resolvedPath,
+    globalDirectory: paths.globalDirectory,
+    globalLocalConfigPath: paths.globalLocalConfigPath,
+    searchOrder: [...paths.projectCandidates, ...paths.globalCandidates],
+  }
+}
+
+/**
+ * 格式化当前配置路径。
+ *
+ * @param current 当前配置路径摘要。
+ * @returns 人类可读文本。
+ */
+function formatCurrentConfig(
+  current: ReturnType<typeof resolveCurrentConfigPath>,
+): string {
+  const lines = [
+    'database-query config current:',
+    `mode: ${current.mode}`,
+    `path: ${current.path ?? '<not-found>'}`,
+  ]
+
+  if (!current.path) {
+    lines.push(
+      `hint: 请提供 --config，或创建 ${current.globalLocalConfigPath}。`,
+    )
+  }
+
+  return lines.join('\n')
+}
+
+/**
  * 格式化 doctor 检查结果。
  *
  * @returns doctor 文本。
@@ -649,12 +819,13 @@ async function formatDoctor(): Promise<string> {
   ]
 
   for (const tool of tools) {
-    const result = spawnSync(tool, ['--version'], {
-      encoding: 'utf8',
-      stdio: 'pipe',
-    })
-    lines.push(`- ${tool}: ${result.error ? 'missing' : 'ok'}`)
-    if (result.error) {
+    const result = probeTool(tool)
+    if (result.command) {
+      lines.push(
+        `- ${tool}: ok (${result.origin}) command=${result.command}${result.version ? ` version="${result.version}"` : ''}`,
+      )
+    } else {
+      lines.push(`- ${tool}: missing`)
       lines.push(...formatInstallHints(tool))
     }
   }
@@ -669,6 +840,73 @@ async function formatDoctor(): Promise<string> {
   lines.push('install reference: references/client-installation.md')
 
   return lines.join('\n')
+}
+
+/**
+ * 探测底层客户端命令，WSL 场景下原生命令缺失时尝试 `.exe`。
+ *
+ * @param name 客户端命令基础名称。
+ * @param runner 命令执行抽象，便于测试模拟 PATH。
+ * @returns 客户端探测结果。
+ */
+export function probeTool(
+  name: string,
+  runner: ToolRunner = runToolVersion,
+): ToolProbeResult {
+  const nativeResult = runner(name, ['--version'])
+  if (nativeResult.ok) {
+    return {
+      name,
+      command: name,
+      origin: 'native',
+      version: firstOutputLine(nativeResult.output),
+    }
+  }
+
+  const windowsCommand = `${name}.exe`
+  const windowsResult = runner(windowsCommand, ['--version'])
+  if (windowsResult.ok) {
+    return {
+      name,
+      command: windowsCommand,
+      origin: 'windows-exe',
+      version: firstOutputLine(windowsResult.output),
+    }
+  }
+
+  return { name }
+}
+
+/**
+ * 运行客户端版本命令。
+ *
+ * @param command 客户端命令。
+ * @param args 命令参数。
+ * @returns 命令是否可运行及版本输出。
+ */
+function runToolVersion(command: string, args: string[]): ToolRunResult {
+  const result = spawnSync(command, args, {
+    encoding: 'utf8',
+    stdio: 'pipe',
+  })
+
+  return {
+    ok: !result.error && result.status === 0,
+    output: result.stdout || result.stderr || undefined,
+  }
+}
+
+/**
+ * 获取命令输出第一行。
+ *
+ * @param output 原始命令输出。
+ * @returns 去空白后的第一行。
+ */
+function firstOutputLine(output: string | undefined): string | undefined {
+  return output
+    ?.split(/\r?\n/)
+    .map((line) => line.trim())
+    .find(Boolean)
 }
 
 /**

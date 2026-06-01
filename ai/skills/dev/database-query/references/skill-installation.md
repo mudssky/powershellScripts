@@ -69,10 +69,12 @@ ln -s "$(pwd)/ai/skills/dev/database-query" "<agent-skills-dir>/database-query"
 ```bash
 node scripts/database-query.js --help
 node scripts/database-query.js doctor
+node scripts/database-query.js config paths
+node scripts/database-query.js config current
 node scripts/database-query.js check-sql --dialect postgres --level readonly --sql "select 1 limit 1"
 ```
 
-如果这些命令可运行，说明 skill 的脚本入口可用。底层数据库客户端缺失时，`doctor` 会输出安装提示。
+如果这些命令可运行，说明 skill 的脚本入口可用。底层数据库客户端缺失时，`doctor` 会输出安装提示；在 WSL 中，如果 PATH 里有 Windows `.exe` 客户端，`doctor` 会标记为 `ok (windows-exe)`。`exec` 与 `client --print-command` 使用同一客户端解析规则，优先原生命令，缺失时才使用 `.exe`。
 
 ## 配置文件位置
 
@@ -105,6 +107,9 @@ node scripts/database-query.js context --config ./database-query.local.json --fo
 生成最小用户级全局配置：
 
 ```bash
+node scripts/database-query.js config paths
+node scripts/database-query.js config current
+node scripts/database-query.js config current --format json
 node scripts/database-query.js init-config --global
 node scripts/database-query.js init-config --global --print
 ```

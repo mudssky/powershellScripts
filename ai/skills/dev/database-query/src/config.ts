@@ -18,7 +18,7 @@ import type {
   SecretStatus,
 } from './types.js'
 
-const DEFAULT_CONFIG_FILES = [
+export const DEFAULT_CONFIG_FILES = [
   'database-query.local.mjs',
   'database-query.local.js',
   'database-query.local.json',
@@ -68,6 +68,15 @@ export interface TargetOptions {
   requireDatabase?: boolean
 }
 
+export interface ConfigSearchPaths {
+  projectDirectory: string
+  globalDirectory: string
+  globalLocalConfigPath: string
+  filenames: string[]
+  projectCandidates: string[]
+  globalCandidates: string[]
+}
+
 /**
  * 加载 database-query 配置。
  *
@@ -98,6 +107,47 @@ export async function loadConfig(configPath?: string): Promise<LoadedConfig> {
   validateConfig(config, resolvedPath)
 
   return { path: resolvedPath, config }
+}
+
+/**
+ * 解析默认配置查找路径，用于 CLI 向用户解释查找顺序。
+ *
+ * @param projectDirectory 项目级查找目录，默认使用当前工作目录。
+ * @returns 配置查找路径摘要。
+ */
+export function getConfigSearchPaths(
+  projectDirectory = process.cwd(),
+): ConfigSearchPaths {
+  const projectRoot = resolve(projectDirectory)
+  const globalDirectory = getGlobalConfigDirectory()
+
+  return {
+    projectDirectory: projectRoot,
+    globalDirectory,
+    globalLocalConfigPath: getGlobalLocalConfigPath(),
+    filenames: [...DEFAULT_CONFIG_FILES],
+    projectCandidates: DEFAULT_CONFIG_FILES.map((file) =>
+      resolve(projectRoot, file),
+    ),
+    globalCandidates: DEFAULT_CONFIG_FILES.map((file) =>
+      resolve(globalDirectory, file),
+    ),
+  }
+}
+
+/**
+ * 查找默认配置文件，不加载配置内容。
+ *
+ * @param projectDirectory 项目级查找目录，默认使用当前工作目录。
+ * @returns 命中的配置文件绝对路径；未找到返回 undefined。
+ */
+export function findDefaultConfigPath(
+  projectDirectory = process.cwd(),
+): string | undefined {
+  return (
+    findConfigInDirectory(resolve(projectDirectory)) ??
+    findConfigInDirectory(getGlobalConfigDirectory())
+  )
 }
 
 /**
@@ -255,10 +305,7 @@ export function resolveEnvPlaceholders(value: unknown): unknown {
  * @returns 找到的绝对路径；未找到返回 undefined。
  */
 function findDefaultConfig(): string | undefined {
-  return (
-    findConfigInDirectory(process.cwd()) ??
-    findConfigInDirectory(getGlobalConfigDirectory())
-  )
+  return findDefaultConfigPath()
 }
 
 /**
@@ -400,7 +447,7 @@ function resolveOptionalDatabase(
       return { name: databaseName }
     }
 
-    if (options.requireDatabase) {
+    if (options.requireDatabase && instance.type !== 'sqlite') {
       throw new ConfigError(
         `instance ${instance.id} 需要 database。请提供 --database，或配置 defaultDatabase。`,
       )

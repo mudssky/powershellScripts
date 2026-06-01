@@ -1,9 +1,9 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-import { formatResult, runCli } from '../src/cli'
+import { formatResult, probeTool, runCli } from '../src/cli'
 import { createContextSnapshot, loadConfig, resolveTarget } from '../src/config'
 import {
   checkSql,
@@ -383,6 +383,24 @@ describe('database-query 配置与上下文', () => {
     ).toThrow(/需要 database/)
   })
 
+  it('SQLite 执行场景允许仅配置 path 而不要求 database', () => {
+    const target = resolveTarget(
+      {
+        instances: [
+          {
+            id: 'sqlite',
+            type: 'sqlite',
+            path: '/tmp/app.db',
+          },
+        ],
+      },
+      { requireDatabase: true },
+    )
+
+    expect(target.instance.id).toBe('sqlite')
+    expect(target.database).toBeUndefined()
+  })
+
   it('多实例无默认值时要求显式指定', () => {
     expect(() =>
       resolveTarget(
@@ -399,6 +417,26 @@ describe('database-query 配置与上下文', () => {
 })
 
 describe('database-query 统一 CLI', () => {
+  it('context 默认输出 text 格式', async () => {
+    const { configPath, cleanup } = await createTempConfig()
+    const stdout: string[] = []
+
+    try {
+      const exitCode = await runCli(['context', '--config', configPath], {
+        stdout: (message) => stdout.push(message),
+        stderr: () => undefined,
+      })
+      const output = stdout.join('\n')
+
+      expect(exitCode).toBe(0)
+      expect(output).toContain('config:')
+      expect(output).toContain('defaults:')
+      expect(() => JSON.parse(output)).toThrow()
+    } finally {
+      await cleanup()
+    }
+  })
+
   it('context --format json 输出 agent 可解析上下文', async () => {
     const { configPath, cleanup } = await createTempConfig()
     const stdout: string[] = []
@@ -446,11 +484,47 @@ describe('database-query 统一 CLI', () => {
       expect(exitCode).toBe(0)
       expect(stderr).toHaveLength(0)
       expect(stdout.join('\n')).toContain('SQL guard: PASS')
-      expect(stdout.join('\n')).toContain('command: psql')
+      expect(stdout.join('\n')).toMatch(/command: psql(\.exe)?/)
       expect(stdout.join('\n')).toContain('PGPASSWORD=<redacted>')
       expect(stdout.join('\n')).not.toContain('secret-value')
     } finally {
       await cleanup()
+    }
+  })
+
+  it('exec --print-command 在原生命令缺失时使用 windows exe 客户端', async () => {
+    const { configPath, cleanup } = await createTempConfig()
+    const binDir = await mkdtemp(join(tmpdir(), 'database-query-bin-'))
+    const previousPath = process.env.PATH
+    const stdout: string[] = []
+
+    try {
+      const fakePsql = join(binDir, 'psql.exe')
+      await writeFile(fakePsql, '#!/bin/sh\necho "psql fake"\n')
+      await chmod(fakePsql, 0o755)
+      process.env.PATH = binDir
+
+      const exitCode = await runCli(
+        [
+          'exec',
+          '--config',
+          configPath,
+          '--sql',
+          'select id from users limit 10',
+          '--print-command',
+        ],
+        {
+          stdout: (message) => stdout.push(message),
+          stderr: () => undefined,
+        },
+      )
+
+      expect(exitCode).toBe(0)
+      expect(stdout.join('\n')).toContain('command: psql.exe')
+    } finally {
+      restoreEnv('PATH', previousPath)
+      await cleanup()
+      await rm(binDir, { recursive: true, force: true })
     }
   })
 
@@ -589,6 +663,81 @@ describe('database-query 统一 CLI', () => {
     }
   })
 
+  it('config paths 输出默认查找顺序与全局路径', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'database-query-paths-'))
+    const previousXdgConfigHome = process.env.XDG_CONFIG_HOME
+    const stdout: string[] = []
+    process.env.XDG_CONFIG_HOME = dir
+
+    try {
+      const exitCode = await runCli(['config', 'paths', '--format', 'json'], {
+        stdout: (message) => stdout.push(message),
+        stderr: () => undefined,
+      })
+      const parsed = JSON.parse(stdout.join('\n'))
+
+      expect(exitCode).toBe(0)
+      expect(parsed.globalDirectory).toBe(join(dir, 'database-query'))
+      expect(parsed.globalLocalConfigPath).toBe(
+        join(dir, 'database-query', 'database-query.local.json'),
+      )
+      expect(parsed.filenames).toContain('database-query.local.json')
+      expect(parsed.projectCandidates[0]).toContain('database-query.local.mjs')
+    } finally {
+      restoreEnv('XDG_CONFIG_HOME', previousXdgConfigHome)
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('config current 输出当前默认命中的配置路径', async () => {
+    const fixture = await createConfigSearchFixture()
+    const previousCwd = process.cwd()
+    const stdout: string[] = []
+
+    try {
+      process.chdir(fixture.projectDir)
+      const exitCode = await runCli(['config', 'current', '--format', 'json'], {
+        stdout: (message) => stdout.push(message),
+        stderr: () => undefined,
+      })
+      const parsed = JSON.parse(stdout.join('\n'))
+
+      expect(exitCode).toBe(0)
+      expect(parsed.mode).toBe('default')
+      expect(parsed.path).toBe(fixture.projectConfigPath)
+    } finally {
+      process.chdir(previousCwd)
+      await fixture.cleanup()
+    }
+  })
+
+  it('config current 无配置时返回提示', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'database-query-empty-'))
+    const previousCwd = process.cwd()
+    const previousXdgConfigHome = process.env.XDG_CONFIG_HOME
+    const stdout: string[] = []
+    const stderr: string[] = []
+    process.env.XDG_CONFIG_HOME = join(dir, 'xdg')
+
+    try {
+      process.chdir(dir)
+      const exitCode = await runCli(['config', 'current'], {
+        stdout: (message) => stdout.push(message),
+        stderr: (message) => stderr.push(message),
+      })
+      const output = stdout.join('\n')
+
+      expect(exitCode).toBe(1)
+      expect(output).toContain('path: <not-found>')
+      expect(output).toContain('hint:')
+      expect(stderr.join('\n')).toContain('未找到配置文件')
+    } finally {
+      process.chdir(previousCwd)
+      restoreEnv('XDG_CONFIG_HOME', previousXdgConfigHome)
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
   it('doctor 输出安装参考', async () => {
     const stdout: string[] = []
     const exitCode = await runCli(['doctor'], {
@@ -600,6 +749,29 @@ describe('database-query 统一 CLI', () => {
     expect(stdout.join('\n')).toContain('database-query doctor')
     expect(stdout.join('\n')).toContain('不自动安装底层客户端')
     expect(stdout.join('\n')).toContain('references/client-installation.md')
+  })
+
+  it('doctor 工具探测支持 windows .exe 兜底', () => {
+    const result = probeTool('psql', (command) => {
+      if (command === 'psql.exe') {
+        return { ok: true, output: 'psql (PostgreSQL) 16.13\n' }
+      }
+
+      return { ok: false }
+    })
+
+    expect(result).toEqual({
+      name: 'psql',
+      command: 'psql.exe',
+      origin: 'windows-exe',
+      version: 'psql (PostgreSQL) 16.13',
+    })
+  })
+
+  it('doctor 工具探测在命令完全缺失时返回 missing 状态', () => {
+    const result = probeTool('mysql', () => ({ ok: false }))
+
+    expect(result).toEqual({ name: 'mysql' })
   })
 })
 
