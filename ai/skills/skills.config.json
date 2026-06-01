@@ -45,6 +45,11 @@
       "source": "./dev/database-query",
       "sourceType": "local"
     },
+    "docker-management": {
+      "description": "Docker 运行方案选型、Windows WSL2 纯 CLI 配置、Docker Desktop 迁移、日常运维和故障排查。",
+      "source": "./dev/docker-management",
+      "sourceType": "local"
+    },
     "mattpocock-skills": {
       "description": "Matt Pocock 维护的精选编码、诊断、架构与评审 skill 集合。",
       "source": "mattpocock/skills",
