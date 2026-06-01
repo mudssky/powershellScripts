@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 14
+- **Total Sessions**: 15
 - **Last Active**: 2026-06-01
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~485 | Active |
+| `journal-1.md` | ~518 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 15 | 2026-06-01 | 改进 database-query CLI 与全局安装 | `0a0636c` | `master` |
 | 14 | 2026-06-01 | database-query 开箱即用体验 | `f5647e4` | `master` |
 | 13 | 2026-05-31 | 创建通用整理分类技能 | `e78a885`, `3fa292e` | `master` |
 | 12 | 2026-05-31 | 数据库查询技能开发 | `ee9ae9f` | `master` |

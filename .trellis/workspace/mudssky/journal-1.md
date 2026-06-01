@@ -483,3 +483,36 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 15: 改进 database-query CLI 与全局安装
+
+**Date**: 2026-06-01
+**Task**: 改进 database-query CLI 与全局安装
+**Branch**: `master`
+
+### Summary
+
+新增 database-query config paths/current，统一 doctor 与执行计划的客户端探测，修复 SQLite 无 database 执行路径，安装并验证 MySQL/PostgreSQL/SQLite CLI，安装 database-query 到 Codex 全局 skill。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `0a0636c` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
