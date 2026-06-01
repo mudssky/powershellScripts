@@ -104,6 +104,26 @@ Describe "Set-Proxy 函数测试" -Tag 'Proxy' {
             $env:NO_PROXY | Should -Not -BeNullOrEmpty
         }
 
+        It "默认排除列表应该包含 Tailscale 和 macmini 地址" {
+            Mock -ModuleName proxy New-Object {
+                $mockTcp = [PSCustomObject]@{}
+                $mockAsync = [PSCustomObject]@{
+                    AsyncWaitHandle = [PSCustomObject]@{}
+                }
+                $mockAsync.AsyncWaitHandle | Add-Member -MemberType ScriptMethod -Name WaitOne -Value { param($ms) return $false } -Force
+                $mockTcp | Add-Member -MemberType ScriptMethod -Name BeginConnect -Value { param($h, $p, $a, $b) return $mockAsync } -Force
+                $mockTcp | Add-Member -MemberType ScriptMethod -Name Close -Value {} -Force
+                return $mockTcp
+            } -ParameterFilter { $TypeName -eq 'System.Net.Sockets.TcpClient' }
+
+            Set-Proxy -Command "on" -Target "7890"
+
+            $env:no_proxy.Split(',') | Should -Contain "macmini"
+            $env:no_proxy.Split(',') | Should -Contain ".ts.net"
+            $env:no_proxy.Split(',') | Should -Contain "100.64.0.0/10"
+            $env:NO_PROXY | Should -Be $env:no_proxy
+        }
+
         It "使用指定端口时应该设置正确的 URL 格式" {
             Mock -ModuleName proxy New-Object {
                 $mockTcp = [PSCustomObject]@{}

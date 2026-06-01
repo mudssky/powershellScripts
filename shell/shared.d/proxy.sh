@@ -11,7 +11,8 @@ _PM_DEFAULT_HOST="${PROXY_DEFAULT_HOST:-${_PM_DEFAULT_HOST:-127.0.0.1}}"
 _PM_DEFAULT_PORT="${PROXY_DEFAULT_PORT:-${_PM_DEFAULT_PORT:-7890}}"
 
 if [ -z "${_PM_NO_PROXY:-}" ]; then
-    readonly _PM_NO_PROXY="localhost,127.0.0.1,::1,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12"
+    # NO_PROXY 采用 curl 兼容写法：.ts.net 匹配 Tailscale MagicDNS 后缀，CIDR 仅匹配直接访问的 100.x IP。
+    readonly _PM_NO_PROXY="localhost,127.0.0.1,::1,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,macmini,.ts.net,100.64.0.0/10"
 fi
 
 # --- 自动开启配置 ---
