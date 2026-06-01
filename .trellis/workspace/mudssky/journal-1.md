@@ -516,3 +516,37 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 16: Docker 管理 skill 封装
+
+**Date**: 2026-06-01
+**Task**: Docker 管理 skill 封装
+**Branch**: `master`
+
+### Summary
+
+新增 docker-management 纯文档 skill，覆盖 Windows Docker Desktop/Rancher Desktop/WSL2-CLI+Portainer 选型、迁移、运维和排障；刷新 linux/wsl2 配置模板并退役旧 proxy.sh。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `056846d` | (see git log) |
+| `c020e66` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
