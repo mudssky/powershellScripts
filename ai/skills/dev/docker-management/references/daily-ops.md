@@ -113,6 +113,8 @@ docker volume prune
 
 代理分三层处理：当前 shell、Docker daemon 拉取镜像、新建容器运行环境。不要假设项目内存在代理脚本；直接写入对应层的标准配置。
 
+Windows + WSL2 的 mirrored / NAT 代理地址选择、`host.docker.internal`、`/etc/resolv.conf` 和 `docker pull unexpected EOF` 排查见 `wsl-network-proxy.md`。
+
 当前 shell 临时代理：
 
 ```bash
@@ -169,7 +171,7 @@ cat >~/.docker/config.json <<'EOF'
 EOF
 ```
 
-在 WSL mirrored 网络中，优先使用 `127.0.0.1:<port>` 或显式 `PROXY_DEFAULT_HOST/PORT`，不要再依赖解析 `/etc/resolv.conf` 的旧 NAT 主机 IP 方案。
+在 WSL mirrored 网络中，优先使用 `127.0.0.1:<port>` 或 `host.docker.internal:<port>`，不要写死局域网 IP。只有回退到 NAT 模式时，才使用 `/etc/resolv.conf` 的 `nameserver` 地址。
 
 ## 数据卷习惯
 

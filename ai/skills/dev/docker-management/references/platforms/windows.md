@@ -132,7 +132,7 @@ volumes:
 
 ### 5. 代理与端口策略
 
-代理配置不要依赖某个项目里的脚本。需要代理时，直接按当前环境写入 shell 环境变量、Docker daemon systemd drop-in 或 Docker CLI 容器代理配置。
+代理配置不要依赖某个项目里的脚本。需要代理时，直接按当前环境写入 shell 环境变量、Docker daemon systemd drop-in 或 Docker CLI 容器代理配置。WSL2 mirrored / NAT 的代理地址选择和排障细节见 `../wsl-network-proxy.md`。
 
 当前 shell 临时代理：
 
@@ -174,7 +174,7 @@ cat >~/.docker/config.json <<'EOF'
 EOF
 ```
 
-WSL mirrored 网络中，优先使用 `127.0.0.1:<port>` 访问 Windows 侧代理。旧式解析 `/etc/resolv.conf` nameserver 的代理脚本只适合早期 NAT 模式，不再作为默认方案。
+WSL mirrored 网络中，优先使用 `127.0.0.1:<port>` 或 `host.docker.internal:<port>` 访问 Windows 侧代理。旧式解析 `/etc/resolv.conf` nameserver 的代理脚本只适合 NAT 模式，不再作为默认方案。
 
 本机开发服务默认把端口绑定到 `127.0.0.1`：
 

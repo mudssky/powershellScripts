@@ -52,6 +52,7 @@ systemctl show --property=Environment docker
 - 当前 shell 需要代理时执行 `proxy on`。
 - Docker daemon 拉取需要代理时执行 `proxy docker on`，该命令会重启 Docker。
 - 新建容器内部需要代理时执行 `proxy container on`。
+- Windows + WSL2 场景先按 `wsl-network-proxy.md` 区分 mirrored / NAT、shell 代理和 Docker daemon 代理。`curl -x ...` 能通不代表 `docker pull` 已经走代理。
 
 ## 端口无法访问或被占用
 
@@ -141,3 +142,4 @@ autoProxy=true
 - 修改 `.wslconfig` 后必须 `wsl --shutdown`。
 - mirrored 模式对入站访问可能需要 Hyper-V 防火墙规则。
 - 只做本机开发时，不要为了局域网访问放宽防火墙；优先保持容器端口绑定到 `127.0.0.1`。
+- 代理问题优先测试 `127.0.0.1:<port>` 和 `host.docker.internal:<port>`；只有 NAT 模式才使用 `/etc/resolv.conf` 的 `nameserver` 地址。完整流程见 `wsl-network-proxy.md`。
