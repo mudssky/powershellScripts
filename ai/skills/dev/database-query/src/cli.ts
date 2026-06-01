@@ -1,11 +1,14 @@
 import { spawnSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
+import { mkdir, writeFile } from 'node:fs/promises'
+import { dirname, resolve } from 'node:path'
 import { cac } from 'cac'
 
 import {
   ConfigError,
   createContextSnapshot,
   getEffectiveDefaults,
+  getGlobalLocalConfigPath,
   loadConfig,
   resolveTarget,
 } from './config.js'
@@ -73,6 +76,13 @@ interface ConfigOptions extends GlobalOptions {
   verbose?: boolean
   printCommand?: boolean
   __clientPassthrough?: string[]
+}
+
+interface InitConfigOptions extends GlobalOptions {
+  global?: boolean
+  path?: string
+  print?: boolean
+  force?: boolean
 }
 
 export class CliError extends Error {
@@ -216,6 +226,16 @@ function createCli(io: CliIo) {
   })
 
   cli
+    .command('init-config', '生成最小 database-query 配置模板。')
+    .option('--global', '写入 XDG 用户级全局配置路径。')
+    .option('--path <path>', '写入指定配置路径。')
+    .option('--print', '只打印模板，不写文件。')
+    .option('--force', '允许覆盖已有配置文件。')
+    .action(async (options: InitConfigOptions) => {
+      await runInitConfig(options, io)
+    })
+
+  cli
     .command('exec', '执行受控数据库动作。')
     .option('--config <path>', '配置文件路径。')
     .option('--instance <id>', '目标实例。')
@@ -253,6 +273,102 @@ function createCli(io: CliIo) {
 
   cli.help()
   return patchHelpOutput(cli, io)
+}
+
+/**
+ * 生成最小配置模板并按需写入文件。
+ *
+ * @param options CLI 选项。
+ * @param io 输出抽象。
+ * @returns 无返回值。
+ */
+async function runInitConfig(
+  options: InitConfigOptions,
+  io: CliIo,
+): Promise<void> {
+  const content = createMinimalConfigTemplate()
+  if (options.print) {
+    io.stdout(content)
+    return
+  }
+
+  const targetPath = resolveInitConfigPath(options)
+  await mkdir(dirname(targetPath), { recursive: true, mode: 0o700 })
+  await writeFile(targetPath, content, {
+    flag: options.force ? 'w' : 'wx',
+    mode: 0o600,
+  }).catch((error: NodeJS.ErrnoException) => {
+    if (error.code === 'EEXIST') {
+      throw new CliError(
+        `配置文件已存在: ${targetPath}。如需覆盖请传 --force。`,
+      )
+    }
+    throw error
+  })
+  io.stdout(`created: ${targetPath}`)
+}
+
+/**
+ * 解析 init-config 的写入目标。
+ *
+ * @param options CLI 选项。
+ * @returns 配置文件绝对路径。
+ */
+function resolveInitConfigPath(options: InitConfigOptions): string {
+  if (options.path && options.global) {
+    throw new CliError('--path 与 --global 只能选择一个。')
+  }
+
+  if (options.path) {
+    return resolve(options.path)
+  }
+
+  if (options.global) {
+    return getGlobalLocalConfigPath()
+  }
+
+  throw new CliError('请传 --global、--path <path> 或 --print。')
+}
+
+/**
+ * 创建不含真实密钥的最小 database-query 配置模板。
+ *
+ * @returns 格式化 JSON 字符串。
+ */
+function createMinimalConfigTemplate(): string {
+  return `${JSON.stringify(
+    {
+      defaults: {
+        defaultInstance: 'local-postgres',
+      },
+      instances: [
+        {
+          id: 'local-postgres',
+          type: 'postgres',
+          environment: 'local',
+          host: 'localhost',
+          port: 5432,
+          username: '$' + '{env:DB_LOCAL_POSTGRES_USER}',
+          password: '$' + '{env:DB_LOCAL_POSTGRES_PASSWORD}',
+          defaultDatabase: 'app',
+          readonly: true,
+        },
+        {
+          id: 'local-mysql',
+          type: 'mysql',
+          environment: 'local',
+          host: 'localhost',
+          port: 3306,
+          username: '$' + '{env:DB_LOCAL_MYSQL_USER}',
+          password: '$' + '{env:DB_LOCAL_MYSQL_PASSWORD}',
+          defaultDatabase: 'app',
+          readonly: true,
+        },
+      ],
+    },
+    null,
+    2,
+  )}\n`
 }
 
 /**
@@ -527,7 +643,10 @@ function formatContext(
  */
 async function formatDoctor(): Promise<string> {
   const tools = ['psql', 'mysql', 'sqlite3', 'mongosh', 'redis-cli']
-  const lines = ['database-query doctor:']
+  const lines = [
+    'database-query doctor:',
+    'install policy: 不自动安装底层客户端；agent 应根据当前平台、权限和 PATH 自行选择安装方式。',
+  ]
 
   for (const tool of tools) {
     const result = spawnSync(tool, ['--version'], {

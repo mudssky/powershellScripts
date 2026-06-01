@@ -102,6 +102,15 @@ node scripts/database-query.js context --config ./database-query.local.json --fo
 
 显式 `--config` 永远优先于默认查找。真实项目级 `database-query.local.*` 必须被所在项目的 `.gitignore` 忽略；全局 `database-query.local.*` 应限制为当前用户可读写。
 
+生成最小用户级全局配置：
+
+```bash
+node scripts/database-query.js init-config --global
+node scripts/database-query.js init-config --global --print
+```
+
+`init-config` 默认写入 `database-query.local.json`，使用 `${env:...}` 占位符，不包含真实密码，也不会覆盖已有文件；需要覆盖时显式传 `--force`。
+
 ## 常见问题
 
 - agent 找不到 skill：确认目标 agent 的 skill 目录名称是 `database-query`，且目录下有 `SKILL.md`。

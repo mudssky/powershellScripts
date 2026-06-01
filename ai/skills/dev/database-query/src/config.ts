@@ -283,12 +283,21 @@ function findConfigInDirectory(directory: string): string | undefined {
  *
  * @returns XDG 规范下的 database-query 用户配置目录。
  */
-function getGlobalConfigDirectory(): string {
+export function getGlobalConfigDirectory(): string {
   const xdgConfigHome = process.env.XDG_CONFIG_HOME?.trim()
   const baseDirectory = xdgConfigHome
     ? xdgConfigHome
     : join(homedir(), '.config')
   return resolve(baseDirectory, GLOBAL_CONFIG_DIRECTORY_NAME)
+}
+
+/**
+ * 获取默认全局本机私有配置文件路径。
+ *
+ * @returns XDG 用户配置目录下的 database-query.local.json 路径。
+ */
+export function getGlobalLocalConfigPath(): string {
+  return resolve(getGlobalConfigDirectory(), 'database-query.local.json')
 }
 
 /**
@@ -386,12 +395,15 @@ function resolveOptionalDatabase(
   options: TargetOptions,
 ): DatabaseEntry | undefined {
   if (databases.length === 0) {
-    if (
-      options.requireDatabase ||
-      options.database ||
-      instance.defaultDatabase
-    ) {
-      throw new ConfigError(`instance ${instance.id} 未配置 databases[]。`)
+    const databaseName = options.database ?? instance.defaultDatabase
+    if (databaseName) {
+      return { name: databaseName }
+    }
+
+    if (options.requireDatabase) {
+      throw new ConfigError(
+        `instance ${instance.id} 需要 database。请提供 --database，或配置 defaultDatabase。`,
+      )
     }
     return undefined
   }

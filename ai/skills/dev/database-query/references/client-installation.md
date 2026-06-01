@@ -2,7 +2,7 @@
 
 ## 使用原则
 
-`database-query doctor` 用于检查底层客户端是否存在，并输出当前缺失工具的快速安装提示。安装命令只作为建议，agent 不应自动安装数据库客户端，除非用户明确要求。
+`database-query doctor` 用于检查底层客户端是否存在，并输出当前缺失工具的快速安装提示。安装命令只作为建议，`database-query` 不提供自动安装；agent 应根据当前平台、权限、包管理器、PATH 与用户意图自行选择安装方式。
 
 安装后重新运行：
 
@@ -26,6 +26,12 @@ sudo apt-get install postgresql-client
 
 macOS 使用 `brew install libpq` 后，必要时把 `libpq/bin` 加入 `PATH`。
 
+Linux Homebrew 同样可能把 `libpq` 作为 keg-only 包安装，必要时临时使用：
+
+```bash
+export PATH="$(brew --prefix)/opt/libpq/bin:$PATH"
+```
+
 ## MySQL: mysql
 
 `mysql` 来自 MySQL client 或 MariaDB client。
@@ -41,6 +47,12 @@ sudo apt-get install mysql-client
 ```
 
 如果团队使用 MariaDB，也可安装 `mariadb-client`，但连接参数兼容性需要按实际版本确认。
+
+Linux Homebrew / macOS Homebrew 的 `mysql-client` 可能是 keg-only 包，必要时临时使用：
+
+```bash
+export PATH="$(brew --prefix)/opt/mysql-client/bin:$PATH"
+```
 
 ## SQLite: sqlite3
 

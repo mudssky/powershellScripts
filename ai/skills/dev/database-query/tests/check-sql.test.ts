@@ -333,6 +333,56 @@ describe('database-query 配置与上下文', () => {
     expect(target.schema).toBe('public')
   })
 
+  it('defaultDatabase 存在时允许省略 databases 候选', () => {
+    const target = resolveTarget(
+      {
+        defaults: { defaultInstance: 'pg' },
+        instances: [
+          {
+            id: 'pg',
+            type: 'postgres',
+            defaultDatabase: 'app',
+          },
+        ],
+      },
+      { requireDatabase: true },
+    )
+
+    expect(target.database?.name).toBe('app')
+  })
+
+  it('显式 database 存在时允许省略 databases 候选', () => {
+    const target = resolveTarget(
+      {
+        instances: [
+          {
+            id: 'mysql',
+            type: 'mysql',
+          },
+        ],
+      },
+      { instance: 'mysql', database: 'reporting', requireDatabase: true },
+    )
+
+    expect(target.database?.name).toBe('reporting')
+  })
+
+  it('需要数据库但没有 defaultDatabase 或显式 database 时报错', () => {
+    expect(() =>
+      resolveTarget(
+        {
+          instances: [
+            {
+              id: 'pg',
+              type: 'postgres',
+            },
+          ],
+        },
+        { requireDatabase: true },
+      ),
+    ).toThrow(/需要 database/)
+  })
+
   it('多实例无默认值时要求显式指定', () => {
     expect(() =>
       resolveTarget(
@@ -434,6 +484,111 @@ describe('database-query 统一 CLI', () => {
     }
   })
 
+  it('client --print-command 支持只配置 defaultDatabase', async () => {
+    const { configPath, cleanup } = await createTempConfigWithoutDatabases()
+    const stdout: string[] = []
+
+    try {
+      const exitCode = await runCli(
+        [
+          'client',
+          '--config',
+          configPath,
+          '--print-command',
+          '--',
+          '--set',
+          'ON_ERROR_STOP=1',
+        ],
+        {
+          stdout: (message) => stdout.push(message),
+          stderr: () => undefined,
+        },
+      )
+
+      expect(exitCode).toBe(0)
+      expect(stdout.join('\n')).toContain('PostgreSQL pg/app')
+      expect(stdout.join('\n')).toContain('-d app')
+    } finally {
+      await cleanup()
+    }
+  })
+
+  it('client --print-command 支持显式 database 且省略 databases', async () => {
+    const { configPath, cleanup } = await createTempConfigWithoutDatabases({
+      defaultDatabase: undefined,
+    })
+    const stdout: string[] = []
+
+    try {
+      const exitCode = await runCli(
+        [
+          'client',
+          '--config',
+          configPath,
+          '--database',
+          'reporting',
+          '--print-command',
+        ],
+        {
+          stdout: (message) => stdout.push(message),
+          stderr: () => undefined,
+        },
+      )
+
+      expect(exitCode).toBe(0)
+      expect(stdout.join('\n')).toContain('PostgreSQL pg/reporting')
+      expect(stdout.join('\n')).toContain('-d reporting')
+    } finally {
+      await cleanup()
+    }
+  })
+
+  it('init-config --print 输出最小模板且不包含真实密钥', async () => {
+    const stdout: string[] = []
+    const exitCode = await runCli(['init-config', '--global', '--print'], {
+      stdout: (message) => stdout.push(message),
+      stderr: () => undefined,
+    })
+    const parsed = JSON.parse(stdout.join('\n'))
+
+    expect(exitCode).toBe(0)
+    expect(parsed.defaults.defaultInstance).toBe('local-postgres')
+    expect(parsed.instances[0].defaultDatabase).toBe('app')
+    expect(parsed.instances[0].databases).toBeUndefined()
+    expect(stdout.join('\n')).toContain(
+      '$' + '{env:DB_LOCAL_POSTGRES_PASSWORD}',
+    )
+  })
+
+  it('init-config --global 写入 XDG 全局配置且默认不覆盖', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'database-query-init-'))
+    const previousXdgConfigHome = process.env.XDG_CONFIG_HOME
+    const stdout: string[] = []
+    const stderr: string[] = []
+    process.env.XDG_CONFIG_HOME = dir
+
+    try {
+      const firstExitCode = await runCli(['init-config', '--global'], {
+        stdout: (message) => stdout.push(message),
+        stderr: (message) => stderr.push(message),
+      })
+      const secondExitCode = await runCli(['init-config', '--global'], {
+        stdout: (message) => stdout.push(message),
+        stderr: (message) => stderr.push(message),
+      })
+
+      expect(firstExitCode).toBe(0)
+      expect(secondExitCode).toBe(1)
+      expect(stdout.join('\n')).toContain(
+        join(dir, 'database-query', 'database-query.local.json'),
+      )
+      expect(stderr.join('\n')).toContain('配置文件已存在')
+    } finally {
+      restoreEnv('XDG_CONFIG_HOME', previousXdgConfigHome)
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
   it('doctor 输出安装参考', async () => {
     const stdout: string[] = []
     const exitCode = await runCli(['doctor'], {
@@ -443,6 +598,7 @@ describe('database-query 统一 CLI', () => {
 
     expect(exitCode).toBe(0)
     expect(stdout.join('\n')).toContain('database-query doctor')
+    expect(stdout.join('\n')).toContain('不自动安装底层客户端')
     expect(stdout.join('\n')).toContain('references/client-installation.md')
   })
 })
@@ -475,6 +631,44 @@ async function createTempConfig() {
           password: 'secret-value',
           defaultDatabase: 'app',
           databases: [{ name: 'app', schemas: ['public'] }],
+        },
+      ],
+    }),
+  )
+
+  return {
+    configPath,
+    cleanup: () => rm(dir, { recursive: true, force: true }),
+  }
+}
+
+/**
+ * 创建省略 databases[] 的临时配置。
+ *
+ * @param options 可选默认库覆盖。
+ * @returns 配置路径与清理函数。
+ */
+async function createTempConfigWithoutDatabases(
+  options: { defaultDatabase?: string } = { defaultDatabase: 'app' },
+) {
+  const dir = await mkdtemp(join(tmpdir(), 'database-query-no-databases-'))
+  const configPath = join(dir, 'database-query.config.json')
+
+  await writeFile(
+    configPath,
+    JSON.stringify({
+      defaults: {
+        defaultInstance: 'pg',
+      },
+      instances: [
+        {
+          id: 'pg',
+          type: 'postgres',
+          host: 'localhost',
+          port: 5432,
+          username: 'app',
+          password: 'secret-value',
+          defaultDatabase: options.defaultDatabase,
         },
       ],
     }),

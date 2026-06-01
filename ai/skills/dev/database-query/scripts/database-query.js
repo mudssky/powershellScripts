@@ -2,9 +2,10 @@
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname, extname, join, resolve } from "node:path";
 import { EventEmitter } from "events";
 import { homedir } from "node:os";
-import { extname, join, resolve } from "node:path";
 
 //#region ../../../../node_modules/.pnpm/cac@6.7.14/node_modules/cac/dist/index.mjs
 function toArr(any) {
@@ -685,6 +686,14 @@ function getGlobalConfigDirectory() {
 	return resolve(xdgConfigHome ? xdgConfigHome : join(homedir(), ".config"), GLOBAL_CONFIG_DIRECTORY_NAME);
 }
 /**
+* 获取默认全局本机私有配置文件路径。
+*
+* @returns XDG 用户配置目录下的 database-query.local.json 路径。
+*/
+function getGlobalLocalConfigPath() {
+	return resolve(getGlobalConfigDirectory(), "database-query.local.json");
+}
+/**
 * 进行轻量配置结构校验。
 *
 * @param config 待校验配置。
@@ -743,7 +752,9 @@ function resolveByName(items, explicitName, defaultName, label, getName) {
 */
 function resolveOptionalDatabase(instance, databases, options) {
 	if (databases.length === 0) {
-		if (options.requireDatabase || options.database || instance.defaultDatabase) throw new ConfigError(`instance ${instance.id} 未配置 databases[]。`);
+		const databaseName = options.database ?? instance.defaultDatabase;
+		if (databaseName) return { name: databaseName };
+		if (options.requireDatabase) throw new ConfigError(`instance ${instance.id} 需要 database。请提供 --database，或配置 defaultDatabase。`);
 		return;
 	}
 	if (options.requireDatabase || options.database || instance.defaultDatabase) return resolveByName(databases, options.database, instance.defaultDatabase, "database", (item) => item.name);
@@ -1593,6 +1604,9 @@ function createCli(io) {
 	cli.command("doctor", "检查底层客户端可用性。").action(async () => {
 		io.stdout(await formatDoctor());
 	});
+	cli.command("init-config", "生成最小 database-query 配置模板。").option("--global", "写入 XDG 用户级全局配置路径。").option("--path <path>", "写入指定配置路径。").option("--print", "只打印模板，不写文件。").option("--force", "允许覆盖已有配置文件。").action(async (options) => {
+		await runInitConfig(options, io);
+	});
 	cli.command("exec", "执行受控数据库动作。").option("--config <path>", "配置文件路径。").option("--instance <id>", "目标实例。").option("--database <name>", "目标数据库。").option("--schema <name>", "目标 schema。").option("--collection <name>", "目标 collection。").option("--sql <sql>", "关系型 SQL 文本。").option("--file <path>", "从文件读取关系型 SQL。").option("--level <level>", "SQL guard 权限层级。").option("--action <name>", "MongoDB/Redis/Milvus 只读动作。").option("--limit <number>", "动作 limit。").option("--key <key>", "Redis key 或 collection 名称。").option("--field <field>", "Redis hash field。").option("--query <json>", "MongoDB/Milvus 查询条件。").option("--vector <json>", "Milvus search 向量。").option("--verbose", "执行前打印脱敏执行计划。").option("--print-command", "只打印脱敏执行计划，不执行。").action(async (options) => {
 		await runExec(options, io);
 	});
@@ -1601,6 +1615,76 @@ function createCli(io) {
 	});
 	cli.help();
 	return patchHelpOutput(cli, io);
+}
+/**
+* 生成最小配置模板并按需写入文件。
+*
+* @param options CLI 选项。
+* @param io 输出抽象。
+* @returns 无返回值。
+*/
+async function runInitConfig(options, io) {
+	const content = createMinimalConfigTemplate();
+	if (options.print) {
+		io.stdout(content);
+		return;
+	}
+	const targetPath = resolveInitConfigPath(options);
+	await mkdir(dirname(targetPath), {
+		recursive: true,
+		mode: 448
+	});
+	await writeFile(targetPath, content, {
+		flag: options.force ? "w" : "wx",
+		mode: 384
+	}).catch((error) => {
+		if (error.code === "EEXIST") throw new CliError(`配置文件已存在: ${targetPath}。如需覆盖请传 --force。`);
+		throw error;
+	});
+	io.stdout(`created: ${targetPath}`);
+}
+/**
+* 解析 init-config 的写入目标。
+*
+* @param options CLI 选项。
+* @returns 配置文件绝对路径。
+*/
+function resolveInitConfigPath(options) {
+	if (options.path && options.global) throw new CliError("--path 与 --global 只能选择一个。");
+	if (options.path) return resolve(options.path);
+	if (options.global) return getGlobalLocalConfigPath();
+	throw new CliError("请传 --global、--path <path> 或 --print。");
+}
+/**
+* 创建不含真实密钥的最小 database-query 配置模板。
+*
+* @returns 格式化 JSON 字符串。
+*/
+function createMinimalConfigTemplate() {
+	return `${JSON.stringify({
+		defaults: { defaultInstance: "local-postgres" },
+		instances: [{
+			id: "local-postgres",
+			type: "postgres",
+			environment: "local",
+			host: "localhost",
+			port: 5432,
+			username: "${env:DB_LOCAL_POSTGRES_USER}",
+			password: "${env:DB_LOCAL_POSTGRES_PASSWORD}",
+			defaultDatabase: "app",
+			readonly: true
+		}, {
+			id: "local-mysql",
+			type: "mysql",
+			environment: "local",
+			host: "localhost",
+			port: 3306,
+			username: "${env:DB_LOCAL_MYSQL_USER}",
+			password: "${env:DB_LOCAL_MYSQL_PASSWORD}",
+			defaultDatabase: "app",
+			readonly: true
+		}]
+	}, null, 2)}\n`;
 }
 /**
 * 执行 check-sql 子命令。
@@ -1792,7 +1876,7 @@ async function formatDoctor() {
 		"mongosh",
 		"redis-cli"
 	];
-	const lines = ["database-query doctor:"];
+	const lines = ["database-query doctor:", "install policy: 不自动安装底层客户端；agent 应根据当前平台、权限和 PATH 自行选择安装方式。"];
 	for (const tool of tools) {
 		const result = spawnSync(tool, ["--version"], {
 			encoding: "utf8",
