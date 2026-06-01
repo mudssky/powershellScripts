@@ -102,4 +102,16 @@ Describe 'Get-ServiceAccessDisplayInfo' {
         $result.Local | Should -Be 'http://localhost:30080'
         $result.Lan | Should -Be 'http://192.168.1.10:30080'
     }
+
+    It 'formats Portainer HTTPS port as URL' {
+        $result = Get-ServiceAccessDisplayInfo `
+            -HostIp '127.0.0.1' `
+            -HostPort '9443' `
+            -ContainerPort '9443' `
+            -Protocol 'tcp' `
+            -LanIp '192.168.1.10'
+
+        $result.Local | Should -Be 'https://localhost:9443'
+        $result.Lan | Should -BeNullOrEmpty
+    }
 }

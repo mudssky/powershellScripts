@@ -97,6 +97,17 @@ Describe 'docker compose shared template' {
             Get-ComposeServiceBlock -ComposePath $composePath -ServiceName 'derper'
         } | Should -Throw '*未找到 compose 服务块: derper*'
     }
+
+    It 'includes portainer as Docker management WebUI' {
+        $composePath = Join-Path $script:RepoRoot 'config/dockerfiles/compose/docker-compose.yml'
+        $portainerBlock = Get-ComposeServiceBlock -ComposePath $composePath -ServiceName 'portainer'
+
+        $portainerBlock | Should -Match 'portainer/portainer-ce:lts'
+        $portainerBlock | Should -Match '9443:9443'
+        $portainerBlock | Should -Match '8000:8000'
+        $portainerBlock | Should -Match '\$\{DATA_PATH\}/portainer:/data'
+        $portainerBlock | Should -Match 'profiles: \["portainer"\]'
+    }
 }
 
 Describe 'Get-ComposeServiceNames' {
@@ -114,5 +125,12 @@ Describe 'start-container script help surface' {
 
         $scriptContent | Should -Not -Match '(?m)^\s*-\s+derper:'
         $scriptContent | Should -Not -Match '"derper"'
+    }
+
+    It 'advertises portainer service' {
+        $scriptContent = Get-Content -LiteralPath (Join-Path $script:RepoRoot 'scripts/pwsh/devops/start-container.ps1') -Raw
+
+        $scriptContent | Should -Match '(?m)^\s*-\s+portainer:'
+        $scriptContent | Should -Match '"portainer"'
     }
 }

@@ -124,6 +124,20 @@ services:
         max-file: "3"
     profiles: ["open-webui"]
 
+  portainer:
+    image: portainer/portainer-ce:lts
+    restart: ${RESTART_POLICY:-unless-stopped}
+    ports: ["9443:9443", "8000:8000"]
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "${DATA_PATH}/portainer:/data"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    profiles: ["portainer"]
+
   prometheus:
     image: prom/prometheus:latest
     restart: ${RESTART_POLICY:-unless-stopped}
