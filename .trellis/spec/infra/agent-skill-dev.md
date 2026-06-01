@@ -60,6 +60,7 @@ node <installed-skill>/scripts/<script>.js [args]
 - TypeScript 脚本 lint/format 复用 monorepo 根目录已有的 Biome 配置和依赖，不在每个 skill 内重复声明 formatter/linter 依赖。
 - `SKILL.md` 的示例命令必须指向 `scripts/*.js`，不得要求先运行 `pnpm install`、`pnpm build` 或 `tsx src/*.ts`。
 - 私有配置示例使用 `*.local.*` 命名时，必须确认仓库 `.gitignore` 或目录局部 `.gitignore` 已忽略对应真实私有文件。
+- 需要跨 agent、跨项目复用的用户级私有配置应使用 agent 无关路径，例如 `$XDG_CONFIG_HOME/<skill-name>/`，未设置时回退 `~/.config/<skill-name>/`；不要放在 Codex/Claude 专属目录，也不要写入 skill 安装目录。配置查找优先级推荐为：显式 `--config` > 当前项目目录 > XDG 用户配置目录。
 
 ### 4. Validation & Error Matrix
 
@@ -72,18 +73,23 @@ node <installed-skill>/scripts/<script>.js [args]
 | `package.json` 重复声明根目录已有测试依赖 | 不推荐，增加 dev skill 维护负担 |
 | `package.json` 重复声明根目录已有 Biome 依赖 | 不推荐，lint/format 应复用根目录工具 |
 | 私有 YAML 示例对应真实文件未忽略 | 不合规，存在密钥误提交风险 |
+| 全局私有配置放在某个 agent 专属目录 | 不推荐；同一 skill 安装到多个 agent 时会产生不一致 |
+| 全局私有配置写入 skill 安装目录 | 不合规；重装或更新 skill 可能覆盖本机配置 |
 
 ### 5. Good/Base/Bad Cases
 
 - Good: `src/database-query.ts` 维护统一 CLI 入口，`tests/check-sql.test.ts` 覆盖行为，`scripts/database-query.js` 由 `pnpm build` 生成并提交，`SKILL.md` 调用 `node scripts/database-query.js check-sql`。
+- Good: `database-query` 未传 `--config` 时先查当前项目配置，再查 `$XDG_CONFIG_HOME/database-query/` 或 `~/.config/database-query/`，并用测试覆盖优先级。
 - Base: 纯文档 skill 只有 `SKILL.md`、`references/`、`examples/`，不包含 `package.json`、`src/`、`tests/`、`scripts/`。
 - Bad: `SKILL.md` 让用户执行 `npx tsx src/check-sql.ts`，安装后依赖开发工具链。
 - Bad: 手工编辑生成的 `scripts/*.js` 修复问题，却不更新 TypeScript 源码和测试。
+- Bad: 全局数据库密码配置放在 `~/.codex/` 或 `~/.claude/`，导致另一个 agent 安装同一 skill 后读取不到。
 
 ### 6. Tests Required
 
 - Type check / build: 在 skill 目录执行 `pnpm build` 或等价命令。
 - Unit tests: 在 skill 目录执行 `pnpm test`，测试应覆盖脚本参数解析、核心业务规则和错误退出。
+- Config tests: 新增默认配置查找路径时，应覆盖显式路径、项目级路径、用户级路径之间的优先级，并在测试中隔离 `HOME` / `XDG_CONFIG_HOME`。
 - Lint/format: 在 skill 目录执行 `pnpm lint`，需要自动格式化时执行 `pnpm format`；默认只检查源码、测试和配置，不格式化构建生成的 `scripts/*.js`。
 - Syntax smoke: 对分发产物执行 `node scripts/<script>.js --help` 或一个最小成功命令。
 - Project gate: 代码改动完成后执行根目录 `pnpm qa`。

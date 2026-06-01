@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
-import { extname, resolve } from 'node:path'
+import { homedir } from 'node:os'
+import { extname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 import type {
@@ -25,6 +26,8 @@ const DEFAULT_CONFIG_FILES = [
   'database-query.config.js',
   'database-query.config.json',
 ]
+
+const GLOBAL_CONFIG_DIRECTORY_NAME = 'database-query'
 
 const DEFAULT_LIMIT = 50
 const DEFAULT_MAX_LIMIT = 1000
@@ -68,14 +71,14 @@ export interface TargetOptions {
 /**
  * 加载 database-query 配置。
  *
- * @param configPath 显式配置文件路径；未传时按默认文件名查找。
+ * @param configPath 显式配置文件路径；未传时按项目级、全局默认文件名查找。
  * @returns 已解析并替换环境变量占位符的配置。
  */
 export async function loadConfig(configPath?: string): Promise<LoadedConfig> {
   const resolvedPath = configPath ? resolve(configPath) : findDefaultConfig()
   if (!resolvedPath) {
     throw new ConfigError(
-      `未找到配置文件。请提供 --config，或创建 ${DEFAULT_CONFIG_FILES.join(' / ')}。`,
+      `未找到配置文件。请提供 --config，或在当前目录、${getGlobalConfigDirectory()} 创建 ${DEFAULT_CONFIG_FILES.join(' / ')}。`,
     )
   }
 
@@ -247,19 +250,45 @@ export function resolveEnvPlaceholders(value: unknown): unknown {
 }
 
 /**
- * 按默认文件名查找配置。
+ * 按项目级优先、全局兜底的顺序查找配置。
  *
  * @returns 找到的绝对路径；未找到返回 undefined。
  */
 function findDefaultConfig(): string | undefined {
+  return (
+    findConfigInDirectory(process.cwd()) ??
+    findConfigInDirectory(getGlobalConfigDirectory())
+  )
+}
+
+/**
+ * 在指定目录按默认文件名查找配置。
+ *
+ * @param directory 待查找配置的目录。
+ * @returns 找到的绝对路径；未找到返回 undefined。
+ */
+function findConfigInDirectory(directory: string): string | undefined {
   for (const file of DEFAULT_CONFIG_FILES) {
-    const candidate = resolve(file)
+    const candidate = resolve(directory, file)
     if (existsSync(candidate)) {
       return candidate
     }
   }
 
   return undefined
+}
+
+/**
+ * 解析 agent 无关的用户级 database-query 配置目录。
+ *
+ * @returns XDG 规范下的 database-query 用户配置目录。
+ */
+function getGlobalConfigDirectory(): string {
+  const xdgConfigHome = process.env.XDG_CONFIG_HOME?.trim()
+  const baseDirectory = xdgConfigHome
+    ? xdgConfigHome
+    : join(homedir(), '.config')
+  return resolve(baseDirectory, GLOBAL_CONFIG_DIRECTORY_NAME)
 }
 
 /**

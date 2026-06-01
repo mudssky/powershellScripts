@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -246,6 +246,67 @@ describe('database-query 配置与上下文', () => {
     }
   })
 
+  it('显式 --config 路径优先于默认查找', async () => {
+    const fixture = await createConfigSearchFixture()
+
+    try {
+      const loaded = await loadConfig(fixture.explicitConfigPath)
+
+      expect(loaded.path).toBe(fixture.explicitConfigPath)
+      expect(loaded.config.defaults?.defaultInstance).toBe('explicit')
+    } finally {
+      await fixture.cleanup()
+    }
+  })
+
+  it('当前目录配置优先于 XDG 全局配置', async () => {
+    const fixture = await createConfigSearchFixture()
+    const previousCwd = process.cwd()
+
+    try {
+      process.chdir(fixture.projectDir)
+      const loaded = await loadConfig()
+
+      expect(loaded.path).toBe(fixture.projectConfigPath)
+      expect(loaded.config.defaults?.defaultInstance).toBe('project')
+    } finally {
+      process.chdir(previousCwd)
+      await fixture.cleanup()
+    }
+  })
+
+  it('当前目录无配置时读取 XDG 全局配置', async () => {
+    const fixture = await createConfigSearchFixture()
+    const previousCwd = process.cwd()
+
+    try {
+      process.chdir(fixture.emptyProjectDir)
+      const loaded = await loadConfig()
+
+      expect(loaded.path).toBe(fixture.globalConfigPath)
+      expect(loaded.config.defaults?.defaultInstance).toBe('global')
+    } finally {
+      process.chdir(previousCwd)
+      await fixture.cleanup()
+    }
+  })
+
+  it('未设置 XDG_CONFIG_HOME 时回退到 HOME 下的 .config', async () => {
+    const fixture = await createHomeFallbackFixture()
+    const previousCwd = process.cwd()
+
+    try {
+      process.chdir(fixture.emptyProjectDir)
+      const loaded = await loadConfig()
+
+      expect(loaded.path).toBe(fixture.globalConfigPath)
+      expect(loaded.config.defaults?.defaultInstance).toBe('home-global')
+    } finally {
+      process.chdir(previousCwd)
+      await fixture.cleanup()
+    }
+  })
+
   it('按默认实例与单候选解析目标', () => {
     const target = resolveTarget(
       {
@@ -423,4 +484,113 @@ async function createTempConfig() {
     configPath,
     cleanup: () => rm(dir, { recursive: true, force: true }),
   }
+}
+
+/**
+ * 创建用于默认配置查找优先级测试的临时目录。
+ *
+ * @returns 配置路径集合与清理函数。
+ */
+async function createConfigSearchFixture() {
+  const dir = await mkdtemp(join(tmpdir(), 'database-query-search-'))
+  const projectDir = join(dir, 'project')
+  const emptyProjectDir = join(dir, 'empty-project')
+  const explicitDir = join(dir, 'explicit')
+  const xdgDir = join(dir, 'xdg')
+  const globalDir = join(xdgDir, 'database-query')
+  const previousXdgConfigHome = process.env.XDG_CONFIG_HOME
+
+  await mkdir(projectDir, { recursive: true })
+  await mkdir(emptyProjectDir, { recursive: true })
+  await mkdir(explicitDir, { recursive: true })
+  await mkdir(globalDir, { recursive: true })
+
+  const projectConfigPath = join(projectDir, 'database-query.local.json')
+  const explicitConfigPath = join(explicitDir, 'database-query.local.json')
+  const globalConfigPath = join(globalDir, 'database-query.local.json')
+
+  await writeMinimalConfig(projectConfigPath, 'project')
+  await writeMinimalConfig(explicitConfigPath, 'explicit')
+  await writeMinimalConfig(globalConfigPath, 'global')
+  process.env.XDG_CONFIG_HOME = xdgDir
+
+  return {
+    projectDir,
+    emptyProjectDir,
+    projectConfigPath,
+    explicitConfigPath,
+    globalConfigPath,
+    cleanup: async () => {
+      restoreEnv('XDG_CONFIG_HOME', previousXdgConfigHome)
+      await rm(dir, { recursive: true, force: true })
+    },
+  }
+}
+
+/**
+ * 创建 HOME 回退路径测试的临时目录。
+ *
+ * @returns 配置路径集合与清理函数。
+ */
+async function createHomeFallbackFixture() {
+  const dir = await mkdtemp(join(tmpdir(), 'database-query-home-'))
+  const emptyProjectDir = join(dir, 'empty-project')
+  const homeDir = join(dir, 'home')
+  const globalDir = join(homeDir, '.config', 'database-query')
+  const previousXdgConfigHome = process.env.XDG_CONFIG_HOME
+  const previousHome = process.env.HOME
+
+  await mkdir(emptyProjectDir, { recursive: true })
+  await mkdir(globalDir, { recursive: true })
+
+  const globalConfigPath = join(globalDir, 'database-query.local.json')
+  await writeMinimalConfig(globalConfigPath, 'home-global')
+  delete process.env.XDG_CONFIG_HOME
+  process.env.HOME = homeDir
+
+  return {
+    emptyProjectDir,
+    globalConfigPath,
+    cleanup: async () => {
+      restoreEnv('XDG_CONFIG_HOME', previousXdgConfigHome)
+      restoreEnv('HOME', previousHome)
+      await rm(dir, { recursive: true, force: true })
+    },
+  }
+}
+
+/**
+ * 写入最小 database-query 配置。
+ *
+ * @param configPath 配置文件路径。
+ * @param instanceId 默认实例与实例 ID。
+ * @returns 无返回值。
+ */
+async function writeMinimalConfig(
+  configPath: string,
+  instanceId: string,
+): Promise<void> {
+  await writeFile(
+    configPath,
+    JSON.stringify({
+      defaults: { defaultInstance: instanceId },
+      instances: [{ id: instanceId, type: 'postgres' }],
+    }),
+  )
+}
+
+/**
+ * 恢复被测试临时覆盖的环境变量。
+ *
+ * @param name 环境变量名称。
+ * @param value 原始环境变量值。
+ * @returns 无返回值。
+ */
+function restoreEnv(name: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[name]
+    return
+  }
+
+  process.env[name] = value
 }

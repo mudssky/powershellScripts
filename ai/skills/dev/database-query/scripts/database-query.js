@@ -3,7 +3,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { EventEmitter } from "events";
-import { extname, resolve } from "node:path";
+import { homedir } from "node:os";
+import { extname, join, resolve } from "node:path";
 
 //#region ../../../../node_modules/.pnpm/cac@6.7.14/node_modules/cac/dist/index.mjs
 function toArr(any) {
@@ -494,6 +495,7 @@ const DEFAULT_CONFIG_FILES = [
 	"database-query.config.js",
 	"database-query.config.json"
 ];
+const GLOBAL_CONFIG_DIRECTORY_NAME = "database-query";
 const DEFAULT_LIMIT = 50;
 const DEFAULT_MAX_LIMIT = 1e3;
 const DEFAULT_PERMISSION_LEVEL = "readonly";
@@ -546,12 +548,12 @@ var ConfigError = class extends Error {
 /**
 * 加载 database-query 配置。
 *
-* @param configPath 显式配置文件路径；未传时按默认文件名查找。
+* @param configPath 显式配置文件路径；未传时按项目级、全局默认文件名查找。
 * @returns 已解析并替换环境变量占位符的配置。
 */
 async function loadConfig(configPath) {
 	const resolvedPath = configPath ? resolve(configPath) : findDefaultConfig();
-	if (!resolvedPath) throw new ConfigError(`未找到配置文件。请提供 --config，或创建 ${DEFAULT_CONFIG_FILES.join(" / ")}。`);
+	if (!resolvedPath) throw new ConfigError(`未找到配置文件。请提供 --config，或在当前目录、${getGlobalConfigDirectory()} 创建 ${DEFAULT_CONFIG_FILES.join(" / ")}。`);
 	const extension = extname(resolvedPath);
 	let rawConfig;
 	if (extension === ".json") rawConfig = JSON.parse(readFileSync(resolvedPath, "utf8"));
@@ -654,15 +656,33 @@ function resolveEnvPlaceholders(value) {
 	return value;
 }
 /**
-* 按默认文件名查找配置。
+* 按项目级优先、全局兜底的顺序查找配置。
 *
 * @returns 找到的绝对路径；未找到返回 undefined。
 */
 function findDefaultConfig() {
+	return findConfigInDirectory(process.cwd()) ?? findConfigInDirectory(getGlobalConfigDirectory());
+}
+/**
+* 在指定目录按默认文件名查找配置。
+*
+* @param directory 待查找配置的目录。
+* @returns 找到的绝对路径；未找到返回 undefined。
+*/
+function findConfigInDirectory(directory) {
 	for (const file of DEFAULT_CONFIG_FILES) {
-		const candidate = resolve(file);
+		const candidate = resolve(directory, file);
 		if (existsSync(candidate)) return candidate;
 	}
+}
+/**
+* 解析 agent 无关的用户级 database-query 配置目录。
+*
+* @returns XDG 规范下的 database-query 用户配置目录。
+*/
+function getGlobalConfigDirectory() {
+	const xdgConfigHome = process.env.XDG_CONFIG_HOME?.trim();
+	return resolve(xdgConfigHome ? xdgConfigHome : join(homedir(), ".config"), GLOBAL_CONFIG_DIRECTORY_NAME);
 }
 /**
 * 进行轻量配置结构校验。

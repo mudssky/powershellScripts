@@ -76,7 +76,14 @@ node scripts/database-query.js check-sql --dialect postgres --level readonly --s
 
 ## 配置文件位置
 
-`database-query.js` 默认从当前工作目录查找：
+`database-query.js` 未传 `--config` 时先从当前工作目录查找项目级配置；找不到时再查找 agent 无关的用户级全局配置目录：
+
+```text
+$XDG_CONFIG_HOME/database-query/
+~/.config/database-query/   # XDG_CONFIG_HOME 未设置时
+```
+
+每个目录内按以下默认文件名顺序查找：
 
 ```text
 database-query.local.mjs
@@ -87,13 +94,13 @@ database-query.config.js
 database-query.config.json
 ```
 
-手动安装 skill 不代表要把数据库配置放进 skill 目录。通常应放在当前项目根目录，或通过 `--config` 显式指定：
+手动安装 skill 不代表要把数据库配置放进 skill 目录。项目专用配置通常放在当前项目根目录；跨 agent/跨项目复用的本机私有配置放在用户级全局目录；临时或特殊配置通过 `--config` 显式指定：
 
 ```bash
 node scripts/database-query.js context --config ./database-query.local.json --format json
 ```
 
-真实 `database-query.local.*` 必须被所在项目的 `.gitignore` 忽略。
+显式 `--config` 永远优先于默认查找。真实项目级 `database-query.local.*` 必须被所在项目的 `.gitignore` 忽略；全局 `database-query.local.*` 应限制为当前用户可读写。
 
 ## 常见问题
 
