@@ -116,4 +116,71 @@ function Test-Administrator {
     }
 }
 
-Export-ModuleMember -Function Get-OperatingSystem, Test-Administrator
+function New-PlatformDescriptor {
+    <#
+    .SYNOPSIS
+        创建当前或指定平台描述。
+
+    .DESCRIPTION
+        将 PowerShell 平台变量与 .NET 进程架构规范化为脚本配置常用的
+        `windows-x64`、`linux-arm64`、`macos-x64` 等键。适合下载器、
+        安装器和按平台选择配置值的脚本复用。
+
+    .PARAMETER OperatingSystem
+        可选操作系统覆盖值，支持 `windows`、`linux`、`macos`。
+
+    .PARAMETER Architecture
+        可选架构覆盖值，支持 `x64`、`amd64`、`arm64`、`aarch64` 或 .NET 架构名称。
+
+    .OUTPUTS
+        PSCustomObject
+        返回包含 OperatingSystem、Architecture 与 Key 的平台描述。
+    #>
+    [CmdletBinding()]
+    param(
+        [string]$OperatingSystem = '',
+
+        [string]$Architecture = ''
+    )
+
+    $os = if (-not [string]::IsNullOrWhiteSpace($OperatingSystem)) {
+        $OperatingSystem.Trim().ToLowerInvariant()
+    }
+    elseif ($IsWindows) {
+        'windows'
+    }
+    elseif ($IsMacOS) {
+        'macos'
+    }
+    elseif ($IsLinux) {
+        'linux'
+    }
+    else {
+        throw '无法识别当前操作系统。'
+    }
+
+    if ($os -notin @('windows', 'linux', 'macos')) {
+        throw "不支持的操作系统: $OperatingSystem"
+    }
+
+    $rawArchitecture = if (-not [string]::IsNullOrWhiteSpace($Architecture)) {
+        $Architecture
+    }
+    else {
+        [System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture.ToString()
+    }
+
+    $arch = switch ($rawArchitecture.Trim().ToLowerInvariant()) {
+        { $_ -in @('x64', 'amd64') } { 'x64'; break }
+        { $_ -in @('arm64', 'aarch64') } { 'arm64'; break }
+        default { throw "不支持的 CPU 架构: $rawArchitecture" }
+    }
+
+    return [pscustomobject]@{
+        OperatingSystem = $os
+        Architecture    = $arch
+        Key             = "$os-$arch"
+    }
+}
+
+Export-ModuleMember -Function Get-OperatingSystem, Test-Administrator, New-PlatformDescriptor

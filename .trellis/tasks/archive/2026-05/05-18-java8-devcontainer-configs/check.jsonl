@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/05-18-java8-devcontainer-configs/research/devcontainer-template-notes.md", "reason": "核对模板是否符合 Java 8、Maven、Codex、Claude Code 配置复用要求"}
+{"file": ".trellis/spec/infra/devcontainer-templates.md", "reason": "核对 Dev Container 模板是否满足标准模板约定"}
+{"file": ".trellis/spec/infra/index.md", "reason": "核对基础设施配置文档与模板边界"}
+{"file": ".trellis/spec/guides/index.md", "reason": "核对新增模板是否保持可复用、无项目专属耦合"}

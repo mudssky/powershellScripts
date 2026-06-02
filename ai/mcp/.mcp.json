@@ -1,0 +1,78 @@
+{
+  "mcpServers": {
+    "context7": {
+      "command": "bun",
+      "args": ["x", "@upstash/context7-mcp@latest"],
+      "env": { "DEFAULT_MINIMUM_TOKENS": "10000" },
+      "fromGalleryId": "upstash.context7",
+      "disabled": false
+    },
+    "git": {
+      "command": "uvx",
+      "args": ["mcp-server-git"],
+      "fromGalleryId": "modelcontextprotocol.servers_git",
+      "disabled": true
+    },
+    "gitmcp": {
+      "command": "bun",
+      "args": ["x", "mcp-remote", "https://gitmcp.io/docs"],
+      "disabled": true
+    },
+    "promptx": {
+      "command": "bun",
+      "args": [
+        "x",
+        "-f",
+        "--registry",
+        "https://registry.npmjs.org",
+        "dpml-prompt@beta",
+        "mcp-server"
+      ],
+      "disabled": true,
+      "alwaysAllow": []
+    },
+    "Playwright": {
+      "command": "bun",
+      "args": ["x", "@playwright/mcp@latest"],
+      "env": {},
+      "fromGalleryId": "executeautomation.mcp-playwright",
+      "disabled": true
+    },
+    "mcp-feedback-enhanced": {
+      "command": "uvx",
+      "args": ["mcp-feedback-enhanced@latest"],
+      "timeout": 600,
+      "autoApprove": ["interactive_feedback"],
+      "disabled": true,
+      "alwaysAllow": []
+    },
+    "Sequential Thinking": {
+      "command": "bun",
+      "args": ["x", "@modelcontextprotocol/server-sequential-thinking"],
+      "env": {},
+      "fromGalleryId": "modelcontextprotocol.servers_sequentialthinking",
+      "disabled": true,
+      "alwaysAllow": []
+    },
+    "Memory": {
+      "command": "bun",
+      "args": ["x", "@modelcontextprotocol/server-memory"],
+      "env": { "MEMORY_FILE_PATH": "memory.json" },
+      "fromGalleryId": "modelcontextprotocol.servers_memory",
+      "disabled": true,
+      "alwaysAllow": []
+    },
+    "shrimp-task-manager": {
+      "command": "bun",
+      "args": ["x", "mcp-shrimp-task-manager"],
+      "env": {
+        "DATA_DIR": ".shrimp-data",
+        "TEMPLATES_USE": "zh",
+        "ENABLE_GUI": "true",
+        "WEB_PORT": "36601"
+      },
+      "disabled": true,
+      "alwaysAllow": []
+    }
+  }
+}

@@ -1,0 +1,14 @@
+# rathole server 示例配置。
+# 复制为 server.local.toml 后再填入真实 token 与公网监听端口。
+
+[server]
+bind_addr = "0.0.0.0:2333"
+heartbeat_interval = 30
+
+[server.services.ssh_home]
+token = "replace-with-a-long-random-token"
+bind_addr = "0.0.0.0:5202"
+
+[server.services.web_home]
+token = "replace-with-another-long-random-token"
+bind_addr = "0.0.0.0:8080"

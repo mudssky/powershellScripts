@@ -28,6 +28,8 @@ services:
   searxng:
     image: searxng/searxng
     container_name: lobe-searxng
+    ports:
+      - '127.0.0.1:33088:8080'  # 宿主机可达，供 Hermes 搜索插件使用
     volumes:
       - './searxng-settings.yml:/etc/searxng/settings.yml'
     environment:

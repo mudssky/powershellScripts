@@ -1,0 +1,30 @@
+{
+  "id": "skills-installer-config",
+  "name": "skills-installer-config",
+  "title": "brainstorm: skills 安装脚本",
+  "description": "",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "mudssky",
+  "assignee": "mudssky",
+  "createdAt": "2026-05-20",
+  "completedAt": "2026-05-21",
+  "branch": null,
+  "base_branch": "master",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "05-20-05-20-skills-config-helper-extraction",
+    "05-20-skills-config-path-placeholder-extraction",
+    "05-20-skills-installer-private-module-split"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

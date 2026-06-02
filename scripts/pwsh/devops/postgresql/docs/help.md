@@ -5,6 +5,7 @@
 - `backup`
 - `restore`
 - `import-csv`
+- `pgbackrest`
 - `install-tools`
 
 ## Connection Defaults
@@ -18,4 +19,11 @@
 ```powershell
 ./Postgres-Toolkit.ps1 backup --database app --output ./app.dump --format custom
 ./Postgres-Toolkit.ps1 backup --dry-run --output ./app.dump
+./Postgres-Toolkit.ps1 backup --database app --table public.orders --output ./orders.dump
+./Postgres-Toolkit.ps1 pgbackrest --action backup --type incr --config ./pgbackrest.conf.local --dry-run
 ```
+
+## Backup Scope
+
+- `backup` 使用 `pg_dump`，适合单库、schema、表级逻辑快照；它不是通用增量备份工具。
+- `pgbackrest` 使用 pgBackRest，适合整个 PostgreSQL cluster 的 full/diff/incr 物理备份和 PITR。

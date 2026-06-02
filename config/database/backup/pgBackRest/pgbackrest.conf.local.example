@@ -1,0 +1,33 @@
+# 复制为 pgbackrest.conf.local 后使用。
+# 这是面向 “任意 Tailscale 可达机器 -> macmini” 的远程 pgBackRest 示例。
+# 注意：pgBackRest 物理备份不是只靠 PostgreSQL 连接串完成，macmini 上也必须安装 pgBackRest，
+# 并且 pgBackRest 进程能读取 PostgreSQL data directory 与 WAL。
+
+[global]
+# 建议改成固定磁盘、NAS 或长期在线备份机上的绝对路径。
+# 如果在多台机器各自使用本地路径执行，备份集会分散在不同机器上。
+repo1-path=/var/backups/pgbackrest/lobechat
+repo1-retention-full=2
+repo1-retention-diff=7
+repo1-retention-history=30
+
+# 日志目录在执行 pgBackRest 的机器上生效。
+log-path=./logs
+log-level-console=info
+process-max=2
+start-fast=y
+delta=y
+
+[lobechat]
+# Tailscale 场景下可以写 macmini 的 MagicDNS 名称，也可以写 100.x.y.z 地址。
+pg1-host=macmini
+pg1-host-type=ssh
+pg1-host-user=postgres
+
+# 如果 PostgreSQL 跑在 Docker/ParadeDB 容器中，这通常是容器内路径。
+# 远程 pgBackRest 必须在能读取该路径的环境中执行；否则需要 sidecar 或宿主机挂载数据卷。
+pg1-path=/var/lib/postgresql/data
+pg1-port=5432
+
+# 这里只是 pgBackRest 连接 PostgreSQL 时使用的库名，不代表只备份 lobechat。
+pg1-database=postgres

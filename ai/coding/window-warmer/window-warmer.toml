@@ -1,0 +1,45 @@
+# Coding Plan 窗口预热配置。
+# 该文件由 `uv run python window_warmer.py` 读取；依赖由同目录 pyproject.toml 与 uv.lock 管理。
+
+[target]
+name = "z-ai-coding-plan"
+base_url = "https://open.bigmodel.cn/api/coding/paas/v4"
+container_name = "litellm"
+api_key_env = "Z_AI_API_KEY"
+env_file = ".env.local"
+health_path = "/models"
+request_timeout_seconds = 30
+
+[scheduler]
+enabled = true
+poll_interval_seconds = 60
+default_jitter_seconds = 120
+default_retry_count = 1
+default_retry_delay_seconds = 30
+dry_run = false
+
+[[plans]]
+name = "glm-coding-plan"
+enabled = true
+model = "openai/GLM-5.1"
+prompt = "你好吗"
+max_tokens = 16
+temperature = 0
+schedule_mode = "fixed_times"
+times = ["08:00", "13:00", "18:00", "23:00"]
+jitter_seconds = 120
+retry_count = 1
+retry_delay_seconds = 30
+
+# 多个 Coding Plan 可以继续追加 [[plans]]。
+# interval 模式示例：
+#
+# [[plans]]
+# name = "another-coding-plan"
+# enabled = false
+# model = "openai/another-model"
+# prompt = "你好吗"
+# schedule_mode = "interval"
+# start_time = "08:00"
+# window = "5h"
+# jitter_seconds = 120

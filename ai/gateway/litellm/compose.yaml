@@ -18,6 +18,8 @@ services:
       # 当前本地配置同时走 NewAPI 与智谱 OpenAI 兼容接口；变量必须显式注入容器，LiteLLM 才能解析 os.environ/...。
       NEWAPI_API_BASE: ${NEWAPI_API_BASE:-}
       NEWAPI_KEY: ${NEWAPI_KEY:-}
+      # NewAPI Mimo 可使用 bot 专用 key；未配置时回退到通用 NewAPI key，保持旧环境可启动。
+      NEWAPI_BOT_KEY: ${NEWAPI_BOT_KEY:-${NEWAPI_KEY:-}}
       # Claude 优先走专用 Anthropic 兼容上游；若未单独配置，则自动复用通用 NewAPI 地址。
       NEWAPI_ANTHROPIC_API_BASE: ${NEWAPI_ANTHROPIC_API_BASE:-${NEWAPI_API_BASE:-}}
       NEWAPI_ANTHROPIC_KEY: ${NEWAPI_ANTHROPIC_KEY:-${NEWAPI_KEY:-}}
@@ -25,13 +27,29 @@ services:
       LITELLM_ANTHROPIC_DISABLE_URL_SUFFIX: ${LITELLM_ANTHROPIC_DISABLE_URL_SUFFIX:-}
       # 智谱 GLM Coding Plan 走独立 OpenAI 兼容端点，默认指向官方专属地址。
       Z_AI_CODING_API_BASE: ${Z_AI_CODING_API_BASE:-https://open.bigmodel.cn/api/coding/paas/v4}
+      # Claude Code 走智谱 Anthropic 兼容端点，用于 GLM-5.1 优先、DeepSeek 兜底的开发入口。
+      Z_AI_ANTHROPIC_API_BASE: ${Z_AI_ANTHROPIC_API_BASE:-https://open.bigmodel.cn/api/anthropic}
       Z_AI_API_KEY: ${Z_AI_API_KEY:-}
+      # DeepSeek Anthropic 兼容端点作为 Claude Code GLM Coding Plan 额度耗尽后的兜底。
+      DEEPSEEK_ANTHROPIC_API_BASE: ${DEEPSEEK_ANTHROPIC_API_BASE:-https://api.deepseek.com/anthropic}
+      # DeepSeek OpenAI 兼容端点作为 claw OpenAI 兼容 agent 链路的兜底。
+      DEEPSEEK_OPENAI_API_BASE: ${DEEPSEEK_OPENAI_API_BASE:-https://api.deepseek.com/v1}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      # 小米 Mimo OpenAI 兼容端点仅作为直连排查入口；claw 默认 Mimo 流量走 NewAPI 中转。
+      MIMO_API_BASE: ${MIMO_API_BASE:-https://token-plan-cn.xiaomimimo.com/v1}
+      MIMO_API_KEY: ${MIMO_API_KEY:-}
+      # GLM 429 返回 reset 时间后，callback adapter 会在 reset 时间后额外等待该秒数再恢复探测。
+      LITELLM_GLM_RESET_BUFFER_SECONDS: ${LITELLM_GLM_RESET_BUFFER_SECONDS:-60}
+      # 如果 GLM 429 错误体无法解析 reset 时间，使用固定 5 小时冷却兜底。
+      LITELLM_GLM_FALLBACK_COOLDOWN_SECONDS: ${LITELLM_GLM_FALLBACK_COOLDOWN_SECONDS:-18000}
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-}
       # 保留旧变量，避免切回 qwen.yaml 等历史配置时还要额外补环境变量。
       DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
       DASHSCOPE_API_BASE: ${DASHSCOPE_API_BASE:-https://dashscope.aliyuncs.com/compatible-mode/v1}
     volumes:
       - ./litellm.local.yaml:/app/config.yaml:ro
+      # LiteLLM 自定义回调用于处理跨供应商 Anthropic messages 兼容清洗。
+      - ./callbacks:/app/callbacks:ro
     extra_hosts:
       # 在 Linux Docker Engine 场景补齐宿主机别名，保持默认 DATABASE_URL 可用。
       - "host.docker.internal:host-gateway"

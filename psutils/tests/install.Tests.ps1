@@ -199,6 +199,32 @@ Describe "Get-PackageInstallCommand 函数测试" {
     }
 }
 
+Describe "Install-ExecutableFile 函数测试" {
+    It "复制可执行文件到安装目录" {
+        $sourcePath = Join-Path $TestDrive 'tool-source'
+        $installDir = Join-Path $TestDrive 'bin'
+        Set-Content -LiteralPath $sourcePath -Encoding utf8NoBOM -Value 'new'
+
+        $result = Install-ExecutableFile -SourcePath $sourcePath -InstallDirectory $installDir -ExecutableName 'tool' -OperatingSystem linux
+
+        $result.Status | Should -Be 'Installed'
+        Test-Path -LiteralPath (Join-Path $installDir 'tool') | Should -BeTrue
+    }
+
+    It "指定 NoOverwrite 时跳过已有目标文件" {
+        $sourcePath = Join-Path $TestDrive 'new-tool'
+        $installDir = Join-Path $TestDrive 'bin'
+        New-Item -ItemType Directory -Path $installDir -Force | Out-Null
+        Set-Content -LiteralPath $sourcePath -Encoding utf8NoBOM -Value 'new'
+        Set-Content -LiteralPath (Join-Path $installDir 'tool') -Encoding utf8NoBOM -Value 'old'
+
+        $result = Install-ExecutableFile -SourcePath $sourcePath -InstallDirectory $installDir -ExecutableName 'tool' -OperatingSystem linux -NoOverwrite
+
+        $result.Status | Should -Be 'Skipped'
+        (Get-Content -LiteralPath (Join-Path $installDir 'tool') -Raw).Trim() | Should -Be 'old'
+    }
+}
+
 Describe "Install-PackageManagerApps 函数测试" {
     BeforeEach {
         Mock -ModuleName install Write-Host { }

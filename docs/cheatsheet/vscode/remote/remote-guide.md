@@ -67,7 +67,7 @@
 ### 🛠️ 快速配置流程
 
 * **WSL：** Windows 终端输入 `code .` 即可直接在该目录下启动 VS Code 并连接到 WSL。
-* **Dev Containers：** 项目根目录包含 `.devcontainer` 文件夹 -> 打开项目 -> VS Code 提示 "Reopen in Container"。
+* **Dev Containers：** 项目根目录包含 `.devcontainer` 文件夹 -> 打开项目 -> VS Code 提示 "Reopen in Container"。可复用模板见 [Dev Container 模板最佳实践](./devcontainers.md)。
 
 ---
 

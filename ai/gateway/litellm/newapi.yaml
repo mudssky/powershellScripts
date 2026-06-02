@@ -1,14 +1,20 @@
 model_list:
   # 显式注册 OpenAI 系列模型，确保 `/models` 能直接返回可用模型名。
-  - model_name: "gpt-5.4"
+  - model_name: "gpt-5.5"
+    model_info:
+      # GPT-5.5 渠道支持图片输入，显式声明后客户端可按视觉能力筛选。
+      supports_vision: true
     litellm_params: &newapi_openai_params
       # 这里顺手定义 NewAPI OpenAI 兼容入口的公共连接参数，后续同上游模型通过 merge 复用。
       api_base: "os.environ/NEWAPI_API_BASE"  # 从环境变量读 NewAPI 地址
       api_key: "os.environ/NEWAPI_KEY"        # 从环境变量读密钥
       # `model_name` 保持与上游模型 id 一致，便于客户端直接按 `/models` 结果发起调用。
-      model: "openai/gpt-5.4"
+      model: "openai/gpt-5.5"
   # 显式注册 Gemini 系列模型，避免 wildcard 路由只返回 `*`。
   - model_name: "gemini-3.1-pro"
+    model_info:
+      # Gemini Pro 渠道支持多模态输入，显式声明视觉能力供客户端发现。
+      supports_vision: true
     litellm_params:
       # 复用同一个 NewAPI OpenAI 兼容入口，只覆盖具体模型名。
       <<: *newapi_openai_params
@@ -23,6 +29,9 @@ model_list:
       # 使用 LiteLLM 的 Anthropic provider，把 Claude 请求按原生协议发给上游。
       model: "anthropic/claude-opus-4-6"
   - model_name: "claude-opus-4-7"
+    model_info:
+      # Claude Opus 4.7 支持图片输入，显式声明视觉能力供客户端发现。
+      supports_vision: true
     litellm_params:
       # 复用同一个 Claude 原生上游入口，只覆盖具体模型名。
       <<: *newapi_anthropic_params
@@ -36,11 +45,49 @@ model_list:
       # 兼容别名与默认模型共享同一上游，避免行为分叉。
       model: "anthropic/claude-opus-4-6"
   - model_name: "compat/claude-opus-4-7"
+    model_info:
+      # 兼容别名与 claude-opus-4-7 使用同一上游，也应暴露相同视觉能力。
+      supports_vision: true
     litellm_params:
       # 复用 Claude 原生上游，只通过模型名表达“兼容入口”的使用语义。
       <<: *newapi_anthropic_params
       # 兼容别名与默认模型共享同一上游，避免行为分叉。
       model: "anthropic/claude-opus-4-7"
+  # Claude Code 开发入口优先使用 GLM Coding Plan 的 Anthropic 兼容端点。
+  - model_name: "cc-glmplan-opus"
+    litellm_params: &zai_anthropic_claude_code_params
+      # 与下面的 OpenAI 兼容 GLM 路由分开建锚点，避免两种协议端点互相污染。
+      api_base: "os.environ/Z_AI_ANTHROPIC_API_BASE"  # 从环境变量读智谱 Anthropic 兼容地址
+      api_key: "os.environ/Z_AI_API_KEY"              # 复用智谱 Coding Plan 密钥
+      # Claude Code 的 sonnet / opus 默认走 GLM-5.1，享受 Coding Plan 额度。
+      model: "anthropic/GLM-5.1"
+      # Coding Plan 瞬时失败后走 LiteLLM 内建短冷却；5 小时额度窗口由 GLM cooldown adapter 精准避让。
+      cooldown_time: 3600
+  # Claude Code 的 Haiku / subagent 请求复用 GLM Coding Plan 的 Anthropic 兼容入口。
+  - model_name: "cc-glmplan-haiku"
+    litellm_params:
+      # 复用智谱 Anthropic 兼容入口，只覆盖具体轻量模型。
+      <<: *zai_anthropic_claude_code_params
+      # 当前智谱 Anthropic 兼容端点统一使用 GLM-5.1 承接 Claude Code 流量。
+      model: "anthropic/GLM-5.1"
+      # 轻量入口也按同一节奏恢复探测，避免 Haiku 流量频繁撞上额度错误。
+      cooldown_time: 3600
+  # GLM 额度耗尽或临时不可用时，Claude Code 自动降级到 DeepSeek Anthropic 兼容端点。
+  - model_name: "claude-code-deepseek-v4-pro"
+    litellm_params: &deepseek_anthropic_claude_code_params
+      # DeepSeek 的 Anthropic 兼容地址与密钥独立注入，避免与默认 NewAPI Claude 路由耦合。
+      api_base: "os.environ/DEEPSEEK_ANTHROPIC_API_BASE"  # 从环境变量读 DeepSeek Anthropic 兼容地址
+      api_key: "os.environ/DEEPSEEK_API_KEY"              # 从环境变量读 DeepSeek 密钥
+      # 兜底时保持用户原先 Claude Code 的 pro 默认模型。
+      model: "anthropic/deepseek-v4-pro[1m]"
+      # Claude Code DeepSeek 兜底保留当前 thinking / effort 参数，历史 thinking 块由回调清理。
+  # DeepSeek 轻量兜底给 Haiku / subagent 使用，避免主模型降级后小任务也占用 pro。
+  - model_name: "claude-code-deepseek-v4-flash"
+    litellm_params:
+      # 复用 DeepSeek Anthropic 兼容入口，只覆盖轻量模型。
+      <<: *deepseek_anthropic_claude_code_params
+      # 与用户现有 Claude Code Haiku / subagent 模型配置保持一致。
+      model: "anthropic/deepseek-v4-flash"
   # 显式注册 GLM Coding Plan 主模型，便于 `/models` 稳定暴露官方模型名。
   - model_name: "GLM-5.1"
     litellm_params: &zai_openai_params
@@ -56,6 +103,85 @@ model_list:
       <<: *zai_openai_params
       # 由 LiteLLM 按请求中的官方模型名透传，例如 `GLM-4.7`。
       model: "openai/GLM-*"
+  # OpenAI 兼容 agent 的稳定默认入口，底层先走 GLM Coding Plan。
+  - model_name: "claw-plan"
+    model_info:
+      # 对外入口支持视觉请求；callback 会把图片请求提前切到 Mimo，避免误打不支持视觉的 GLM。
+      supports_vision: true
+    litellm_params:
+      # 直接复用智谱 OpenAI 兼容入口，不通过其它 LiteLLM 别名二次转发。
+      <<: *zai_openai_params
+      # 默认由 GLM-5.1 承接 agent 主请求，后续可在不改客户端模型名的情况下升级底层模型。
+      model: "openai/GLM-5.1"
+  # 显式版本入口，便于调试时确认当前 claw plan 的 GLM 底层模型。
+  - model_name: "claw-glmplan-5.1"
+    litellm_params:
+      # 与 claw-plan 使用同一组上游连接参数，但保留独立对外模型组用于精确调用和 fallback 观测。
+      <<: *zai_openai_params
+      # 显式锁定到当前 Coding Plan 主模型。
+      model: "openai/GLM-5.1"
+  # 小米 Mimo Pro 直连排查入口；claw-plan 默认文本兜底走 newapi/mimo-v2.5-pro。
+  - model_name: "mimo-v2.5-pro"
+    litellm_params:
+      # 小米 Mimo 使用独立 OpenAI 兼容端点，避免继承 NewAPI 的渠道能力过滤。
+      api_base: "os.environ/MIMO_API_BASE"
+      api_key: "os.environ/MIMO_API_KEY"
+      # 保持上游模型名直通，避免 LiteLLM 对外别名与 Mimo 模型名脱节。
+      model: "openai/mimo-v2.5-pro"
+  # 小米 Mimo 2.5 直连排查入口；claw-plan 默认视觉请求走 newapi/mimo-v2.5。
+  - model_name: "mimo-v2.5"
+    model_info:
+      # 显式声明视觉能力，便于 `/model/info` 和客户端按能力筛选模型。
+      supports_vision: true
+    litellm_params:
+      # 小米 Mimo 使用独立 OpenAI 兼容端点，避免继承 NewAPI 的渠道能力过滤。
+      api_base: "os.environ/MIMO_API_BASE"
+      api_key: "os.environ/MIMO_API_KEY"
+      # 保持上游模型名直通，避免 LiteLLM 对外别名与 Mimo 模型名脱节。
+      model: "openai/mimo-v2.5"
+  # claw-plan 文本兜底默认走 NewAPI 中转的 Mimo Pro，便于复用 NewAPI 渠道调度。
+  - model_name: "newapi/mimo-v2.5-pro"
+    litellm_params: &newapi_bot_openai_params
+      # 复用 NewAPI OpenAI 兼容入口与地址，但用 Mimo 专用 bot key 隔离 agent 兜底额度。
+      <<: *newapi_openai_params
+      api_key: "os.environ/NEWAPI_BOT_KEY"
+      # Pro 版本作为文本 fallback，不声明视觉能力。
+      model: "openai/mimo-v2.5-pro"
+  # claw-plan 视觉请求默认走 NewAPI 中转的 Mimo 2.5。
+  - model_name: "newapi/mimo-v2.5"
+    model_info:
+      # 显式声明视觉能力，便于 `/model/info` 和客户端按能力筛选模型。
+      supports_vision: true
+    litellm_params:
+      # 复用 NewAPI Mimo 专用连接参数，只覆盖具体视觉模型名。
+      <<: *newapi_bot_openai_params
+      # 保持上游模型名直通，避免 LiteLLM 对外别名与 NewAPI 模型名脱节。
+      model: "openai/mimo-v2.5"
+  # claw OpenAI 兼容链路的 DeepSeek 轻量兜底入口。
+  - model_name: "claw-deepseek-v4-flash"
+    litellm_params:
+      # DeepSeek OpenAI 兼容端点独立于 Claude Code 使用的 Anthropic 兼容端点。
+      api_base: "os.environ/DEEPSEEK_OPENAI_API_BASE"
+      api_key: "os.environ/DEEPSEEK_API_KEY"
+      # v4 flash 作为 agent 兜底模型，避免复用即将废弃的 deepseek-chat / deepseek-reasoner。
+      model: "openai/deepseek-v4-flash"
+      # 复杂 agent 任务默认开启最大思考模式。
+      reasoning_effort: "max"
+  # 把omx使用的spark模型重定向，因为只有pro模型有
+  - model_name: "gpt*spark"
+    litellm_params:
+      <<: *newapi_openai_params
+      model: "openai/gpt-5.4"
+      reasoning_effort: "medium"
+  # Codex 后台可能会请求旧 mini 别名，这里收敛到当前可用的 GPT-5.5 上游。
+  # - model_name: "gpt-5.4-mini"
+  #   litellm_params:
+  #     # 复用 NewAPI OpenAI 兼容入口，同时把真实上游模型固定到 GPT-5.5。
+  #     <<: *newapi_openai_params
+  #     # 避免继续透传到 NewAPI 中缺失渠道的 `gpt-5.4-mini`。
+  #     model: "openai/gpt-5.5"
+  #     # 给未显式指定推理强度的 Responses / Chat 请求提供 medium 默认值。
+  #     reasoning_effort: "medium"
   # 把 wildcard 路由放在最后，优先命中显式模型，其余上游模型再走透传兜底。
   - model_name: "*"
     litellm_params:
@@ -69,6 +195,11 @@ litellm_settings:
   telemetry: false
   # 对上游不识别的参数自动丢弃，减少不同模型间的参数兼容性噪音。
   drop_params: true
+  # 允许 LiteLLM 修正 Anthropic tool/thinking 历史块不完整的问题，避免 DeepSeek 兜底被兼容性错误拦截。
+  modify_params: true
+  # 统一 callback hub 负责分发生命周期事件；DeepSeek thinking 清理与 GLM cooldown 都作为独立 adapter 接入。
+  callbacks:
+    - callbacks.gateway_callback.proxy_handler_instance
   # 默认重试 2 次，兼顾临时抖动恢复与整体响应时延。
   num_retries: 2
   # 统一请求超时为 60 秒，覆盖常规对话模型与较慢的推理模型。
@@ -77,20 +208,33 @@ litellm_settings:
 router_settings:
   # 开启前置检查，尽早发现不可用部署或无效模型名。
   enable_pre_call_checks: true
+  # GLM 主入口在 429 / RateLimitError 短重试耗尽后按入口语义切到对应兜底。
+  fallbacks:
+    - cc-glmplan-opus:
+        - claude-code-deepseek-v4-pro
+    - cc-glmplan-haiku:
+        - claude-code-deepseek-v4-flash
+    - claw-plan:
+        - newapi/mimo-v2.5-pro
+    - claw-glmplan-5.1:
+        - claw-deepseek-v4-flash
+  # 连续一次失败即进入冷却；具体冷却时长可由各模型的 `cooldown_time` 覆盖。
+  allowed_fails: 1
   # 路由层与 SDK 层保持一致的重试次数，避免出现双层策略不一致。
   num_retries: 2
+  # 显式声明 429 的短重试次数；仍失败时才进入上面的 Claude Code DeepSeek fallback。
+  retry_policy:
+    RateLimitErrorRetries: 2
   # Router 级超时以毫秒计；这里与 `request_timeout` 保持同一数量级。
   timeout: 60000
-
 
 # database_url: "sqlite:///./litellm.db"
 # 可选：LiteLLM 网关鉴权（防止滥用）
 general_settings:
-  # 对外访问 LiteLLM 网关时使用的主密钥；客户端通常通过 `Authorization: Bearer <key>` 携带它。
   master_key: "os.environ/LITELLM_MASTER_KEY"
-  # 把模型配置与相关元数据写入数据库，便于 UI 管理页读取模型列表与配置状态。
-  store_model_in_db: true
-  # 把请求消息与响应内容写入 spend logs，供 UI Request Logs 详情页查看完整 request/response。
+  # 模型存在数据库更新模型不方便
+  # store_model_in_db: true
+  store_model_in_db: false
   store_prompts_in_spend_logs: true
   # disable_frontend: true  # 关闭前端页面（纯API模式）
   # proxy_batch_write_at: 60 # 每60秒写入一次数据库

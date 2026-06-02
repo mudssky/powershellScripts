@@ -102,6 +102,119 @@ Describe 'Resolve-DefaultEnvFiles' {
     }
 }
 
+Describe 'Config object helpers' {
+    It '将 IDictionary 转换为普通 hashtable' {
+        $dictionary = [System.Collections.Specialized.OrderedDictionary]::new()
+        $dictionary['Name'] = 'agent-browser'
+        $dictionary['Enabled'] = $true
+
+        $result = ConvertTo-ConfigHashtable -InputObject $dictionary
+
+        $result | Should -BeOfType hashtable
+        $result.Name | Should -Be 'agent-browser'
+        $result.Enabled | Should -BeTrue
+    }
+
+    It '按大小写不敏感方式读取配置值并保留原始类型' {
+        $values = @{
+            RetryCount = 3
+            Agents     = @('claude', 'codex')
+        }
+
+        $retryCount = Get-ConfigValue -Values $values -Name 'retrycount'
+        $agents = Get-ConfigValue -Values $values -Name 'AGENTS'
+
+        $retryCount | Should -Be 3
+        $retryCount | Should -BeOfType int
+        $agents | Should -Be @('claude', 'codex')
+    }
+
+    It '未命中配置键时返回默认值' {
+        $result = Get-ConfigValue -Values @{ Name = 'ctx7' } -Name 'missing' -DefaultValue 'fallback'
+
+        $result | Should -Be 'fallback'
+    }
+
+    It '按平台优先级读取映射值' {
+        $platform = [pscustomobject]@{
+            OperatingSystem = 'linux'
+            Architecture    = 'x64'
+            Key             = 'linux-x64'
+        }
+
+        $result = Resolve-ConfigPlatformValue -Value @{
+            default     = 'generic'
+            linux       = 'linux-any'
+            'linux-x64' = 'linux-x64-value'
+        } -Platform $platform -Label 'asset_patterns'
+
+        $result | Should -Be 'linux-x64-value'
+    }
+
+    It '允许调用方显式接受标量平台值' {
+        $platform = [pscustomobject]@{
+            OperatingSystem = 'linux'
+            Architecture    = 'x64'
+            Key             = 'linux-x64'
+        }
+
+        $result = Resolve-ConfigPlatformValue -Value 'tool' -Platform $platform -Label 'executables' -AllowScalar
+
+        $result | Should -Be 'tool'
+    }
+
+    It '默认拒绝标量平台映射值' {
+        $platform = [pscustomobject]@{
+            OperatingSystem = 'linux'
+            Architecture    = 'x64'
+            Key             = 'linux-x64'
+        }
+
+        { Resolve-ConfigPlatformValue -Value 'tool' -Platform $platform -Label 'executables' } |
+            Should -Throw 'executables 需要按平台配置*'
+    }
+}
+
+Describe 'Config path helpers' {
+    AfterEach {
+        Remove-Item Env:\CONFIG_PATH_TEST_ROOT -ErrorAction SilentlyContinue
+    }
+
+    It '展开 ${VAR} 环境变量占位符' {
+        $env:CONFIG_PATH_TEST_ROOT = Join-Path $TestDrive 'env-root'
+
+        $result = Resolve-ConfigEnvPlaceholder -Value '${CONFIG_PATH_TEST_ROOT}/skills' -Context 'test.path'
+
+        [System.IO.Path]::GetFullPath($result) | Should -Be ([System.IO.Path]::GetFullPath((Join-Path $env:CONFIG_PATH_TEST_ROOT 'skills')))
+    }
+
+    It '缺失 ${VAR} 时抛出包含上下文的错误' {
+        { Resolve-ConfigEnvPlaceholder -Value '${CONFIG_PATH_TEST_MISSING}/skills' -Context 'tool.path' } |
+            Should -Throw '环境变量未设置: CONFIG_PATH_TEST_MISSING（tool.path）'
+    }
+
+    It '相对路径按 BasePath 解析为绝对路径' {
+        $basePath = Join-Path $TestDrive 'config-root'
+
+        $result = Resolve-ConfigPath -Path './dev/my-skill' -BasePath $basePath -Context 'skill.source'
+
+        $result | Should -Be ([System.IO.Path]::GetFullPath((Join-Path $basePath './dev/my-skill')))
+    }
+
+    It '支持用户主目录 ~ 路径' {
+        $userHome = [Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile)
+
+        $result = Resolve-ConfigPath -Path '~/skills' -BasePath $TestDrive -Context 'tool.path'
+
+        $result | Should -Be ([System.IO.Path]::GetFullPath((Join-Path $userHome 'skills')))
+    }
+
+    It '空白路径会抛出明确错误' {
+        { Resolve-ConfigPath -Path '   ' -BasePath $TestDrive -Context 'projectPath' } |
+            Should -Throw '路径配置不能为空: projectPath'
+    }
+}
+
 Describe 'Invoke-WithScopedEnvironment' {
     AfterEach {
         Remove-Item Env:\CONFIG_TEST_NEW -ErrorAction SilentlyContinue

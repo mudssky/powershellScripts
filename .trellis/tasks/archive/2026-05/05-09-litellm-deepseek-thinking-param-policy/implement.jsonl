@@ -1,0 +1,2 @@
+{"file": ".trellis/tasks/05-09-litellm-deepseek-thinking-param-policy/prd.md", "reason": "实现范围、参数策略决策与验收标准"}
+{"file": ".trellis/spec/infra/litellm-gateway.md", "reason": "LiteLLM DeepSeek 兜底参数与 sanitizer 契约"}

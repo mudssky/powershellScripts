@@ -1,48 +1,53 @@
-.vs/
-enableProxy
-gitconfig_company.ps1
-
-profile/fonts/*
-
-
+# 本地环境与敏感配置
+.env
+.env.local
+*.env.local
+env.ps1
 apiKey
-docker_data/
+enableProxy
+macEnableProxy.ps1
+gitconfig_company.ps1
+*.local.json
+*.local.yaml
+*.local.yml
+database-query.local.*
 
-# pester配置文件
+# 本地运行数据与工具状态
+.shrimp-data/
+.playwright/
+.serena/
+.cache/
+.ruff_cache/
+.rumdl_cache/
+docker_data/
+/backup/
+
+# 依赖与构建缓存
+node_modules/
+.turbo/
+**/.turbo/
+.venv/
+*.pyc
+
+# 测试、覆盖率与报告产物
 coverage.xml
 testResults.xml
 testResults-linux.xml
-# 加载环境变量
-env.ps1
+vitest-report.xml
 
-# lingma规则文件
-.lingma/rules/project_rules.md
-
-.env
-
-# 脚本执行的备份目录
-backup
-
-macEnableProxy.ps1
-
-node_modules
-.turbo/
-**/.turbo/
-
+# 编辑器、平台与历史本地文件
+.vs/
+profile/fonts/*
 fstab
 
-.cache
-
-# 单文件脚本存放的地方
+# 生成目录与本地脚本映射
 bin/
+docs/superpowers/plans/
 
-*.local.json
-# 使用rule-loader转换
+# 第三方工具生成的规则文件
+.lingma/rules/project_rules.md
 .agent/rules
 
-.env.local
-*.env.local
-
-docs/superpowers/plans
-
-vitest-report.xml
+# Hermes Agent 的 HERMES_HOME 位于数据盘，仓库内只保留兼容旧路径的符号链接。
+/ai/agents/hermes
+/ai/agents/hermes/

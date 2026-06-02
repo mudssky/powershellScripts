@@ -1,17 +1,28 @@
 [wsl2]
-# 推荐: 设置为镜像模式，与主机共享网络，解决大部分网络问题
+# 全局 WSL2 VM 配置，部署到 %UserProfile%\.wslconfig 后执行 wsl --shutdown 生效。
+
+# 建议从主机物理内存的 25%-50% 起步；开发数据库较多时再上调。
+memory=16GB
+# 建议约为主机逻辑核心数的 50%，避免 WSL 抢占全部 CPU。
+processors=4
+# swap 建议为 memory 的 25%-50%；磁盘空间紧张时可下调或设为 0。
+swap=8GB
+
+# 保留 Windows localhost 到 WSL 服务的转发能力，方便浏览器和本机客户端访问。
+localhostForwarding=true
+# 允许 WSL 内部运行需要虚拟化能力的工具；Windows 11 默认通常已开启。
+nestedVirtualization=true
+# 允许 WSLg 图形应用，保留桌面调试能力。
+guiApplications=true
+
+# Windows 11 22H2+ 推荐 mirrored 网络，提升 VPN、IPv6、组播和 localhost 兼容性。
 networkingMode=mirrored
 dnsTunneling=true
 firewall=true
 autoProxy=true
 
-# 关键: 限制内存使用，防止 WSL 吃掉所有内存。建议为主机物理内存的 25%-50%
-memory=16GB 
-# 关键: 限制 CPU 核心数，建议为主机逻辑核心数的 50%
-processors=4 
-# 保持默认即可，允许从 Windows 通过 localhost:port 访问 WSL 服务
-# localhostForwarding=true
-
-# 这个需要在/ect/wsl.conf中添加,也就是wsl内的配置
-# [network]
-# generateResolvConf=false
+[experimental]
+# 空闲时逐步把缓存内存还给 Windows；比 dropCache 更温和。
+autoMemoryReclaim=gradual
+# 新建发行版 VHD 使用稀疏文件，减少磁盘占用增长。
+sparseVhd=true

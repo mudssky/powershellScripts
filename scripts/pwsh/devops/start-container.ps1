@@ -92,6 +92,7 @@
     - beszel: 轻量级服务器监控 Hub
     - gotify: 简单的消息推送服务器
     - open-webui: 适用于 LLM 的 WebUI
+    - portainer: Docker 管理 WebUI
 
 .PARAMETER RestartPolicy
     容器重启策略，默认为'unless-stopped'。可选值：
@@ -212,7 +213,8 @@ param (
         "rustdesk", 
         "gotify",
         "sillytavern",
-        "open-webui"
+        "open-webui",
+        "portainer"
     )]
     [string]$ServiceName, # 更合理的参数名
     
@@ -670,11 +672,11 @@ function Get-ServiceAccessDisplayInfo {
         param($ip, $port, $cPort, $proto)
         $u = "${ip}:${port}"
         if ($proto -eq 'tcp') {
-            if ($cPort -eq '80' -or $cPort -match '^(3000|5000|8000|8080|8888|9000|9999)$') {
-                return "http://$u"
-            }
-            elseif ($cPort -eq '443') {
+            if ($cPort -match '^(443|9443)$') {
                 return "https://$u"
+            }
+            elseif ($cPort -eq '80' -or $cPort -match '^(3000|5000|8000|8080|8888|9000|9999)$') {
+                return "http://$u"
             }
         }
         return $u

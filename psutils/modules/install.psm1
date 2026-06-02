@@ -471,6 +471,74 @@ function Install-PackageManagerApps() {
     }
 }
 
+function Install-ExecutableFile {
+    <#
+    .SYNOPSIS
+        将可执行文件安装到目标目录。
+
+    .DESCRIPTION
+        创建目标目录、复制源文件，并可在非 Windows 平台设置执行权限。若启用
+        `NoOverwrite` 且目标文件已存在，则返回 Skipped 状态而不覆盖文件。
+
+    .PARAMETER SourcePath
+        源可执行文件路径。
+
+    .PARAMETER InstallDirectory
+        目标安装目录。
+
+    .PARAMETER ExecutableName
+        安装后的文件名。
+
+    .PARAMETER OperatingSystem
+        目标平台操作系统，支持 `windows`、`linux`、`macos`；非 Windows 时尝试 `chmod +x`。
+
+    .PARAMETER NoOverwrite
+        目标文件已存在时跳过安装。
+
+    .OUTPUTS
+        PSCustomObject
+        返回包含 `Status` 与 `Path` 的安装结果。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$SourcePath,
+
+        [Parameter(Mandatory)]
+        [string]$InstallDirectory,
+
+        [Parameter(Mandatory)]
+        [string]$ExecutableName,
+
+        [ValidateSet('windows', 'linux', 'macos')]
+        [string]$OperatingSystem = $(if ($IsWindows) { 'windows' } elseif ($IsMacOS) { 'macos' } else { 'linux' }),
+
+        [switch]$NoOverwrite
+    )
+
+    New-Item -ItemType Directory -Path $InstallDirectory -Force | Out-Null
+    $targetPath = Join-Path $InstallDirectory $ExecutableName
+    if ($NoOverwrite -and (Test-Path -LiteralPath $targetPath -PathType Leaf)) {
+        return [pscustomobject]@{
+            Status = 'Skipped'
+            Path   = $targetPath
+        }
+    }
+
+    Copy-Item -LiteralPath $SourcePath -Destination $targetPath -Force
+    if ($OperatingSystem -ne 'windows') {
+        $chmodCommand = Get-Command chmod -ErrorAction SilentlyContinue
+        if ($chmodCommand) {
+            & $chmodCommand.Source '+x' $targetPath
+        }
+    }
+
+    return [pscustomobject]@{
+        Status = 'Installed'
+        Path   = $targetPath
+    }
+}
+
 function Get-PackageInstallCommand {
     <#
     .SYNOPSIS
@@ -525,4 +593,4 @@ function Get-PackageInstallCommand {
     }
 }
 
-Export-ModuleMember -Function Test-ModuleInstalled, Install-RequiredModule, Install-PackageManagerApps, Get-PackageInstallCommand
+Export-ModuleMember -Function Test-ModuleInstalled, Install-RequiredModule, Install-PackageManagerApps, Install-ExecutableFile, Get-PackageInstallCommand

@@ -30,6 +30,7 @@ Commands:
   backup
   restore
   import-csv
+  pgbackrest
   install-tools
   help
 
@@ -40,9 +41,15 @@ Connection Defaults:
 
 Examples:
   ./Postgres-Toolkit.ps1 backup --database app --output ./app.dump --format custom
+  ./Postgres-Toolkit.ps1 backup --database app --table public.orders --output ./orders.dump
+  ./Postgres-Toolkit.ps1 pgbackrest --action backup --type incr --config ./pgbackrest.conf.local
   ./Postgres-Toolkit.ps1 restore --input ./app.dump --target-database app_restore --clean
   ./Postgres-Toolkit.ps1 import-csv --input ./users.csv --table users --header
   ./Postgres-Toolkit.ps1 install-tools --apply
+
+Notes:
+  backup wraps pg_dump and creates logical snapshots; pg_dump is not a general incremental backup tool.
+  pgbackrest wraps pgBackRest full/diff/incr physical backups for whole-cluster disaster recovery.
 '@
 
     return $defaultHelp.Trim()

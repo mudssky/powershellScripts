@@ -16,6 +16,11 @@ foreach ($relativePath in @(
 Export-ModuleMember -Function @(
     'Resolve-ConfigSources'
     'Invoke-WithScopedEnvironment'
+    'ConvertTo-ConfigHashtable'
+    'Get-ConfigValue'
+    'Resolve-ConfigEnvPlaceholder'
+    'Resolve-ConfigPath'
+    'Resolve-ConfigPlatformValue'
     'ConvertTo-ConfigKeyName'
     'ConvertFrom-ConfigCliParameters'
     'Read-ConfigPowerShellDataFile'

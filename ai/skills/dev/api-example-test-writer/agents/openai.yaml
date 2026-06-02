@@ -1,0 +1,4 @@
+interface:
+  display_name: "API 示例测试编写"
+  short_description: "基于代码契约编写可执行 .http 示例和接口测试"
+  default_prompt: "为当前项目接口补充可执行 .http 示例和测试，优先从代码确认契约。"

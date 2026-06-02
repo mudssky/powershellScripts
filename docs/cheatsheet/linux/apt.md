@@ -1,3 +1,5 @@
+# APT 包管理速查
+
 ## Apt 包管理器速查表
 
 Apt (Advanced Package Tool) 是 Debian 及其衍生发行版（如 Ubuntu）中用于管理软件包的强大命令行工具。 以下是一份常用 apt 命令的速查表，能帮助您轻松地安装、更新、删除和管理软件包。

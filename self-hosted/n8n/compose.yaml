@@ -1,0 +1,40 @@
+name: n8n
+
+services:
+  n8n:
+    image: ${N8N_IMAGE:-docker.n8n.io/n8nio/n8n:latest}
+    container_name: n8n
+    restart: ${N8N_RESTART_POLICY:-unless-stopped}
+    ports:
+      - "${N8N_HTTP_PORT:-5678}:5678"
+    environment:
+      # n8n 运行时基础配置，时区同时传给应用和 Node.js 运行环境。
+      TZ: ${N8N_TIMEZONE:-Asia/Shanghai}
+      GENERIC_TIMEZONE: ${N8N_TIMEZONE:-Asia/Shanghai}
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+      N8N_RUNNERS_ENABLED: ${N8N_RUNNERS_ENABLED:-true}
+
+      # 对外访问地址会影响 webhook URL，反向代理部署时需要改为最终公网或局域网入口。
+      N8N_HOST: ${N8N_HOST:-localhost}
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: ${N8N_PROTOCOL:-http}
+      N8N_SECURE_COOKIE: ${N8N_SECURE_COOKIE:-false}
+      WEBHOOK_URL: ${N8N_WEBHOOK_URL:-http://localhost:5678/}
+
+      # 固定加密密钥后，重建容器或迁移数据时仍可解密历史凭据。
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-change-me-to-a-long-random-string}
+
+      # 数据库复用宿主机共享 PostgreSQL；数据库本身需要提前由运维命令创建。
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: ${N8N_DB_HOST:-host.docker.internal}
+      DB_POSTGRESDB_PORT: ${N8N_DB_PORT:-5432}
+      DB_POSTGRESDB_DATABASE: ${N8N_DB_NAME:-n8n}
+      DB_POSTGRESDB_USER: ${N8N_DB_USER:-postgres}
+      DB_POSTGRESDB_PASSWORD: ${N8N_DB_PASSWORD:-12345678}
+      DB_POSTGRESDB_SCHEMA: ${N8N_DB_SCHEMA:-public}
+    volumes:
+      - ${N8N_DATA_PATH:-./data/n8n}:/home/node/.n8n
+      - /etc/localtime:/etc/localtime:ro
+    extra_hosts:
+      # Linux Docker Engine 不一定内置 host.docker.internal，显式补齐后可复用宿主机 PostgreSQL。
+      - "host.docker.internal:host-gateway"

@@ -1,0 +1,38 @@
+@baseUrl = http://localhost:3000
+
+###
+# @name login
+# @tag test
+# @tag smoke
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "{{username}}",
+  "password": "{{password}}"
+}
+
+?? status == 200
+?? body $.data.token exists
+
+###
+# @name me
+# @tag test
+# @tag smoke
+# @ref login
+GET {{baseUrl}}/api/me
+Authorization: Bearer {{login.response.body.$.data.token}}
+
+?? status == 200
+?? body $.data.id exists
+
+###
+# @name login-manual
+# @tag manual
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "debug@example.com",
+  "password": "{{password}}"
+}

@@ -1,0 +1,23 @@
+{
+  // 合并到目标模板的 features。Node.js 用于在容器内安装 Codex / Claude Code CLI。
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "lts",
+      "nodeGypDependencies": false,
+      "pnpmVersion": "none",
+      "installYarnUsingApt": false
+    }
+  },
+
+  // 在宿主侧预创建目录，避免 Docker bind mount 因路径不存在而失败。
+  "initializeCommand": "mkdir -p \"$HOME/.codex\" \"$HOME/.claude\" && touch \"$HOME/.claude.json\"",
+
+  // 宿主配置只读挂载；容器运行态由 bootstrap 脚本放在容器 home 目录。
+  "mounts": [
+    "source=${localEnv:HOME}/.codex,target=/mnt/host-configs/codex,type=bind,readonly",
+    "source=${localEnv:HOME}/.claude,target=/mnt/host-configs/claude,type=bind,readonly",
+    "source=${localEnv:HOME}/.claude.json,target=/mnt/host-configs/claude.json,type=bind,readonly"
+  ],
+
+  "postCreateCommand": "bash .devcontainer/scripts/bootstrap-host-configs.sh && (npm install -g @openai/codex @anthropic-ai/claude-code || sudo env \"PATH=$PATH\" npm install -g @openai/codex @anthropic-ai/claude-code)"
+}

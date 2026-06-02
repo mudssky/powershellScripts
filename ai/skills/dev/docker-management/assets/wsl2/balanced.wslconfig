@@ -1,0 +1,21 @@
+[wsl2]
+# 均衡开发：适合 32GB 左右内存机器、日常 compose 栈、多个开发数据库。
+
+# 建议约为主机物理内存的 25%-50%。
+memory=16GB
+# 建议约为主机逻辑核心数的 50%。
+processors=4
+swap=8GB
+
+localhostForwarding=true
+nestedVirtualization=true
+guiApplications=true
+
+networkingMode=mirrored
+dnsTunneling=true
+firewall=true
+autoProxy=true
+
+[experimental]
+autoMemoryReclaim=gradual
+sparseVhd=true

@@ -1,0 +1,21 @@
+[wsl2]
+# 轻量开发：适合 16GB 内存以内机器、少量容器、偶尔运行数据库。
+
+# 建议约为主机物理内存的 25%。
+memory=4GB
+# 建议约为主机逻辑核心数的 25%-50%。
+processors=2
+swap=2GB
+
+localhostForwarding=true
+nestedVirtualization=true
+guiApplications=true
+
+networkingMode=mirrored
+dnsTunneling=true
+firewall=true
+autoProxy=true
+
+[experimental]
+autoMemoryReclaim=gradual
+sparseVhd=true

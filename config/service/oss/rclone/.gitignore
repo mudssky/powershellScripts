@@ -1,0 +1,7 @@
+.env.local
+rclone.conf
+.runtime/
+logs/
+mounts/
+*.log
+rclone.config.local.json

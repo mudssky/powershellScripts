@@ -1,3 +1,4 @@
+use std::env;
 use std::path::{Path, PathBuf};
 
 use figment::{
@@ -14,6 +15,7 @@ use crate::{
 pub const DEFAULT_CONFIG_FILE: &str = "pwshfmt-rs.toml";
 pub const ENV_PREFIX: &str = "PWSHFMT_RS_";
 pub const DEFAULT_FALLBACK_SCRIPT: &str = "scripts/pwsh/devops/Format-PowerShellCode.ps1";
+pub const FALLBACK_ACTIVE_ENV: &str = "PWSHFMT_RS_FALLBACK_ACTIVE";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default)]
@@ -55,9 +57,12 @@ pub fn load(cli: &Cli, cwd: &Path) -> Result<Config> {
 
     let mut config = figment
         .extract::<Config>()
-        .map_err(|source| AppError::ConfigLoad { source: Box::new(source) })?;
+        .map_err(|source| AppError::ConfigLoad {
+            source: Box::new(source),
+        })?;
 
     normalize_config(&mut config);
+    apply_internal_fallback_guard(&mut config);
     validate_config(&config, cwd)?;
 
     Ok(config)
@@ -83,6 +88,24 @@ fn normalize_config(config: &mut Config) {
         .filter(|value| !value.is_empty())
         .map(ToOwned::to_owned)
         .collect();
+}
+
+fn apply_internal_fallback_guard(config: &mut Config) {
+    // 内部回退链路再次启用 strict fallback 会重新调用当前 CLI，必须在配置层断开递归。
+    if config.strict_fallback && env_flag_enabled(FALLBACK_ACTIVE_ENV) {
+        config.strict_fallback = false;
+    }
+}
+
+fn env_flag_enabled(name: &str) -> bool {
+    env::var(name)
+        .map(|value| {
+            matches!(
+                value.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes" | "on"
+            )
+        })
+        .unwrap_or(false)
 }
 
 fn validate_config(config: &Config, cwd: &Path) -> Result<()> {

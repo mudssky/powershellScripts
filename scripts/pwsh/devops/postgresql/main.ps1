@@ -58,18 +58,24 @@ function Invoke-PostgresToolkitCommand {
         }
     }
 
-    $context = Resolve-PgContext -CliOptions $options
     switch ($CommandName) {
         'backup' {
+            $context = Resolve-PgContext -CliOptions $options
             $spec = New-PgBackupCommandSpec -CliOptions $options -Context $context
             return Invoke-PgNativeCommand -Spec $spec -DryRun:$dryRun
         }
         'restore' {
+            $context = Resolve-PgContext -CliOptions $options
             $spec = New-PgRestoreCommandSpec -CliOptions $options -Context $context
             return Invoke-PgNativeCommand -Spec $spec -DryRun:$dryRun
         }
         'import-csv' {
+            $context = Resolve-PgContext -CliOptions $options
             $spec = New-PgImportCsvCommandSpec -CliOptions $options -Context $context
+            return Invoke-PgNativeCommand -Spec $spec -DryRun:$dryRun
+        }
+        'pgbackrest' {
+            $spec = New-PgBackRestCommandSpec -CliOptions $options
             return Invoke-PgNativeCommand -Spec $spec -DryRun:$dryRun
         }
         'install-tools' {

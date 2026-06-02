@@ -1,3 +1,5 @@
+# Python 数据库测试速查
+
 ### 1. 环境一致性：使用 Docker 容器 (Testcontainers)
 
 不要用 SQLite 测试 PostgreSQL，也不要依赖本地安装好的 DB。

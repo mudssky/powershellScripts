@@ -17,6 +17,12 @@ $ErrorActionPreference = 'Stop'
 $script:ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $script:ComposeFile = Join-Path $script:ScriptDir 'compose.yaml'
 $script:EnvFile = Join-Path $script:ScriptDir '.env.local'
+$script:RepoRoot = [System.IO.Path]::GetFullPath((Join-Path $script:ScriptDir '..' '..' '..' '..'))
+$script:DockerModulePath = Join-Path $script:RepoRoot 'psutils/modules/docker.psm1'
+if (-not (Test-Path -LiteralPath $script:DockerModulePath -PathType Leaf)) {
+    throw "未找到 Docker Compose 共享模块: $script:DockerModulePath"
+}
+Import-Module $script:DockerModulePath -Force
 
 function Show-Usage {
     <#
@@ -69,26 +75,11 @@ function Assert-ComposeTemplateReady {
         [bool]$SkipDockerCheck
     )
 
-    if (-not (Test-Path -LiteralPath $ComposeFile)) {
-        throw "未找到 compose 模板: $ComposeFile"
-    }
-
-    if (-not (Test-Path -LiteralPath $EnvFile)) {
-        Write-Warning "未找到环境变量文件: $EnvFile。脚本会继续执行，但 DERP_PUBLIC_IP / TS_AUTHKEY 等变量必须通过其它方式提供。"
-    }
-
-    if ($SkipDockerCheck) {
-        return
-    }
-
-    if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
-        throw '未找到 docker 命令，请先安装并确认 Docker Engine / Docker Desktop 已加入 PATH。'
-    }
-
-    & docker 'compose' 'version' | Out-Null
-    if ($LASTEXITCODE -ne 0) {
-        throw '未检测到可用的 docker compose 子命令，请确认本机 Docker 版本支持 compose v2。'
-    }
+    Assert-DockerComposeReady `
+        -ComposeFile $ComposeFile `
+        -EnvFile $EnvFile `
+        -EnvFileMissingMessage "未找到环境变量文件: $EnvFile。脚本会继续执行，但 DERP_PUBLIC_IP / TS_AUTHKEY 等变量必须通过其它方式提供。" `
+        -SkipDockerCheck:$SkipDockerCheck
 }
 
 function Get-ComposeBaseArgs {
@@ -116,19 +107,7 @@ function Get-ComposeBaseArgs {
         [string]$EnvFile
     )
 
-    $args = @(
-        'compose'
-        '-f'
-        $ComposeFile
-        '--project-directory'
-        $ProjectDirectory
-    )
-
-    if (Test-Path -LiteralPath $EnvFile) {
-        $args += @('--env-file', $EnvFile)
-    }
-
-    return $args
+    return Get-DockerComposeBaseArgs -ComposeFile $ComposeFile -ProjectDirectory $ProjectDirectory -EnvFile $EnvFile
 }
 
 function Invoke-DockerCompose {
@@ -156,35 +135,7 @@ function Invoke-DockerCompose {
         [switch]$DryRun
     )
 
-    $environmentPrefix = ''
-    if ($Environment.Count -gt 0) {
-        $environmentPrefix = (($Environment.GetEnumerator() | Sort-Object Key | ForEach-Object {
-                    '{0}={1}' -f $_.Key, $_.Value
-                }) -join ' ') + ' '
-    }
-
-    $preview = $environmentPrefix + 'docker ' + ($ComposeArgs -join ' ')
-    if ($DryRun) {
-        return $preview
-    }
-
-    $originalValues = @{}
-    foreach ($entry in $Environment.GetEnumerator()) {
-        $originalValues[$entry.Key] = [Environment]::GetEnvironmentVariable($entry.Key, 'Process')
-        [Environment]::SetEnvironmentVariable($entry.Key, [string]$entry.Value, 'Process')
-    }
-
-    try {
-        & docker @ComposeArgs
-        if ($LASTEXITCODE -ne 0) {
-            exit $LASTEXITCODE
-        }
-    }
-    finally {
-        foreach ($entry in $Environment.GetEnumerator()) {
-            [Environment]::SetEnvironmentVariable($entry.Key, $originalValues[$entry.Key], 'Process')
-        }
-    }
+    return Invoke-DockerComposeCommand -ComposeArgs $ComposeArgs -Environment $Environment -DryRun:$DryRun
 }
 
 function Get-ComposeInvocationPlan {

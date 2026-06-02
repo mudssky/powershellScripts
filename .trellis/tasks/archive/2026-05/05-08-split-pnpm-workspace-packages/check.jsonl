@@ -1,0 +1,10 @@
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "检查 workspace、Trellis package、QA 语义是否一致"}
+{"file": ".trellis/spec/guides/index.md", "reason": "检查配置与规范结构调整是否符合共享指南"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "检查新增 package 脚本是否复用现有根命令"}
+{"file": ".trellis/spec/bash-scripts/package/index.md", "reason": "检查 Bash workspace 包边界与 QA 契约"}
+{"file": ".trellis/spec/json-diff-tool/package/index.md", "reason": "检查 JSON diff CLI workspace 包边界与 QA 契约"}
+{"file": ".trellis/spec/mpv-scripts/package/index.md", "reason": "检查 MPV scripts workspace 包边界与构建契约"}
+{"file": ".trellis/spec/node-script/package/index.md", "reason": "检查 Node scripts workspace 包边界与 QA 契约"}
+{"file": ".trellis/spec/psutils/package/index.md", "reason": "检查 PsUtils workspace 包边界与 Pester 契约"}
+{"file": ".trellis/spec/pwsh-scripts/package/index.md", "reason": "检查 PowerShell scripts workspace 包边界与 Pester 契约"}
+{"file": ".trellis/spec/pwshfmt-rs/package/index.md", "reason": "检查 Rust formatter workspace 包边界与 Cargo QA 契约"}

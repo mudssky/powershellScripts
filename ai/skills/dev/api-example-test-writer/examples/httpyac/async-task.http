@@ -1,0 +1,62 @@
+@baseUrl = http://localhost:3000
+@maxPoll = 20
+
+###
+{{
+  exports.pollCount = 0;
+  exports.finished = false;
+}}
+
+###
+# @name submitTask
+# @tag test
+# @tag async
+POST {{baseUrl}}/api/tasks
+Content-Type: application/json
+
+{
+  "type": "report"
+}
+
+?? status == 200
+?? body $.data.taskId exists
+
+{{response
+  const body = JSON.parse(response.body);
+  exports.taskId = body.data.taskId;
+}}
+
+###
+# @name pollTask
+# @tag test
+# @tag async
+# @ref submitTask
+# @loop while !finished && pollCount < maxPoll
+# @sleep 2000
+GET {{baseUrl}}/api/tasks/{{taskId}}/status
+
+?? status == 200
+
+{{response
+  const body = JSON.parse(response.body);
+  exports.pollCount = pollCount + 1;
+  exports.finished = ['SUCCESS', 'FAILED'].includes(body.data.status);
+
+  if (body.data.status === 'FAILED') {
+    throw new Error('任务失败');
+  }
+
+  if (exports.pollCount >= maxPoll && !exports.finished) {
+    throw new Error('轮询超时');
+  }
+}}
+
+###
+# @name taskResult
+# @tag test
+# @tag async
+# @ref pollTask
+GET {{baseUrl}}/api/tasks/{{taskId}}/result
+
+?? status == 200
+?? body $.data exists

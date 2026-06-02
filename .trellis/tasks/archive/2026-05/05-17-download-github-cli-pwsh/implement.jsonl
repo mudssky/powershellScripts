@@ -1,0 +1,4 @@
+{"file":".trellis/spec/pwsh-scripts/package/index.md","reason":"PowerShell 脚本包开发与质量检查规范"}
+{"file":".trellis/spec/guides/index.md","reason":"共享思维指南入口"}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"新增配置与 helper 前的复用检查指南"}
+{"file":".trellis/tasks/05-17-download-github-cli-pwsh/research/github-cli-release-download.md","reason":"GitHub CLI release 下载方案调研"}

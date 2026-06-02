@@ -13,4 +13,5 @@ pwsh -NoProfile -File ./scripts/pwsh/devops/postgresql/build/Build-PostgresToolk
 - `backup`
 - `restore`
 - `import-csv`
+- `pgbackrest`
 - `install-tools`

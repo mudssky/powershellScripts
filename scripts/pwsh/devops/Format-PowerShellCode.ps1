@@ -61,6 +61,27 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
 $script:SupportedExtensions = @('.ps1', '.psm1', '.psd1')
+$script:PwshFmtRsFallbackActiveEnv = 'PWSHFMT_RS_FALLBACK_ACTIVE'
+
+function Test-PwshFmtRsFallbackActive {
+    <#
+    .SYNOPSIS
+        判断当前脚本是否运行在 pwshfmt-rs 内部严格回退链路中。
+
+    .OUTPUTS
+        System.Boolean
+        返回 true 表示当前调用由 pwshfmt-rs fallback runner 发起。
+    #>
+    [CmdletBinding()]
+    param()
+
+    $value = [Environment]::GetEnvironmentVariable($script:PwshFmtRsFallbackActiveEnv)
+    if ([string]::IsNullOrWhiteSpace($value)) {
+        return $false
+    }
+
+    return $value.Trim().ToLowerInvariant() -in @('1', 'true', 'yes', 'on')
+}
 
 function Get-EffectiveInputPaths {
     [CmdletBinding()]
@@ -237,8 +258,11 @@ function Build-PwshFmtRsArguments {
         $args += '--recurse'
     }
 
-    if ($Strict.IsPresent) {
+    if ($Strict.IsPresent -and -not (Test-PwshFmtRsFallbackActive)) {
         $args += '--strict-fallback'
+    }
+    elseif ($Strict.IsPresent) {
+        Write-Verbose '检测到 pwshfmt-rs 内部回退上下文，跳过 --strict-fallback 以避免递归。'
     }
 
     return ,$args

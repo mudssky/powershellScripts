@@ -1,3 +1,5 @@
+# Linux Clash 安装速查
+
 **简介**
 
 - 一键安装基于 `clash/mihomo` 的代理环境，默认安装 `mihomo` 内核，支持使用 `subconverter` 进行本地订阅转换。

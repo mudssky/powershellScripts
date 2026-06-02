@@ -1,0 +1,3 @@
+{"file": ".trellis/tasks/05-07-litellm-fallback-retry-429/prd.md", "reason": "验收标准与范围边界"}
+{"file": ".trellis/tasks/05-07-litellm-fallback-retry-429/research/litellm-retry-fallback-429.md", "reason": "校验 LiteLLM 429 retry/fallback 配置是否符合官方语义"}
+{"file": ".trellis/spec/guides/index.md", "reason": "通用质量检查思考触发器"}

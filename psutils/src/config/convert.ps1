@@ -6,8 +6,8 @@ $ErrorActionPreference = 'Stop'
     将任意配置对象规范化为 hashtable。
 
 .DESCRIPTION
-    允许上层调用方传入 `hashtable`、`PSCustomObject` 或其他带属性对象，
-    统一转换为便于后续合并的键值表。
+    允许上层调用方传入 `hashtable`、`System.Collections.IDictionary`、
+    `PSCustomObject` 或其他带属性对象，统一转换为便于后续合并的键值表。
 
 .PARAMETER InputObject
     待转换的配置对象；传入 `$null` 时返回空表。
@@ -32,12 +32,172 @@ function ConvertTo-ConfigHashtable {
         return @{} + $InputObject
     }
 
+    if ($InputObject -is [System.Collections.IDictionary]) {
+        $dictionaryResult = @{}
+        foreach ($key in $InputObject.Keys) {
+            $dictionaryResult[[string]$key] = $InputObject[$key]
+        }
+        return $dictionaryResult
+    }
+
     $result = @{}
     foreach ($property in $InputObject.PSObject.Properties) {
         $result[$property.Name] = $property.Value
     }
 
     return $result
+}
+
+<#
+.SYNOPSIS
+    按大小写不敏感方式读取配置值。
+
+.DESCRIPTION
+    在浅层配置表中查找指定键名。匹配只忽略大小写，不做键名规范化、
+    嵌套路径解析或环境变量展开，适合业务脚本读取已经合并好的配置对象。
+
+.PARAMETER Values
+    配置键值表。
+
+.PARAMETER Name
+    要读取的配置键名。
+
+.PARAMETER DefaultValue
+    未命中配置键时返回的默认值。
+
+.OUTPUTS
+    object
+    返回命中的原始配置值；未命中时返回默认值。
+#>
+function Get-ConfigValue {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [hashtable]$Values,
+
+        [Parameter(Mandatory)]
+        [string]$Name,
+
+        [AllowNull()]
+        [object]$DefaultValue = $null
+    )
+
+    foreach ($entry in $Values.GetEnumerator()) {
+        if ([string]::Equals([string]$entry.Key, $Name, [System.StringComparison]::OrdinalIgnoreCase)) {
+            return $entry.Value
+        }
+    }
+
+    return $DefaultValue
+}
+
+<#
+.SYNOPSIS
+    展开配置字符串中的环境变量占位符。
+
+.DESCRIPTION
+    支持 `${VAR_NAME}` 与平台原生 `%VAR_NAME%` 形式。`${...}` 缺失时抛错，
+    避免路径配置因为未设置环境变量而静默落到错误目录。
+
+.PARAMETER Value
+    待解析的字符串。
+
+.PARAMETER Context
+    当前配置位置，用于错误提示。
+
+.OUTPUTS
+    string
+    返回环境变量展开后的字符串。
+#>
+function Resolve-ConfigEnvPlaceholder {
+    [CmdletBinding()]
+    param(
+        [AllowEmptyString()]
+        [string]$Value,
+
+        [Parameter(Mandatory)]
+        [string]$Context
+    )
+
+    $pattern = '\$\{([A-Za-z_][A-Za-z0-9_]*)\}'
+    foreach ($match in [regex]::Matches($Value, $pattern)) {
+        $envName = $match.Groups[1].Value
+        if ($null -eq [Environment]::GetEnvironmentVariable($envName, 'Process')) {
+            throw "环境变量未设置: $envName（$Context）"
+        }
+    }
+
+    $resolved = [regex]::Replace($Value, $pattern, {
+            param($Match)
+            $envName = $Match.Groups[1].Value
+            return [Environment]::GetEnvironmentVariable($envName, 'Process')
+        })
+
+    return [Environment]::ExpandEnvironmentVariables($resolved)
+}
+
+<#
+.SYNOPSIS
+    将配置路径解析为绝对路径。
+
+.DESCRIPTION
+    处理环境变量占位符、用户主目录 `~` 和相对路径。相对路径按调用方传入的
+    `BasePath` 解析，适合配置文件随仓库移动的场景。
+
+.PARAMETER Path
+    原始路径配置值。
+
+.PARAMETER BasePath
+    相对路径解析基准目录。
+
+.PARAMETER Context
+    当前配置位置，用于错误提示。
+
+.OUTPUTS
+    string
+    返回解析后的绝对路径。
+#>
+function Resolve-ConfigPath {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$Path,
+
+        [Parameter(Mandatory)]
+        [string]$BasePath,
+
+        [Parameter(Mandatory)]
+        [string]$Context
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        throw "路径配置不能为空: $Context"
+    }
+
+    $expanded = Resolve-ConfigEnvPlaceholder -Value $Path.Trim() -Context $Context
+    if ($expanded -eq '~' -or $expanded.StartsWith('~/') -or $expanded.StartsWith('~\')) {
+        $userHome = [Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile)
+        if ([string]::IsNullOrWhiteSpace($userHome)) {
+            throw "无法解析用户主目录: $Context"
+        }
+
+        $expanded = if ($expanded -eq '~') {
+            $userHome
+        }
+        else {
+            Join-Path $userHome $expanded.Substring(2)
+        }
+    }
+
+    $combined = if ([System.IO.Path]::IsPathRooted($expanded)) {
+        $expanded
+    }
+    else {
+        Join-Path $BasePath $expanded
+    }
+
+    return [System.IO.Path]::GetFullPath($combined)
 }
 
 <#
@@ -117,6 +277,69 @@ function ConvertFrom-ConfigCliParameters {
     }
 
     return $result
+}
+
+<#
+.SYNOPSIS
+    从平台映射配置中读取当前平台值。
+
+.DESCRIPTION
+    按 `<系统>-<架构>`、`<系统>`、`default` 的顺序读取配置，例如先匹配
+    `linux-x64`，再匹配 `linux`，最后匹配 `default`。该函数只处理配置映射
+    选择，不负责解析路径、校验文件或处理具体业务字段。
+
+.PARAMETER Value
+    平台映射对象；允许调用方通过 `AllowScalar` 接受单个字符串值。
+
+.PARAMETER Platform
+    平台描述对象，需包含 `Key` 与 `OperatingSystem` 属性。
+
+.PARAMETER Label
+    配置字段名称，用于错误提示。
+
+.PARAMETER AllowScalar
+    允许直接传入字符串值；未启用时字符串会被视为配置错误。
+
+.OUTPUTS
+    object
+    返回命中的平台配置值；未命中时返回 `$null`。
+#>
+function Resolve-ConfigPlatformValue {
+    [CmdletBinding()]
+    param(
+        [AllowNull()]
+        [object]$Value,
+
+        [Parameter(Mandatory)]
+        [pscustomobject]$Platform,
+
+        [Parameter(Mandatory)]
+        [string]$Label,
+
+        [switch]$AllowScalar
+    )
+
+    if ($null -eq $Value) {
+        return $null
+    }
+
+    if ($Value -is [string]) {
+        if ($AllowScalar) {
+            return $Value
+        }
+
+        throw "$Label 需要按平台配置，不能是单个字符串。"
+    }
+
+    $table = ConvertTo-ConfigHashtable -InputObject $Value
+    foreach ($key in @($Platform.Key, $Platform.OperatingSystem, 'default')) {
+        $mappedValue = Get-ConfigValue -Values $table -Name $key
+        if ($null -ne $mappedValue -and -not [string]::IsNullOrWhiteSpace([string]$mappedValue)) {
+            return $mappedValue
+        }
+    }
+
+    return $null
 }
 
 <#

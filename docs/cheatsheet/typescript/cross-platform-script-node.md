@@ -1,3 +1,5 @@
+# Node.js TypeScript 跨平台单文件脚本最佳实践
+
 既然接受使用 `package.json`，且场景是**“一个 Git 仓库管理多个独立脚本”**（类似工具箱 Monorepo），最佳实践的核心在于：**利用 npm 的 `bin` 字段映射和 `tsx` 运行时**。
 
 这种方案既能利用 npm 庞大的生态，又能解决 Windows/Linux 的跨平台执行问题，且无需手动编译。

@@ -1,3 +1,5 @@
+# Next.js 字体速查
+
 ### Next.js 字体使用速查表 (Cheatsheet)
 
 本速查表旨在帮助你快速在 Next.js 项目中使用 `next/font` 模块来优化并管理字体，涵盖 Google Fonts 和本地字体，以及在 CSS 和 Tailwind CSS 中的应用。

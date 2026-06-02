@@ -1,0 +1,20 @@
+# Infra Integration Guidelines
+
+> 本目录记录仓库内基础设施集成的可执行约定，尤其是本地网关、模型路由、环境变量和跨供应商兼容边界。
+
+---
+
+## Guidelines Index
+
+| Guide | Description | Status |
+|-------|-------------|--------|
+| [Coding Plan Window Warmer](./coding-plan-window-warmer.md) | 独立窗口预热脚本、直连上游、uv 依赖和 PM2 管理约定 | Active |
+| [LiteLLM Gateway](./litellm-gateway.md) | LiteLLM 路由、fallback、参数兼容和验证边界 | Active |
+| [Hermes Agent Layout](./hermes-agent-layout.md) | Hermes 官方安装目录、`HERMES_HOME`、gateway launchd 与本地状态提交边界 | Active |
+| [Agent Skill Development](./agent-skill-dev.md) | `ai/skills/dev` 本地 skill、TypeScript 脚本、scripts 分发产物和安装态运行契约 | Active |
+| [Node/Vitest Scripts](./node-vitest-scripts.md) | 根目录 Vitest 发现的 Node 脚本测试与 shebang 行尾约定 | Active |
+| [PostgreSQL Toolkit](./postgresql-toolkit.md) | PostgreSQL / pgBackRest 命令边界、env 解析和备份范围约定 | Active |
+| [Self-Hosted Compose](./self-hosted-compose.md) | 根目录 self-hosted 应用 compose、外部基础设施复用、本机数据盘与 env 忽略契约 | Active |
+| [rclone Ops](./rclone-ops.md) | rclone JSON 主配置、WebUI/RC、自动挂载、VFS cache 与日志路径契约 | Active |
+| [rathole template](./rathole.md) | rathole 裸二进制、PM2 管理、`.local.toml` 与公网白名单转发模板约定 | Active |
+| [Dev Container Templates](./devcontainer-templates.md) | VS Code Dev Container 标准模板、宿主配置挂载与 Agent CLI 复用约定 | Active |

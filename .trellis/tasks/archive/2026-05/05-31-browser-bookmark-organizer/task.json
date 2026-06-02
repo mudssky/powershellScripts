@@ -1,0 +1,28 @@
+{
+  "id": "browser-bookmark-organizer",
+  "name": "browser-bookmark-organizer",
+  "title": "创建浏览器书签整理技能",
+  "description": "",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "mudssky",
+  "assignee": "mudssky",
+  "createdAt": "2026-05-31",
+  "completedAt": "2026-05-31",
+  "branch": null,
+  "base_branch": "master",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "05-31-webui-tree-sync"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

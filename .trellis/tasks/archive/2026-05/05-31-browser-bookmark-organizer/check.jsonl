@@ -1,0 +1,1 @@
+{"file": ".trellis/spec/infra/agent-skill-dev.md", "reason": "验证依赖型 Python skill 是否包含 uv.lock、pytest 测试、合规入口和项目质量门。"}
