@@ -3,6 +3,7 @@
 ## 目录
 
 - [推荐判断](#推荐判断)
+- [网络模式区别](#网络模式区别)
 - [Mirrored 模式](#mirrored-模式)
 - [NAT 模式](#nat-模式)
 - [Docker daemon 代理](#docker-daemon-代理)
@@ -21,6 +22,20 @@
 | 容器内访问外网 | 写 `~/.docker/config.json` 或 compose `environment` | 只影响新建容器，不影响 daemon 拉镜像 |
 
 Windows 代理软件必须真实监听 WSL 可达地址。若只监听 `127.0.0.1`，mirrored 下通常可用；NAT 下通常需要开启 `Allow LAN` / `允许局域网连接`，并确认 Windows 防火墙允许专用网络入站。
+
+## 网络模式区别
+
+`networkingMode` 是 Windows 用户级 `%UserProfile%\.wslconfig` 的 `[wsl2]` 配置项。修改后必须执行 `wsl --shutdown`，再重新进入 WSL 发行版。按 Microsoft Learn 当前说明，WSL2 默认网络模式仍是 `nat`，`mirrored` 需要显式配置。
+
+| 模式 | 默认状态 | 适用判断 | Docker / 代理影响 |
+|---|---|---|---|
+| `nat` | 默认值 | 兼容性保守；不想改变现有网络行为时使用 | WSL 内 `127.0.0.1` 指向 WSL 自己，不是 Windows。访问 Windows 代理通常要用 `/etc/resolv.conf` 的 `nameserver` 地址，代理软件也常要开启 `Allow LAN`。 |
+| `mirrored` | 非默认，需显式设置 | 推荐给 Windows 11 22H2+ 的本机 Docker 开发、VPN、IPv6、localhost 互通场景 | Windows 网络接口会镜像到 WSL，WSL 访问 Windows 本机服务通常可用 `127.0.0.1:<port>`；更适合代理软件、Docker Registry 拉取和 VPN 环境。 |
+| `virtioproxy` | 非默认，也可能作为 `nat` 失败时的回退 | 作为 NAT 行为异常时的兼容选项；日常 Docker 开发优先先试 `mirrored` | 依赖 WSL 的 virtio 代理机制，行为比 mirrored 更保守；如果代理或 localhost 互通目标明确，仍要重新验证可达地址。 |
+| `none` | 非默认 | 只在需要断网隔离或特殊测试时使用 | WSL 断开网络，Docker 拉取镜像、系统包安装、代理访问都会不可用。 |
+| `bridged` | 已弃用 | 不建议新配置 | 老配置里看到时应迁移到 `mirrored` 或回退 `nat`，不要作为新模板推荐。 |
+
+不要把 WSL 的 `networkingMode` 和 Docker Compose 自己的 bridge 网络混在一起：前者决定 WSL 虚拟机怎么连接 Windows 网络，后者决定容器之间和容器到宿主的网络拓扑。排查 Docker 拉镜像优先先确认 WSL 到 Windows 代理是否通，再看 Docker daemon 的 systemd 代理配置。
 
 ## Mirrored 模式
 

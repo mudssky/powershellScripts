@@ -7,14 +7,15 @@ memory=4GB
 processors=2
 swap=2GB
 
-localhostForwarding=true
-nestedVirtualization=true
-guiApplications=true
+# 以下开关为 WSL 当前默认值；需要排查兼容问题时再取消注释显式覆盖。
+# localhostForwarding=true
+# nestedVirtualization=true
+# guiApplications=true
 
 networkingMode=mirrored
-dnsTunneling=true
-firewall=true
-autoProxy=true
+# dnsTunneling=true
+# firewall=true
+# autoProxy=true
 
 [experimental]
 autoMemoryReclaim=gradual
