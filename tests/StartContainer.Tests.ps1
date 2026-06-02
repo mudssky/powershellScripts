@@ -104,7 +104,7 @@ Describe 'docker compose shared template' {
 
         $portainerBlock | Should -Match 'portainer/portainer-ce:lts'
         $portainerBlock | Should -Match '9443:9443'
-        $portainerBlock | Should -Match '8000:8000'
+        $portainerBlock | Should -Match '38000:8000'
         $portainerBlock | Should -Match '\$\{DATA_PATH\}/portainer:/data'
         $portainerBlock | Should -Match 'profiles: \["portainer"\]'
     }

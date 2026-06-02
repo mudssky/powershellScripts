@@ -127,7 +127,7 @@ services:
   portainer:
     image: portainer/portainer-ce:lts
     restart: ${RESTART_POLICY:-unless-stopped}
-    ports: ["9443:9443", "8000:8000"]
+    ports: ["9443:9443", "38000:8000"]
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock"
       - "${DATA_PATH}/portainer:/data"

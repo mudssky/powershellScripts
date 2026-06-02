@@ -103,13 +103,13 @@ docker run -d \
   --name portainer \
   --restart=always \
   -p 127.0.0.1:9443:9443 \
-  -p 127.0.0.1:8000:8000 \
+  -p 127.0.0.1:38000:8000 \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v portainer_data:/data \
   portainer/portainer-ce:lts
 ```
 
-访问 `https://127.0.0.1:9443` 完成初始化。`8000` 是 Edge Agent 相关端口，不需要时可以不暴露。
+访问 `https://127.0.0.1:9443` 完成初始化。容器内 `8000` 是 Edge Agent 相关端口，示例映射到宿主机 `38000` 以避开常见开发端口；不需要 Edge Agent 时可以不暴露。
 
 Compose 写法：
 
@@ -121,7 +121,7 @@ services:
     restart: always
     ports:
       - "127.0.0.1:9443:9443"
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:38000:8000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - portainer_data:/data
