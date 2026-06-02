@@ -9,6 +9,7 @@
 - [网络](#网络)
 - [日志与进入容器](#日志与进入容器)
 - [Compose 工作流](#compose-工作流)
+- [PowerShell 入口验证](#powershell-入口验证)
 
 ## 上下文与状态
 
@@ -109,3 +110,33 @@ docker compose up -d --build <service>
 ```
 
 如果项目已经提供统一启动脚本或 compose wrapper，优先使用项目约定；否则直接使用上面的 `docker compose` 命令。
+
+## PowerShell 入口验证
+
+Docker Desktop 迁到 WSL2-only 后，不要只看 `docker ps` 成功。Windows 项目脚本通常还依赖 compose、相对路径、bind mount 和 `DATA_PATH`。能在 WSL 内直接启动时不需要 wrapper；需要保留 Windows PowerShell 入口时，再按 `wsl-powershell-bridge.md` 在方案 C / D 中选择可选桥接方式。
+
+方案 C 的最小验证：
+
+```powershell
+docker version
+docker compose version
+docker compose -f docker-compose.yml config
+```
+
+方案 D 的最小验证：
+
+```powershell
+.\scripts\Invoke-WslDocker.ps1 -Distro Ubuntu-24.04 version
+.\scripts\Invoke-WslDocker.ps1 -Distro Ubuntu-24.04 compose version
+
+# docker.ps1 shim 或手动 Enable-WslDockerWrapper 生效后：
+docker run --rm alpine:3.20 echo ok
+docker compose version
+```
+
+判断结果：
+
+- `docker version` 失败：Windows CLI 没有连到可用 daemon，先修 context / `DOCKER_HOST`；若采用方案 D，检查 wrapper 是否正确调用 WSL。
+- `docker-compose` 失败：Windows 侧缺 compose 插件，项目脚本大概率无法直接启动。
+- `compose config` 成功但服务启动失败：能解析 compose，不代表 Windows 路径能被 WSL daemon 挂载；优先处理路径转换或改为 WSL 内运行脚本。
+- `data-path` 警告：`${DATA_PATH}` 是 Windows 路径时，迁移后必须用真实服务启动或挂载探针验证。

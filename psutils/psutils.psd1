@@ -111,6 +111,9 @@
         'Resolve-ConfigPlatformValue', 'Read-ConfigPowerShellDataFile', 'Read-ConfigMarkdownFrontMatter',
         # Docker 工具模块 (docker.psm1)
         'Test-DockerComposeAvailable', 'Assert-DockerComposeReady', 'Get-DockerComposeBaseArgs', 'Invoke-DockerComposeCommand',
+        'Get-WslDockerCandidateDistro', 'Test-WindowsDockerDaemonAvailable', 'Test-DockerDesktopDaemonAvailable', 'Test-WslDockerEngineAvailable',
+        'Resolve-WslDockerDistro', 'ConvertTo-WslDockerPath', 'ConvertTo-WslDockerVolumeSpec', 'ConvertTo-WslDockerMountSpec',
+        'Get-WslDockerEnvironmentArgument', 'ConvertTo-WslDockerArgument', 'Invoke-WslDocker', 'Enable-WslDockerWrapper',
         # 环境管理模块 (env.psm1)
         'Get-Dotenv', 'Install-Dotenv', 'Import-EnvPath', 'Set-EnvPath', 'Add-EnvPath', 'Get-EnvParam', 'Remove-FromEnvPath', 'Sync-PathFromBash', 'Test-DirectoryInPath', 'Get-PathAddHint',
         # 错误处理模块 (error.psm1)

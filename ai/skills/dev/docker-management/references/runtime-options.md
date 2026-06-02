@@ -44,6 +44,8 @@
 
 优点是开源、可同时覆盖容器和 Kubernetes，本期 Windows 迁移目标建议使用 Moby(dockerd) 以保持 Docker CLI / compose 兼容；缺点是与 Docker Desktop 的数据卷、上下文和网络行为不同，需要迁移验证。
 
+Rancher Desktop 是独立桌面运行时，不是把 Windows PowerShell 桥接到用户已有 WSL 发行版内 dockerd 的通用工具。如果目标是纯 WSL2 Docker Engine，按 `wsl-powershell-bridge.md` 在方案 C / D 中选择。
+
 ### WSL2-CLI + Portainer
 
-优点是透明、轻量、可按 Linux 运维方式管理 Docker Engine；缺点是安装、systemd、代理、日志和资源限制都要自己维护。完整配置见 `platforms/windows.md` 的方案 C。
+优点是透明、轻量、可按 Linux 运维方式管理 Docker Engine；缺点是安装、systemd、代理、日志和资源限制都要自己维护。完整配置见 `platforms/windows.md` 的方案 C。如果必须从 Windows PowerShell 调用 WSL 内 Docker Engine，wrapper 转发是可选入口之一；能在 WSL 内直接启动项目脚本时，不需要额外启用 wrapper。

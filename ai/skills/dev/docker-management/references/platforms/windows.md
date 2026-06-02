@@ -18,6 +18,8 @@
 
 适合想用开源桌面运行时、同时需要 Kubernetes 或 GUI 管理能力的用户。Windows 上建议优先选择 Moby(dockerd) 引擎以保持 Docker CLI / compose 兼容；containerd 更适合 nerdctl 或 Kubernetes 工作流。
 
+Rancher Desktop 是 Docker Desktop 的替代运行时，不是连接用户自有 WSL 发行版内 Docker Engine 的桥。如果目标是纯 WSL2 Docker Engine，继续看方案 C；只有需要保留 Windows PowerShell 项目脚本入口时，再按 `../wsl-powershell-bridge.md` 评估可选桥接方案。
+
 迁移后先确认：
 
 ```powershell
@@ -234,8 +236,14 @@ ports:
    docker compose ps
    ```
 
-7. 验证数据库连接、对象存储 bucket、应用日志、Portainer 页面和端口绑定。
-8. 确认不再需要 Docker Desktop 后，再卸载。
+7. 按需规划 Windows PowerShell 入口。能把项目脚本直接放到 WSL 内启动时，不需要 wrapper；如果仍要保留 Windows PowerShell 作为启动入口，再在下面两条可选路线中选择：
+
+   - 方案 C：Windows Docker CLI 通过 Docker context / `DOCKER_HOST` 连接 WSL 内 daemon。它需要处理 TCP / SSH 连接和安全边界，且 Windows 路径不会自动获得 Docker Desktop 式 bind mount 兼容。
+   - 方案 D：PowerShell wrapper 转发到 WSL 内 `docker` / `docker compose`。它不需要暴露 daemon，路径语义更接近真实 WSL 环境，可显式使用 `scripts/Invoke-WslDocker.ps1`、`docker.ps1` shim 或手动启用 `Enable-WslDockerWrapper`。
+
+   详细取舍见 `../wsl-powershell-bridge.md`。不要只验证 `docker ps`，还要验证 compose、相对路径、`${DATA_PATH}` 和 bind mount。
+8. 验证数据库连接、对象存储 bucket、应用日志、Portainer 页面和端口绑定。
+9. 确认不再需要 Docker Desktop 后，再卸载。
 
 Docker Desktop 卸载后如需清理残留 WSL 发行版，先确认已备份或不再需要：
 
