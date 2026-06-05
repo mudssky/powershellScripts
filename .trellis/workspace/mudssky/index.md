@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 16
-- **Last Active**: 2026-06-01
+- **Total Sessions**: 17
+- **Last Active**: 2026-06-05
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~552 | Active |
+| `journal-1.md` | ~585 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 17 | 2026-06-05 | 完善 API 示例测试 skill | `308906a` | `master` |
 | 16 | 2026-06-01 | Docker 管理 skill 封装 | `056846d`, `c020e66` | `master` |
 | 15 | 2026-06-01 | 改进 database-query CLI 与全局安装 | `0a0636c` | `master` |
 | 14 | 2026-06-01 | database-query 开箱即用体验 | `f5647e4` | `master` |

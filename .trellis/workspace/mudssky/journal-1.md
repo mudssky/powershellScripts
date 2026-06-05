@@ -550,3 +550,36 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 17: 完善 API 示例测试 skill
+
+**Date**: 2026-06-05
+**Task**: 完善 API 示例测试 skill
+**Branch**: `master`
+
+### Summary
+
+完善 api-example-test-writer 的接口注释、目录层级、env-first 配置和 httpyac 示例，并同步安装到全局 skill。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `308906a` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
