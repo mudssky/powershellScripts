@@ -2,12 +2,17 @@
 @maxPoll = 20
 
 ###
+# 说明：初始化轮询状态，供后续 pollTask 请求判断是否继续轮询。
+# 设计：状态放在 exports 中，避免把轮询计数写入外部文件或全局环境。
 {{
   exports.pollCount = 0;
   exports.finished = false;
 }}
 
 ###
+# 说明：提交一个异步报表任务，验证服务能返回可追踪的 taskId。
+# 前置：当前环境账号具备创建 report 任务的权限，且测试数据不会影响生产。
+# 断言：只要求 taskId 存在，具体状态由后续轮询请求负责验证。
 # @name submitTask
 # @tag test
 # @tag async
@@ -27,6 +32,9 @@ Content-Type: application/json
 }}
 
 ###
+# 说明：轮询异步任务状态，直到任务成功、失败或达到最大轮询次数。
+# 前置：依赖 submitTask 写入 taskId；maxPoll 控制等待上限，避免 CI 无限挂起。
+# 断言：HTTP 成功只代表状态接口可用；FAILED 和超时在响应脚本中转成测试失败。
 # @name pollTask
 # @tag test
 # @tag async
@@ -52,6 +60,9 @@ GET {{baseUrl}}/api/tasks/{{taskId}}/status
 }}
 
 ###
+# 说明：在异步任务完成后读取结果，验证最终产物可被当前账号访问。
+# 前置：依赖 pollTask 已结束且未抛出失败或超时错误。
+# 断言：只检查 data 存在，具体业务字段应由真实项目按结果契约追加。
 # @name taskResult
 # @tag test
 # @tag async

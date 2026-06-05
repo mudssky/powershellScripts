@@ -1,6 +1,9 @@
 @baseUrl = http://localhost:3000
 
 ###
+# 说明：验证测试账号能完成登录，并为后续受保护接口提供访问令牌。
+# 前置：username/password 来自当前环境或私有 env，必须指向非生产测试账号。
+# 断言：只确认 token 存在，避免把 token 格式或签名实现绑定进示例。
 # @name login
 # @tag test
 # @tag smoke
@@ -16,6 +19,9 @@ Content-Type: application/json
 ?? body $.data.token exists
 
 ###
+# 说明：读取当前用户信息，确认 login 产生的令牌能访问基础受保护接口。
+# 前置：依赖 login 请求成功；失败时优先检查认证中间件、测试账号和 token 提取路径。
+# 断言：只检查稳定身份字段，避免把展示型用户资料写成冒烟测试硬约束。
 # @name me
 # @tag test
 # @tag smoke
@@ -27,6 +33,8 @@ Authorization: Bearer {{login.response.body.$.data.token}}
 ?? body $.data.id exists
 
 ###
+# 说明：本地排查登录失败时手动发送，不进入自动化测试或 CI。
+# 风险：debug@example.com 只是占位账号；真实账号和密码必须来自本机私有 env。
 # @name login-manual
 # @tag manual
 POST {{baseUrl}}/api/auth/login
