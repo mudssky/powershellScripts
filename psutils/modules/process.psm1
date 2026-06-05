@@ -204,9 +204,15 @@ function Invoke-NativeCommand {
     $commandLine = Format-NativeCommandLine -Command $Command -ArgumentList $ArgumentList
     Write-CommandLogLine -LogPath $LogPath -Message "COMMAND $commandLine"
     Write-CommandLogLine -LogPath $LogPath -Message "CWD $WorkingDirectory"
+    Write-Verbose ("执行外部命令: {0}" -f $commandLine)
+    Write-Verbose ("外部命令工作目录: {0}" -f $WorkingDirectory)
+    if (-not [string]::IsNullOrWhiteSpace($LogPath)) {
+        Write-Verbose ("外部命令日志: {0}" -f $LogPath)
+    }
 
     $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
     $startInfo.FileName = Resolve-NativeExecutablePath -Command $Command
+    Write-Verbose ("外部命令可执行文件: {0}" -f $startInfo.FileName)
     foreach ($argument in $ArgumentList) {
         [void]$startInfo.ArgumentList.Add($argument)
     }
@@ -219,6 +225,7 @@ function Invoke-NativeCommand {
     $process.StartInfo = $startInfo
     try {
         [void]$process.Start()
+        Write-Verbose ("外部命令已启动，PID: {0}" -f $process.Id)
         $stdoutTask = $process.StandardOutput.ReadToEndAsync()
         $stderrTask = $process.StandardError.ReadToEndAsync()
         $process.WaitForExit()
@@ -244,6 +251,7 @@ function Invoke-NativeCommand {
     }
 
     Write-CommandLogLine -LogPath $LogPath -Message "EXIT $exitCode"
+    Write-Verbose ("外部命令退出码: {0}" -f $exitCode)
     $result = [pscustomobject]@{
         ExitCode = $exitCode
         StdOut   = $stdout

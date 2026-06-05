@@ -63,4 +63,20 @@ Describe 'Invoke-NativeCommand' {
                 -SuppressOutput
         } | Should -Throw '外部命令执行失败(5):*'
     }
+
+    It 'Verbose 输出命令启动细节和退出码' {
+        $messages = Invoke-NativeCommand `
+            -Command $script:PwshPath `
+            -ArgumentList @('-NoLogo', '-NoProfile', '-Command', 'Write-Output "ok"') `
+            -WorkingDirectory $TestDrive `
+            -SuppressOutput `
+            -Verbose 4>&1
+
+        $verboseText = ($messages | Where-Object { $_ -is [System.Management.Automation.VerboseRecord] } | ForEach-Object { $_.Message }) -join "`n"
+        $verboseText | Should -Match '执行外部命令:'
+        $verboseText | Should -Match ([regex]::Escape("外部命令工作目录: $TestDrive"))
+        $verboseText | Should -Match '外部命令可执行文件:'
+        $verboseText | Should -Match '外部命令已启动，PID:'
+        $verboseText | Should -Match '外部命令退出码: 0'
+    }
 }

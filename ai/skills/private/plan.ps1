@@ -323,7 +323,7 @@ function New-SkillsAddArguments {
         单个 skill 安装计划项。
 
     .PARAMETER AssumeYes
-        是否向 skills CLI 传递 `--yes`。
+        是否同时向 npx 与 skills CLI 传递 `--yes`。
 
     .OUTPUTS
         string[]。传递给 `npx` 的参数数组。
@@ -337,6 +337,11 @@ function New-SkillsAddArguments {
     )
 
     $arguments = New-Object 'System.Collections.Generic.List[string]'
+    if ($AssumeYes) {
+        # npx 与 skills CLI 各自有一层确认；npx 的 --yes 必须位于包名之前。
+        $arguments.Add('--yes') | Out-Null
+    }
+
     foreach ($value in @('skills', 'add', [string]$PlanItem.Source)) {
         $arguments.Add($value) | Out-Null
     }
@@ -625,4 +630,3 @@ function New-SkillsPlanFromConfig {
         Steps    = [pscustomobject[]]$steps.ToArray()
     }
 }
-

@@ -58,6 +58,7 @@ Describe 'Skills 安装配置解析' {
         $plan.Skills[0].Agents | Should -Be @('claude-code', 'codex')
         $plan.Skills[0].Scope | Should -Be 'global'
         $plan.Skills[0].Arguments | Should -Be @(
+            '--yes',
             'skills',
             'add',
             'vercel-labs/agent-browser',
@@ -262,6 +263,30 @@ Describe 'Skills 安装计划执行' {
         }
 
         Invoke-SkillsToolStep -Tool $tool -LogPath '' -CommandRunner $runner -WhatIf
+    }
+
+    It 'Verbose 会输出 skill 安装步骤的命令和工作目录' {
+        $skill = [pscustomobject]@{
+            Type             = 'Skill'
+            Name             = 'agent-browser'
+            Arguments        = @('--yes', 'skills', 'add', 'vercel-labs/agent-browser', '--yes')
+            WorkingDirectory = $TestDrive
+        }
+        $runner = {
+            return [pscustomobject]@{
+                ExitCode = 0
+                StdOut   = ''
+                StdErr   = ''
+            }
+        }
+
+        $messages = Invoke-SkillsInstallStep -Skill $skill -LogPath '/tmp/install.log' -CommandRunner $runner -Verbose 4>&1
+        $verboseText = ($messages | Where-Object { $_ -is [System.Management.Automation.VerboseRecord] } | ForEach-Object { $_.Message }) -join "`n"
+
+        $verboseText | Should -Match "执行步骤: skill 'agent-browser'"
+        $verboseText | Should -Match '命令: npx --yes skills add vercel-labs/agent-browser --yes'
+        $verboseText | Should -Match ([regex]::Escape("工作目录: $TestDrive"))
+        $verboseText | Should -Match '日志: /tmp/install.log'
     }
 
     It '已安装 skill 会从待执行计划中移除' {

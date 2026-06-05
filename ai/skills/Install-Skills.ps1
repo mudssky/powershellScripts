@@ -64,13 +64,13 @@ $skillsProcessModulePath = Join-Path $script:SkillsRepoRoot 'psutils/modules/pro
 if (-not (Test-Path -LiteralPath $skillsProcessModulePath -PathType Leaf)) {
     throw "未找到共享命令执行模块: $skillsProcessModulePath"
 }
-Import-Module $skillsProcessModulePath -Force
+Import-Module $skillsProcessModulePath -Force 4>$null
 
 $skillsConfigModulePath = Join-Path $script:SkillsRepoRoot 'psutils/modules/config.psm1'
 if (-not (Test-Path -LiteralPath $skillsConfigModulePath -PathType Leaf)) {
     throw "未找到共享配置解析器模块: $skillsConfigModulePath"
 }
-Import-Module $skillsConfigModulePath -Force
+Import-Module $skillsConfigModulePath -Force 4>$null
 
 $skillsPrivateScripts = @(
     'bootstrap.ps1'
@@ -216,4 +216,3 @@ if ($env:SKILLS_INSTALLER_SKIP_MAIN -ne '1') {
         exit 1
     }
 }
-

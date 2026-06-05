@@ -44,6 +44,50 @@ function Test-SkillsToolCheckResult {
     return $true
 }
 
+function Write-SkillsStepExecutionStatus {
+    <#
+    .SYNOPSIS
+        输出即将执行的安装步骤状态。
+
+    .PARAMETER Label
+        用户可读的步骤标签。
+
+    .PARAMETER CommandLine
+        即将执行的可读命令行。
+
+    .PARAMETER WorkingDirectory
+        步骤执行时使用的工作目录。
+
+    .PARAMETER LogPath
+        本次安装日志路径；为空时不输出日志 verbose。
+
+    .OUTPUTS
+        None。向 Host 与 Verbose 流输出进度信息。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Label,
+
+        [Parameter(Mandatory)]
+        [string]$CommandLine,
+
+        [Parameter(Mandatory)]
+        [string]$WorkingDirectory,
+
+        [AllowEmptyString()]
+        [string]$LogPath
+    )
+
+    Write-Host ("正在执行 {0}..." -f $Label)
+    Write-Verbose ("执行步骤: {0}" -f $Label)
+    Write-Verbose ("命令: {0}" -f $CommandLine)
+    Write-Verbose ("工作目录: {0}" -f $WorkingDirectory)
+    if (-not [string]::IsNullOrWhiteSpace($LogPath)) {
+        Write-Verbose ("日志: {0}" -f $LogPath)
+    }
+}
+
 function Test-SkillsToolInstalled {
     <#
     .SYNOPSIS
@@ -79,20 +123,25 @@ function Test-SkillsToolInstalled {
     )
 
     if ($null -eq $Tool.Check) {
+        Write-Verbose ("tool '{0}' 未配置 check，视为未安装。" -f $Tool.Name)
         return $false
     }
 
     $check = ConvertTo-ConfigHashtable -InputObject $Tool.Check
     if (Test-SkillsDirectoryCheck -Check $check) {
+        Write-Verbose ("tool '{0}' 目录 check 命中。" -f $Tool.Name)
         return $true
     }
 
     $checkCommand = [string](Get-ConfigValue -Values $check -Name 'command')
     if ([string]::IsNullOrWhiteSpace($checkCommand)) {
+        Write-Verbose ("tool '{0}' 目录 check 未命中，且未配置命令 check。" -f $Tool.Name)
         return $false
     }
 
     $checkArguments = ConvertTo-SkillsStringArray -Value (Get-ConfigValue -Values $check -Name 'args')
+    Write-Verbose ("执行 tool '{0}' check: {1}" -f $Tool.Name, (Format-NativeCommandLine -Command $checkCommand -ArgumentList $checkArguments))
+    Write-Verbose ("tool '{0}' check 工作目录: {1}" -f $Tool.Name, $Tool.WorkingDirectory)
     $checkResult = & $CommandRunner $checkCommand $checkArguments $Tool.WorkingDirectory $LogPath $true ([bool]$SuppressOutput)
 
     return (Test-SkillsToolCheckResult -Check $check -Result $checkResult)
@@ -227,6 +276,7 @@ function Invoke-SkillsToolStep {
     $target = "tool:$($Tool.Name)"
     $action = Format-NativeCommandLine -Command $Tool.Command -ArgumentList $Tool.Arguments
     if ($PSCmdlet.ShouldProcess($target, $action)) {
+        Write-SkillsStepExecutionStatus -Label "tool setup '$($Tool.Name)'" -CommandLine $action -WorkingDirectory $Tool.WorkingDirectory -LogPath $LogPath
         & $CommandRunner $Tool.Command $Tool.Arguments $Tool.WorkingDirectory $LogPath $false $false | Out-Null
     }
 }
@@ -263,6 +313,7 @@ function Invoke-SkillsCommandStep {
     $target = "command:$($CommandPlan.Owner)/$($CommandPlan.Name)"
     $action = Format-NativeCommandLine -Command $CommandPlan.Command -ArgumentList $CommandPlan.Arguments
     if ($PSCmdlet.ShouldProcess($target, $action)) {
+        Write-SkillsStepExecutionStatus -Label "command '$($CommandPlan.Owner)/$($CommandPlan.Name)'" -CommandLine $action -WorkingDirectory $CommandPlan.WorkingDirectory -LogPath $LogPath
         & $CommandRunner $CommandPlan.Command $CommandPlan.Arguments $CommandPlan.WorkingDirectory $LogPath $false $false | Out-Null
     }
 }
@@ -308,6 +359,7 @@ function Invoke-SkillsInstallStep {
     $target = "skill:$($Skill.Name)"
     $action = Format-NativeCommandLine -Command 'npx' -ArgumentList $Skill.Arguments
     if ($PSCmdlet.ShouldProcess($target, $action)) {
+        Write-SkillsStepExecutionStatus -Label "skill '$($Skill.Name)'" -CommandLine $action -WorkingDirectory $Skill.WorkingDirectory -LogPath $LogPath
         & $CommandRunner 'npx' $Skill.Arguments $Skill.WorkingDirectory $LogPath $false $false | Out-Null
     }
 }
@@ -363,4 +415,3 @@ function Invoke-SkillsInstallPlan {
         }
     }
 }
-
