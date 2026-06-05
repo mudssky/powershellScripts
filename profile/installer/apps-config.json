@@ -853,9 +853,6 @@
         "supportOs": [
           "linux",
           "macOS"
-        ],
-        "tag": [
-          "linuxserver"
         ]
       },
       {
@@ -866,9 +863,6 @@
         "supportOs": [
           "linux",
           "macOS"
-        ],
-        "tag": [
-          "linuxserver"
         ]
       },
       {
