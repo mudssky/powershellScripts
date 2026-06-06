@@ -14,6 +14,7 @@
 * 修改配置解析、env 读取、frontmatter、`.psd1` data file 或 CLI 参数合并时，先阅读 [Shared Config Resolver](./shared-config-resolver.md)。
 * Pester 运行方式复用 `scripts/pwsh/devops/Invoke-PesterMode.ps1`，包内脚本通过 `PWSH_TEST_PATH` 限定 `./tests`。
 * 覆盖率门槛仍由根目录 `PesterConfiguration.ps1` 统一管理；包级 `test:full` 只做断言回归，不单独改 coverage 策略。
+* 修改 WSL Docker wrapper 或 docker 参数路径转换时，先阅读 [WSL Docker Wrapper](./wsl-docker-wrapper.md)。
 
 ## Package Script Contract
 
@@ -32,3 +33,4 @@
 | Guide | Description | Status |
 |-------|-------------|--------|
 | [Shared Config Resolver](./shared-config-resolver.md) | `psutils/src/config` 配置来源、合并优先级、导出函数与测试契约 | Active |
+| [WSL Docker Wrapper](./wsl-docker-wrapper.md) | `psutils/modules/docker.psm1` WSL Docker wrapper 的路径转换与跨平台测试契约 | Active |

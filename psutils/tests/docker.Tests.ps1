@@ -138,7 +138,13 @@ Describe 'WSL Docker wrapper helper' {
                 return
             }
             if ($joined -like '-d Ubuntu-24.04 -- wslpath -a *') {
-                '/mnt/c/workspace'
+                $inputPath = $Args[-1]
+                if ($inputPath -match '^[A-Za-z]:[\\/]') {
+                    '/mnt/c/workspace'
+                }
+                else {
+                    $inputPath
+                }
                 $global:LASTEXITCODE = 0
                 return
             }
@@ -150,12 +156,13 @@ Describe 'WSL Docker wrapper helper' {
         Enable-WslDockerWrapper -DockerCommand 'docker' -WslCommand 'wsl.exe' -Force | Should -BeTrue
 
         docker run --rm alpine:3.20 echo ok
+        $expectedWorkingDirectory = ConvertTo-WslDockerPath -Path (Get-Location).Path -Distro 'Ubuntu-24.04'
 
         $script:LastWslDockerArgs | Should -Be @(
             '-d'
             'Ubuntu-24.04'
             '--cd'
-            '/mnt/c/workspace'
+            $expectedWorkingDirectory
             '--'
             'docker'
             'run'

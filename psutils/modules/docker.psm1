@@ -466,6 +466,11 @@ function ConvertTo-WslDockerPath {
         else {
             return $Path
         }
+
+        # 非 Windows 路径已经可直接在 WSL/Linux 侧使用，避免 CI 中的 POSIX 路径被误转成 /mnt//path。
+        if (-not ($pathToConvert -match '^[A-Za-z]:[\\/]' -or $pathToConvert -match '^\\\\')) {
+            return $pathToConvert
+        }
     }
 
     try {
