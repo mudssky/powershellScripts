@@ -41,16 +41,16 @@
   "dependencies": {
     "chalk": "^5.6.2",
     "cli-table3": "^0.6.3",
-    "commander": "^14.0.3",
-    "js-yaml": "^4.1.1",
+    "commander": "^15.0.0",
+    "js-yaml": "^4.2.0",
     "json5": "^2.2.3"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
-    "@types/node": "^25.9.1",
-    "@vitest/coverage-v8": "^4.1.7",
+    "@types/node": "^25.9.2",
+    "@vitest/coverage-v8": "^4.1.8",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.7"
+    "vitest": "^4.1.8"
   },
   "engines": {
     "node": ">=16.0.0"
