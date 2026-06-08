@@ -1,8 +1,6 @@
-@baseUrl = http://localhost:3000
-
 ###
 # 说明：验证测试账号能完成登录，并为后续受保护接口提供访问令牌。
-# 前置：username/password 来自当前环境或私有 env，必须指向非生产测试账号。
+# 前置：baseUrl/username/tenantId 来自 .env.test，password 来自 CI secret 或 .env.local。
 # 断言：只确认 token 存在，避免把 token 格式或签名实现绑定进示例。
 # @name login
 # @tag test
@@ -12,11 +10,17 @@ Content-Type: application/json
 
 {
   "username": "{{username}}",
-  "password": "{{password}}"
+  "password": "{{password}}",
+  "tenantId": "{{tenantId}}"
 }
 
 ?? status == 200
 ?? body $.data.token exists
+
+{{response
+  const body = JSON.parse(response.body);
+  exports.authToken = body.data.token;
+}}
 
 ###
 # 说明：读取当前用户信息，确认 login 产生的令牌能访问基础受保护接口。
@@ -27,7 +31,7 @@ Content-Type: application/json
 # @tag smoke
 # @ref login
 GET {{baseUrl}}/api/me
-Authorization: Bearer {{login.response.body.$.data.token}}
+Authorization: Bearer {{authToken}}
 
 ?? status == 200
 ?? body $.data.id exists
@@ -41,6 +45,7 @@ POST {{baseUrl}}/api/auth/login
 Content-Type: application/json
 
 {
-  "username": "debug@example.com",
-  "password": "{{password}}"
+  "username": "{{debugUsername}}",
+  "password": "{{password}}",
+  "tenantId": "{{tenantId}}"
 }

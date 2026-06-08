@@ -13,8 +13,9 @@
 ```text
 http/
   env/
-    dev.env.example
-    local.env
+    .env.example
+    .env.test
+    .env.local
   auth.http
   tasks.http
 ```
@@ -23,8 +24,9 @@ http/
 
 - `auth.http`：登录、刷新 token、当前用户、权限失败等认证相关请求。
 - `tasks.http`：单个业务域或主流程请求。
-- `env/*.env.example`：可提交模板，只放非敏感默认值和变量名说明。
-- `env/local.env`：本机私有值，必须被 `.gitignore` 忽略。
+- `env/.env.example`：可提交模板，只放变量名、非敏感默认值和占位说明。
+- `env/.env.test`：可提交测试默认值，只放测试 URL、非敏感账号名、租户、超时和开关。
+- `env/.env.local`：本机私有值，必须被 `.gitignore` 忽略。
 
 ## 中型项目
 
@@ -33,9 +35,9 @@ http/
 ```text
 http/
   env/
-    dev.env.example
-    test.env.example
-    local.env
+    .env.example
+    .env.test
+    .env.local
   auth/
     login.http
     permissions.http
@@ -60,10 +62,10 @@ http/
 ```text
 http/
   env/
-    dev.env.example
-    test.env.example
-    staging.env.example
-    local.env
+    .env.example
+    .env.test
+    .env.staging.example
+    .env.local
   shared/
     auth.http
     health.http
@@ -95,20 +97,30 @@ http/
 ```text
 http/
   env/
-    dev.env.example
-    test.env.example
-    local.env
+    .env.example
+    .env.test
+    .env.local
 ```
 
-`dev.env.example` 示例：
+`.env.example` 示例：
 
 ```dotenv
 baseUrl=http://localhost:3000
-username=dev@example.com
+username=api-test@example.com
 tenantId=demo
+requestTimeout=30000
 ```
 
-`local.env` 示例，不提交：
+`.env.test` 示例，可以提交但不能包含敏感值：
+
+```dotenv
+baseUrl=http://localhost:3000
+username=api-test@example.com
+tenantId=test
+requestTimeout=30000
+```
+
+`.env.local` 示例，不提交：
 
 ```dotenv
 password=<replace-me>
@@ -118,15 +130,17 @@ token=<replace-me>
 推荐 `.gitignore`：
 
 ```gitignore
-http/env/local.env
+http/env/.env.local
+http/env/.env.*.local
 http/env/*.local.env
 http/env/*.secret.env
 .env.local
+*.env.local
 ```
 
 规则：
 
-- example 文件可以提交，但只放非敏感默认值和变量名。
+- `.env.example` 和 `.env.test` 可以提交，但只放非敏感默认值和变量名。
 - 真实密码、token、client secret 放本机私有 env、系统环境变量或 CI secret。
 - 变量名在 CLI、VS Code 和 `.http` 文件中保持一致，例如 `baseUrl`、`username`、`password`、`tenantId`。
 
@@ -136,7 +150,7 @@ http/env/*.secret.env
 
 ```json
 {
-  "httpyac.environmentSelectedOnStart": ["dev"],
+  "httpyac.environmentSelectedOnStart": ["test"],
   "httpyac.environmentPickMany": true,
   "httpyac.envDirName": "http/env",
   "httpyac.codelens": {
@@ -159,13 +173,13 @@ http/env/*.secret.env
 本地测试：
 
 ```bash
-httpyac send "http/**/*.http" --all --tag test --bail
+httpyac send "http/**/*.http" --all --env test --tag test --bail
 ```
 
 CI 输出 JSON：
 
 ```bash
-httpyac send "http/**/*.http" --all --tag test --json --bail
+httpyac send "http/**/*.http" --all --env test --tag test --json --bail
 ```
 
 长命令在文档中可以换行：
@@ -173,8 +187,8 @@ httpyac send "http/**/*.http" --all --tag test --json --bail
 ```bash
 httpyac send "http/**/*.http" \
   --all \
-  --tag test \
   --env test \
+  --tag test \
   --json \
   --bail \
   --var password="$API_TEST_PASSWORD"
