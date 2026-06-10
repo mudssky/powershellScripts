@@ -617,3 +617,36 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 19: macOS mpv 安装与点击打开
+
+**Date**: 2026-06-11
+**Task**: macOS mpv 安装与点击打开
+**Branch**: `master`
+
+### Summary
+
+为 Homebrew mpv 拆分平台配置，生成 macOS mpv.app 外壳，支持 Finder 打开方式点击视频，并补充安装文档与验证记录。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a6dee22` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

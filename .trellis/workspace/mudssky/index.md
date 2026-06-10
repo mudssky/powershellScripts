@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 18
-- **Last Active**: 2026-06-08
+- **Total Sessions**: 19
+- **Last Active**: 2026-06-11
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~619 | Active |
+| `journal-1.md` | ~652 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 19 | 2026-06-11 | macOS mpv 安装与点击打开 | `a6dee22` | `master` |
 | 18 | 2026-06-08 | 完善 api-example-test-writer httpyac env 与认证示例 | `5ff4911`, `ba965a4` | `master` |
 | 17 | 2026-06-05 | 完善 API 示例测试 skill | `308906a` | `master` |
 | 16 | 2026-06-01 | Docker 管理 skill 封装 | `056846d`, `c020e66` | `master` |
