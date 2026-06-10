@@ -26,3 +26,5 @@ autoProxy=true
 autoMemoryReclaim=gradual
 # 新建发行版 VHD 使用稀疏文件，减少磁盘占用增长。
 sparseVhd=true
+# 解决windows访问wsl，不能通过局域网ip，只能通过localhost访问
+hostAddressLoopback=true
