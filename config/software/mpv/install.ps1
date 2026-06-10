@@ -39,6 +39,204 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+function Get-MpvLocalConfigContent {
+    <#
+    .SYNOPSIS
+        生成当前平台的 mpv 本地覆盖配置。
+
+    .DESCRIPTION
+        返回只适合写入 mpv_local.conf 的平台专用配置，避免通用 mpv.conf
+        在 macOS/Linux 上加载 Windows 专用后端选项。
+
+    .OUTPUTS
+        System.String 当前平台的 mpv 本地配置文本。
+    #>
+    [CmdletBinding()]
+    param()
+
+    if ($IsWindows) {
+        return @'
+# Windows 平台默认覆盖
+# 使用 d3d11 和 wasapi，避免跨平台 mpv.conf 在非 Windows 上解析失败。
+gpu-api=d3d11
+d3d11-output-format=auto
+ao=wasapi
+'@
+    }
+
+    if ($IsMacOS) {
+        return @'
+# macOS 平台默认覆盖
+# Homebrew mpv 由 mpv 自动选择可用图形后端；这里只固定原生音频输出。
+ao=coreaudio
+'@
+    }
+
+    if ($IsLinux) {
+        return @'
+# Linux 平台默认覆盖
+# 不强制指定图形和音频后端，由 mpv 按桌面环境自动选择。
+'@
+    }
+
+    return @'
+# 未识别平台默认覆盖
+# 不强制指定图形和音频后端，由 mpv 自动选择。
+'@
+}
+
+function Initialize-MpvLocalConfig {
+    <#
+    .SYNOPSIS
+        初始化 mpv_local.conf 本地覆盖文件。
+
+    .DESCRIPTION
+        当本地覆盖文件不存在或内容为空时写入当前平台默认配置；如果用户已经
+        写入本机设置，则只提示并保留原内容，避免安装脚本覆盖用户偏好。
+
+    .PARAMETER Path
+        mpv_local.conf 的绝对路径。
+
+    .OUTPUTS
+        None.
+    #>
+    [CmdletBinding(SupportsShouldProcess = $true)]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    $shouldWriteDefault = $true
+    if (Test-Path $Path) {
+        $existingContent = Get-Content -LiteralPath $Path -Raw -ErrorAction Stop
+        $shouldWriteDefault = [string]::IsNullOrWhiteSpace($existingContent)
+    }
+
+    if (-not $shouldWriteDefault) {
+        Write-Host "Keeping existing mpv_local.conf; platform defaults were not overwritten." -ForegroundColor Gray
+        return
+    }
+
+    $defaultContent = Get-MpvLocalConfigContent
+    if ($PSCmdlet.ShouldProcess($Path, "Write platform default mpv local config")) {
+        Write-Host "Writing platform defaults to mpv_local.conf..."
+        Set-Content -LiteralPath $Path -Value $defaultContent -Encoding utf8
+    }
+}
+
+function New-MpvMacApplicationWrapper {
+    <#
+    .SYNOPSIS
+        创建 macOS Finder 可识别的 mpv.app 外壳。
+
+    .DESCRIPTION
+        Homebrew 安装的 mpv 是命令行程序，不会出现在“应用程序”中。本函数
+        生成一个 AppleScript 应用外壳，把 Finder 传入的视频文件路径转发给
+        Homebrew mpv，从而支持“打开方式”和双击关联。
+
+    .PARAMETER MpvPath
+        Homebrew mpv 命令的绝对路径。
+
+    .PARAMETER AppPath
+        要创建的 mpv.app 目标路径。
+
+    .OUTPUTS
+        None.
+    #>
+    [CmdletBinding(SupportsShouldProcess = $true)]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$MpvPath,
+
+        [Parameter(Mandatory = $true)]
+        [string]$AppPath
+    )
+
+    if (-not $IsMacOS) {
+        return
+    }
+
+    if (-not (Get-Command osacompile -ErrorAction SilentlyContinue)) {
+        Write-Warning "osacompile not found; skipped creating mpv.app wrapper."
+        return
+    }
+
+    if (-not (Test-Path $MpvPath)) {
+        Write-Warning "mpv executable not found at $MpvPath; skipped creating mpv.app wrapper."
+        return
+    }
+
+    $appParent = Split-Path -Parent $AppPath
+    if (-not (Test-Path $appParent)) {
+        New-Item -ItemType Directory -Path $appParent -Force | Out-Null
+    }
+
+    $escapedMpvPath = $MpvPath.Replace('\', '\\').Replace('"', '\"')
+    $scriptContent = @"
+property mpvPath : "$escapedMpvPath"
+
+on open mediaFiles
+    set commandParts to {}
+    repeat with mediaFile in mediaFiles
+        set end of commandParts to quoted form of POSIX path of mediaFile
+    end repeat
+
+    set AppleScript's text item delimiters to " "
+    set mediaArgs to commandParts as text
+    set AppleScript's text item delimiters to ""
+
+    do shell script quoted form of mpvPath & " -- " & mediaArgs & " >/dev/null 2>&1 &"
+end open
+
+on run
+    do shell script quoted form of mpvPath & " --player-operation-mode=pseudo-gui >/dev/null 2>&1 &"
+end run
+"@
+
+    $tempScript = Join-Path ([System.IO.Path]::GetTempPath()) "mpv-wrapper-$([System.Guid]::NewGuid()).applescript"
+    try {
+        Set-Content -LiteralPath $tempScript -Value $scriptContent -Encoding utf8
+
+        if (Test-Path $AppPath) {
+            Remove-Item -LiteralPath $AppPath -Recurse -Force
+        }
+
+        if ($PSCmdlet.ShouldProcess($AppPath, "Create macOS mpv.app wrapper")) {
+            & osacompile -o $AppPath $tempScript
+            if ($LASTEXITCODE -ne 0) {
+                throw "osacompile failed with exit code $LASTEXITCODE"
+            }
+
+            $plistPath = Join-Path $AppPath "Contents/Info.plist"
+            # 让 LaunchServices 把这个外壳识别为媒体文件查看器，便于 Finder 选择“打开方式”。
+            & /usr/libexec/PlistBuddy -c "Set :CFBundleName mpv" $plistPath
+            & /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string mpv" $plistPath 2>$null
+            & /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName mpv" $plistPath
+            & /usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string io.mpv.homebrew.wrapper" $plistPath 2>$null
+            & /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier io.mpv.homebrew.wrapper" $plistPath
+            & /usr/libexec/PlistBuddy -c "Delete :CFBundleDocumentTypes" $plistPath 2>$null
+            & /usr/libexec/PlistBuddy -c "Add :CFBundleDocumentTypes array" $plistPath
+            & /usr/libexec/PlistBuddy -c "Add :CFBundleDocumentTypes:0 dict" $plistPath 2>$null
+            & /usr/libexec/PlistBuddy -c "Add :CFBundleDocumentTypes:0:CFBundleTypeName string Media Files" $plistPath
+            & /usr/libexec/PlistBuddy -c "Add :CFBundleDocumentTypes:0:CFBundleTypeRole string Viewer" $plistPath
+            & /usr/libexec/PlistBuddy -c "Add :CFBundleDocumentTypes:0:LSHandlerRank string Alternate" $plistPath
+            & /usr/libexec/PlistBuddy -c "Add :CFBundleDocumentTypes:0:LSItemContentTypes array" $plistPath
+            & /usr/libexec/PlistBuddy -c "Add :CFBundleDocumentTypes:0:LSItemContentTypes:0 string public.movie" $plistPath
+            & /usr/libexec/PlistBuddy -c "Add :CFBundleDocumentTypes:0:LSItemContentTypes:1 string public.audio" $plistPath
+            & /usr/libexec/PlistBuddy -c "Add :CFBundleDocumentTypes:0:LSItemContentTypes:2 string public.audiovisual-content" $plistPath
+            & /usr/libexec/PlistBuddy -c "Add :CFBundleDocumentTypes:0:LSItemContentTypes:3 string public.mpeg-4" $plistPath
+            & /usr/libexec/PlistBuddy -c "Add :CFBundleDocumentTypes:0:LSItemContentTypes:4 string org.matroska.mkv" $plistPath
+
+            Write-Host "Created Finder app wrapper: $AppPath" -ForegroundColor Green
+        }
+    }
+    finally {
+        if (Test-Path $tempScript) {
+            Remove-Item -LiteralPath $tempScript -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
 # Get the script's root directory (source of configuration)
 $sourcePath = $PSScriptRoot
 if (-not $sourcePath) {
@@ -51,11 +249,10 @@ $toolsDir = Join-Path $sourcePath "tools/install"
 # -----------------------------------------------------------------------------
 # Configuration Initialization
 # -----------------------------------------------------------------------------
-# Ensure mpv_local.conf exists
+# Ensure mpv_local.conf exists and carries safe platform defaults
 $localConfPath = Join-Path $sourcePath "mpv_local.conf"
-if (-not (Test-Path $localConfPath)) {
-    Write-Host "Creating empty mpv_local.conf..."
-    New-Item -Path $localConfPath -ItemType File -Force | Out-Null
+if (-not $Check) {
+    Initialize-MpvLocalConfig -Path $localConfPath
 }
 
 if ($Full) {
@@ -170,6 +367,15 @@ if ($doCore -and -not $Check) {
 
         Write-Host "Installing/Updating mpv via Homebrew..."
         brew install mpv
+
+        $mpvCommand = Get-Command mpv -ErrorAction SilentlyContinue
+        if ($mpvCommand) {
+            $macAppPath = Join-Path $HOME "Applications/mpv.app"
+            New-MpvMacApplicationWrapper -MpvPath $mpvCommand.Source -AppPath $macAppPath
+        }
+        else {
+            Write-Warning "mpv command not found after Homebrew installation; skipped creating mpv.app wrapper."
+        }
 
         # Define target path (~/.config/mpv)
         $configDir = Join-Path $HOME ".config"
@@ -321,6 +527,13 @@ if ($Check) {
                     }
                     catch {}
                 }
+            }
+        }
+
+        if ($isInstalled -and $IsMacOS) {
+            $macAppPath = Join-Path $HOME "Applications/mpv.app"
+            if (-not (Test-Path $macAppPath)) {
+                $isInstalled = $false
             }
         }
     }

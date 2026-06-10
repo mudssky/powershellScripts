@@ -30,6 +30,8 @@
 
   脚本会自动检测系统（Windows/macOS/Linux），安装 mpv（如果未安装），并将配置文件链接到正确的位置。
 
+  macOS 上 Homebrew 安装的是命令行 mpv。安装脚本会额外创建 `~/Applications/mpv.app` 外壳，方便在 Finder 中通过“打开方式”选择 mpv。首次使用时可以右键视频文件，选择“打开方式 > 其他...”，定位到 `~/Applications/mpv.app`；勾选“始终以此方式打开”后，后续即可直接双击关联格式的视频。
+
   修改src文件夹中的ts代码后,使用npm run build,就会调用tsc构建es5的代码到scripts文件夹
 
 ### 安装插件 (uosc + thumbfast)
