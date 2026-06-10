@@ -506,7 +506,8 @@
           "linux"
         ],
         "tag": [
-          "linuxserver"
+          "linuxserver",
+          "macbook"
         ]
       },
       {
@@ -529,7 +530,8 @@
           "linux"
         ],
         "tag": [
-          "linuxserver"
+          "linuxserver",
+          "macbook"
         ]
       },
       {
@@ -569,6 +571,18 @@
         "command": "brew install --cask docker",
         "supportOs": [
           "macOS"
+        ]
+      },
+      {
+        "name": "orbstack",
+        "cliName": "orb",
+        "description": "macOS Docker Desktop 替代工具",
+        "command": "brew install --cask orbstack",
+        "supportOs": [
+          "macOS"
+        ],
+        "tag": [
+          "macbook"
         ]
       },
       {
@@ -622,7 +636,8 @@
           "macOS"
         ],
         "tag": [
-          "linuxserver"
+          "linuxserver",
+          "macbook"
         ]
       },
       {
@@ -645,7 +660,8 @@
           "macOS"
         ],
         "tag": [
-          "linuxserver"
+          "linuxserver",
+          "macbook"
         ]
       },
       {
@@ -658,7 +674,8 @@
           "macOS"
         ],
         "tag": [
-          "linuxserver"
+          "linuxserver",
+          "macbook"
         ]
       },
       {
@@ -671,7 +688,8 @@
           "macOS"
         ],
         "tag": [
-          "linuxserver"
+          "linuxserver",
+          "macbook"
         ]
       },
       {
@@ -684,7 +702,8 @@
           "macOS"
         ],
         "tag": [
-          "linuxserver"
+          "linuxserver",
+          "macbook"
         ]
       },
       {
@@ -697,7 +716,8 @@
           "macOS"
         ],
         "tag": [
-          "linuxserver"
+          "linuxserver",
+          "macbook"
         ]
       },
       {
@@ -727,6 +747,9 @@
         "command": "brew install --cask font-symbols-only-nerd-font",
         "supportOs": [
           "macOS"
+        ],
+        "tag": [
+          "macbook"
         ]
       },
       {
@@ -736,6 +759,21 @@
         "command": "brew install --cask jordanbaird-ice",
         "supportOs": [
           "macOS"
+        ],
+        "tag": [
+          "macbook"
+        ]
+      },
+      {
+        "name": "stats",
+        "cliName": "stats",
+        "description": "macOS 菜单栏系统监控工具",
+        "command": "brew install --cask stats",
+        "supportOs": [
+          "macOS"
+        ],
+        "tag": [
+          "macbook"
         ]
       },
       {
@@ -757,7 +795,8 @@
           "macOS"
         ],
         "tag": [
-          "linuxserver"
+          "linuxserver",
+          "macbook"
         ]
       },
       {
@@ -770,7 +809,8 @@
           "macOS"
         ],
         "tag": [
-          "linuxserver"
+          "linuxserver",
+          "macbook"
         ]
       },
       {
@@ -790,7 +830,8 @@
           "macOS"
         ],
         "tag": [
-          "linuxserver"
+          "linuxserver",
+          "macbook"
         ]
       },
       {
@@ -803,7 +844,8 @@
           "macOS"
         ],
         "tag": [
-          "linuxserver"
+          "linuxserver",
+          "macbook"
         ]
       },
       {
@@ -816,7 +858,8 @@
           "macOS"
         ],
         "tag": [
-          "linuxserver"
+          "linuxserver",
+          "macbook"
         ]
       },
       {
@@ -829,7 +872,8 @@
           "macOS"
         ],
         "tag": [
-          "linuxserver"
+          "linuxserver",
+          "macbook"
         ]
       },
       {
@@ -842,7 +886,8 @@
           "macOS"
         ],
         "tag": [
-          "linuxserver"
+          "linuxserver",
+          "macbook"
         ]
       },
       {
@@ -895,7 +940,8 @@
           "macOS"
         ],
         "tag": [
-          "linuxserver"
+          "linuxserver",
+          "macbook"
         ]
       },
       {
@@ -905,6 +951,9 @@
         "command": "brew install --cask neovide",
         "supportOs": [
           "macOS"
+        ],
+        "tag": [
+          "macbook"
         ]
       },
       {
@@ -914,6 +963,9 @@
         "command": "brew install --cask font-fira-code-nerd-font",
         "supportOs": [
           "macOS"
+        ],
+        "tag": [
+          "macbook"
         ]
       },
       {
@@ -923,6 +975,9 @@
         "command": "brew install --cask font-jetbrains-mono-nerd-font",
         "supportOs": [
           "macOS"
+        ],
+        "tag": [
+          "macbook"
         ]
       },
       {
@@ -935,7 +990,8 @@
           "linux"
         ],
         "tag": [
-          "linuxserver"
+          "linuxserver",
+          "macbook"
         ]
       },
       {
