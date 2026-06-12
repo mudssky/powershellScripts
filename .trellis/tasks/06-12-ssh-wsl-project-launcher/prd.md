@@ -67,10 +67,11 @@
 - 自定义 JSON 作为增量配置，不覆盖 SSH config 已有配置。
 - WSL 启动项允许 `command` 字段；JSON 支持 `defaults.wsl.distro` 作为默认发行版，entry 级 `distro` 可覆盖默认值。
 - JSON schema 固化为 `defaults.wsl.distro` + `entries[]`，避免把 WSL 专属默认值放到顶层全局字段。
+- 2026-06-13 评估是否改用 TypeScript CLI：当前 PowerShell 实现已经复用 `psutils`、Pester、`Manage-BinScripts.ps1` shim 与 Windows Terminal 启动策略；仓库虽已有 `scripts/node` 的 TS/Rspack/Vitest 工具链，但迁移会引入 `scripts/node` 构建、bin 生成、Node 依赖分发，以及与 PowerShell 公共模块重复实现或跨进程调用的问题。
 
 ## Open Questions
 
-- 无阻塞规划的问题。
+- 是否将 `project-launcher` 从 PowerShell 工具迁移为 TypeScript CLI，或保留 PowerShell 作为主入口，仅在后续需要更复杂交互体验时再抽取 TS 辅助层。
 
 ## Notes
 
