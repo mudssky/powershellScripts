@@ -108,7 +108,7 @@
         'Find-ExecutableCommand',
         # 配置管理模块 (config.psm1)
         'Resolve-ConfigSources', 'Invoke-WithScopedEnvironment', 'ConvertTo-ConfigHashtable', 'Get-ConfigValue', 'Resolve-ConfigEnvPlaceholder', 'Resolve-ConfigPath', 'ConvertTo-ConfigKeyName', 'ConvertFrom-ConfigCliParameters',
-        'Resolve-ConfigPlatformValue', 'Read-ConfigPowerShellDataFile', 'Read-ConfigMarkdownFrontMatter',
+        'Resolve-ConfigPlatformValue', 'Read-ConfigPowerShellDataFile', 'Read-ConfigMarkdownFrontMatter', 'Read-ConfigSshClientConfig',
         # Docker 工具模块 (docker.psm1)
         'Test-DockerComposeAvailable', 'Assert-DockerComposeReady', 'Get-DockerComposeBaseArgs', 'Invoke-DockerComposeCommand',
         'Get-WslDockerCandidateDistro', 'Test-WindowsDockerDaemonAvailable', 'Test-DockerDesktopDaemonAvailable', 'Test-WslDockerEngineAvailable',
