@@ -33,3 +33,4 @@
 | Guide | Description | Status |
 |-------|-------------|--------|
 | [Config Loading](./config-loading.md) | 独立 PowerShell 脚本加载 env、JSON、`.psd1`、Markdown preset 与 CLI 覆盖参数的统一约定 | Active |
+| [Interactive Terminal Launching](./interactive-terminal-launching.md) | 独立 PowerShell 脚本启动 SSH/WSL/TUI 等交互式原生命令时的当前 tab、detached terminal 与 TTY 约定 | Active |
