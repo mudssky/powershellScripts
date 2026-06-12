@@ -790,6 +790,42 @@
         ]
       },
       {
+        "name": "iterm2",
+        "cliName": "iterm2",
+        "description": "macOS 终端模拟器",
+        "command": "brew install --cask iterm2",
+        "supportOs": [
+          "macOS"
+        ],
+        "tag": [
+          "macbook"
+        ]
+      },
+      {
+        "name": "keka",
+        "cliName": "keka",
+        "description": "macOS 压缩与解压工具",
+        "command": "brew install --cask keka",
+        "supportOs": [
+          "macOS"
+        ],
+        "tag": [
+          "macbook"
+        ]
+      },
+      {
+        "name": "maccy",
+        "cliName": "maccy",
+        "description": "macOS 剪贴板历史工具",
+        "command": "brew install maccy",
+        "supportOs": [
+          "macOS"
+        ],
+        "tag": [
+          "macbook"
+        ]
+      },
+      {
         "name": "hammerspoon",
         "cliName": "hammerspoon",
         "description": "macOS 自动化工具",
