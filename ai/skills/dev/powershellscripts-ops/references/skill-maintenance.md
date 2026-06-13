@@ -1,8 +1,8 @@
-# Repo Ops Skill 维护
+# PowerShellScripts Ops Skill 维护
 
 ## 何时更新
 
-在以下情况更新 `.agents/skills/repo-ops/`：
+在以下情况更新 `ai/skills/dev/powershellscripts-ops/`：
 
 - 新增仓库运维域，例如新的自托管服务、网关、备份恢复流程或部署脚本。
 - LiteLLM、LobeHub、安装流程的关键命令、文件路径、环境变量契约发生变化。
@@ -31,13 +31,13 @@
 优先使用 skill-creator 的校验脚本：
 
 ```bash
-python /Users/mudssky/.codex/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/repo-ops
+python3 /Users/mudssky/.codex/skills/.system/skill-creator/scripts/quick_validate.py ai/skills/dev/powershellscripts-ops
 ```
 
 如果本机 Python 缺少 `yaml` 模块，可用带依赖的临时运行方式：
 
 ```bash
-uv run --with pyyaml python /Users/mudssky/.codex/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/repo-ops
+uv run --with pyyaml python /Users/mudssky/.codex/skills/.system/skill-creator/scripts/quick_validate.py ai/skills/dev/powershellscripts-ops
 ```
 
 项目质量检查：
@@ -46,12 +46,18 @@ uv run --with pyyaml python /Users/mudssky/.codex/skills/.system/skill-creator/s
 pnpm qa
 ```
 
+如果改动涉及 `ai/skills/Install-Skills.ps1`、`ai/skills/private/*.ps1` 或安装器测试，还要运行：
+
+```bash
+pnpm test:pwsh:all
+```
+
 ## openai.yaml
 
 `agents/openai.yaml` 是 UI 元数据，不是 agent 的主要执行说明。更新时保持：
 
 - `display_name` 简短。
 - `short_description` 能概括 LiteLLM、LobeHub 和依赖安装。
-- `default_prompt` 必须显式包含 `$repo-ops`。
+- `default_prompt` 必须显式包含 `$powershellscripts-ops`。
 
 如需重新生成，可使用 skill-creator 初始化脚本或 `generate_openai_yaml.py`，并先阅读系统 skill-creator 的 `references/openai_yaml.md`。
