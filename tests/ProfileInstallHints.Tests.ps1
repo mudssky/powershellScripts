@@ -87,6 +87,7 @@ Describe 'Initialize-Environment command discovery integration' {
             V2        = $null
         }
         $script:WrittenHostLines = [System.Collections.Generic.List[string]]::new()
+        $script:OriginalPath = [Environment]::GetEnvironmentVariable('PATH', 'Process')
 
         function global:Set-ProfileUtf8Encoding {}
         function global:Test-EnvSwitchEnabled {
@@ -176,6 +177,7 @@ Describe 'Initialize-Environment command discovery integration' {
         Remove-Item Function:\Sync-PathFromBash -ErrorAction SilentlyContinue
         Remove-Item Function:\Write-ProfileModeDecisionSummary -ErrorAction SilentlyContinue
         Remove-Item Function:\Write-ProfileModeFallbackGuide -ErrorAction SilentlyContinue
+        [Environment]::SetEnvironmentVariable('PATH', $script:OriginalPath, 'Process')
     }
 
     It 'should use Find-ExecutableCommand results to render one aggregated install hint' {

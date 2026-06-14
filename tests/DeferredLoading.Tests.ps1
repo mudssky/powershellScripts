@@ -104,4 +104,15 @@ Describe '延迟加载防护栏' {
             $violations.Count | Should -Be 0 -Because $message
         }
     }
+
+    It 'OnIdle 延迟加载 Action SHALL 内联稳定路径而不是依赖局部闭包变量' {
+        $loadModulePath = Join-Path $script:ProfileRoot 'core/loadModule.ps1'
+        $content = Get-Content -Path $loadModulePath -Raw -ErrorAction Stop
+
+        $content | Should -Match '\[scriptblock\]::Create'
+        $content | Should -Match 'Import-Module\s+`?\$idleManifestPath'
+        $content | Should -Match '\[string\]::IsNullOrWhiteSpace\(`?\$idleManifestPath\)'
+        $content | Should -Not -Match 'Import-Module\s+\$__idleManifestPath'
+        $content | Should -Not -Match '\.GetNewClosure\(\)'
+    }
 }

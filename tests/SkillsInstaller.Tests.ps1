@@ -115,8 +115,10 @@ Describe 'Skills 安装配置解析' {
     }
 
     It 'IncludeDevAll 会发现 dev 目录下包含 SKILL.md 的本地 skill' {
-        $configPath = Join-Path $TestDrive 'skills.config.json'
-        $devRoot = Join-Path (Split-Path -Parent $configPath) 'dev'
+        $configRoot = Join-Path $TestDrive 'include-dev-all'
+        New-Item -ItemType Directory -Path $configRoot -Force | Out-Null
+        $configPath = Join-Path $configRoot 'skills.config.json'
+        $devRoot = Join-Path $configRoot 'dev'
         $localSkill = Join-Path $devRoot 'my-local-skill'
         New-Item -ItemType Directory -Path $localSkill -Force | Out-Null
         Set-Content -LiteralPath (Join-Path $localSkill 'SKILL.md') -Encoding utf8NoBOM -Value @'

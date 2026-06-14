@@ -108,6 +108,8 @@ Describe 'Initialize-Environment UltraMinimal path' {
         $script:proxyInvoked = $false
         $script:pathSyncInvoked = $false
         $script:utf8Invoked = $false
+        $script:OriginalPath = [Environment]::GetEnvironmentVariable('PATH', 'Process')
+        [Environment]::SetEnvironmentVariable('PATH', "/usr/bin", 'Process')
 
         function global:Set-Proxy {
             param([string]$Command)
@@ -133,14 +135,39 @@ Describe 'Initialize-Environment UltraMinimal path' {
         if ($script:OriginalSetProfileUtf8Encoding) {
             Set-Item -Path Function:\Set-ProfileUtf8Encoding -Value $script:OriginalSetProfileUtf8Encoding -Force
         }
+        [Environment]::SetEnvironmentVariable('PATH', $script:OriginalPath, 'Process')
     }
 
-    It 'should keep minimal init and skip proxy/path sync in UltraMinimal mode' {
+    It 'should keep minimal init, add repository bin path, and skip proxy/path sync in UltraMinimal mode' {
         Initialize-Environment -ScriptRoot (Resolve-Path $script:ProfileRootDir).Path
 
         $env:POWERSHELL_SCRIPTS_ROOT | Should -Be (Split-Path -Parent $script:ProfileRoot)
+        ($env:PATH -split [regex]::Escape([string][System.IO.Path]::PathSeparator)) | Should -Contain (Join-Path $env:POWERSHELL_SCRIPTS_ROOT 'bin')
         $script:utf8Invoked | Should -Be $true
         $script:proxyInvoked | Should -Be $false
         $script:pathSyncInvoked | Should -Be $false
+    }
+}
+
+Describe 'Profile repository bin PATH setup' {
+    BeforeEach {
+        $script:OriginalPath = [Environment]::GetEnvironmentVariable('PATH', 'Process')
+    }
+
+    AfterEach {
+        [Environment]::SetEnvironmentVariable('PATH', $script:OriginalPath, 'Process')
+    }
+
+    It 'should append repository bin path once even when the directory does not exist yet' {
+        $repoRoot = Join-Path $TestDrive 'repo-with-future-bin'
+        New-Item -ItemType Directory -Path $repoRoot -Force | Out-Null
+        [Environment]::SetEnvironmentVariable('PATH', "/usr/bin", 'Process')
+
+        Add-ProfileRepositoryBinPath -RepositoryRoot $repoRoot | Should -BeTrue
+        Add-ProfileRepositoryBinPath -RepositoryRoot $repoRoot | Should -BeFalse
+
+        $binPath = Join-Path $repoRoot 'bin'
+        $pathEntries = @($env:PATH -split [regex]::Escape([string][System.IO.Path]::PathSeparator))
+        @($pathEntries | Where-Object { $_ -eq $binPath }).Count | Should -Be 1
     }
 }

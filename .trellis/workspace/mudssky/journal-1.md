@@ -583,3 +583,70 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 18: 完善 api-example-test-writer httpyac env 与认证示例
+
+**Date**: 2026-06-08
+**Task**: 完善 api-example-test-writer httpyac env 与认证示例
+**Branch**: `master`
+
+### Summary
+
+统一 api-example-test-writer 的 httpyac env 命名为 .env.example/.env.test/.env.local，补充可提交 env 模板、登录获取 authToken 并复用到受保护接口的示例，同步安装到全局 Codex skill。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5ff4911` | (see git log) |
+| `ba965a4` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 19: macOS mpv 安装与点击打开
+
+**Date**: 2026-06-11
+**Task**: macOS mpv 安装与点击打开
+**Branch**: `master`
+
+### Summary
+
+为 Homebrew mpv 拆分平台配置，生成 macOS mpv.app 外壳，支持 Finder 打开方式点击视频，并补充安装文档与验证记录。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a6dee22` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

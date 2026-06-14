@@ -235,6 +235,73 @@ function Get-ProfileMissingToolInstallHint {
     }
 }
 
+function Add-ProfileRepositoryBinPath {
+    <#
+    .SYNOPSIS
+        将仓库 bin 目录加入当前 PowerShell 进程 PATH。
+    .DESCRIPTION
+        根据仓库根目录计算 bin 目录，并以去重方式追加到当前进程 PATH。
+        即使 bin 目录尚未生成也会保留该路径，确保本会话后续生成 shim 后可以直接发现命令。
+    .PARAMETER RepositoryRoot
+        powershellScripts 仓库根目录。
+    .OUTPUTS
+        System.Boolean
+        成功新增路径时返回 $true；路径已存在或仓库根目录为空时返回 $false。
+    #>
+    [CmdletBinding()]
+    param(
+        [string]$RepositoryRoot
+    )
+
+    process {
+        if ([string]::IsNullOrWhiteSpace($RepositoryRoot)) {
+            return $false
+        }
+
+        $repositoryBinPath = Join-Path $RepositoryRoot 'bin'
+        $pathSeparator = [System.IO.Path]::PathSeparator
+        $pathVariableName = if ($IsWindows -or $env:OS -eq 'Windows_NT') { 'Path' } else { 'PATH' }
+        $currentPath = [Environment]::GetEnvironmentVariable($pathVariableName, 'Process')
+        $pathComparer = if ($IsWindows -or $env:OS -eq 'Windows_NT') {
+            [System.StringComparer]::OrdinalIgnoreCase
+        }
+        else {
+            [System.StringComparer]::Ordinal
+        }
+
+        $targetPath = [System.IO.Path]::GetFullPath($repositoryBinPath)
+        $normalizedTargetPath = $targetPath.TrimEnd(
+            [System.IO.Path]::DirectorySeparatorChar,
+            [System.IO.Path]::AltDirectorySeparatorChar
+        )
+        $currentPaths = @($currentPath -split [regex]::Escape([string]$pathSeparator) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+
+        foreach ($path in $currentPaths) {
+            $normalizedPath = [string]$path
+            try {
+                $normalizedPath = [System.IO.Path]::GetFullPath($normalizedPath)
+            }
+            catch {
+                Write-Verbose "跳过无法规范化的 PATH 条目: $path"
+            }
+
+            $normalizedPath = $normalizedPath.TrimEnd(
+                [System.IO.Path]::DirectorySeparatorChar,
+                [System.IO.Path]::AltDirectorySeparatorChar
+            )
+            if ($pathComparer.Equals($normalizedPath, $normalizedTargetPath)) {
+                Write-Verbose "仓库 bin 目录已在 PATH 中: $targetPath"
+                return $false
+            }
+        }
+
+        $updatedPaths = @($currentPaths + $targetPath)
+        [Environment]::SetEnvironmentVariable($pathVariableName, ($updatedPaths -join $pathSeparator), 'Process')
+        Write-Verbose "已将仓库 bin 目录加入 PATH: $targetPath"
+        return $true
+    }
+}
+
 function Initialize-Environment {
     <#
     .SYNOPSIS
@@ -275,6 +342,9 @@ function Initialize-Environment {
         此函数会影响当前 PowerShell 会话的环境变量和配置
         运行时基线为 PowerShell 7+（pwsh）
         当前不实现 CI 自动判定与自动降级逻辑（YAGNI）
+    .OUTPUTS
+        System.Void
+        此函数不返回对象，仅修改当前 PowerShell 会话环境。
     #>
     [CmdletBinding()]
     param (
@@ -310,6 +380,7 @@ function Initialize-Environment {
         # 极简模式仅保留两项：根目录变量、UTF8 编码
         $rootForEnv = if (-not [string]::IsNullOrWhiteSpace($ScriptRoot)) { $ScriptRoot } else { $profileRoot }
         $env:POWERSHELL_SCRIPTS_ROOT = Split-Path -Parent $rootForEnv
+        Add-ProfileRepositoryBinPath -RepositoryRoot $env:POWERSHELL_SCRIPTS_ROOT | Out-Null
         Set-ProfileUtf8Encoding
 
         Write-ProfileModeDecisionSummary
@@ -332,6 +403,7 @@ function Initialize-Environment {
 
     # 设置项目根目录环境变量
     $env:POWERSHELL_SCRIPTS_ROOT = Split-Path -Parent $profileRoot
+    Add-ProfileRepositoryBinPath -RepositoryRoot $env:POWERSHELL_SCRIPTS_ROOT | Out-Null
 
     # === 平台特定：Linux PATH 同步 ===
     if ($IsLinux) {

@@ -114,6 +114,7 @@ shaders
 cache
 # 本地配置文件
 mpv_local.conf
+mpv_local.conf.*.bak
 # uosc相关内容
 # 插件可以通过脚本下载，所以就忽略掉
 scripts/uosc

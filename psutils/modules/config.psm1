@@ -25,4 +25,5 @@ Export-ModuleMember -Function @(
     'ConvertFrom-ConfigCliParameters'
     'Read-ConfigPowerShellDataFile'
     'Read-ConfigMarkdownFrontMatter'
+    'Read-ConfigSshClientConfig'
 )

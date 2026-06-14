@@ -1,4 +1,3 @@
-@baseUrl = http://localhost:3000
 @maxPoll = 20
 
 ###
@@ -11,12 +10,15 @@
 
 ###
 # 说明：提交一个异步报表任务，验证服务能返回可追踪的 taskId。
-# 前置：当前环境账号具备创建 report 任务的权限，且测试数据不会影响生产。
+# 前置：通过 auth-smoke.http 的 login 写入 authToken；当前账号具备创建 report 任务的权限。
 # 断言：只要求 taskId 存在，具体状态由后续轮询请求负责验证。
 # @name submitTask
 # @tag test
 # @tag async
+# @import ./auth-smoke.http
+# @ref login
 POST {{baseUrl}}/api/tasks
+Authorization: Bearer {{authToken}}
 Content-Type: application/json
 
 {
@@ -42,6 +44,7 @@ Content-Type: application/json
 # @loop while !finished && pollCount < maxPoll
 # @sleep 2000
 GET {{baseUrl}}/api/tasks/{{taskId}}/status
+Authorization: Bearer {{authToken}}
 
 ?? status == 200
 
@@ -68,6 +71,7 @@ GET {{baseUrl}}/api/tasks/{{taskId}}/status
 # @tag async
 # @ref pollTask
 GET {{baseUrl}}/api/tasks/{{taskId}}/result
+Authorization: Bearer {{authToken}}
 
 ?? status == 200
 ?? body $.data exists

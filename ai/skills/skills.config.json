@@ -50,6 +50,11 @@
       "source": "./dev/docker-management",
       "sourceType": "local"
     },
+    "powershellscripts-ops": {
+      "description": "管理 powershellScripts 仓库运维任务与项目依赖安装。",
+      "source": "./dev/powershellscripts-ops",
+      "sourceType": "local"
+    },
     "mattpocock-skills": {
       "description": "Matt Pocock 维护的精选编码、诊断、架构与评审 skill 集合。",
       "source": "mattpocock/skills",

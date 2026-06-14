@@ -350,3 +350,81 @@ body
         $result.Sources.reasoning_effort | Should -Be 'Cli'
     }
 }
+
+Describe 'Read-ConfigSshClientConfig' {
+    It 'parses launchable Host blocks and common connection fields' {
+        $configPath = Join-Path $TestDrive 'ssh_config'
+        Set-Content -Path $configPath -Encoding utf8NoBOM -Value @'
+Host proj-srm-trellis
+  HostName 192.168.27.77
+  User administrator
+  Port 32222
+  RequestTTY yes
+  RemoteCommand cd ~/projects/work/hubs/srm-trellis && exec zellij attach -c srm-trellis
+
+Host internal-server
+  HostName example.internal # trailing comment
+  User deploy
+'@
+
+        $blocks = @(Read-ConfigSshClientConfig -Path $configPath)
+
+        $blocks | Should -HaveCount 2
+        $blocks[0].Host | Should -Be 'proj-srm-trellis'
+        $blocks[0].HostName | Should -Be '192.168.27.77'
+        $blocks[0].User | Should -Be 'administrator'
+        $blocks[0].Port | Should -Be '32222'
+        $blocks[0].RequestTTY | Should -Be 'yes'
+        $blocks[0].RemoteCommand | Should -Be 'cd ~/projects/work/hubs/srm-trellis && exec zellij attach -c srm-trellis'
+        $blocks[0].IsLaunchCandidate | Should -BeTrue
+        $blocks[1].HostName | Should -Be 'example.internal'
+    }
+
+    It 'marks multi-pattern and wildcard Host blocks as non-launchable' {
+        $configPath = Join-Path $TestDrive 'ssh_config_patterns'
+        Set-Content -Path $configPath -Encoding utf8NoBOM -Value @'
+Host *
+  User fallback
+
+Host proj-* !proj-old
+  User ignored
+
+Host good-host
+  HostName good.example
+'@
+
+        $blocks = @(Read-ConfigSshClientConfig -Path $configPath)
+
+        $blocks | Should -HaveCount 3
+        $blocks[0].Host | Should -Be '*'
+        $blocks[0].IsLaunchCandidate | Should -BeFalse
+        $blocks[1].HostPatterns | Should -Be @('proj-*', '!proj-old')
+        $blocks[1].IsLaunchCandidate | Should -BeFalse
+        $blocks[2].Host | Should -Be 'good-host'
+        $blocks[2].IsLaunchCandidate | Should -BeTrue
+    }
+
+    It 'supports equals syntax and stops collecting when a Match block starts' {
+        $configPath = Join-Path $TestDrive 'ssh_config_match'
+        Set-Content -Path $configPath -Encoding utf8NoBOM -Value @'
+Host equals-host
+  HostName=equals.example
+  User=deploy
+Match host *
+  RemoteCommand should-not-attach
+'@
+
+        $blocks = @(Read-ConfigSshClientConfig -Path $configPath)
+
+        $blocks | Should -HaveCount 1
+        $blocks[0].HostName | Should -Be 'equals.example'
+        $blocks[0].User | Should -Be 'deploy'
+        $blocks[0].RemoteCommand | Should -BeNullOrEmpty
+    }
+
+    It 'exports the SSH config reader from the psutils manifest' {
+        $manifest = Import-PowerShellDataFile (Join-Path $PSScriptRoot '..' 'psutils.psd1')
+
+        @($manifest.FunctionsToExport) | Should -Contain 'Read-ConfigSshClientConfig'
+    }
+}

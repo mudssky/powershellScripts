@@ -21,6 +21,7 @@
   - `Read-ConfigEnvFile -Path <string>`
   - `Read-ConfigPowerShellDataFile -Path <string>`
   - `Read-ConfigMarkdownFrontMatter -Path <string>`
+  - `Read-ConfigSshClientConfig -Path <string>`
 - Conversion helpers:
   - `ConvertTo-ConfigHashtable -InputObject <object>`
   - `Get-ConfigValue -Values <hashtable> -Name <string> [-DefaultValue <object>]`
@@ -41,6 +42,8 @@
 - `Resolve-DefaultEnvFiles -PrimaryBasePath <dir> -FallbackBasePath <dir>` only falls back when the primary directory has no default env file at all.
 - `CliParameters` converts explicit PowerShell parameters to snake_case keys and skips `$null`、empty strings and `ExcludeKeys`.
 - `MarkdownFrontMatter` returns parsed metadata plus `__content` for the Markdown body.
+- `Read-ConfigSshClientConfig` parses a single OpenSSH client config file into Host block objects and extracts `Host`、`HostName`、`User`、`Port`、`RemoteCommand`、`RequestTTY`; it does not expand `Include`、`Match` conditions or OpenSSH inheritance.
+- SSH Host blocks expose `IsLaunchCandidate`; only a single explicit Host pattern without whitespace, `*`、`?` or `!` is launchable by menu-style callers.
 - `Get-ConfigValue` performs shallow case-insensitive lookup only; it must not expand paths, environment variables, nested paths, or normalize key names.
 - `Resolve-ConfigEnvPlaceholder` expands `${VAR}` and `%VAR%`; missing `${VAR}` throws with context instead of silently preserving the placeholder.
 - `Resolve-ConfigPath` expands env placeholders, supports `~`, resolves relative paths against `BasePath`, and returns an absolute path. It does not validate existence or create directories.
@@ -63,15 +66,18 @@
 | `${VAR}` placeholder references a missing env var | Throw `环境变量未设置: VAR（context）` |
 | `Resolve-ConfigPath` receives an empty path | Throw `路径配置不能为空: context` |
 | Platform map is a scalar without `-AllowScalar` | Throw `<label> 需要按平台配置` |
+| SSH config Host line contains multiple patterns or wildcards | Keep the block but set `IsLaunchCandidate = false` |
 
 ### 5. Good/Base/Bad Cases
 
 - Good: `scripts/pwsh/ai/agent-runner/core/config.ps1` merges defaults, prompt preset metadata and CLI parameters through `Resolve-ConfigSources`.
 - Good: `scripts/pwsh/ai/agent-runner/core/prompt.ps1` reads preset frontmatter through `Read-ConfigMarkdownFrontMatter`.
 - Good: `scripts/pwsh/devops/postgresql/core/context.ps1` uses `Resolve-DefaultEnvFiles` and `Resolve-ConfigSources` for PostgreSQL env defaults.
+- Good: `scripts/pwsh/devops/project-launcher/main.ps1` uses `Read-ConfigSshClientConfig` for SSH Host discovery and still launches by Host alias, so OpenSSH owns final connection semantics while the launcher controls TTY and terminal-hosting behavior.
 - Base: `scripts/pwsh/download/Install-GitHubCli.ps1` imports `psutils/modules/config.psm1` and uses `JsonFile` plus `CliParameters` sources.
 - Bad: Add a new `Read-EnvFile` helper inside a script when `Read-ConfigEnvFile` already covers strict dotenv parsing.
 - Bad: Parse `.md` preset frontmatter with ad hoc regex in a feature script instead of using `Read-ConfigMarkdownFrontMatter`.
+- Bad: Reimplement SSH config parsing inside a launcher script when `Read-ConfigSshClientConfig` can provide Host block discovery.
 
 ### 6. Tests Required
 
@@ -81,6 +87,7 @@
 - Markdown tests must assert metadata types, `__content`, and file/line-number parse errors.
 - CLI parameter tests must assert snake_case conversion, empty-value skipping and `ExcludeKeys`.
 - Scoped environment tests must assert restoration on success and on exception.
+- SSH config tests must assert ordinary Host blocks, `RemoteCommand`, equals syntax, wildcard or multi-pattern filtering, and `Match` boundary handling.
 - When a downstream script adopts the resolver, add focused Pester tests around the script's source order and validation behavior, not around `psutils` internals.
 
 ### 7. Wrong vs Correct

@@ -64,44 +64,50 @@ foreach ($path in $paths) {
 $env:PSModulePath = ($uniquePaths.ToArray()) -join $sep
 
 # ── 第 3 层：OnIdle 事件延迟全量加载（空闲时静默加载完整 psutils 模块） ──
-# 将 wrapper.ps1 的加载也合并到此处
-# 注意：PowerShell 7.5 的 Register-EngineEvent -MessageData 对 OnIdle 事件传递为 $null（引擎 bug），
-# 因此使用局部变量 + .GetNewClosure() 将值烘焙到脚本块的闭包中
-$__idleManifestPath = [string]$moduleManifest
-$__idleWrapperPath = [string](Join-Path (Split-Path -Parent $PSScriptRoot) 'wrapper.ps1')
-Register-EngineEvent -SourceIdentifier PowerShell.OnIdle -MaxTriggerCount 1 -Action {
-    try {
-        # 全量加载 psutils 模块（覆盖单独加载的子模块，补全其余子模块）
-        Import-Module $__idleManifestPath -Force -Global -ErrorAction Stop
+# 将 wrapper.ps1 的加载也合并到此处。OnIdle Action 会在事件 Job 的动态模块中执行，
+# 直接内联路径字面量，避免依赖局部闭包变量导致 Import-Module 收到空 Name。
+$__idleManifestPathLiteral = ([string]$moduleManifest).Replace("'", "''")
+$__idleWrapperPathLiteral = ([string](Join-Path (Split-Path -Parent $PSScriptRoot) 'wrapper.ps1')).Replace("'", "''")
+$__idleAction = [scriptblock]::Create(@"
+`$idleManifestPath = '$__idleManifestPathLiteral'
+`$idleWrapperPath = '$__idleWrapperPathLiteral'
+try {
+    if ([string]::IsNullOrWhiteSpace(`$idleManifestPath)) {
+        throw 'psutils 模块清单路径为空'
     }
-    catch {
-        Write-Warning "[profile/loadModule.ps1] OnIdle psutils 全量加载失败: $($_.Exception.Message)"
+
+    # 全量加载 psutils 模块（覆盖单独加载的子模块，补全其余子模块）
+    Import-Module `$idleManifestPath -Force -Global -ErrorAction Stop
+}
+catch {
+    Write-Warning "[profile/loadModule.ps1] OnIdle psutils 全量加载失败: `$(`$_.Exception.Message)"
+}
+try {
+    # 延迟加载 wrapper.ps1（yaz, Add-CondaEnv 等函数）
+    if (-not [string]::IsNullOrWhiteSpace(`$idleWrapperPath) -and (Test-Path `$idleWrapperPath)) {
+        . `$idleWrapperPath
     }
-    try {
-        # 延迟加载 wrapper.ps1（yaz, Add-CondaEnv 等函数）
-        if (Test-Path $__idleWrapperPath) {
-            . $__idleWrapperPath
-        }
+}
+catch {
+    Write-Warning "[profile/loadModule.ps1] OnIdle wrapper.ps1 加载失败: `$(`$_.Exception.Message)"
+}
+try {
+    # fzf 键绑定注册（Register-FzfHistorySmartKeyBinding 来自 functions.psm1，
+    # 全量加载完成后才可用，不能在同步路径中通过 Get-Command 查找）
+    if (Get-Command -Name Register-FzfHistorySmartKeyBinding -CommandType Function -ErrorAction SilentlyContinue) {
+        Register-FzfHistorySmartKeyBinding | Out-Null
     }
-    catch {
-        Write-Warning "[profile/loadModule.ps1] OnIdle wrapper.ps1 加载失败: $($_.Exception.Message)"
-    }
-    try {
-        # fzf 键绑定注册（Register-FzfHistorySmartKeyBinding 来自 functions.psm1，
-        # 全量加载完成后才可用，不能在同步路径中通过 Get-Command 查找）
-        if (Get-Command -Name Register-FzfHistorySmartKeyBinding -CommandType Function -ErrorAction SilentlyContinue) {
-            Register-FzfHistorySmartKeyBinding | Out-Null
-        }
-    }
-    catch {
-        Write-Warning "[profile/loadModule.ps1] OnIdle fzf 键绑定注册失败: $($_.Exception.Message)"
-    }
-    try {
-        # PSReadLine Tab 补全键绑定（从 encoding.ps1 同步路径移至此处，
-        # 避免冷启动时触发 PSReadLine 模块完整初始化 ~260ms）
-        Set-PSReadLineKeyHandler -Key Tab -Function Complete
-    }
-    catch {
-        Write-Warning "[profile/loadModule.ps1] OnIdle PSReadLine Tab 键绑定注册失败: $($_.Exception.Message)"
-    }
-}.GetNewClosure() | Out-Null
+}
+catch {
+    Write-Warning "[profile/loadModule.ps1] OnIdle fzf 键绑定注册失败: `$(`$_.Exception.Message)"
+}
+try {
+    # PSReadLine Tab 补全键绑定（从 encoding.ps1 同步路径移至此处，
+    # 避免冷启动时触发 PSReadLine 模块完整初始化 ~260ms）
+    Set-PSReadLineKeyHandler -Key Tab -Function Complete
+}
+catch {
+    Write-Warning "[profile/loadModule.ps1] OnIdle PSReadLine Tab 键绑定注册失败: `$(`$_.Exception.Message)"
+}
+"@)
+Register-EngineEvent -SourceIdentifier PowerShell.OnIdle -MaxTriggerCount 1 -Action $__idleAction | Out-Null
