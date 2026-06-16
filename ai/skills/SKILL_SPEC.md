@@ -167,3 +167,9 @@ pwsh -NoProfile -File ./ai/skills/Install-Skills.ps1 -IncludeDevAll -DryRun
 
 确认计划正确后移除 `-DryRun`。远程和本地 skill 都通过 `npx skills add` 安装，
 安装状态与 lock 文件由 `skills` CLI 维护。
+
+当前默认只通过安装器同步 Claude Code 目标，不再把 `codex` 写入
+`skills.config.json` 的默认 agents。Codex 会加载通用个人 skill 目录
+`~/.agents/skills`；如果再通过安装器向 `~/.codex/skills` 安装同名 skill，
+会在 Codex 中出现重复条目。只有明确需要 Codex 专用副本时，才临时使用
+`-Agent codex` 或在单个 skill 配置中显式声明 `agents`。

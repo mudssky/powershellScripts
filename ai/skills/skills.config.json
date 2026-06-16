@@ -2,8 +2,7 @@
   "version": 1,
   "scope": "global",
   "agents": [
-    "claude",
-    "codex"
+    "claude"
   ],
   "tools": {
     "ctx7": {
@@ -11,8 +10,7 @@
       "phase": "preInstall",
       "check": {
         "agents": [
-          "claude",
-          "codex"
+          "claude"
         ],
         "skills": [
           "find-docs"
