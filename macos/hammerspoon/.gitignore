@@ -1,0 +1,3 @@
+config.local.lua
+*.bak
+.powershellscripts-hammerspoon.manifest

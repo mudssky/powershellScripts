@@ -832,6 +832,9 @@
         "command": "brew install --cask hammerspoon",
         "supportOs": [
           "macOS"
+        ],
+        "tag": [
+          "macbook"
         ]
       },
       {

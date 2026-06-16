@@ -1,240 +1,143 @@
-# Hammerspoon Windows风格快捷键脚本
+# Hammerspoon 快捷键配置
 
-这个项目为macOS用户提供了Windows风格的快捷键映射，让经常使用Windows系统的用户在macOS上有更熟悉的操作体验。
+这个目录维护一套偏精简的 macOS Hammerspoon 配置。默认只启用低冲突快捷键：窗口吸附、锁屏、Finder、Spotlight、系统设置和配置重载；其他 Windows 风格快捷键通过本机配置按需开启。
 
-## 📋 功能特性
+## 默认快捷键
 
-### 🪟 窗口管理
+| 功能 | 快捷键 |
+|------|--------|
+| 窗口靠左半屏 | `Cmd+Alt+Ctrl+Left` |
+| 窗口靠右半屏 | `Cmd+Alt+Ctrl+Right` |
+| 窗口最大化 | `Cmd+Alt+Ctrl+Up` |
+| 窗口最小化 | `Cmd+Alt+Ctrl+Down` |
+| 锁定屏幕 | `Cmd+Alt+Ctrl+L` |
+| 打开 Finder | `Cmd+Alt+Ctrl+E` |
+| 打开 Spotlight | `Cmd+Alt+Ctrl+Space` |
+| 打开 System Settings | `Cmd+Alt+Ctrl+I` |
+| 重载 Hammerspoon 配置 | `Cmd+Alt+Ctrl+R` |
 
-- **Alt+Tab**: 应用程序切换（类似Windows）
-- **Win+Tab**: 显示所有窗口（Mission Control）
-- **Win+D**: 显示桌面
-- **Win+L**: 锁定屏幕
-- **Win+E**: 打开Finder（类似Windows资源管理器）
-- **Win+R**: 运行对话框（Spotlight搜索）
-- **Win+X**: 系统工具菜单（打开系统偏好设置）
+默认关闭的可选功能组包括：`altTab`、`text`、`browser`、`system`、`screenshot`、`volume`、`spaces`、`apps`、`finderActions`。
 
-### 📐 窗口排列
+## 安装
 
-- **Win+Left**: 窗口靠左半屏
-- **Win+Right**: 窗口靠右半屏
-- **Win+Up**: 窗口最大化
-- **Win+Down**: 窗口最小化
+1. 安装 Hammerspoon：
 
-### ✏️ 文本编辑
-
-- **Ctrl+A**: 全选
-- **Ctrl+C**: 复制
-- **Ctrl+V**: 粘贴
-- **Ctrl+X**: 剪切
-- **Ctrl+Z**: 撤销
-- **Ctrl+Y**: 重做
-- **Ctrl+S**: 保存
-- **Ctrl+F**: 查找
-- **Ctrl+N**: 新建
-- **Ctrl+O**: 打开
-- **Ctrl+P**: 打印
-- **Ctrl+W**: 关闭窗口/标签页
-- **Ctrl+T**: 新建标签页
-
-### 🌐 浏览器快捷键
-
-- **Ctrl+Tab**: 下一个标签页
-- **Ctrl+Shift+Tab**: 上一个标签页
-- **F5**: 刷新页面
-- **Ctrl+R**: 刷新页面
-- **Ctrl+Shift+T**: 恢复关闭的标签页
-
-### 🖥️ 系统快捷键
-
-- **Alt+F4**: 关闭应用程序
-- **Ctrl+Shift+Esc**: 打开活动监视器（类似任务管理器）
-- **Win+I**: 打开系统偏好设置
-- **Win+Pause**: 打开关于本机
-
-### 📸 截图快捷键
-
-- **Print Screen (F13)**: 全屏截图
-- **Alt+Print Screen**: 窗口截图
-
-### 🔊 音量控制
-
-- **Ctrl+Alt+Up**: 音量增加
-- **Ctrl+Alt+Down**: 音量减少
-- **Ctrl+Alt+M**: 静音切换
-
-### 🖥️ 虚拟桌面
-
-- **Ctrl+Win+Left**: 切换到左边的桌面
-- **Ctrl+Win+Right**: 切换到右边的桌面
-- **Ctrl+Win+D**: 创建新的桌面
-
-### 🚀 应用程序快速启动
-
-- **Win+1到Win+9**: 快速切换到运行中的应用程序
-
-### 📁 文件管理器
-
-- **F2**: 重命名文件
-- **Delete**: 移到废纸篓
-- **Shift+Delete**: 永久删除
-- **Ctrl+Shift+N**: 新建文件夹
-
-## 🛠️ 安装和使用
-
-### 前置要求
-
-1. **安装Hammerspoon**:
-
-   ```bash
-   brew install hammerspoon
+   ```zsh
+   brew install --cask hammerspoon
    ```
 
-   或者从官网下载: https://www.hammerspoon.org/
+2. 部署配置：
 
-2. **启动Hammerspoon**并给予必要的权限（辅助功能权限）
+   ```zsh
+   zsh macos/05deployHammerspoon.sh
+   ```
 
-### 自动安装
+部署脚本会复制 `init.lua`、默认配置和功能脚本到 `~/.hammerspoon/`，保留本机 `config.local.lua`，并启动或重启 Hammerspoon。
 
-运行提供的zsh脚本来自动安装和配置：
+常用参数：
 
-```bash
-./load_scripts.zsh
+```zsh
+zsh macos/05deployHammerspoon.sh --dry-run
+zsh macos/05deployHammerspoon.sh --no-launch
+zsh macos/05deployHammerspoon.sh --install
 ```
 
-这个脚本会：
+## 配置
 
-- 检查Hammerspoon是否已安装
-- 备份现有的配置文件
-- 创建新的配置文件
-- 复制所有lua脚本到正确位置
-- 启动或重新加载Hammerspoon
+仓库默认配置在 `config.lua`，部署后位于 `~/.hammerspoon/config.lua`。本机覆盖配置位于 `~/.hammerspoon/config.local.lua`，首次部署时会从 `config.local.example.lua` 生成，后续部署不会覆盖。
 
-### 手动安装
-
-如果你想手动安装：
-
-1. 复制`win.lua`到`~/.hammerspoon/scripts/`目录
-2. 创建或修改`~/.hammerspoon/init.lua`文件来加载脚本
-3. 重新加载Hammerspoon配置
-
-## 🔧 配置管理
-
-### 修饰键配置
-
-脚本默认启用**修饰键交换模式**，将Windows风格的快捷键更好地适配到macOS：
-
-- **Win键** → **Ctrl键**（macOS的Control键）
-- **Ctrl键** → **Cmd键**（macOS的Command键）
-
-#### 环境变量配置（推荐）
-
-通过设置环境变量来控制修饰键映射：
-
-```bash
-# 禁用修饰键交换（使用标准映射）
-export HAMMERSPOON_MODIFIER_SWAP=false
-
-# 启用修饰键交换（默认行为）
-export HAMMERSPOON_MODIFIER_SWAP=true
-```
-
-将环境变量添加到你的shell配置文件中：
-
-```bash
-# 添加到 ~/.zshrc 或 ~/.bash_profile
-echo 'export HAMMERSPOON_MODIFIER_SWAP=false' >> ~/.zshrc
-source ~/.zshrc
-```
-
-#### 全局变量配置（向后兼容）
-
-也可以通过在`~/.hammerspoon/init.lua`中设置全局变量：
+示例：
 
 ```lua
--- 在加载win.lua之前设置
-_G.modifierSwapped = false  -- 禁用交换
--- 然后加载脚本
-require('scripts.win')
+return {
+	modifierSwap = false,
+	showAlerts = false,
+	enabledGroups = {
+		altTab = true,
+		volume = true,
+	},
+	hotkeys = {
+		windowModifiers = { "cmd", "alt", "ctrl" },
+		launcherModifiers = { "cmd", "alt", "ctrl" },
+	},
+	taskbarApps = {
+		"Finder",
+		"Safari",
+		"Terminal",
+		"Visual Studio Code",
+		"System Settings",
+		"Activity Monitor",
+		"Calculator",
+		"TextEdit",
+		"Preview",
+	},
+}
 ```
 
-#### 配置模式对比
+### 功能组
 
-| 功能 | 交换模式（默认） | 标准模式 |
-|------|------------------|----------|
-| 窗口排列 | **Ctrl+方向键** | **Cmd+方向键** |
-| 文本操作 | **Cmd+C/V/X/Z** | **Ctrl+C/V/X/Z** |
-| 锁定屏幕 | **Ctrl+L** | **Cmd+L** |
-| 打开Finder | **Ctrl+E** | **Cmd+E** |
-| 系统设置 | **Ctrl+I** | **Cmd+I** |
+| 组名 | 默认 | 说明 |
+|------|------|------|
+| `window` | 开 | 窗口半屏、最大化、最小化 |
+| `launcher` | 开 | 锁屏、Finder、Spotlight、System Settings |
+| `reload` | 开 | `Cmd+Alt+Ctrl+R` 重载配置 |
+| `altTab` | 关 | `Alt+Tab` 触发 macOS App Switcher |
+| `text` | 关 | Windows 风格文本编辑快捷键 |
+| `browser` | 关 | 浏览器标签与刷新快捷键 |
+| `system` | 关 | Mission Control、显示桌面、活动监视器等 |
+| `screenshot` | 关 | Print Screen / 截图工具兼容 |
+| `volume` | 关 | 音量加减与静音 |
+| `spaces` | 关 | 虚拟桌面切换、创建、关闭 |
+| `apps` | 关 | `Win+1` 到 `Win+9` 应用快速启动 |
+| `finderActions` | 关 | Finder 删除、重命名、新建文件夹 |
 
-**推荐使用交换模式**，因为它让Windows用户在macOS上有更自然的操作体验。
+`windowModifiers` 和 `launcherModifiers` 使用 Hammerspoon 原生修饰键名，不受 `modifierSwap` 影响。默认使用 `Cmd+Alt+Ctrl`，避免覆盖裸 `Cmd+Left`、`Cmd+R`、`Cmd+I` 这类 macOS 常用快捷键。
 
-### 重新加载配置
+### 修饰键映射
 
-- **快捷键**: `Cmd+Alt+Ctrl+R`
-- **自动重载**: 修改lua文件后会自动重新加载
+默认 `modifierSwap = false`：
 
-### 查看日志
+- `win` 映射到 macOS `cmd`
+- `ctrl` 映射到 macOS `ctrl`
+- `alt` 映射到 macOS `alt`
 
-打开Hammerspoon控制台可以查看详细的加载日志和错误信息，包括当前的修饰键配置状态。
-
-### 自定义配置
-
-你可以修改`win.lua`文件来自定义快捷键映射：
+如果你想让旧版配置中的交换模式继续生效，可以在 `config.local.lua` 设置：
 
 ```lua
--- 例如：添加新的快捷键
-hs.hotkey.bind({"cmd"}, "j", function()
-    -- 你的自定义功能
-end)
+return {
+	modifierSwap = true,
+}
 ```
 
-## 📁 文件结构
+为了兼容旧配置，脚本仍会读取 `_G.modifierSwapped` 和 `HAMMERSPOON_MODIFIER_SWAP`，但不再推荐依赖 shell rc 中的环境变量。
+
+## 文件结构
 
 ```text
 hammerspoon/
-├── win.lua              # 主要的Windows风格快捷键脚本
-├── load_scripts.zsh     # 自动安装和配置脚本
-└── README.md           # 说明文档
+├── config.lua                  # 仓库默认配置
+├── config.local.example.lua    # 本机覆盖示例
+├── init/
+│   └── init.lua                # Hammerspoon 入口
+├── load_scripts.zsh            # 部署脚本
+├── win.lua                     # 快捷键功能脚本
+└── README.md
 ```
 
-安装后的Hammerspoon配置结构：
+部署后的结构：
 
 ```text
 ~/.hammerspoon/
-├── init.lua            # 主配置文件（自动生成）
+├── init.lua
+├── config.lua
+├── config.local.lua
+├── .powershellscripts-hammerspoon.manifest
 └── scripts/
-    └── win.lua         # Windows风格快捷键脚本
+    └── win.lua
 ```
 
-## 🐛 故障排除
+## 排查
 
-### 快捷键不工作
-
-1. 确保Hammerspoon有辅助功能权限
-2. 检查是否有其他应用占用了相同的快捷键
-3. 查看Hammerspoon控制台的错误信息
-
-### 脚本加载失败
-
-1. 检查lua语法是否正确
-2. 查看Hammerspoon控制台的错误日志
-3. 尝试重新加载配置（`Cmd+Alt+Ctrl+R`）
-
-### 权限问题
-
-1. 在系统偏好设置 > 安全性与隐私 > 隐私 > 辅助功能中添加Hammerspoon
-2. 重启Hammerspoon应用
-
-## 🤝 贡献
-
-欢迎提交Issue和Pull Request来改进这个项目！
-
-## 📄 许可证
-
-本项目采用MIT许可证。
-
-## 🙏 致谢
-
-感谢[Hammerspoon](https://www.hammerspoon.org/)项目提供了强大的macOS自动化工具。
+- 快捷键不工作：确认 Hammerspoon 已获得辅助功能权限。
+- 配置没生效：按 `Cmd+Alt+Ctrl+R` 重载，或查看 Hammerspoon Console。
+- 部署脚本找不到 Hammerspoon：确认已安装，或运行 `zsh macos/05deployHammerspoon.sh --install`。

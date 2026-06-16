@@ -1,0 +1,34 @@
+-- Hammerspoon 本机覆盖配置示例。
+-- 功能：覆盖仓库默认配置；部署脚本会在缺失 config.local.lua 时复制本文件。
+-- 入参：无。
+-- 返回值：只包含需要覆盖字段的配置表。
+
+return {
+	-- modifierSwap = true,
+	-- showAlerts = false,
+	enabledGroups = {
+		-- altTab = true,
+		-- text = true,
+		-- browser = true,
+		-- screenshot = true,
+		-- volume = true,
+		-- spaces = true,
+		-- apps = true,
+		-- finderActions = true,
+	},
+	-- hotkeys = {
+	-- 	windowModifiers = { "cmd", "alt", "ctrl" },
+	-- 	launcherModifiers = { "cmd", "alt", "ctrl" },
+	-- },
+	-- taskbarApps = {
+	-- 	"Finder",
+	-- 	"Safari",
+	-- 	"Terminal",
+	-- 	"Visual Studio Code",
+	-- 	"System Settings",
+	-- 	"Activity Monitor",
+	-- 	"Calculator",
+	-- 	"TextEdit",
+	-- 	"Preview",
+	-- },
+}
