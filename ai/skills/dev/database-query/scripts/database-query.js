@@ -3,7 +3,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, extname, join, resolve } from "node:path";
+import { basename, dirname, extname, join, resolve } from "node:path";
 import { EventEmitter } from "events";
 import { homedir } from "node:os";
 
@@ -1631,8 +1631,8 @@ function createCli(io) {
 	cli.command("doctor", "检查底层客户端可用性。").action(async () => {
 		io.stdout(await formatDoctor());
 	});
-	cli.command("config <action>", "输出配置文件查找路径或当前配置。").option("--config <path>", "显式配置文件路径。").option("--format <format>", "输出格式：text 或 json。", { default: "text" }).action((action, options) => {
-		runConfigCommand(action, options, io);
+	cli.command("config <action>", "输出配置文件查找路径或当前配置。").option("--config <path>", "显式配置文件路径。").option("--instance <id>", "目标实例。").option("--database <name>", "PostgreSQL 发现连接库。").option("--include <patterns>", "逗号分隔的库名 glob 白名单。").option("--exclude <patterns>", "逗号分隔的库名 glob 排除列表。").option("--write", "将发现结果写回本机 local JSON 配置。").option("--global", "强制读取并写回 XDG 全局 local JSON 配置。").option("--format <format>", "输出格式：text 或 json。", { default: "text" }).action(async (action, options) => {
+		await runConfigCommand(action, options, io);
 	});
 	cli.command("init-config", "生成最小 database-query 配置模板。").option("--global", "写入 XDG 用户级全局配置路径。").option("--path <path>", "写入指定配置路径。").option("--print", "只打印模板，不写文件。").option("--force", "允许覆盖已有配置文件。").action(async (options) => {
 		await runInitConfig(options, io);
@@ -1917,7 +1917,7 @@ function formatContext(snapshot) {
 * @param io 输出抽象。
 * @returns 无返回值。
 */
-function runConfigCommand(action, options, io) {
+async function runConfigCommand(action, options, io) {
 	if (action === "paths") {
 		const paths = getConfigSearchPaths();
 		io.stdout(options.format === "json" ? JSON.stringify(paths, null, 2) : formatConfigPaths(paths));
@@ -1927,6 +1927,11 @@ function runConfigCommand(action, options, io) {
 		const current = resolveCurrentConfigPath(options.config);
 		io.stdout(options.format === "json" ? JSON.stringify(current, null, 2) : formatCurrentConfig(current));
 		if (!current.path) throw new CliError("未找到配置文件。", 1);
+		return;
+	}
+	if (action === "discover-databases") {
+		const summary = await runDiscoverDatabases(options);
+		io.stdout(options.format === "json" ? JSON.stringify(summary, null, 2) : formatDiscoverDatabasesSummary(summary));
 		return;
 	}
 	throw new CliError(`不支持的 config action: ${action}`);
@@ -1981,6 +1986,341 @@ function formatCurrentConfig(current) {
 	];
 	if (!current.path) lines.push(`hint: 请提供 --config，或创建 ${current.globalLocalConfigPath}。`);
 	return lines.join("\n");
+}
+/**
+* 执行数据库候选发现命令。
+*
+* @param options CLI 配置子命令选项。
+* @returns 发现与可选写回摘要。
+*/
+async function runDiscoverDatabases(options) {
+	if (options.config && options.global) throw new CliError("--config 与 --global 只能选择一个。");
+	const loaded = await loadConfig(options.global ? getGlobalLocalConfigPath() : options.config);
+	const resolvedConfigPath = loaded.path;
+	if (!resolvedConfigPath) throw new CliError("无法确定配置文件路径。");
+	const instance = resolveTarget(loaded.config, { instance: options.instance }).instance;
+	if (instance.type !== "postgres" && instance.type !== "mysql") throw new CliError(`config discover-databases 暂不支持 ${instance.type} 实例。首版仅支持 PostgreSQL 与 MySQL。`);
+	const { plan, connectionDatabase } = createDiscoverDatabasesPlan(instance, options.database);
+	const output = runDiscoveryPlan(plan);
+	const discovered = filterSystemDatabases(instance.type, parseDatabaseListOutput(output));
+	const selected = applyDatabaseFilters(discovered, {
+		include: options.include,
+		exclude: options.exclude
+	});
+	const summary = {
+		configPath: resolvedConfigPath,
+		instance: instance.id,
+		type: instance.type,
+		connectionDatabase,
+		discovered,
+		selected,
+		write: Boolean(options.write)
+	};
+	if (options.write) {
+		const writeResult = await writeDiscoveredDatabases({
+			configPath: resolvedConfigPath,
+			instanceId: instance.id,
+			databases: selected,
+			connectionDatabase
+		});
+		summary.backupPath = writeResult.backupPath;
+		summary.updatedPath = writeResult.updatedPath;
+	}
+	return summary;
+}
+/**
+* 创建关系型数据库候选发现执行计划。
+*
+* @param instance 数据库实例。
+* @param explicitDatabase PostgreSQL 发现连接库覆盖值。
+* @returns 执行计划与实际连接库。
+*/
+function createDiscoverDatabasesPlan(instance, explicitDatabase) {
+	if (instance.type === "postgres") {
+		const connectionDatabase = explicitDatabase ?? instance.defaultDatabase ?? "postgres";
+		const args = [
+			...optionalArgPair("-h", instance.host),
+			...optionalArgPair("-p", instance.port?.toString()),
+			...optionalArgPair("-U", instance.username),
+			"-d",
+			connectionDatabase,
+			"-A",
+			"-t",
+			"-c",
+			"select datname from pg_database where not datistemplate order by datname;"
+		];
+		return {
+			connectionDatabase,
+			plan: {
+				tool: "psql",
+				args,
+				displayArgs: args,
+				env: instance.password ? { PGPASSWORD: instance.password } : {},
+				displayEnv: instance.password ? { PGPASSWORD: "<redacted>" } : {},
+				summary: `PostgreSQL ${instance.id} discover databases`
+			}
+		};
+	}
+	const args = [
+		...optionalArgPair("--host", instance.host),
+		...optionalArgPair("--port", instance.port?.toString()),
+		...optionalArgPair("--user", instance.username),
+		"--batch",
+		"--skip-column-names",
+		"--execute",
+		"SHOW DATABASES;"
+	];
+	return { plan: {
+		tool: "mysql",
+		args,
+		displayArgs: args,
+		env: instance.password ? { MYSQL_PWD: instance.password } : {},
+		displayEnv: instance.password ? { MYSQL_PWD: "<redacted>" } : {},
+		summary: `MySQL ${instance.id} discover databases`
+	} };
+}
+/**
+* 执行数据库发现计划并返回 stdout。
+*
+* @param plan 执行计划。
+* @param runner 进程执行抽象，便于测试替换。
+* @returns 底层客户端 stdout。
+*/
+function runDiscoveryPlan(plan, runner = runProcess) {
+	const resolvedPlan = resolvePlanTool(plan);
+	const result = runner(resolvedPlan.tool, resolvedPlan.args, {
+		...process.env,
+		...resolvedPlan.env
+	});
+	if (result.error) throw new CliError(result.error.message);
+	if (result.status && result.status !== 0) {
+		const stderr = result.stderr.trim();
+		throw new CliError(`${resolvedPlan.tool} 退出码: ${result.status}${stderr ? `\n${stderr}` : ""}`, result.status);
+	}
+	return result.stdout;
+}
+/**
+* 执行底层进程并捕获输出。
+*
+* @param command 命令名。
+* @param args 参数列表。
+* @param env 子进程环境变量。
+* @returns 进程执行结果。
+*/
+function runProcess(command, args, env) {
+	const result = spawnSync(command, args, {
+		env,
+		encoding: "utf8",
+		stdio: "pipe"
+	});
+	return {
+		status: result.status,
+		stdout: result.stdout ?? "",
+		stderr: result.stderr ?? "",
+		error: result.error
+	};
+}
+/**
+* 解析底层客户端输出中的数据库名称。
+*
+* @param output 底层客户端 stdout。
+* @returns 去重排序后的数据库名称。
+*/
+function parseDatabaseListOutput(output) {
+	return uniqueSorted(output.split(/\r?\n/).map((line) => line.trim()).filter(Boolean));
+}
+/**
+* 过滤数据库类型对应的系统库。
+*
+* @param type 数据库类型。
+* @param databases 原始数据库名称。
+* @returns 过滤系统库后的数据库名称。
+*/
+function filterSystemDatabases(type, databases) {
+	const excluded = type === "postgres" ? new Set(["template0", "template1"]) : new Set([
+		"information_schema",
+		"mysql",
+		"performance_schema",
+		"sys"
+	]);
+	return databases.filter((database) => !excluded.has(database));
+}
+/**
+* 按 include / exclude glob 过滤数据库名称。
+*
+* @param databases 数据库名称列表。
+* @param options 过滤参数。
+* @returns 过滤后的数据库名称。
+*/
+function applyDatabaseFilters(databases, options) {
+	const include = parsePatternList(options.include);
+	const exclude = parsePatternList(options.exclude);
+	return databases.filter((database) => {
+		const included = include.length === 0 || include.some((pattern) => matchesGlob(database, pattern));
+		const excluded = exclude.some((pattern) => matchesGlob(database, pattern));
+		return included && !excluded;
+	});
+}
+/**
+* 将发现到的数据库合并写回本机 local JSON 配置。
+*
+* @param options 写回参数。
+* @returns 备份路径和更新路径。
+*/
+async function writeDiscoveredDatabases(options) {
+	assertWritableLocalJsonConfig(options.configPath);
+	const rawContent = readFileSync(options.configPath, "utf8");
+	const updatedConfig = mergeDiscoveredDatabasesIntoConfig(JSON.parse(rawContent), {
+		instanceId: options.instanceId,
+		databases: options.databases,
+		connectionDatabase: options.connectionDatabase
+	});
+	const backupPath = createBackupPath(options.configPath);
+	await writeFile(backupPath, rawContent, {
+		flag: "wx",
+		mode: 384
+	});
+	await writeFile(options.configPath, `${JSON.stringify(updatedConfig, null, 2)}\n`);
+	return {
+		backupPath,
+		updatedPath: options.configPath
+	};
+}
+/**
+* 合并发现到的数据库到配置对象。
+*
+* @param config 原始配置对象。
+* @param options 合并参数。
+* @returns 合并后的配置对象。
+*/
+function mergeDiscoveredDatabasesIntoConfig(config, options) {
+	const instances = config.instances.map((instance) => {
+		if (instance.id !== options.instanceId) return instance;
+		const byName = /* @__PURE__ */ new Map();
+		for (const database of instance.databases ?? []) byName.set(database.name, database);
+		for (const database of options.databases) if (!byName.has(database)) byName.set(database, { name: database });
+		const updated = {
+			...instance,
+			databases: [...byName.values()].sort((left, right) => left.name.localeCompare(right.name))
+		};
+		if (!updated.defaultDatabase && options.connectionDatabase && options.databases.includes(options.connectionDatabase)) updated.defaultDatabase = options.connectionDatabase;
+		return updated;
+	});
+	return {
+		...config,
+		instances
+	};
+}
+/**
+* 校验配置文件是否允许自动写回。
+*
+* @param configPath 配置文件路径。
+* @returns 无返回值。
+*/
+function assertWritableLocalJsonConfig(configPath) {
+	if (!basename(configPath).endsWith(".local.json")) throw new CliError(`自动写回只支持 *.local.json 本机私有配置: ${configPath}`);
+}
+/**
+* 创建同目录配置备份路径。
+*
+* @param configPath 配置文件路径。
+* @returns 不存在的备份文件路径。
+*/
+function createBackupPath(configPath) {
+	const timestamp = formatLocalTimestamp(/* @__PURE__ */ new Date());
+	let candidate = `${configPath}.${timestamp}.bak`;
+	let index = 1;
+	while (existsSync(candidate)) {
+		candidate = `${configPath}.${timestamp}-${index}.bak`;
+		index += 1;
+	}
+	return candidate;
+}
+/**
+* 格式化本地时间戳用于备份文件名。
+*
+* @param date 时间对象。
+* @returns `YYYY-MM-DD_HH-mm-ss` 格式时间戳。
+*/
+function formatLocalTimestamp(date) {
+	const pad = (value) => value.toString().padStart(2, "0");
+	return [
+		date.getFullYear(),
+		"-",
+		pad(date.getMonth() + 1),
+		"-",
+		pad(date.getDate()),
+		"_",
+		pad(date.getHours()),
+		"-",
+		pad(date.getMinutes()),
+		"-",
+		pad(date.getSeconds())
+	].join("");
+}
+/**
+* 格式化数据库发现摘要。
+*
+* @param summary 发现摘要。
+* @returns 人类可读文本。
+*/
+function formatDiscoverDatabasesSummary(summary) {
+	const lines = [
+		"database-query config discover-databases:",
+		`configPath: ${summary.configPath}`,
+		`instance: ${summary.instance}`,
+		`type: ${summary.type}`,
+		`connectionDatabase: ${summary.connectionDatabase ?? "<none>"}`,
+		`discovered: ${summary.discovered.length ? summary.discovered.join(", ") : "<none>"}`,
+		`selected: ${summary.selected.length ? summary.selected.join(", ") : "<none>"}`,
+		`write: ${summary.write ? "yes" : "no"}`
+	];
+	if (summary.backupPath) lines.push(`backupPath: ${summary.backupPath}`);
+	if (summary.updatedPath) lines.push(`updatedPath: ${summary.updatedPath}`);
+	if (!summary.write) lines.push("hint: 传 --write 写回本机 *.local.json 配置。");
+	return lines.join("\n");
+}
+/**
+* 拆分逗号分隔的 glob 模式。
+*
+* @param value CLI 输入。
+* @returns 模式列表。
+*/
+function parsePatternList(value) {
+	return (value ?? "").split(",").map((item) => item.trim()).filter(Boolean);
+}
+/**
+* 判断文本是否匹配简单 glob。
+*
+* @param value 待匹配文本。
+* @param pattern glob 模式，支持 `*` 与 `?`。
+* @returns 匹配时返回 true。
+*/
+function matchesGlob(value, pattern) {
+	return new RegExp(`^${pattern.split("").map((char) => {
+		if (char === "*") return ".*";
+		if (char === "?") return ".";
+		return char.replace(/[\\^$+?.()|[\]{}]/g, "\\$&");
+	}).join("")}$`).test(value);
+}
+/**
+* 对字符串列表去重排序。
+*
+* @param values 原始字符串列表。
+* @returns 去重排序后的列表。
+*/
+function uniqueSorted(values) {
+	return [...new Set(values)].sort((left, right) => left.localeCompare(right));
+}
+/**
+* 按存在性添加命令参数键值对。
+*
+* @param key 参数名。
+* @param value 参数值。
+* @returns 参数片段。
+*/
+function optionalArgPair(key, value) {
+	return value ? [key, value] : [];
 }
 /**
 * 格式化 doctor 检查结果。

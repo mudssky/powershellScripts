@@ -18,7 +18,11 @@
 node scripts/database-query.js exec --sql "select id from users limit 10" --verbose
 node scripts/database-query.js client --print-command -- --set ON_ERROR_STOP=1
 node scripts/database-query.js client -- --set ON_ERROR_STOP=1
+node scripts/database-query.js config discover-databases --instance local-postgres
+node scripts/database-query.js config discover-databases --instance local-postgres --write
 ```
+
+`config discover-databases` 默认只预览。传 `--write` 时只写回 `*.local.json`，并先在同目录创建 `.bak`；没有 `defaultDatabase` 时默认连接 `postgres`，也可以用 `--database <name>` 指定发现连接库。
 
 需要执行 SQL 文件时，先单独检查文件：
 

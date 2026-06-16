@@ -1,9 +1,25 @@
-import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-import { formatResult, probeTool, runCli } from '../src/cli'
+import {
+  applyDatabaseFilters,
+  filterSystemDatabases,
+  formatResult,
+  mergeDiscoveredDatabasesIntoConfig,
+  parseDatabaseListOutput,
+  probeTool,
+  runCli,
+} from '../src/cli'
 import { createContextSnapshot, loadConfig, resolveTarget } from '../src/config'
 import {
   checkSql,
@@ -738,6 +754,284 @@ describe('database-query 统一 CLI', () => {
     }
   })
 
+  it('解析和过滤发现到的数据库名称', () => {
+    const parsed = parseDatabaseListOutput(
+      'template1\npostgres\napp\napp\nreporting\n',
+    )
+
+    expect(parsed).toEqual(['app', 'postgres', 'reporting', 'template1'])
+    expect(filterSystemDatabases('postgres', parsed)).toEqual([
+      'app',
+      'postgres',
+      'reporting',
+    ])
+    expect(
+      filterSystemDatabases('mysql', [
+        'information_schema',
+        'mysql',
+        'app',
+        'sys',
+        'tenant_bak',
+      ]),
+    ).toEqual(['app', 'tenant_bak'])
+    expect(
+      applyDatabaseFilters(['app', 'app_test', 'tenant_bak'], {
+        include: 'app*',
+        exclude: '*_test',
+      }),
+    ).toEqual(['app'])
+  })
+
+  it('合并发现库时保留已有条目并按需补默认库', () => {
+    const merged = mergeDiscoveredDatabasesIntoConfig(
+      {
+        instances: [
+          {
+            id: 'pg',
+            type: 'postgres',
+            databases: [{ name: 'app', schemas: ['public'] }],
+          },
+        ],
+      },
+      {
+        instanceId: 'pg',
+        databases: ['postgres', 'app', 'reporting'],
+        connectionDatabase: 'postgres',
+      },
+    )
+
+    expect(merged.instances[0]?.defaultDatabase).toBe('postgres')
+    expect(merged.instances[0]?.databases).toEqual([
+      { name: 'app', schemas: ['public'] },
+      { name: 'postgres' },
+      { name: 'reporting' },
+    ])
+  })
+
+  it('合并发现库时不覆盖已有 defaultDatabase', () => {
+    const merged = mergeDiscoveredDatabasesIntoConfig(
+      {
+        instances: [
+          {
+            id: 'pg',
+            type: 'postgres',
+            defaultDatabase: 'app',
+            databases: [{ name: 'app' }],
+          },
+        ],
+      },
+      {
+        instanceId: 'pg',
+        databases: ['postgres', 'reporting'],
+        connectionDatabase: 'postgres',
+      },
+    )
+
+    expect(merged.instances[0]?.defaultDatabase).toBe('app')
+  })
+
+  it('config discover-databases 默认只预览且不修改配置', async () => {
+    const fixture = await createDiscoverFixture('postgres')
+    const stdout: string[] = []
+
+    try {
+      const before = await readFile(fixture.configPath, 'utf8')
+      const exitCode = await runCli(
+        [
+          'config',
+          'discover-databases',
+          '--config',
+          fixture.configPath,
+          '--instance',
+          'pg',
+          '--include',
+          'app*,postgres',
+          '--exclude',
+          '*_old',
+          '--format',
+          'json',
+        ],
+        {
+          stdout: (message) => stdout.push(message),
+          stderr: () => undefined,
+        },
+      )
+      const after = await readFile(fixture.configPath, 'utf8')
+      const parsed = JSON.parse(stdout.join('\n'))
+
+      expect(exitCode).toBe(0)
+      expect(after).toBe(before)
+      expect(parsed.write).toBe(false)
+      expect(parsed.connectionDatabase).toBe('postgres')
+      expect(parsed.discovered).toEqual(['app', 'app_old', 'postgres'])
+      expect(parsed.selected).toEqual(['app', 'postgres'])
+    } finally {
+      await fixture.cleanup()
+    }
+  })
+
+  it('config discover-databases 允许使用未预登记的 PostgreSQL 连接库', async () => {
+    const fixture = await createDiscoverFixture('postgres')
+    const stdout: string[] = []
+
+    try {
+      const exitCode = await runCli(
+        [
+          'config',
+          'discover-databases',
+          '--config',
+          fixture.configPath,
+          '--instance',
+          'pg',
+          '--database',
+          'maintenance',
+          '--format',
+          'json',
+        ],
+        {
+          stdout: (message) => stdout.push(message),
+          stderr: () => undefined,
+        },
+      )
+      const parsed = JSON.parse(stdout.join('\n'))
+
+      expect(exitCode).toBe(0)
+      expect(parsed.connectionDatabase).toBe('maintenance')
+    } finally {
+      await fixture.cleanup()
+    }
+  })
+
+  it('config discover-databases --write 写回 local JSON 并创建备份', async () => {
+    const fixture = await createDiscoverFixture('mysql')
+    const stdout: string[] = []
+
+    try {
+      const exitCode = await runCli(
+        [
+          'config',
+          'discover-databases',
+          '--config',
+          fixture.configPath,
+          '--instance',
+          'mysql',
+          '--write',
+          '--format',
+          'json',
+        ],
+        {
+          stdout: (message) => stdout.push(message),
+          stderr: () => undefined,
+        },
+      )
+      const parsed = JSON.parse(stdout.join('\n'))
+      const updated = JSON.parse(await readFile(fixture.configPath, 'utf8'))
+      const backup = await stat(parsed.backupPath)
+
+      expect(exitCode).toBe(0)
+      expect(parsed.selected).toEqual(['app', 'reporting'])
+      expect(parsed.updatedPath).toBe(fixture.configPath)
+      expect(backup.isFile()).toBe(true)
+      expect(updated.instances[0].databases).toEqual([
+        { name: 'app', schemas: ['public'] },
+        { name: 'reporting' },
+      ])
+      expect(JSON.stringify(updated)).toContain(
+        '$' + '{env:DB_QUERY_TEST_PASSWORD}',
+      )
+    } finally {
+      await fixture.cleanup()
+    }
+  })
+
+  it('config discover-databases --global 写入 XDG 全局 local JSON', async () => {
+    const fixture = await createGlobalDiscoverFixture()
+    const stdout: string[] = []
+
+    try {
+      const exitCode = await runCli(
+        [
+          'config',
+          'discover-databases',
+          '--global',
+          '--instance',
+          'mysql',
+          '--write',
+          '--format',
+          'json',
+        ],
+        {
+          stdout: (message) => stdout.push(message),
+          stderr: () => undefined,
+        },
+      )
+      const parsed = JSON.parse(stdout.join('\n'))
+
+      expect(exitCode).toBe(0)
+      expect(parsed.configPath).toBe(fixture.globalConfigPath)
+      expect(parsed.updatedPath).toBe(fixture.globalConfigPath)
+    } finally {
+      await fixture.cleanup()
+    }
+  })
+
+  it('config discover-databases 拒绝写回非 local JSON 配置', async () => {
+    const fixture = await createDiscoverFixture('mysql', {
+      fileName: 'database-query.config.json',
+    })
+    const stderr: string[] = []
+
+    try {
+      const exitCode = await runCli(
+        [
+          'config',
+          'discover-databases',
+          '--config',
+          fixture.configPath,
+          '--instance',
+          'mysql',
+          '--write',
+        ],
+        {
+          stdout: () => undefined,
+          stderr: (message) => stderr.push(message),
+        },
+      )
+
+      expect(exitCode).toBe(1)
+      expect(stderr.join('\n')).toContain('*.local.json')
+    } finally {
+      await fixture.cleanup()
+    }
+  })
+
+  it('config discover-databases 对不支持类型返回清晰错误', async () => {
+    const fixture = await createUnsupportedDiscoverFixture()
+    const stderr: string[] = []
+
+    try {
+      const exitCode = await runCli(
+        [
+          'config',
+          'discover-databases',
+          '--config',
+          fixture.configPath,
+          '--instance',
+          'sqlite',
+        ],
+        {
+          stdout: () => undefined,
+          stderr: (message) => stderr.push(message),
+        },
+      )
+
+      expect(exitCode).toBe(1)
+      expect(stderr.join('\n')).toContain('暂不支持 sqlite')
+    } finally {
+      await fixture.cleanup()
+    }
+  })
+
   it('doctor 输出安装参考', async () => {
     const stdout: string[] = []
     const exitCode = await runCli(['doctor'], {
@@ -841,6 +1135,132 @@ async function createTempConfigWithoutDatabases(
           username: 'app',
           password: 'secret-value',
           defaultDatabase: options.defaultDatabase,
+        },
+      ],
+    }),
+  )
+
+  return {
+    configPath,
+    cleanup: () => rm(dir, { recursive: true, force: true }),
+  }
+}
+
+/**
+ * 创建数据库发现 CLI 测试用配置与假客户端。
+ *
+ * @param type 数据库类型。
+ * @param options 可选文件名覆盖。
+ * @returns 配置、环境清理函数。
+ */
+async function createDiscoverFixture(
+  type: 'postgres' | 'mysql',
+  options: { fileName?: string } = {},
+) {
+  const dir = await mkdtemp(join(tmpdir(), 'database-query-discover-'))
+  const binDir = join(dir, 'bin')
+  const configPath = join(dir, options.fileName ?? 'database-query.local.json')
+  const previousPath = process.env.PATH
+
+  await mkdir(binDir, { recursive: true })
+  await writeFile(
+    join(binDir, type === 'postgres' ? 'psql' : 'mysql'),
+    type === 'postgres'
+      ? '#!/bin/sh\nprintf "template1\\npostgres\\napp\\napp_old\\n"\n'
+      : '#!/bin/sh\nprintf "information_schema\\nmysql\\nperformance_schema\\nsys\\napp\\nreporting\\n"\n',
+  )
+  await chmod(join(binDir, type === 'postgres' ? 'psql' : 'mysql'), 0o755)
+  process.env.PATH = binDir
+
+  await writeFile(
+    configPath,
+    JSON.stringify(
+      {
+        defaults: {
+          defaultInstance: type === 'postgres' ? 'pg' : 'mysql',
+        },
+        instances: [
+          type === 'postgres'
+            ? {
+                id: 'pg',
+                type: 'postgres',
+                host: 'localhost',
+                username: 'app',
+                password: '$' + '{env:DB_QUERY_TEST_PASSWORD}',
+              }
+            : {
+                id: 'mysql',
+                type: 'mysql',
+                host: 'localhost',
+                username: 'app',
+                password: '$' + '{env:DB_QUERY_TEST_PASSWORD}',
+                defaultDatabase: 'app',
+                databases: [{ name: 'app', schemas: ['public'] }],
+              },
+        ],
+      },
+      null,
+      2,
+    ),
+  )
+  process.env.DB_QUERY_TEST_PASSWORD = 'secret-value'
+
+  return {
+    configPath,
+    cleanup: async () => {
+      restoreEnv('PATH', previousPath)
+      delete process.env.DB_QUERY_TEST_PASSWORD
+      await rm(dir, { recursive: true, force: true })
+    },
+  }
+}
+
+/**
+ * 创建 XDG 全局发现写回测试夹具。
+ *
+ * @returns 全局配置路径与清理函数。
+ */
+async function createGlobalDiscoverFixture() {
+  const dir = await mkdtemp(join(tmpdir(), 'database-query-global-discover-'))
+  const xdgDir = join(dir, 'xdg')
+  const globalDir = join(xdgDir, 'database-query')
+  const globalConfigPath = join(globalDir, 'database-query.local.json')
+  const fixture = await createDiscoverFixture('mysql')
+  const previousXdgConfigHome = process.env.XDG_CONFIG_HOME
+
+  await mkdir(globalDir, { recursive: true })
+  await writeFile(globalConfigPath, await readFile(fixture.configPath, 'utf8'))
+  process.env.XDG_CONFIG_HOME = xdgDir
+
+  return {
+    globalConfigPath,
+    cleanup: async () => {
+      restoreEnv('XDG_CONFIG_HOME', previousXdgConfigHome)
+      await fixture.cleanup()
+      await rm(dir, { recursive: true, force: true })
+    },
+  }
+}
+
+/**
+ * 创建不支持类型的发现测试配置。
+ *
+ * @returns 配置路径与清理函数。
+ */
+async function createUnsupportedDiscoverFixture() {
+  const dir = await mkdtemp(
+    join(tmpdir(), 'database-query-discover-unsupported-'),
+  )
+  const configPath = join(dir, 'database-query.local.json')
+
+  await writeFile(
+    configPath,
+    JSON.stringify({
+      instances: [
+        {
+          id: 'sqlite',
+          type: 'sqlite',
+          path: '/tmp/app.db',
         },
       ],
     }),

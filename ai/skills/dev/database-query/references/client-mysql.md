@@ -18,7 +18,11 @@
 node scripts/database-query.js exec --sql "select id from users limit 10" --verbose
 node scripts/database-query.js client --print-command -- --batch --raw
 node scripts/database-query.js client -- --batch --raw
+node scripts/database-query.js config discover-databases --instance local-mysql
+node scripts/database-query.js config discover-databases --instance local-mysql --write
 ```
+
+`config discover-databases` 默认只预览。传 `--write` 时只写回 `*.local.json`，并先在同目录创建 `.bak`。MySQL 发现不要求预先选择 database，会排除常见系统库。
 
 需要执行 SQL 文件时，先单独检查文件：
 
