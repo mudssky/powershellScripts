@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "新增验证入口前检查是否可复用现有脚本和避免重复维护验证逻辑"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "安装文档、安装脚本、应用清单和验证脚本跨层一致性检查"}

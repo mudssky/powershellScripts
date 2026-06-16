@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "检查验证逻辑是否引入不必要重复"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "检查文档命令、安装行为和验证结果是否一致"}
