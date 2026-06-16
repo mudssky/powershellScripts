@@ -1,0 +1,19 @@
+{
+  "name": "project-launcher",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit && node build.mjs",
+    "test": "vitest run",
+    "lint": "biome check src tests build.mjs package.json tsconfig.json",
+    "format": "biome format --write src tests build.mjs package.json tsconfig.json",
+    "check": "pnpm build && pnpm lint && pnpm test"
+  },
+  "dependencies": {
+    "cac": "^7.0.0"
+  },
+  "devDependencies": {
+    "rolldown": "^1.1.0"
+  }
+}

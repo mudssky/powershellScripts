@@ -52,6 +52,16 @@ importers:
         specifier: ^1.1.0
         version: 1.1.0
 
+  ai/skills/dev/project-launcher:
+    dependencies:
+      cac:
+        specifier: ^7.0.0
+        version: 7.0.0
+    devDependencies:
+      rolldown:
+        specifier: ^1.1.0
+        version: 1.1.0
+
   config/software/mpv/mpv_scripts:
     dependencies:
       '@types/mpv-script':

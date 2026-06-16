@@ -53,6 +53,11 @@
       "source": "./dev/powershellscripts-ops",
       "sourceType": "local"
     },
+    "project-launcher": {
+      "description": "用 tmux 启动和管理本地项目服务，优先支持 Java/JVM 多服务项目。",
+      "source": "./dev/project-launcher",
+      "sourceType": "local"
+    },
     "mattpocock-skills": {
       "description": "Matt Pocock 维护的精选编码、诊断、架构与评审 skill 集合。",
       "source": "mattpocock/skills",
