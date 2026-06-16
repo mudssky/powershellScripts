@@ -650,3 +650,36 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 20: database-query 数据库候选自动发现
+
+**Date**: 2026-06-16
+**Task**: database-query 数据库候选自动发现
+**Branch**: `master`
+
+### Summary
+
+为 database-query 增加 PostgreSQL/MySQL 数据库候选发现与 local JSON 写回能力，更新文档测试与全局安装态验证。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `d0a59e9` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
