@@ -7,7 +7,7 @@ Resume work on the current task — pick up at the right phase/step in `.trellis
 ## Step 1: Load Current Context
 
 ```bash
-python ./.trellis/scripts/get_context.py
+python3 ./.trellis/scripts/get_context.py
 ```
 
 Confirms: current task, git state, recent commits.
@@ -15,7 +15,7 @@ Confirms: current task, git state, recent commits.
 ## Step 2: Load the Phase Index
 
 ```bash
-python ./.trellis/scripts/get_context.py --mode phase
+python3 ./.trellis/scripts/get_context.py --mode phase
 ```
 
 Shows the Phase Index (Plan / Execute / Finish) with routing + skill mapping.
@@ -30,7 +30,7 @@ Shows the Phase Index (Plan / Execute / Finish) with routing + skill mapping.
 - `status=planning` + required artifacts complete + required jsonl curated or inline mode → **1.4** (ask for start review; only run `task.py start` after user confirms)
 - `status=in_progress` + implementation not started → **2.1**
 - `status=in_progress` + implementation done, not yet checked → **2.2**
-- `status=in_progress` + check passed → **3.1**
+- `status=in_progress` + check passed → **3.3** (spec update) → **3.4** (commit)
 - `status=completed` (rare; usually archived immediately) → archive flow
 
 Phase rules (full detail in `.trellis/workflow.md`):
@@ -44,7 +44,7 @@ Phase rules (full detail in `.trellis/workflow.md`):
 Once you know which step to resume at:
 
 ```bash
-python ./.trellis/scripts/get_context.py --mode phase --step <X.X> --platform claude
+python3 ./.trellis/scripts/get_context.py --mode phase --step <X.X> --platform claude
 ```
 
 Follow the loaded instructions. After each `[required]` step completes, move to the next.
