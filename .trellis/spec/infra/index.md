@@ -18,3 +18,4 @@
 | [rclone Ops](./rclone-ops.md) | rclone JSON 主配置、WebUI/RC、自动挂载、VFS cache 与日志路径契约 | Active |
 | [rathole template](./rathole.md) | rathole 裸二进制、PM2 管理、`.local.toml` 与公网白名单转发模板约定 | Active |
 | [Dev Container Templates](./devcontainer-templates.md) | VS Code Dev Container 标准模板、宿主配置挂载与 Agent CLI 复用约定 | Active |
+| [Hammerspoon Plugin Contract](./hammerspoon-plugins.md) | macOS Hammerspoon 插件目录、配置合并、部署 manifest 与验证契约 | Active |
