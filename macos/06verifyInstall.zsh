@@ -276,6 +276,12 @@ check_apps() {
         record_fail "$step" "starship command not found; run pwsh macos/04installApps.ps1"
     fi
 
+    if command_exists blueutil; then
+        record_pass "$step" "blueutil command is available"
+    else
+        record_fail "$step" "blueutil command not found; run pwsh macos/04installApps.ps1"
+    fi
+
     if is_cask_or_app_installed "iterm2" "iTerm"; then
         record_pass "$step" "iTerm is installed"
     else

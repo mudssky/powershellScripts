@@ -838,6 +838,18 @@
         ]
       },
       {
+        "name": "blueutil",
+        "cliName": "blueutil",
+        "description": "macOS 蓝牙命令行控制工具",
+        "command": "brew install blueutil",
+        "supportOs": [
+          "macOS"
+        ],
+        "tag": [
+          "macbook"
+        ]
+      },
+      {
         "name": "starship",
         "cliName": "starship",
         "description": "跨平台shell提示符",
