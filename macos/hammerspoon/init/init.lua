@@ -7,6 +7,11 @@ hs.logger.defaultLogLevel = "info"
 local log = hs.logger.new("main", "info")
 local configDir = hs.configdir
 local scriptsDir = configDir .. "/scripts"
+local pluginsDir = scriptsDir .. "/plugins"
+local pluginOrder = {
+	"win-hotkeys",
+	"power-lid-sleep",
+}
 
 -- 创建脚本目录。
 -- 入参：无。
@@ -123,25 +128,107 @@ local function loadConfig()
 	return mergeConfig(defaultConfig, localConfig)
 end
 
--- 加载单个功能脚本。
--- 入参：scriptName scripts 目录中的脚本文件名。
--- 返回值：布尔值，true 表示加载成功。
-local function loadScript(scriptName)
-	local scriptPath = scriptsDir .. "/" .. scriptName
-	local absolutePath = hs.fs.pathToAbsolute(scriptPath)
+-- 加载插件入口。
+-- 入参：pluginId 插件目录名。
+-- 返回值：成功时返回插件表；失败时返回 nil。
+local function loadPlugin(pluginId)
+	local pluginPath = pluginsDir .. "/" .. pluginId .. "/plugin.lua"
+	local absolutePath = hs.fs.pathToAbsolute(pluginPath)
 	if not absolutePath then
-		log.e("缺少脚本文件: " .. scriptPath)
-		return false
+		log.e("缺少插件文件: " .. pluginPath)
+		return nil
 	end
 
-	local success, err = pcall(dofile, absolutePath)
+	local success, plugin = pcall(dofile, absolutePath)
 	if not success then
-		log.e("脚本加载失败: " .. scriptName .. " - " .. tostring(err))
+		log.e("插件加载失败: " .. pluginId .. " - " .. tostring(plugin))
+		return nil
+	end
+
+	if not isTable(plugin) then
+		log.e("插件必须返回 table: " .. pluginId)
+		return nil
+	end
+
+	if plugin.id ~= nil and plugin.id ~= pluginId then
+		log.e(string.format("插件 id 不匹配: 目录=%s, 插件=%s", pluginId, tostring(plugin.id)))
+		return nil
+	end
+
+	return plugin
+end
+
+-- 合并插件默认配置和用户配置。
+-- 入参：plugin 插件表；pluginId 插件目录名；globalConfig 全局配置表。
+-- 返回值：插件运行配置表。
+local function buildPluginConfig(plugin, pluginId, globalConfig)
+	local defaultConfig = {}
+	if isTable(plugin.defaultConfig) then
+		defaultConfig = plugin.defaultConfig
+	end
+
+	local pluginConfigs = globalConfig.plugins or {}
+	local userConfig = pluginConfigs[pluginId] or {}
+	return mergeConfig(defaultConfig, userConfig)
+end
+
+-- 启动插件。
+-- 入参：pluginId 插件目录名；globalConfig 全局配置表。
+-- 返回值：布尔值，true 表示启动成功。
+local function startPlugin(pluginId, globalConfig)
+	local plugin = loadPlugin(pluginId)
+	if not plugin then
 		return false
 	end
 
-	log.i("脚本加载成功: " .. scriptName)
+	local pluginConfig = buildPluginConfig(plugin, pluginId, globalConfig)
+	if pluginConfig.enabled == false then
+		log.i("插件已关闭: " .. pluginId)
+		return true
+	end
+
+	if type(plugin.start) ~= "function" then
+		log.e("插件缺少 start 函数: " .. pluginId)
+		return false
+	end
+
+	local context = {
+		id = pluginId,
+		config = pluginConfig,
+		globalConfig = globalConfig,
+		configDir = configDir,
+		scriptsDir = scriptsDir,
+		pluginsDir = pluginsDir,
+		log = hs.logger.new(pluginId, "info"),
+	}
+
+	local success, result = pcall(plugin.start, context)
+	if not success then
+		log.e("插件启动失败: " .. pluginId .. " - " .. tostring(result))
+		return false
+	end
+
+	_G.HammerspoonPluginState[pluginId] = result or true
+	log.i("插件启动成功: " .. pluginId)
 	return true
+end
+
+-- 启动显式清单中的插件。
+-- 入参：globalConfig 全局配置表。
+-- 返回值：成功数量和失败数量。
+local function startPlugins(globalConfig)
+	local loadedCount = 0
+	local errorCount = 0
+
+	for _, pluginId in ipairs(pluginOrder) do
+		if startPlugin(pluginId, globalConfig) then
+			loadedCount = loadedCount + 1
+		else
+			errorCount = errorCount + 1
+		end
+	end
+
+	return loadedCount, errorCount
 end
 
 -- 监听 Lua 配置变化并延迟重载。
@@ -161,23 +248,9 @@ end
 ensureScriptsDir()
 
 _G.HammerspoonConfig = loadConfig()
+_G.HammerspoonPluginState = {}
 
-local loadedCount = 0
-local errorCount = 0
-
-if loadScript("win.lua") then
-	loadedCount = loadedCount + 1
-else
-	errorCount = errorCount + 1
-end
-
-local enabledGroups = _G.HammerspoonConfig.enabledGroups or {}
-if enabledGroups.reload ~= false then
-	hs.hotkey.bind({ "cmd", "alt", "ctrl" }, "R", function()
-		hs.reload()
-	end)
-	log.i("已绑定 reload 快捷键: Cmd+Alt+Ctrl+R")
-end
+local loadedCount, errorCount = startPlugins(_G.HammerspoonConfig)
 
 local configWatcher = hs.pathwatcher.new(configDir, reloadConfig)
 configWatcher:start()

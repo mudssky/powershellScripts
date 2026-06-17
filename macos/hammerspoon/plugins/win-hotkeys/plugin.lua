@@ -1,13 +1,20 @@
--- Windows-like shortcuts for macOS using Hammerspoon
--- 默认只启用低冲突核心快捷键，可通过 config.local.lua 打开更多功能组。
+-- Windows-like shortcuts for macOS using Hammerspoon.
+-- 功能：提供低冲突核心快捷键和可选 Windows 风格快捷键组。
+-- 入参：无；插件加载器调用 start(context) 传入上下文。
+-- 返回值：插件表，供 init.lua 启动。
 
-hs.hotkey.alertDuration = 0
-hs.hints.showTitleThresh = 0
+local plugin = {
+	id = "win-hotkeys",
+	defaultConfig = {
+		enabled = true,
+	},
+}
 
-local config = _G.HammerspoonConfig or {}
-local enabledGroups = config.enabledGroups or {}
-local hotkeys = config.hotkeys or {}
-local showAlerts = config.showAlerts ~= false
+local config = {}
+local globalConfig = {}
+local enabledGroups = {}
+local hotkeys = {}
+local showAlerts = true
 
 -- 判断功能组是否启用。
 -- 入参：groupName 功能组名称。
@@ -25,11 +32,31 @@ local function showAlert(message, duration)
 	end
 end
 
+-- 合并根层兼容配置和插件配置。
+-- 入参：fallbackGroups 根层功能组；pluginGroups 插件功能组。
+-- 返回值：合并后的功能组配置。
+local function mergeEnabledGroups(fallbackGroups, pluginGroups)
+	local result = {}
+
+	for key, value in pairs(fallbackGroups or {}) do
+		result[key] = value
+	end
+
+	for key, value in pairs(pluginGroups or {}) do
+		result[key] = value
+	end
+
+	return result
+end
+
 -- 读取修饰键映射配置。
 -- 入参：无。
 -- 返回值：包含 winKey、ctrlKey、altKey、cmdKey 的映射表。
 local function getModifierKeyMapping()
 	local shouldSwap = config.modifierSwap == true
+	if config.modifierSwap == nil then
+		shouldSwap = globalConfig.modifierSwap == true
+	end
 	local envSwap = os.getenv("HAMMERSPOON_MODIFIER_SWAP")
 
 	if envSwap ~= nil then
@@ -57,10 +84,10 @@ local function getModifierKeyMapping()
 	}
 end
 
-local modKeys = getModifierKeyMapping()
+local modKeys = {}
 
-local windowModifiers = hotkeys.windowModifiers or { "cmd", "alt", "ctrl" }
-local launcherModifiers = hotkeys.launcherModifiers or { "cmd", "alt", "ctrl" }
+local windowModifiers = { "cmd", "alt", "ctrl" }
+local launcherModifiers = { "cmd", "alt", "ctrl" }
 
 -- 获取应用名称映射。
 -- 入参：appName 逻辑应用名或旧名称。
@@ -198,6 +225,15 @@ local function registerAltTab()
 	bindKey({ "alt" }, "tab", function()
 		hs.eventtap.keyStroke({ "cmd" }, "tab")
 	end, "应用程序切换")
+end
+
+-- 注册配置重载快捷键。
+-- 入参：无。
+-- 返回值：无。
+local function registerReload()
+	bindRawKey({ "cmd", "alt", "ctrl" }, "r", function()
+		hs.reload()
+	end, "重载 Hammerspoon 配置")
 end
 
 -- 注册窗口吸附快捷键。
@@ -423,7 +459,7 @@ end
 -- 入参：无。
 -- 返回值：无。
 local function registerApps()
-	local taskbarApps = config.taskbarApps or {}
+	local taskbarApps = config.taskbarApps or globalConfig.taskbarApps or {}
 
 	for i = 1, 9 do
 		bindKey({ "win" }, tostring(i), function()
@@ -457,6 +493,7 @@ local function registerFinderActions()
 end
 
 local groupRegistrars = {
+	{ "reload", registerReload },
 	{ "window", registerWindow },
 	{ "launcher", registerLauncher },
 	{ "altTab", registerAltTab },
@@ -470,14 +507,41 @@ local groupRegistrars = {
 	{ "finderActions", registerFinderActions },
 }
 
-for _, group in ipairs(groupRegistrars) do
-	if isGroupEnabled(group[1]) then
-		group[2]()
+-- 启动快捷键插件。
+-- 入参：context 插件上下文，包含 config 与 globalConfig。
+-- 返回值：插件运行状态表。
+function plugin.start(context)
+	globalConfig = context.globalConfig or {}
+	config = context.config or {}
+	enabledGroups = mergeEnabledGroups(globalConfig.enabledGroups or {}, config.enabledGroups or {})
+	hotkeys = config.hotkeys or globalConfig.hotkeys or {}
+	showAlerts = config.showAlerts
+	if showAlerts == nil then
+		showAlerts = globalConfig.showAlerts ~= false
 	end
+
+	hs.hotkey.alertDuration = 0
+	hs.hints.showTitleThresh = 0
+
+	modKeys = getModifierKeyMapping()
+	windowModifiers = hotkeys.windowModifiers or { "cmd", "alt", "ctrl" }
+	launcherModifiers = hotkeys.launcherModifiers or { "cmd", "alt", "ctrl" }
+
+	for _, group in ipairs(groupRegistrars) do
+		if isGroupEnabled(group[1]) then
+			group[2]()
+		end
+	end
+
+	print("\n=== Hammerspoon 快捷键配置 ===")
+	print(string.format("修饰键交换: %s", tostring(modKeys.winKey == "ctrl")))
+	print("默认核心组: window, launcher, reload")
+	print("可选组: altTab, text, browser, system, screenshot, volume, spaces, apps, finderActions")
+	print("================================\n")
+
+	return {
+		enabledGroups = enabledGroups,
+	}
 end
 
-print("\n=== Hammerspoon 快捷键配置 ===")
-print(string.format("修饰键交换: %s", tostring(modKeys.winKey == "ctrl")))
-print("默认核心组: window, launcher, reload")
-print("可选组: altTab, text, browser, system, screenshot, volume, spaces, apps, finderActions")
-print("================================\n")
+return plugin

@@ -97,6 +97,25 @@ copy_file() {
     run_cmd cp "$source_file" "$target_file"
 }
 
+# 复制插件文件并登记 manifest。
+# 入参：$1 插件源文件；$2 manifest 条目数组名；$3 复制计数变量名。
+# 返回值：无。
+copy_plugin_file() {
+    local source_file="$1"
+    local entries_name="$2"
+    local count_name="$3"
+    local relative_path="${source_file#$SCRIPT_DIR/}"
+    local target_file="$SCRIPTS_TARGET_DIR/$relative_path"
+    local target_dir
+    target_dir="$(dirname "$target_file")"
+
+    run_cmd mkdir -p "$target_dir"
+    copy_file "$source_file" "$target_file" true
+
+    eval "$entries_name+=(\"scripts/$relative_path\")"
+    eval "$count_name=\$(( $count_name + 1 ))"
+}
+
 # 检测 Hammerspoon 是否已安装。
 # 入参：无。
 # 返回值：已安装返回 0，否则返回 1。
@@ -202,29 +221,22 @@ deploy_files() {
 
     local managed_entries=("init.lua" "config.lua")
     local copied_count=0
-    local lua_file
-    local filename
+    local plugin_file
 
-    for lua_file in "$SCRIPT_DIR"/*.lua; do
-        [ -f "$lua_file" ] || continue
-
-        filename="$(basename "$lua_file")"
-        if [ "$filename" = "config.lua" ] || [ "$filename" = "config.local.example.lua" ]; then
-            continue
-        fi
-
-        copy_file "$lua_file" "$SCRIPTS_TARGET_DIR/$filename" true
-        managed_entries+=("scripts/$filename")
-        copied_count=$((copied_count + 1))
-    done
+    if [ -d "$SCRIPT_DIR/plugins" ]; then
+        while IFS= read -r plugin_file; do
+            [ -f "$plugin_file" ] || continue
+            copy_plugin_file "$plugin_file" managed_entries copied_count
+        done < <(find "$SCRIPT_DIR/plugins" -type f -name '*.lua' | sort)
+    fi
 
     cleanup_removed_managed_files "${managed_entries[@]}"
     write_manifest "${managed_entries[@]}"
 
     if [ "$copied_count" -eq 0 ]; then
-        log_warn "没有找到需要部署的功能脚本"
+        log_warn "没有找到需要部署的插件脚本"
     else
-        log_info "已部署 $copied_count 个功能脚本"
+        log_info "已部署 $copied_count 个插件脚本"
     fi
 }
 

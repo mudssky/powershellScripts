@@ -1,6 +1,6 @@
-# Hammerspoon 快捷键配置
+# Hammerspoon 插件配置
 
-这个目录维护一套偏精简的 macOS Hammerspoon 配置。默认只启用低冲突快捷键：窗口吸附、锁屏、Finder、Spotlight、系统设置和配置重载；其他 Windows 风格快捷键通过本机配置按需开启。
+这个目录维护一套插件化的 macOS Hammerspoon 配置。默认启用 `win-hotkeys` 插件中的低冲突快捷键：窗口吸附、锁屏、Finder、Spotlight、系统设置和配置重载；其他 Windows 风格快捷键通过本机配置按需开启。仓库默认启用 `power-lid-sleep` 合盖休眠保护插件和蓝牙守卫，但只在支持合盖状态的 MacBook、电池供电且合盖时执行动作。
 
 ## 默认快捷键
 
@@ -32,7 +32,7 @@
    zsh macos/05deployHammerspoon.sh
    ```
 
-部署脚本会复制 `init.lua`、默认配置和功能脚本到 `~/.hammerspoon/`，保留本机 `config.local.lua`，并启动或重启 Hammerspoon。
+部署脚本会复制 `init.lua`、默认配置和插件脚本到 `~/.hammerspoon/`，保留本机 `config.local.lua`，并启动或重启 Hammerspoon。
 
 常用参数：
 
@@ -56,6 +56,21 @@ return {
 		altTab = true,
 		volume = true,
 	},
+	plugins = {
+		["win-hotkeys"] = {
+			enabled = true,
+			enabledGroups = {
+				altTab = true,
+				volume = true,
+			},
+		},
+		["power-lid-sleep"] = {
+			enabled = true,
+			bluetooth = {
+				enabled = true,
+			},
+		},
+	},
 	hotkeys = {
 		windowModifiers = { "cmd", "alt", "ctrl" },
 		launcherModifiers = { "cmd", "alt", "ctrl" },
@@ -73,6 +88,15 @@ return {
 	},
 }
 ```
+
+根层 `enabledGroups`、`modifierSwap`、`hotkeys` 和 `taskbarApps` 会继续作为 `win-hotkeys` 的兼容配置读取；新配置建议写在 `plugins["win-hotkeys"]` 和 `plugins["power-lid-sleep"]` 下。
+
+### 插件
+
+| 插件 | 默认 | 说明 |
+|------|------|------|
+| `win-hotkeys` | 开 | 低冲突核心快捷键和可选 Windows 风格快捷键组 |
+| `power-lid-sleep` | 开 | MacBook 电池合盖时退出空闲应用并关闭蓝牙 |
 
 ### 功能组
 
@@ -111,6 +135,38 @@ return {
 
 为了兼容旧配置，脚本仍会读取 `_G.modifierSwapped` 和 `HAMMERSPOON_MODIFIER_SWAP`，但不再推荐依赖 shell rc 中的环境变量。
 
+## 合盖休眠保护
+
+`power-lid-sleep` 插件只在 MacBook 这类能读取 `AppleClamshellState` 的设备上生效；Mac mini、Mac Studio、iMac 等设备即使误开启配置，也会跳过退出应用和蓝牙动作。
+
+关闭示例：
+
+```lua
+return {
+	plugins = {
+		["power-lid-sleep"] = {
+			enabled = false,
+			bluetooth = {
+				enabled = false,
+			},
+		},
+	},
+}
+```
+
+默认策略：
+
+- 只在电池供电且合盖时执行。
+- RustDesk 正在运行且连续 4 次检查都没有 TCP established 连接时退出 RustDesk。
+- 蓝牙保护依赖 `blueutil`，合盖时关闭蓝牙，开盖或唤醒后按进入保护前的状态恢复。
+- 缺少 `blueutil` 时只跳过蓝牙保护，RustDesk 空闲退出仍可运行。
+
+安装 `blueutil`：
+
+```zsh
+brew install blueutil
+```
+
 ## 文件结构
 
 ```text
@@ -119,8 +175,15 @@ hammerspoon/
 ├── config.local.example.lua    # 本机覆盖示例
 ├── init/
 │   └── init.lua                # Hammerspoon 入口
+├── plugins/
+│   ├── power-lid-sleep/
+│   │   ├── plugin.lua
+│   │   ├── app_guard.lua
+│   │   ├── bluetooth_guard.lua
+│   │   └── lid_state.lua
+│   └── win-hotkeys/
+│       └── plugin.lua
 ├── load_scripts.zsh            # 部署脚本
-├── win.lua                     # 快捷键功能脚本
 └── README.md
 ```
 
@@ -133,11 +196,20 @@ hammerspoon/
 ├── config.local.lua
 ├── .powershellscripts-hammerspoon.manifest
 └── scripts/
-    └── win.lua
+    └── plugins/
+        ├── power-lid-sleep/
+        │   ├── plugin.lua
+        │   ├── app_guard.lua
+        │   ├── bluetooth_guard.lua
+        │   └── lid_state.lua
+        └── win-hotkeys/
+            └── plugin.lua
 ```
 
 ## 排查
 
 - 快捷键不工作：确认 Hammerspoon 已获得辅助功能权限。
 - 配置没生效：按 `Cmd+Alt+Ctrl+R` 重载，或查看 Hammerspoon Console。
+- 合盖休眠保护不生效：确认运行设备是 MacBook、`plugins["power-lid-sleep"].enabled = true`，且当前是电池供电和合盖状态。
+- 蓝牙未关闭：确认已安装 `blueutil`，并开启 `plugins["power-lid-sleep"].bluetooth.enabled = true`。
 - 部署脚本找不到 Hammerspoon：确认已安装，或运行 `zsh macos/05deployHammerspoon.sh --install`。

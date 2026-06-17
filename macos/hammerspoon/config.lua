@@ -1,7 +1,7 @@
 -- Hammerspoon 默认配置。
 -- 功能：定义仓库默认快捷键组与行为开关。
 -- 入参：无。
--- 返回值：配置表，供 init.lua 和 win.lua 读取。
+-- 返回值：配置表，供 init.lua 和插件读取。
 
 return {
 	modifierSwap = false,
@@ -19,6 +19,32 @@ return {
 		spaces = false,
 		apps = false,
 		finderActions = false,
+	},
+	plugins = {
+		["win-hotkeys"] = {
+			enabled = true,
+		},
+		["power-lid-sleep"] = {
+			enabled = true,
+			requireClamshell = true,
+			unsupportedDevicePolicy = "skip",
+			checkIntervalSeconds = 15,
+			requiredIdleChecks = 4,
+			onlyOnBattery = true,
+			apps = {
+				{
+					name = "RustDesk",
+					quitWhenIdle = true,
+					idleConnectionCommand = [[lsof -nP -a -c RustDesk -iTCP -sTCP:ESTABLISHED 2>/dev/null | awk 'NR > 1 {count++} END {print count + 0}']],
+				},
+			},
+			bluetooth = {
+				enabled = true,
+				mode = "powerOff",
+				restoreOnWake = true,
+				enforceWhileLidClosed = true,
+			},
+		},
 	},
 	hotkeys = {
 		windowModifiers = { "cmd", "alt", "ctrl" },

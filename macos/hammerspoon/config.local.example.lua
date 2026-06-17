@@ -16,6 +16,21 @@ return {
 		-- apps = true,
 		-- finderActions = true,
 	},
+	-- plugins = {
+	-- 	["win-hotkeys"] = {
+	-- 		enabled = true,
+	-- 		enabledGroups = {
+	-- 			-- altTab = true,
+	-- 			-- volume = true,
+	-- 		},
+	-- 	},
+	-- 	["power-lid-sleep"] = {
+	-- 		enabled = false,
+	-- 		bluetooth = {
+	-- 			enabled = false,
+	-- 		},
+	-- 	},
+	-- },
 	-- hotkeys = {
 	-- 	windowModifiers = { "cmd", "alt", "ctrl" },
 	-- 	launcherModifiers = { "cmd", "alt", "ctrl" },
