@@ -95,6 +95,11 @@ interface GlobalOptions {
   help?: boolean
 }
 
+interface HelpSection {
+  title?: string
+  body: string
+}
+
 interface CheckSqlOptions extends GlobalOptions {
   dialect?: string
   level?: string
@@ -171,6 +176,10 @@ export async function runCli(
   try {
     const clientPassthrough = extractClientPassthrough(argv)
     const cli = createCli(io)
+    if (tryOutputHelp(argv, cli, io)) {
+      return 0
+    }
+
     cli.parse(['node', 'database-query', ...argv], { run: false })
     if (clientPassthrough) {
       cli.options.__clientPassthrough = clientPassthrough
@@ -344,7 +353,10 @@ function createCli(io: CliIo) {
       await runClient(options.__clientPassthrough ?? args, options, io)
     })
 
-  cli.help()
+  cli.help((sections) => {
+    io.stdout(formatHelpSections(sections))
+    return []
+  })
   return patchHelpOutput(cli, io)
 }
 
@@ -1585,18 +1597,74 @@ function patchHelpOutput<T extends ReturnType<typeof cac>>(
   cli: T,
   io: CliIo,
 ): T {
-  const originalOutputHelp = cli.outputHelp.bind(cli)
-  cli.outputHelp = () => {
-    const originalLog = console.log
-    console.log = (...values) => io.stdout(values.map(String).join(' '))
-    try {
-      originalOutputHelp()
-    } finally {
-      console.log = originalLog
+  const patchOutputHelp = (target: { outputHelp: () => void }) => {
+    const originalOutputHelp = target.outputHelp.bind(target)
+    target.outputHelp = () => {
+      captureConsoleLog(io, originalOutputHelp)
     }
   }
 
+  patchOutputHelp(cli)
+  patchOutputHelp(cli.globalCommand)
+  for (const command of cli.commands) {
+    patchOutputHelp(command)
+  }
+
   return cli
+}
+
+/**
+ * 在解析前直接输出 help，避免 cac 内部 console 输出被并发测试污染。
+ *
+ * @param argv CLI 参数。
+ * @param cli cac CLI。
+ * @param io 输出抽象。
+ * @returns 已输出 help 时返回 true。
+ */
+function tryOutputHelp(
+  argv: string[],
+  cli: ReturnType<typeof cac>,
+  io: CliIo,
+): boolean {
+  if (!argv.includes('--help') && !argv.includes('-h')) {
+    return false
+  }
+
+  captureConsoleLog(io, () => {
+    cli.parse(['node', 'database-query', ...argv], { run: false })
+  })
+  return true
+}
+
+/**
+ * 格式化 cac 生成的帮助片段。
+ *
+ * @param sections cac 生成的帮助片段。
+ * @returns 完整帮助文本。
+ */
+function formatHelpSections(sections: HelpSection[]): string {
+  return sections
+    .map((section) =>
+      section.title ? `${section.title}:\n${section.body}` : section.body,
+    )
+    .join('\n\n')
+}
+
+/**
+ * 在第三方 CLI 库只支持 console 输出时，短暂转接到当前 IO。
+ *
+ * @param io 输出抽象。
+ * @param callback 需要捕获 console.log 的同步回调。
+ * @returns 无返回值。
+ */
+function captureConsoleLog(io: CliIo, callback: () => void): void {
+  const originalLog = console.log
+  console.log = (...values) => io.stdout(values.map(String).join(' '))
+  try {
+    callback()
+  } finally {
+    console.log = originalLog
+  }
 }
 
 /**

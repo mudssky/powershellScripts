@@ -1576,6 +1576,7 @@ async function runCli(argv, io = defaultIo()) {
 	try {
 		const clientPassthrough = extractClientPassthrough(argv);
 		const cli = createCli(io);
+		if (tryOutputHelp(argv, cli, io)) return 0;
 		cli.parse([
 			"node",
 			"database-query",
@@ -1643,7 +1644,10 @@ function createCli(io) {
 	cli.command("client [...args]", "使用配置凭据启动底层官方客户端。", { allowUnknownOptions: true }).option("--config <path>", "配置文件路径。").option("--instance <id>", "目标实例。").option("--database <name>", "目标数据库。").option("--schema <name>", "目标 schema。").option("--collection <name>", "目标 collection。").option("--print-command", "只打印脱敏启动计划，不启动客户端。").action(async (args, options) => {
 		await runClient(options.__clientPassthrough ?? args, options, io);
 	});
-	cli.help();
+	cli.help((sections) => {
+		io.stdout(formatHelpSections(sections));
+		return [];
+	});
 	return patchHelpOutput(cli, io);
 }
 /**
@@ -2513,17 +2517,60 @@ function parsePositiveInteger(value, label) {
 * @returns cac CLI。
 */
 function patchHelpOutput(cli, io) {
-	const originalOutputHelp = cli.outputHelp.bind(cli);
-	cli.outputHelp = () => {
-		const originalLog = console.log;
-		console.log = (...values) => io.stdout(values.map(String).join(" "));
-		try {
-			originalOutputHelp();
-		} finally {
-			console.log = originalLog;
-		}
+	const patchOutputHelp = (target) => {
+		const originalOutputHelp = target.outputHelp.bind(target);
+		target.outputHelp = () => {
+			captureConsoleLog(io, originalOutputHelp);
+		};
 	};
+	patchOutputHelp(cli);
+	patchOutputHelp(cli.globalCommand);
+	for (const command of cli.commands) patchOutputHelp(command);
 	return cli;
+}
+/**
+* 在解析前直接输出 help，避免 cac 内部 console 输出被并发测试污染。
+*
+* @param argv CLI 参数。
+* @param cli cac CLI。
+* @param io 输出抽象。
+* @returns 已输出 help 时返回 true。
+*/
+function tryOutputHelp(argv, cli, io) {
+	if (!argv.includes("--help") && !argv.includes("-h")) return false;
+	captureConsoleLog(io, () => {
+		cli.parse([
+			"node",
+			"database-query",
+			...argv
+		], { run: false });
+	});
+	return true;
+}
+/**
+* 格式化 cac 生成的帮助片段。
+*
+* @param sections cac 生成的帮助片段。
+* @returns 完整帮助文本。
+*/
+function formatHelpSections(sections) {
+	return sections.map((section) => section.title ? `${section.title}:\n${section.body}` : section.body).join("\n\n");
+}
+/**
+* 在第三方 CLI 库只支持 console 输出时，短暂转接到当前 IO。
+*
+* @param io 输出抽象。
+* @param callback 需要捕获 console.log 的同步回调。
+* @returns 无返回值。
+*/
+function captureConsoleLog(io, callback) {
+	const originalLog = console.log;
+	console.log = (...values) => io.stdout(values.map(String).join(" "));
+	try {
+		callback();
+	} finally {
+		console.log = originalLog;
+	}
 }
 /**
 * 提取 client 子命令 `--` 后透传参数。
