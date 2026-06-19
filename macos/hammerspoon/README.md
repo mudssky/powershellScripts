@@ -1,6 +1,6 @@
 # Hammerspoon 插件配置
 
-这个目录维护一套插件化的 macOS Hammerspoon 配置。默认启用 `win-hotkeys` 插件中的低冲突快捷键：窗口吸附、锁屏、Finder、Spotlight、系统设置和配置重载；其他 Windows 风格快捷键通过本机配置按需开启。仓库默认启用 `power-lid-sleep` 合盖休眠保护插件和蓝牙守卫，但只在支持合盖状态的 MacBook、电池供电且合盖时执行动作。
+这个目录维护一套插件化的 macOS Hammerspoon 配置。默认启用 `win-hotkeys` 插件中的低冲突快捷键：窗口吸附、锁屏、Finder、Spotlight、系统设置和配置重载；其他 Windows 风格快捷键通过本机配置按需开启。仓库默认启用 `power-lid-sleep` 合盖休眠保护插件，用于在支持合盖状态的 MacBook、电池供电且合盖时退出空闲应用；蓝牙守卫默认关闭，按需通过本机配置开启。
 
 ## 默认快捷键
 
@@ -67,7 +67,7 @@ return {
 		["power-lid-sleep"] = {
 			enabled = true,
 			bluetooth = {
-				enabled = true,
+				enabled = false,
 			},
 		},
 	},
@@ -96,7 +96,7 @@ return {
 | 插件 | 默认 | 说明 |
 |------|------|------|
 | `win-hotkeys` | 开 | 低冲突核心快捷键和可选 Windows 风格快捷键组 |
-| `power-lid-sleep` | 开 | MacBook 电池合盖时退出空闲应用并关闭蓝牙 |
+| `power-lid-sleep` | 开 | MacBook 电池合盖时退出空闲应用；蓝牙守卫按需开启 |
 
 ### 功能组
 
@@ -158,7 +158,8 @@ return {
 
 - 只在电池供电且合盖时执行。
 - RustDesk 正在运行且连续 4 次检查都没有 TCP established 连接时退出 RustDesk。
-- 蓝牙保护依赖 `blueutil`，合盖时关闭蓝牙，开盖或唤醒后按进入保护前的状态恢复。
+- 蓝牙保护默认关闭；如需排查蓝牙外设唤醒，可在本机配置里开启 `plugins["power-lid-sleep"].bluetooth.enabled = true`。
+- 蓝牙保护依赖 `blueutil`，开启后会在合盖时关闭蓝牙，开盖或唤醒后按进入保护前的状态恢复。
 - 缺少 `blueutil` 时只跳过蓝牙保护，RustDesk 空闲退出仍可运行。
 
 安装 `blueutil`：
@@ -211,5 +212,5 @@ hammerspoon/
 - 快捷键不工作：确认 Hammerspoon 已获得辅助功能权限。
 - 配置没生效：按 `Cmd+Alt+Ctrl+R` 重载，或查看 Hammerspoon Console。
 - 合盖休眠保护不生效：确认运行设备是 MacBook、`plugins["power-lid-sleep"].enabled = true`，且当前是电池供电和合盖状态。
-- 蓝牙未关闭：确认已安装 `blueutil`，并开启 `plugins["power-lid-sleep"].bluetooth.enabled = true`。
+- 蓝牙未关闭：确认已安装 `blueutil`，并在本机配置里开启 `plugins["power-lid-sleep"].bluetooth.enabled = true`。
 - 部署脚本找不到 Hammerspoon：确认已安装，或运行 `zsh macos/05deployHammerspoon.sh --install`。

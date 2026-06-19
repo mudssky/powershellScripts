@@ -39,7 +39,7 @@ return {
 				},
 			},
 			bluetooth = {
-				enabled = true,
+				enabled = false,
 				mode = "powerOff",
 				restoreOnWake = true,
 				enforceWhileLidClosed = true,
