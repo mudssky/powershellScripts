@@ -42,6 +42,7 @@ return {
 				{
 					name = "caffeinate",
 					terminateWhenLidClosed = true,
+					requiredIdleChecks = 1,
 					signal = "TERM",
 				},
 			},

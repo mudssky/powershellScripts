@@ -826,6 +826,18 @@
         ]
       },
       {
+        "name": "mos",
+        "cliName": "mos",
+        "description": "macOS 鼠标滚动优化工具",
+        "command": "brew install --cask mos",
+        "supportOs": [
+          "macOS"
+        ],
+        "tag": [
+          "macbook"
+        ]
+      },
+      {
         "name": "hammerspoon",
         "cliName": "hammerspoon",
         "description": "macOS 自动化工具",

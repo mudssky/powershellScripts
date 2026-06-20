@@ -9,7 +9,7 @@
 
 - **脚本**: `06verifyInstall.zsh`
 - **执行方式**: `zsh macos/06verifyInstall.zsh`
-- **说明**: 只读验证当前机器状态，不执行安装、不写入用户目录、不启动或重启 GUI 应用。
+- **说明**: 只读验证当前机器状态，不执行安装、不写入用户目录、不启动或重启 GUI 应用；包含 Hammerspoon 和 Mos 登录项验证。
 - **退出码**: 全部必需项通过返回 0，任一必需项失败返回非 0；WARN 只提示不影响退出码。
 
 ## 0. 拉取仓库
@@ -169,7 +169,34 @@ zsh macos/06verifyInstall.zsh --step hammerspoon
 - **失败处理**: 如果验证失败，先确认 Hammerspoon 已安装；未安装时执行 `pwsh macos/04installApps.ps1` 或 `zsh macos/05deployHammerspoon.sh --install`。
 - **权限说明**: 验证脚本只检查文件部署状态，不检查快捷键是否可触发。首次使用 Hammerspoon 时仍需在 macOS 系统设置中授予辅助功能权限。
 
-## 6. 总体验证
+## 6. 配置登录启动项
+
+- **脚本**: `07configureLoginItems.zsh`
+- **执行方式**: `zsh macos/07configureLoginItems.zsh`
+- **前置条件**: Hammerspoon 和 Mos 已安装
+- **可跳过**: 是
+- **说明**: 将 Hammerspoon 和 Mos 加入当前用户登录项，确保合盖守卫和鼠标滚动优化在重新登录后自动恢复。
+- **前置检查**:
+
+```zsh
+zsh macos/06verifyInstall.zsh --step apps
+```
+
+- **执行方式**:
+
+```zsh
+zsh macos/07configureLoginItems.zsh
+```
+
+- **验证方式**:
+
+```zsh
+zsh macos/06verifyInstall.zsh --step login-items
+```
+
+- **失败处理**: 如果脚本提示无法读取或写入登录项，按系统弹窗授予终端对 System Events 的自动化权限后重新执行。
+
+## 7. 总体验证
 
 - **脚本**: `06verifyInstall.zsh`
 - **执行方式**:
@@ -178,7 +205,7 @@ zsh macos/06verifyInstall.zsh --step hammerspoon
 zsh macos/06verifyInstall.zsh
 ```
 
-- **说明**: 检查仓库结构、Homebrew、PowerShell、Shell 配置、关键 macOS 应用和 Hammerspoon 配置部署结果。
+- **说明**: 检查仓库结构、Homebrew、PowerShell、Shell 配置、关键 macOS 应用、Hammerspoon 配置部署结果和登录启动项。
 
 ---
 

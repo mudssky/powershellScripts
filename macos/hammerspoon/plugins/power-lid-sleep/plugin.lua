@@ -49,6 +49,13 @@ local function numberOrDefault(value, fallback, minimum)
 	return number
 end
 
+-- 读取进程清理所需的连续检查次数。
+-- 入参：processConfig 进程保护配置。
+-- 返回值：有效检查次数；默认 1 次以便合盖后尽快清理防睡眠进程。
+local function processRequiredIdleChecks(processConfig)
+	return numberOrDefault(processConfig.requiredIdleChecks, 1, 1)
+end
+
 -- 启动合盖休眠保护插件。
 -- 入参：context 插件上下文，包含 config、pluginsDir 和 log。
 -- 返回值：插件运行状态表，保存 watcher 和计数状态。
@@ -184,7 +191,7 @@ function plugin.start(context)
 			if processName and processName ~= "" and processConfig.terminateWhenLidClosed ~= false and processGuard.isRunning(processConfig) then
 				local idleChecks = (state.processIdleChecks[processName] or 0) + 1
 				state.processIdleChecks[processName] = idleChecks
-				if idleChecks >= requiredIdleChecks then
+				if idleChecks >= processRequiredIdleChecks(processConfig) then
 					if processGuard.terminate(processConfig, showAlerts) then
 						log.i("电池合盖，已清理防睡眠进程: " .. processName)
 					else

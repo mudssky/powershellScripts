@@ -30,6 +30,7 @@ return {
 	-- 			{
 	-- 				name = "caffeinate",
 	-- 				terminateWhenLidClosed = true,
+	-- 				requiredIdleChecks = 1,
 	-- 			},
 	-- 		},
 	-- 		bluetooth = {

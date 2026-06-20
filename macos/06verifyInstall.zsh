@@ -14,7 +14,7 @@ PASS_COUNT=0
 WARN_COUNT=0
 FAIL_COUNT=0
 
-VALID_STEPS=(repo brew pwsh shell apps hammerspoon)
+VALID_STEPS=(repo brew pwsh shell apps hammerspoon login-items)
 SELECTED_STEPS=("${VALID_STEPS[@]}")
 
 # 显示帮助。
@@ -25,7 +25,7 @@ usage() {
 Usage: $SCRIPT_NAME [OPTIONS]
 
 Options:
-  --step <name>  只验证单个阶段：repo, brew, pwsh, shell, apps, hammerspoon
+  --step <name>  只验证单个阶段：repo, brew, pwsh, shell, apps, hammerspoon, login-items
   -h, --help     显示帮助
 
 Examples:
@@ -142,6 +142,33 @@ is_cask_or_app_installed() {
     [ -d "$HOME/Applications/$app_name.app" ] && return 0
 
     return 1
+}
+
+# 判断当前用户登录项是否包含指定 App。
+# 入参：$1 登录项名称。
+# 返回值：存在返回 0，不存在返回 1；读取失败返回 2。
+login_item_exists() {
+    local item_name="$1"
+    local result
+
+    if ! result="$(osascript - "$item_name" <<'APPLESCRIPT' 2>/dev/null
+on run argv
+    set itemName to item 1 of argv
+    tell application "System Events"
+        repeat with loginItem in login items
+            if name of loginItem is itemName then
+                return "true"
+            end if
+        end repeat
+    end tell
+    return "false"
+end run
+APPLESCRIPT
+)"; then
+        return 2
+    fi
+
+    [ "$result" = "true" ]
 }
 
 # 验证当前仓库结构。
@@ -299,6 +326,12 @@ check_apps() {
     else
         record_warn "$step" "Maccy not found"
     fi
+
+    if is_cask_or_app_installed "mos" "Mos"; then
+        record_pass "$step" "Mos is installed"
+    else
+        record_fail "$step" "Mos not found; run pwsh macos/04installApps.ps1"
+    fi
 }
 
 # 验证 Hammerspoon 配置部署结果。
@@ -362,6 +395,38 @@ check_hammerspoon() {
     done
 }
 
+# 验证关键 GUI 工具登录启动项。
+# 入参：无。
+# 返回值：无。失败项通过全局计数记录。
+check_login_items() {
+    local step="login-items"
+    local item_name
+    local required_items=("Hammerspoon" "Mos")
+    local login_status=0
+
+    if ! command_exists osascript; then
+        record_fail "$step" "osascript command not found"
+        return
+    fi
+
+    for item_name in "${required_items[@]}"; do
+        login_status=0
+        login_item_exists "$item_name" || login_status=$?
+        if [ "$login_status" -eq 0 ]; then
+            record_pass "$step" "$item_name login item exists"
+        else
+            case "$login_status" in
+                2)
+                    record_fail "$step" "cannot read login items; grant Automation permission for System Events"
+                    ;;
+                *)
+                    record_fail "$step" "$item_name login item not found; run zsh macos/07configureLoginItems.zsh"
+                    ;;
+            esac
+        fi
+    done
+}
+
 # 验证指定阶段。
 # 入参：$1 阶段名称。
 # 返回值：无。失败项通过全局计数记录。
@@ -375,6 +440,7 @@ run_step() {
         shell) check_shell ;;
         apps) check_apps ;;
         hammerspoon) check_hammerspoon ;;
+        login-items) check_login_items ;;
         *)
             record_fail "$step" "unknown verification step"
             ;;
