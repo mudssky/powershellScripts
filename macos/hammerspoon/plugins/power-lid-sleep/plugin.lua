@@ -13,6 +13,7 @@ local plugin = {
 		requiredIdleChecks = 4,
 		onlyOnBattery = true,
 		apps = {},
+		processes = {},
 		bluetooth = {
 			enabled = false,
 			mode = "powerOff",
@@ -58,10 +59,12 @@ function plugin.start(context)
 	local lidState = loadModule(context, "lid_state")
 	local appGuard = loadModule(context, "app_guard")
 	local bluetoothGuard = loadModule(context, "bluetooth_guard")
+	local processGuard = loadModule(context, "process_guard")
 	local requiredIdleChecks = numberOrDefault(config.requiredIdleChecks, 4, 1)
 	local checkIntervalSeconds = numberOrDefault(config.checkIntervalSeconds, 15, 5)
 	local state = {
 		appIdleChecks = {},
+		processIdleChecks = {},
 		bluetoothOriginalPower = nil,
 		bluetoothWasChanged = false,
 	}
@@ -80,6 +83,13 @@ function plugin.start(context)
 	-- 返回值：无。
 	local function resetAppIdleChecks()
 		state.appIdleChecks = {}
+	end
+
+	-- 重置所有进程空闲计数。
+	-- 入参：无。
+	-- 返回值：无。
+	local function resetProcessIdleChecks()
+		state.processIdleChecks = {}
 	end
 
 	-- 判断是否满足执行休眠保护动作的基础条件。
@@ -165,17 +175,42 @@ function plugin.start(context)
 		end
 	end
 
+	-- 检查并终止防睡眠进程。
+	-- 入参：无。
+	-- 返回值：无。
+	local function guardProcesses()
+		for _, processConfig in ipairs(config.processes or {}) do
+			local processName = processConfig.name
+			if processName and processName ~= "" and processConfig.terminateWhenLidClosed ~= false and processGuard.isRunning(processConfig) then
+				local idleChecks = (state.processIdleChecks[processName] or 0) + 1
+				state.processIdleChecks[processName] = idleChecks
+				if idleChecks >= requiredIdleChecks then
+					if processGuard.terminate(processConfig, showAlerts) then
+						log.i("电池合盖，已清理防睡眠进程: " .. processName)
+					else
+						log.w("防睡眠进程清理失败: " .. processName)
+					end
+					state.processIdleChecks[processName] = 0
+				end
+			elseif processName and processName ~= "" then
+				state.processIdleChecks[processConfig.name] = 0
+			end
+		end
+	end
+
 	-- 执行一次休眠保护检查。
 	-- 入参：无。
 	-- 返回值：无。
 	local function check()
 		if not shouldGuardSleep() then
 			resetAppIdleChecks()
+			resetProcessIdleChecks()
 			restoreBluetooth()
 			return
 		end
 
 		guardApps()
+		guardProcesses()
 		guardBluetooth()
 	end
 

@@ -38,8 +38,15 @@ return {
 					idleConnectionCommand = [[lsof -nP -a -c RustDesk -iTCP -sTCP:ESTABLISHED 2>/dev/null | awk 'NR > 1 {count++} END {print count + 0}']],
 				},
 			},
+			processes = {
+				{
+					name = "caffeinate",
+					terminateWhenLidClosed = true,
+					signal = "TERM",
+				},
+			},
 			bluetooth = {
-				enabled = false,
+				enabled = true,
 				mode = "powerOff",
 				restoreOnWake = true,
 				enforceWhileLidClosed = true,

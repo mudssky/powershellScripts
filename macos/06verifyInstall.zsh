@@ -317,6 +317,7 @@ check_hammerspoon() {
         "$config_dir/scripts/plugins/power-lid-sleep/app_guard.lua"
         "$config_dir/scripts/plugins/power-lid-sleep/bluetooth_guard.lua"
         "$config_dir/scripts/plugins/power-lid-sleep/lid_state.lua"
+        "$config_dir/scripts/plugins/power-lid-sleep/process_guard.lua"
     )
     local required_manifest_entries=(
         "init.lua"
@@ -326,6 +327,7 @@ check_hammerspoon() {
         "scripts/plugins/power-lid-sleep/app_guard.lua"
         "scripts/plugins/power-lid-sleep/bluetooth_guard.lua"
         "scripts/plugins/power-lid-sleep/lid_state.lua"
+        "scripts/plugins/power-lid-sleep/process_guard.lua"
     )
 
     if is_cask_or_app_installed "hammerspoon" "Hammerspoon"; then

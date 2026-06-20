@@ -26,6 +26,12 @@ return {
 	-- 	},
 	-- 	["power-lid-sleep"] = {
 	-- 		enabled = false,
+	-- 		processes = {
+	-- 			{
+	-- 				name = "caffeinate",
+	-- 				terminateWhenLidClosed = true,
+	-- 			},
+	-- 		},
 	-- 		bluetooth = {
 	-- 			enabled = false,
 	-- 		},
