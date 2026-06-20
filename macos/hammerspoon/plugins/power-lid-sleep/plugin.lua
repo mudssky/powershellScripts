@@ -218,7 +218,9 @@ function plugin.start(context)
 	state.caffeinateWatcher = hs.caffeinate.watcher.new(function(event)
 		if event == hs.caffeinate.watcher.screensDidSleep
 			or event == hs.caffeinate.watcher.systemWillSleep
-			or event == hs.caffeinate.watcher.systemDidWake then
+			or event == hs.caffeinate.watcher.systemDidWake
+			or event == hs.caffeinate.watcher.screensDidWake
+			or event == hs.caffeinate.watcher.screensDidUnlock then
 			check()
 		end
 	end)
