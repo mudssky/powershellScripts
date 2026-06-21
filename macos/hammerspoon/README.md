@@ -15,7 +15,7 @@
 | 打开 Spotlight | `Cmd+Alt+Ctrl+Space` |
 | 打开 System Settings | `Cmd+Alt+Ctrl+I` |
 | 重载 Hammerspoon 配置 | `Cmd+Alt+Ctrl+R` |
-| 主动睡眠 | `Cmd+Ctrl+S` |
+| 主动睡眠 | `Cmd+Ctrl+S`，备用 `Cmd+Alt+Ctrl+S` |
 
 默认关闭的可选功能组包括：`altTab`、`text`、`browser`、`system`、`screenshot`、`volume`、`spaces`、`apps`、`finderActions`。
 
@@ -159,7 +159,7 @@ return {
 
 - 只在电池供电且合盖时执行。
 - RustDesk 正在运行且连续 4 次检查都没有 TCP established 连接时退出 RustDesk。
-- 主动睡眠快捷键为 `Cmd+Ctrl+S`；触发后会先清理 `caffeinate`、按配置关闭蓝牙、提示实际执行结果，全部成功后再延迟 2 秒进入睡眠；目标未运行或依赖未检测到会跳过，只有已检测到但处理失败才会取消睡眠。
+- 主动睡眠快捷键为 `Cmd+Ctrl+S`，备用 `Cmd+Alt+Ctrl+S`；触发后会先清理 `caffeinate`、按配置关闭蓝牙、提示实际执行结果，全部成功后再延迟 2 秒进入睡眠；目标未运行或依赖未检测到会跳过，只有已检测到但处理失败才会取消睡眠。
 - 蓝牙保护默认关闭；如需排查蓝牙外设唤醒，可在本机配置里开启 `plugins["power-lid-sleep"].bluetooth.enabled = true`。
 - 蓝牙保护依赖 `blueutil`，开启后会在合盖时关闭蓝牙，开盖或唤醒后按进入保护前的状态恢复。
 - 缺少 `blueutil` 时只跳过蓝牙保护，RustDesk 空闲退出仍可运行。
@@ -212,6 +212,7 @@ hammerspoon/
 ## 排查
 
 - 快捷键不工作：确认 Hammerspoon 已获得辅助功能权限。
+- 主动睡眠快捷键无反应：先试备用 `Cmd+Alt+Ctrl+S`，并查看 `~/.hammerspoon/logs/power-lid-sleep.log` 是否出现“主动睡眠快捷键已触发”。
 - 配置没生效：按 `Cmd+Alt+Ctrl+R` 重载，或查看 Hammerspoon Console。
 - 主动睡眠提示蓝牙读取失败：打开 Hammerspoon Console，过滤 `power-lid-sleep` 或 `blueutil`，也可以查看 `~/.hammerspoon/logs/power-lid-sleep.log` 中的 blueutil 路径、读取输出和失败阶段。
 - 合盖休眠保护不生效：确认运行设备是 MacBook、`plugins["power-lid-sleep"].enabled = true`，且当前是电池供电和合盖状态。

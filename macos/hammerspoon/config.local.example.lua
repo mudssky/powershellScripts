@@ -41,6 +41,11 @@ return {
 	-- 			modifiers = { "cmd", "ctrl" },
 	-- 			key = "s",
 	-- 			delaySeconds = 2,
+	-- 			alternate = {
+	-- 				enabled = true,
+	-- 				modifiers = { "cmd", "alt", "ctrl" },
+	-- 				key = "s",
+	-- 			},
 	-- 		},
 	-- 	},
 	-- },

@@ -25,6 +25,11 @@ local plugin = {
 			modifiers = { "cmd", "ctrl" },
 			key = "s",
 			delaySeconds = 2,
+			alternate = {
+				enabled = true,
+				modifiers = { "cmd", "alt", "ctrl" },
+				key = "s",
+			},
 		},
 	},
 }
@@ -55,6 +60,23 @@ local function numberOrDefault(value, fallback, minimum)
 	return number
 end
 
+-- 追加主动睡眠诊断日志到文件。
+-- 入参：diagnosticLogPath 诊断日志路径；message 日志内容。
+-- 返回值：无。
+local function appendDiagnosticLog(diagnosticLogPath, message)
+	if not diagnosticLogPath then
+		return
+	end
+
+	local file = io.open(diagnosticLogPath, "a")
+	if not file then
+		return
+	end
+
+	file:write(string.format("%s [info] %s\n", os.date("%Y-%m-%d %H:%M:%S"), message))
+	file:close()
+end
+
 -- 读取进程清理所需的连续检查次数。
 -- 入参：processConfig 进程保护配置。
 -- 返回值：有效检查次数；默认 1 次以便合盖后尽快清理防睡眠进程。
@@ -73,12 +95,13 @@ function plugin.start(context)
 	local appGuard = loadModule(context, "app_guard")
 	local bluetoothGuard = loadModule(context, "bluetooth_guard")
 	local processGuard = loadModule(context, "process_guard")
+	local logDir = context.configDir .. "/logs"
+	if not hs.fs.pathToAbsolute(logDir) then
+		hs.fs.mkdir(logDir)
+	end
+	local diagnosticLogPath = logDir .. "/power-lid-sleep.log"
 	if type(bluetoothGuard.setLogger) == "function" then
-		local logDir = context.configDir .. "/logs"
-		if not hs.fs.pathToAbsolute(logDir) then
-			hs.fs.mkdir(logDir)
-		end
-		bluetoothGuard.setLogger(log, logDir .. "/power-lid-sleep.log")
+		bluetoothGuard.setLogger(log, diagnosticLogPath)
 	end
 	local requiredIdleChecks = numberOrDefault(config.requiredIdleChecks, 4, 1)
 	local checkIntervalSeconds = numberOrDefault(config.checkIntervalSeconds, 15, 5)
@@ -87,7 +110,7 @@ function plugin.start(context)
 		processIdleChecks = {},
 		bluetoothOriginalPower = nil,
 		bluetoothWasChanged = false,
-		activeSleepHotkey = nil,
+		activeSleepHotkeys = {},
 	}
 	local showAlerts = config.showAlerts
 	if showAlerts == nil then
@@ -268,6 +291,7 @@ function plugin.start(context)
 	-- 入参：无。
 	-- 返回值：无。
 	local function activeSleep()
+		appendDiagnosticLog(diagnosticLogPath, "主动睡眠快捷键已触发")
 		local activeSleepConfig = config.activeSleepHotkey or {}
 		local delaySeconds = numberOrDefault(activeSleepConfig.delaySeconds, 2, 0)
 		local actionResults, processesSucceeded = terminateSleepPreventingProcesses(false)
@@ -277,8 +301,10 @@ function plugin.start(context)
 		local shouldSleep = processesSucceeded and bluetoothSucceeded
 		if shouldSleep then
 			table.insert(actionResults, string.format("%.0f 秒后进入睡眠", delaySeconds))
+			appendDiagnosticLog(diagnosticLogPath, "主动睡眠前置动作成功，准备进入睡眠")
 		else
 			table.insert(actionResults, "已取消睡眠")
+			appendDiagnosticLog(diagnosticLogPath, "主动睡眠前置动作失败，已取消睡眠")
 		end
 
 		if showAlerts ~= false then
@@ -294,19 +320,37 @@ function plugin.start(context)
 		end)
 	end
 
+	-- 绑定单个主动睡眠快捷键。
+	-- 入参：hotkeyConfig 快捷键配置；label 快捷键标签。
+	-- 返回值：无。
+	local function bindActiveSleepHotkey(hotkeyConfig, label)
+		if hotkeyConfig.enabled == false then
+			return
+		end
+
+		local modifiers = hotkeyConfig.modifiers or { "cmd", "ctrl" }
+		local key = hotkeyConfig.key or "s"
+		local hotkey = hs.hotkey.bind(modifiers, key, activeSleep)
+		table.insert(state.activeSleepHotkeys, hotkey)
+		local hotkeyText = table.concat(modifiers, "+") .. "+" .. key
+		log.i("已绑定主动睡眠快捷键(" .. label .. "): " .. hotkeyText)
+		appendDiagnosticLog(diagnosticLogPath, "已绑定主动睡眠快捷键(" .. label .. "): " .. hotkeyText)
+	end
+
 	-- 注册主动睡眠快捷键。
 	-- 入参：无。
 	-- 返回值：无。
 	local function registerActiveSleepHotkey()
 		local activeSleepConfig = config.activeSleepHotkey or {}
 		if activeSleepConfig.enabled == false then
+			appendDiagnosticLog(diagnosticLogPath, "主动睡眠快捷键配置已关闭")
 			return
 		end
 
-		local modifiers = activeSleepConfig.modifiers or { "cmd", "ctrl" }
-		local key = activeSleepConfig.key or "s"
-		state.activeSleepHotkey = hs.hotkey.bind(modifiers, key, activeSleep)
-		log.i("已绑定主动睡眠快捷键: " .. table.concat(modifiers, "+") .. "+" .. key)
+		bindActiveSleepHotkey(activeSleepConfig, "主")
+		if type(activeSleepConfig.alternate) == "table" then
+			bindActiveSleepHotkey(activeSleepConfig.alternate, "备用")
+		end
 	end
 
 	-- 执行一次休眠保护检查。
