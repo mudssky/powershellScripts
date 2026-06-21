@@ -41,7 +41,7 @@ function M.terminate(processConfig, showAlert)
 
 	local signal = processConfig.signal or "TERM"
 	local command = string.format(
-		"pkill -x -%s %s >/dev/null 2>&1 && sleep 0.2 && ! pgrep -x %s >/dev/null 2>&1",
+		"pkill -%s -x %s >/dev/null 2>&1 && sleep 0.5 && ! pgrep -x %s >/dev/null 2>&1",
 		signal,
 		shellQuote(processName),
 		shellQuote(processName)

@@ -5,6 +5,14 @@
 
 local M = {}
 local cachedBlueutilPath = nil
+local shellPath = [[PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"]]
+
+-- 转义用于单引号 shell 字符串的文本。
+-- 入参：value 原始文本。
+-- 返回值：可安全放入单引号的文本。
+local function shellQuote(value)
+	return "'" .. tostring(value):gsub("'", [["'"']]) .. "'"
+end
 
 -- 查找 blueutil 可执行文件。
 -- 入参：无。
@@ -14,8 +22,8 @@ local function blueutilPath()
 		return cachedBlueutilPath
 	end
 
-	local output = hs.execute([[PATH="/opt/homebrew/bin:/usr/local/bin:$PATH" command -v blueutil 2>/dev/null]], true)
-	if not output or output == "" then
+	local output, success = hs.execute(shellPath .. " command -v blueutil 2>/dev/null", true)
+	if success ~= true or not output or output == "" then
 		return nil
 	end
 
@@ -38,9 +46,18 @@ function M.powerState()
 		return nil
 	end
 
-	local command = string.format("%q --power 2>/dev/null", blueutilPath())
-	local output = hs.execute(command, true)
-	return tonumber(output)
+	local command = string.format("%s %s --power 2>/dev/null", shellPath, shellQuote(blueutilPath()))
+	local output, success = hs.execute(command, true)
+	if success ~= true then
+		return nil
+	end
+
+	local power = tonumber((output or ""):match("%d+"))
+	if power == 0 or power == 1 then
+		return power
+	end
+
+	return nil
 end
 
 -- 设置蓝牙电源状态。
@@ -51,7 +68,7 @@ function M.setPower(state)
 		return false
 	end
 
-	local command = string.format("%q --power %s >/dev/null 2>&1", blueutilPath(), state)
+	local command = string.format("%s %s --power %s >/dev/null 2>&1", shellPath, shellQuote(blueutilPath()), shellQuote(state))
 	local _, success = hs.execute(command, true)
 	return success == true
 end
