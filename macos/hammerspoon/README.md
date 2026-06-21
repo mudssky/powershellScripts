@@ -213,6 +213,7 @@ hammerspoon/
 
 - 快捷键不工作：确认 Hammerspoon 已获得辅助功能权限。
 - 配置没生效：按 `Cmd+Alt+Ctrl+R` 重载，或查看 Hammerspoon Console。
+- 主动睡眠提示蓝牙读取失败：打开 Hammerspoon Console，过滤 `power-lid-sleep` 或 `blueutil`，也可以查看 `~/.hammerspoon/logs/power-lid-sleep.log` 中的 blueutil 路径、读取输出和失败阶段。
 - 合盖休眠保护不生效：确认运行设备是 MacBook、`plugins["power-lid-sleep"].enabled = true`，且当前是电池供电和合盖状态。
 - 蓝牙未关闭：确认已安装 `blueutil`，并在本机配置里开启 `plugins["power-lid-sleep"].bluetooth.enabled = true`。
 - 部署脚本找不到 Hammerspoon：确认已安装，或运行 `zsh macos/05deployHammerspoon.sh --install`。

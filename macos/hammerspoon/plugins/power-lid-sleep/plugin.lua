@@ -73,6 +73,13 @@ function plugin.start(context)
 	local appGuard = loadModule(context, "app_guard")
 	local bluetoothGuard = loadModule(context, "bluetooth_guard")
 	local processGuard = loadModule(context, "process_guard")
+	if type(bluetoothGuard.setLogger) == "function" then
+		local logDir = context.configDir .. "/logs"
+		if not hs.fs.pathToAbsolute(logDir) then
+			hs.fs.mkdir(logDir)
+		end
+		bluetoothGuard.setLogger(log, logDir .. "/power-lid-sleep.log")
+	end
 	local requiredIdleChecks = numberOrDefault(config.requiredIdleChecks, 4, 1)
 	local checkIntervalSeconds = numberOrDefault(config.checkIntervalSeconds, 15, 5)
 	local state = {
