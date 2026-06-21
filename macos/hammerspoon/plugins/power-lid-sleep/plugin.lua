@@ -103,6 +103,9 @@ function plugin.start(context)
 	if type(bluetoothGuard.setLogger) == "function" then
 		bluetoothGuard.setLogger(log, diagnosticLogPath)
 	end
+	if type(processGuard.setLogger) == "function" then
+		processGuard.setLogger(log, diagnosticLogPath)
+	end
 	local requiredIdleChecks = numberOrDefault(config.requiredIdleChecks, 4, 1)
 	local checkIntervalSeconds = numberOrDefault(config.checkIntervalSeconds, 15, 5)
 	local state = {
@@ -226,6 +229,44 @@ function plugin.start(context)
 		return "蓝牙：已是关闭", true
 	end
 
+	-- 后台关闭蓝牙，并通过回调返回处理结果。
+	-- 入参：callback 完成回调，接收结果文本和成功状态。
+	-- 返回值：布尔值，true 表示已异步处理。
+	local function guardBluetoothAsync(callback)
+		local bluetoothConfig = config.bluetooth or {}
+		if bluetoothConfig.enabled ~= true or bluetoothConfig.mode ~= "powerOff" then
+			callback("蓝牙：未启用关闭", true)
+			return true
+		end
+
+		if not bluetoothGuard.available() then
+			callback("蓝牙：未检测到 blueutil，跳过", true)
+			return true
+		end
+
+		if type(bluetoothGuard.powerOffAsync) ~= "function" then
+			return false
+		end
+
+		local started = bluetoothGuard.powerOffAsync(function(succeeded, detail)
+			if succeeded then
+				state.bluetoothWasChanged = true
+				state.bluetoothOriginalPower = nil
+				log.i("蓝牙后台关闭完成")
+				callback("蓝牙：" .. detail, true)
+			else
+				log.w("蓝牙后台关闭失败: " .. tostring(detail))
+				callback("蓝牙：" .. detail, false)
+			end
+		end)
+
+		if not started then
+			callback("蓝牙：关闭任务启动失败", false)
+		end
+
+		return true
+	end
+
 	-- 检查并退出空闲应用。
 	-- 入参：无。
 	-- 返回值：无。
@@ -279,7 +320,17 @@ function plugin.start(context)
 		local allSucceeded = true
 		for _, processConfig in ipairs(config.processes or {}) do
 			local processName = processConfig.name
-			if processName and processName ~= "" and processConfig.terminateWhenLidClosed ~= false and processGuard.isRunning(processConfig) then
+			if processName and processName ~= "" and processConfig.terminateWhenLidClosed ~= false and showProcessAlerts ~= true and type(processGuard.terminateAsync) == "function" then
+				if processGuard.terminateAsync(processConfig) then
+					log.i("睡眠事件触发，已安排后台清理防睡眠进程: " .. processName)
+					table.insert(results, processName .. "：后台清理中")
+				else
+					log.w("睡眠事件触发，防睡眠进程后台清理任务启动失败: " .. processName)
+					table.insert(results, processName .. "：清理任务启动失败")
+					allSucceeded = false
+				end
+				state.processIdleChecks[processName] = 0
+			elseif processName and processName ~= "" and processConfig.terminateWhenLidClosed ~= false and processGuard.isRunning(processConfig) then
 				if processGuard.terminate(processConfig, showProcessAlerts == true and showAlerts ~= false) then
 					log.i("睡眠事件触发，已清理防睡眠进程: " .. processName)
 					table.insert(results, processName .. "：已清理")
@@ -301,18 +352,59 @@ function plugin.start(context)
 		return results, allSucceeded
 	end
 
-	-- 执行主动睡眠动作。
-	-- 入参：无。
+	-- 后台清理防睡眠进程，并在全部结束后返回汇总结果。
+	-- 入参：callback 完成回调，接收结果列表和成功状态。
 	-- 返回值：无。
-	local function activeSleep()
-		appendDiagnosticLog(diagnosticLogPath, "主动睡眠快捷键已触发")
-		local activeSleepConfig = config.activeSleepHotkey or {}
-		local delaySeconds = numberOrDefault(activeSleepConfig.delaySeconds, 2, 0)
-		local actionResults, processesSucceeded = terminateSleepPreventingProcesses(false)
-		local bluetoothResult, bluetoothSucceeded = guardBluetooth()
-		table.insert(actionResults, bluetoothResult)
+	local function terminateSleepPreventingProcessesAsync(callback)
+		local processConfigs = {}
+		for _, processConfig in ipairs(config.processes or {}) do
+			local processName = processConfig.name
+			if processName and processName ~= "" and processConfig.terminateWhenLidClosed ~= false then
+				table.insert(processConfigs, processConfig)
+			end
+		end
 
-		local shouldSleep = processesSucceeded and bluetoothSucceeded
+		if #processConfigs == 0 then
+			callback({ "防睡眠进程：未配置" }, true)
+			return
+		end
+
+		local results = {}
+		local remaining = #processConfigs
+		local allSucceeded = true
+
+		local function finishOne()
+			remaining = remaining - 1
+			if remaining == 0 then
+				callback(results, allSucceeded)
+			end
+		end
+
+		for _, processConfig in ipairs(processConfigs) do
+			local processName = processConfig.name
+			local started = type(processGuard.terminateAsync) == "function"
+				and processGuard.terminateAsync(processConfig, function(succeeded, detail)
+					table.insert(results, processName .. "：" .. detail)
+					if not succeeded then
+						allSucceeded = false
+					end
+					state.processIdleChecks[processName] = 0
+					finishOne()
+				end)
+
+			if not started then
+				table.insert(results, processName .. "：清理任务启动失败")
+				allSucceeded = false
+				state.processIdleChecks[processName] = 0
+				finishOne()
+			end
+		end
+	end
+
+	-- 完成主动睡眠前置动作并按结果提示。
+	-- 入参：actionResults 结果列表；shouldSleep 是否继续睡眠；delaySeconds 延迟秒数。
+	-- 返回值：无。
+	local function finishActiveSleep(actionResults, shouldSleep, delaySeconds)
 		if shouldSleep then
 			table.insert(actionResults, string.format("%.0f 秒后进入睡眠", delaySeconds))
 			appendDiagnosticLog(diagnosticLogPath, "主动睡眠前置动作成功，准备进入睡眠")
@@ -331,6 +423,22 @@ function plugin.start(context)
 
 		hs.timer.doAfter(delaySeconds, function()
 			hs.execute("/usr/bin/pmset sleepnow >/dev/null 2>&1", true)
+		end)
+	end
+
+	-- 执行主动睡眠动作。
+	-- 入参：无。
+	-- 返回值：无。
+	local function activeSleep()
+		appendDiagnosticLog(diagnosticLogPath, "主动睡眠快捷键已触发")
+		local activeSleepConfig = config.activeSleepHotkey or {}
+		local delaySeconds = numberOrDefault(activeSleepConfig.delaySeconds, 2, 0)
+
+		terminateSleepPreventingProcessesAsync(function(processResults, processesSucceeded)
+			guardBluetoothAsync(function(bluetoothResult, bluetoothSucceeded)
+				table.insert(processResults, bluetoothResult)
+				finishActiveSleep(processResults, processesSucceeded and bluetoothSucceeded, delaySeconds)
+			end)
 		end)
 	end
 

@@ -100,9 +100,9 @@ local function removeTask(task)
 end
 
 -- 后台执行 blueutil 命令，避免阻塞 Hammerspoon 主线程。
--- 入参：arguments blueutil 参数列表；label 日志标签。
+-- 入参：arguments blueutil 参数列表；label 日志标签；callback 完成回调。
 -- 返回值：布尔值，true 表示任务已启动。
-local function startBlueutilTask(arguments, label)
+local function startBlueutilTask(arguments, label, callback)
 	local path = blueutilPath()
 	if not path then
 		log("warn", "blueutil 后台任务未启动，缺少可执行文件: " .. tostring(label))
@@ -111,8 +111,9 @@ local function startBlueutilTask(arguments, label)
 
 	local task
 	task = hs.task.new(path, function(exitCode, stdOut, stdErr)
+		local succeeded = exitCode == 0
 		log(
-			exitCode == 0 and "info" or "warn",
+			succeeded and "info" or "warn",
 			string.format(
 				"blueutil 后台%s结束: exitCode=%s stdout=%s stderr=%s",
 				label,
@@ -122,6 +123,9 @@ local function startBlueutilTask(arguments, label)
 			)
 		)
 		removeTask(task)
+		if callback then
+			callback(succeeded, succeeded and "已完成" or ("失败 rc=" .. tostring(exitCode)))
+		end
 	end, nil, arguments)
 
 	if not task then
@@ -222,10 +226,10 @@ function M.powerOff()
 end
 
 -- 后台关闭蓝牙。
--- 入参：无。
+-- 入参：callback 完成回调。
 -- 返回值：布尔值，true 表示关闭任务已启动。
-function M.powerOffAsync()
-	return startBlueutilTask({ "--power", "0" }, "关闭蓝牙")
+function M.powerOffAsync(callback)
+	return startBlueutilTask({ "--power", "0" }, "关闭蓝牙", callback)
 end
 
 -- 开启蓝牙。
@@ -236,10 +240,10 @@ function M.powerOn()
 end
 
 -- 后台开启蓝牙。
--- 入参：无。
+-- 入参：callback 完成回调。
 -- 返回值：布尔值，true 表示开启任务已启动。
-function M.powerOnAsync()
-	return startBlueutilTask({ "--power", "on" }, "开启蓝牙")
+function M.powerOnAsync(callback)
+	return startBlueutilTask({ "--power", "on" }, "开启蓝牙", callback)
 end
 
 return M
