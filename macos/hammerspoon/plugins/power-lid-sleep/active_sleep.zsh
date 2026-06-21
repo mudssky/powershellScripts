@@ -8,8 +8,16 @@
 set -u
 
 LOG_FILE="$HOME/.hammerspoon/logs/power-lid-sleep.log"
-RESULT_FILE="${1:-$HOME/.hammerspoon/logs/power-lid-sleep.result}"
+MODE="sleep"
+RESULT_FILE="$HOME/.hammerspoon/logs/power-lid-sleep.result"
 PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+
+if [ "${1:-}" = "--check-bluetooth-permission" ]; then
+    MODE="check-bluetooth-permission"
+    RESULT_FILE="${2:-$RESULT_FILE}"
+else
+    RESULT_FILE="${1:-$RESULT_FILE}"
+fi
 
 # 写入诊断日志。
 # 入参：$1 日志内容。
@@ -23,11 +31,11 @@ log_info() {
 # 入参：$1 执行状态；$2 执行结果正文。
 # 返回值：无。
 write_result() {
-    local status="$1"
+    local result_status="$1"
     local message="$2"
     mkdir -p "$(dirname "$RESULT_FILE")"
     {
-        printf 'status=%s\n' "$status"
+        printf 'status=%s\n' "$result_status"
         printf '%s\n' "$message"
     } > "$RESULT_FILE"
 }
@@ -68,9 +76,43 @@ cleanup_caffeinate() {
     return "$rc"
 }
 
+# 检查 Hammerspoon 启动的 blueutil 是否具备蓝牙访问权限。
+# 入参：无。
+# 返回值：0 表示可访问或无需授权，非 0 表示权限或命令失败。
+check_bluetooth_permission() {
+    local blueutil_path
+    blueutil_path="$(command -v blueutil 2>/dev/null || true)"
+    if [ -z "$blueutil_path" ]; then
+        log_info "未检测到 blueutil，跳过蓝牙权限预检"
+        echo "蓝牙权限：未检测到 blueutil"
+        return 0
+    fi
+
+    "$blueutil_path" --power >/tmp/power-lid-sleep-blueutil.out 2>/tmp/power-lid-sleep-blueutil.err
+    local rc=$?
+    local stdout stderr
+    stdout="$(tr '\n' ' ' </tmp/power-lid-sleep-blueutil.out 2>/dev/null || true)"
+    stderr="$(tr '\n' ' ' </tmp/power-lid-sleep-blueutil.err 2>/dev/null || true)"
+    rm -f /tmp/power-lid-sleep-blueutil.out /tmp/power-lid-sleep-blueutil.err
+
+    if [ "$rc" -eq 0 ]; then
+        log_info "蓝牙权限预检通过: power=$stdout"
+        echo "蓝牙权限：已可访问"
+        return 0
+    fi
+
+    log_info "蓝牙权限预检失败: rc=$rc stdout=$stdout stderr=$stderr"
+    if [[ "$stderr" == *"access to Bluetooth API"* ]]; then
+        echo "蓝牙权限：需要允许 Hammerspoon 访问蓝牙"
+    else
+        echo "蓝牙权限：预检失败 rc=$rc"
+    fi
+    return "$rc"
+}
+
 # 关闭蓝牙。
 # 入参：无。
-# 返回值：0 表示成功、跳过或非阻断失败；蓝牙失败不阻止主动睡眠。
+# 返回值：0 表示成功或跳过，非 0 表示失败；蓝牙失败会阻止主动睡眠。
 disable_bluetooth() {
     local blueutil_path
     blueutil_path="$(command -v blueutil 2>/dev/null || true)"
@@ -93,15 +135,28 @@ disable_bluetooth() {
         return 0
     fi
 
-    log_info "蓝牙关闭失败但继续睡眠: rc=$rc stdout=$stdout stderr=$stderr"
+    log_info "蓝牙关闭失败: rc=$rc stdout=$stdout stderr=$stderr"
     if [[ "$stderr" == *"access to Bluetooth API"* ]]; then
-        echo "蓝牙：权限拦截，继续睡眠"
+        echo "蓝牙：权限拦截，已取消睡眠"
         echo "需在系统设置给 Hammerspoon 授权蓝牙"
     else
-        echo "蓝牙：关闭失败 rc=$rc，继续睡眠"
+        echo "蓝牙：关闭失败 rc=$rc"
     fi
-    return 0
+    return "$rc"
 }
+
+if [ "$MODE" = "check-bluetooth-permission" ]; then
+    log_info "蓝牙权限预检启动"
+    permission_result="$(check_bluetooth_permission)"
+    permission_rc=$?
+    if [ "$permission_rc" -eq 0 ]; then
+        write_result "ok" "$permission_result"
+    else
+        write_result "failed" "$permission_result"
+    fi
+    notify "Hammerspoon 蓝牙权限" "$permission_result"
+    exit 0
+fi
 
 log_info "主动睡眠执行器启动"
 

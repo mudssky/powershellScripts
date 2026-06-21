@@ -90,6 +90,13 @@ local function readTextFile(path)
 	return content
 end
 
+-- 打开 macOS 蓝牙隐私授权页面。
+-- 入参：无。
+-- 返回值：无。
+local function openBluetoothPrivacySettings()
+	hs.urlevent.openURL("x-apple.systempreferences:com.apple.preference.security?Privacy_Bluetooth")
+end
+
 -- 追加主动睡眠诊断日志到文件。
 -- 入参：diagnosticLogPath 诊断日志路径；message 日志内容。
 -- 返回值：无。
@@ -145,6 +152,7 @@ function plugin.start(context)
 		bluetoothWasChanged = false,
 		activeSleepHotkeys = {},
 		activeSleepResultTimer = nil,
+		bluetoothPermissionTimer = nil,
 	}
 	local showAlerts = config.showAlerts
 	if showAlerts == nil then
@@ -503,6 +511,62 @@ function plugin.start(context)
 		end)
 	end
 
+	-- 启动时预检蓝牙权限，提前触发 macOS 授权流程。
+	-- 入参：无。
+	-- 返回值：无。
+	local function checkBluetoothPermission()
+		local bluetoothConfig = config.bluetooth or {}
+		if bluetoothConfig.enabled ~= true or bluetoothConfig.mode ~= "powerOff" then
+			return
+		end
+
+		local helperPath = context.pluginsDir .. "/" .. plugin.id .. "/active_sleep.zsh"
+		local resultPath = context.configDir .. "/logs/power-lid-sleep.bluetooth-permission.result"
+		removeFile(resultPath)
+		appendDiagnosticLog(diagnosticLogPath, "蓝牙权限预检已触发")
+		local command = string.format(
+			"/bin/zsh %s --check-bluetooth-permission %s >/dev/null 2>&1 &",
+			shellQuote(helperPath),
+			shellQuote(resultPath)
+		)
+		hs.execute(command, false)
+
+		local attempts = 0
+		if state.bluetoothPermissionTimer then
+			state.bluetoothPermissionTimer:stop()
+			state.bluetoothPermissionTimer = nil
+		end
+		state.bluetoothPermissionTimer = hs.timer.doEvery(0.5, function()
+			attempts = attempts + 1
+			local result = readTextFile(resultPath)
+			if result then
+				state.bluetoothPermissionTimer:stop()
+				state.bluetoothPermissionTimer = nil
+				removeFile(resultPath)
+				local status = result:match("^status=([^\n]*)") or "unknown"
+				local message = result:gsub("^status=[^\n]*\n", "")
+				message = message:gsub("%s+$", "")
+				appendDiagnosticLog(diagnosticLogPath, "蓝牙权限预检结果: " .. message)
+				if status ~= "ok" and showAlerts ~= false then
+					hs.alert.show(message, 5)
+				end
+				if status ~= "ok" then
+					openBluetoothPrivacySettings()
+				end
+				return
+			end
+
+			if attempts >= 20 then
+				state.bluetoothPermissionTimer:stop()
+				state.bluetoothPermissionTimer = nil
+				appendDiagnosticLog(diagnosticLogPath, "蓝牙权限预检结果读取超时")
+				if showAlerts ~= false then
+					hs.alert.show("蓝牙权限预检无结果，请查看日志", 3)
+				end
+			end
+		end)
+	end
+
 	-- 绑定单个主动睡眠快捷键。
 	-- 入参：hotkeyConfig 快捷键配置；label 快捷键标签。
 	-- 返回值：无。
@@ -553,6 +617,7 @@ function plugin.start(context)
 	end
 
 	state.timer = hs.timer.doEvery(checkIntervalSeconds, check)
+	hs.timer.doAfter(1, checkBluetoothPermission)
 	state.caffeinateWatcher = hs.caffeinate.watcher.new(function(event)
 		if event == hs.caffeinate.watcher.screensDidSleep
 			or event == hs.caffeinate.watcher.systemWillSleep
