@@ -205,6 +205,23 @@ function plugin.start(context)
 		end
 	end
 
+	-- 不依赖合盖状态，直接清理已配置的防睡眠进程。
+	-- 入参：无。
+	-- 返回值：无。
+	local function terminateSleepPreventingProcesses()
+		for _, processConfig in ipairs(config.processes or {}) do
+			local processName = processConfig.name
+			if processName and processName ~= "" and processConfig.terminateWhenLidClosed ~= false and processGuard.isRunning(processConfig) then
+				if processGuard.terminate(processConfig, showAlerts) then
+					log.i("睡眠事件触发，已清理防睡眠进程: " .. processName)
+				else
+					log.w("睡眠事件触发，防睡眠进程清理失败: " .. processName)
+				end
+				state.processIdleChecks[processName] = 0
+			end
+		end
+	end
+
 	-- 执行一次休眠保护检查。
 	-- 入参：无。
 	-- 返回值：无。
@@ -223,9 +240,10 @@ function plugin.start(context)
 
 	state.timer = hs.timer.doEvery(checkIntervalSeconds, check)
 	state.caffeinateWatcher = hs.caffeinate.watcher.new(function(event)
-		if event == hs.caffeinate.watcher.screensDidSleep
-			or event == hs.caffeinate.watcher.systemWillSleep
-			or event == hs.caffeinate.watcher.systemDidWake
+		if event == hs.caffeinate.watcher.screensDidSleep or event == hs.caffeinate.watcher.systemWillSleep then
+			terminateSleepPreventingProcesses()
+			check()
+		elseif event == hs.caffeinate.watcher.systemDidWake
 			or event == hs.caffeinate.watcher.screensDidWake
 			or event == hs.caffeinate.watcher.screensDidUnlock then
 			check()
