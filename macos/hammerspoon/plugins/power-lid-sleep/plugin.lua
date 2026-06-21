@@ -60,6 +60,36 @@ local function numberOrDefault(value, fallback, minimum)
 	return number
 end
 
+-- 转义用于单引号 shell 字符串的文本。
+-- 入参：value 原始文本。
+-- 返回值：可安全放入单引号的文本。
+local function shellQuote(value)
+	return "'" .. tostring(value):gsub("'", [["'"']]) .. "'"
+end
+
+-- 删除文件。
+-- 入参：path 文件路径。
+-- 返回值：无。
+local function removeFile(path)
+	if path then
+		os.remove(path)
+	end
+end
+
+-- 读取完整文本文件。
+-- 入参：path 文件路径。
+-- 返回值：读取成功时返回文本，失败时返回 nil。
+local function readTextFile(path)
+	local file = io.open(path, "r")
+	if not file then
+		return nil
+	end
+
+	local content = file:read("*a")
+	file:close()
+	return content
+end
+
 -- 追加主动睡眠诊断日志到文件。
 -- 入参：diagnosticLogPath 诊断日志路径；message 日志内容。
 -- 返回值：无。
@@ -114,6 +144,7 @@ function plugin.start(context)
 		bluetoothOriginalPower = nil,
 		bluetoothWasChanged = false,
 		activeSleepHotkeys = {},
+		activeSleepResultTimer = nil,
 	}
 	local showAlerts = config.showAlerts
 	if showAlerts == nil then
@@ -431,14 +462,44 @@ function plugin.start(context)
 	-- 返回值：无。
 	local function activeSleep()
 		appendDiagnosticLog(diagnosticLogPath, "主动睡眠快捷键已触发")
-		local activeSleepConfig = config.activeSleepHotkey or {}
-		local delaySeconds = numberOrDefault(activeSleepConfig.delaySeconds, 2, 0)
+		local helperPath = context.pluginsDir .. "/" .. plugin.id .. "/active_sleep.zsh"
+		local resultPath = context.configDir .. "/logs/power-lid-sleep.result"
+		removeFile(resultPath)
+		if showAlerts ~= false then
+			hs.alert.show("主动睡眠已触发，正在执行前置动作", 1.2)
+		end
 
-		terminateSleepPreventingProcessesAsync(function(processResults, processesSucceeded)
-			guardBluetoothAsync(function(bluetoothResult, bluetoothSucceeded)
-				table.insert(processResults, bluetoothResult)
-				finishActiveSleep(processResults, processesSucceeded and bluetoothSucceeded, delaySeconds)
-			end)
+		local command = string.format("/bin/zsh %s %s >/dev/null 2>&1 &", shellQuote(helperPath), shellQuote(resultPath))
+		hs.execute(command, false)
+
+		local attempts = 0
+		if state.activeSleepResultTimer then
+			state.activeSleepResultTimer:stop()
+			state.activeSleepResultTimer = nil
+		end
+		state.activeSleepResultTimer = hs.timer.doEvery(0.25, function()
+			attempts = attempts + 1
+			local result = readTextFile(resultPath)
+			if result then
+				state.activeSleepResultTimer:stop()
+				state.activeSleepResultTimer = nil
+				removeFile(resultPath)
+				local message = result:gsub("^status=[^\n]*\n", "")
+				message = message:gsub("%s+$", "")
+				if showAlerts ~= false then
+					hs.alert.show(message, 4)
+				end
+				return
+			end
+
+			if attempts >= 24 then
+				state.activeSleepResultTimer:stop()
+				state.activeSleepResultTimer = nil
+				appendDiagnosticLog(diagnosticLogPath, "主动睡眠执行器结果读取超时")
+				if showAlerts ~= false then
+					hs.alert.show("主动睡眠执行器无结果，请查看日志", 3)
+				end
+			end
 		end)
 	end
 

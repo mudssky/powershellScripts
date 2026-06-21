@@ -227,7 +227,10 @@ deploy_files() {
         while IFS= read -r plugin_file; do
             [ -f "$plugin_file" ] || continue
             copy_plugin_file "$plugin_file" managed_entries copied_count
-        done < <(find "$SCRIPT_DIR/plugins" -type f -name '*.lua' | sort)
+            case "$plugin_file" in
+                *.zsh) run_cmd chmod +x "$SCRIPTS_TARGET_DIR/${plugin_file#$SCRIPT_DIR/}" ;;
+            esac
+        done < <(find "$SCRIPT_DIR/plugins" -type f \( -name '*.lua' -o -name '*.zsh' \) | sort)
     fi
 
     cleanup_removed_managed_files "${managed_entries[@]}"
