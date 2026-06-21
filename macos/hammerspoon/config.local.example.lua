@@ -36,6 +36,12 @@ return {
 	-- 		bluetooth = {
 	-- 			enabled = false,
 	-- 		},
+	-- 		activeSleepHotkey = {
+	-- 			enabled = true,
+	-- 			modifiers = { "cmd", "alt", "ctrl" },
+	-- 			key = "s",
+	-- 			delaySeconds = 2,
+	-- 		},
 	-- 	},
 	-- },
 	-- hotkeys = {

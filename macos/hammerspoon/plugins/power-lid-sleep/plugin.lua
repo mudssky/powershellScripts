@@ -20,6 +20,12 @@ local plugin = {
 			restoreOnWake = true,
 			enforceWhileLidClosed = true,
 		},
+		activeSleepHotkey = {
+			enabled = true,
+			modifiers = { "cmd", "alt", "ctrl" },
+			key = "s",
+			delaySeconds = 2,
+		},
 	},
 }
 
@@ -74,6 +80,7 @@ function plugin.start(context)
 		processIdleChecks = {},
 		bluetoothOriginalPower = nil,
 		bluetoothWasChanged = false,
+		activeSleepHotkey = nil,
 	}
 	local showAlerts = config.showAlerts
 	if showAlerts == nil then
@@ -131,19 +138,19 @@ function plugin.start(context)
 		state.bluetoothOriginalPower = nil
 	end
 
-	-- 按配置关闭蓝牙。
+	-- 按配置关闭蓝牙，并返回处理结果。
 	-- 入参：无。
-	-- 返回值：无。
+	-- 返回值：结果文本，说明本次蓝牙动作。
 	local function guardBluetooth()
 		local bluetoothConfig = config.bluetooth or {}
 		if bluetoothConfig.enabled ~= true or bluetoothConfig.mode ~= "powerOff" then
-			return
+			return "蓝牙：未启用关闭"
 		end
 
 		local currentPower = bluetoothGuard.powerState()
 		if currentPower == nil then
 			log.w("跳过蓝牙休眠保护：未找到 blueutil 或无法读取蓝牙状态")
-			return
+			return "蓝牙：读取失败"
 		end
 
 		if state.bluetoothOriginalPower == nil then
@@ -154,10 +161,14 @@ function plugin.start(context)
 			if bluetoothGuard.powerOff() then
 				state.bluetoothWasChanged = true
 				log.i("电池合盖，已关闭蓝牙")
+				return "蓝牙：已关闭"
 			else
 				log.w("蓝牙关闭失败，请确认 blueutil 可用")
+				return "蓝牙：关闭失败"
 			end
 		end
+
+		return "蓝牙：已是关闭"
 	end
 
 	-- 检查并退出空闲应用。
@@ -206,20 +217,65 @@ function plugin.start(context)
 	end
 
 	-- 不依赖合盖状态，直接清理已配置的防睡眠进程。
-	-- 入参：无。
-	-- 返回值：无。
-	local function terminateSleepPreventingProcesses()
+	-- 入参：showProcessAlerts 是否显示每个进程的独立提示。
+	-- 返回值：结果列表，说明本次进程清理动作。
+	local function terminateSleepPreventingProcesses(showProcessAlerts)
+		local results = {}
 		for _, processConfig in ipairs(config.processes or {}) do
 			local processName = processConfig.name
 			if processName and processName ~= "" and processConfig.terminateWhenLidClosed ~= false and processGuard.isRunning(processConfig) then
-				if processGuard.terminate(processConfig, showAlerts) then
+				if processGuard.terminate(processConfig, showProcessAlerts == true and showAlerts ~= false) then
 					log.i("睡眠事件触发，已清理防睡眠进程: " .. processName)
+					table.insert(results, processName .. "：已清理")
 				else
 					log.w("睡眠事件触发，防睡眠进程清理失败: " .. processName)
+					table.insert(results, processName .. "：清理失败")
 				end
 				state.processIdleChecks[processName] = 0
+			elseif processName and processName ~= "" then
+				table.insert(results, processName .. "：未运行")
 			end
 		end
+
+		if #results == 0 then
+			table.insert(results, "防睡眠进程：未配置")
+		end
+
+		return results
+	end
+
+	-- 执行主动睡眠动作。
+	-- 入参：无。
+	-- 返回值：无。
+	local function activeSleep()
+		local activeSleepConfig = config.activeSleepHotkey or {}
+		local delaySeconds = numberOrDefault(activeSleepConfig.delaySeconds, 2, 0)
+		local actionResults = terminateSleepPreventingProcesses(false)
+		table.insert(actionResults, guardBluetooth())
+		table.insert(actionResults, string.format("%.0f 秒后进入睡眠", delaySeconds))
+
+		if showAlerts ~= false then
+			hs.alert.show(table.concat(actionResults, "\n"), math.max(1.5, delaySeconds))
+		end
+
+		hs.timer.doAfter(delaySeconds, function()
+			hs.execute("/usr/bin/pmset sleepnow >/dev/null 2>&1", true)
+		end)
+	end
+
+	-- 注册主动睡眠快捷键。
+	-- 入参：无。
+	-- 返回值：无。
+	local function registerActiveSleepHotkey()
+		local activeSleepConfig = config.activeSleepHotkey or {}
+		if activeSleepConfig.enabled == false then
+			return
+		end
+
+		local modifiers = activeSleepConfig.modifiers or { "cmd", "alt", "ctrl" }
+		local key = activeSleepConfig.key or "s"
+		state.activeSleepHotkey = hs.hotkey.bind(modifiers, key, activeSleep)
+		log.i("已绑定主动睡眠快捷键: " .. table.concat(modifiers, "+") .. "+" .. key)
 	end
 
 	-- 执行一次休眠保护检查。
@@ -240,10 +296,9 @@ function plugin.start(context)
 
 	state.timer = hs.timer.doEvery(checkIntervalSeconds, check)
 	state.caffeinateWatcher = hs.caffeinate.watcher.new(function(event)
-		if event == hs.caffeinate.watcher.screensDidSleep or event == hs.caffeinate.watcher.systemWillSleep then
-			terminateSleepPreventingProcesses()
-			check()
-		elseif event == hs.caffeinate.watcher.systemDidWake
+		if event == hs.caffeinate.watcher.screensDidSleep
+			or event == hs.caffeinate.watcher.systemWillSleep
+			or event == hs.caffeinate.watcher.systemDidWake
 			or event == hs.caffeinate.watcher.screensDidWake
 			or event == hs.caffeinate.watcher.screensDidUnlock then
 			check()
@@ -253,6 +308,7 @@ function plugin.start(context)
 	state.batteryWatcher = hs.battery.watcher.new(check)
 	state.batteryWatcher:start()
 
+	registerActiveSleepHotkey()
 	check()
 	return state
 end

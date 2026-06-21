@@ -14,7 +14,7 @@ PASS_COUNT=0
 WARN_COUNT=0
 FAIL_COUNT=0
 
-VALID_STEPS=(repo brew pwsh shell apps hammerspoon login-items lid-sleep-guard)
+VALID_STEPS=(repo brew pwsh shell apps hammerspoon login-items)
 SELECTED_STEPS=("${VALID_STEPS[@]}")
 
 # 显示帮助。
@@ -25,7 +25,7 @@ usage() {
 Usage: $SCRIPT_NAME [OPTIONS]
 
 Options:
-  --step <name>  只验证单个阶段：repo, brew, pwsh, shell, apps, hammerspoon, login-items, lid-sleep-guard
+  --step <name>  只验证单个阶段：repo, brew, pwsh, shell, apps, hammerspoon, login-items
   -h, --help     显示帮助
 
 Examples:
@@ -427,46 +427,6 @@ check_login_items() {
     done
 }
 
-# 验证合盖休眠守卫 LaunchAgent。
-# 入参：无。
-# 返回值：无。失败项通过全局计数记录。
-check_lid_sleep_guard() {
-    local step="lid-sleep-guard"
-    local label="com.mudssky.powershellscripts.lid-sleep-guard"
-    local target_script="$HOME/Library/Application Support/PowerShellScripts/LidSleepGuard/lid-sleep-guard.zsh"
-    local plist_file="$HOME/Library/LaunchAgents/$label.plist"
-
-    if [ -f "$target_script" ]; then
-        record_pass "$step" "$target_script exists"
-    else
-        record_fail "$step" "$target_script not found; run zsh macos/08installLidSleepGuard.zsh"
-    fi
-
-    if [ -x "$target_script" ]; then
-        record_pass "$step" "$target_script is executable"
-    else
-        record_fail "$step" "$target_script is not executable"
-    fi
-
-    if [ -f "$plist_file" ]; then
-        record_pass "$step" "$plist_file exists"
-    else
-        record_fail "$step" "$plist_file not found; run zsh macos/08installLidSleepGuard.zsh"
-    fi
-
-    if [ -f "$plist_file" ] && plutil -lint "$plist_file" >/dev/null 2>&1; then
-        record_pass "$step" "$plist_file is valid"
-    else
-        record_fail "$step" "$plist_file is invalid"
-    fi
-
-    if launchctl print "gui/$(id -u)/$label" >/dev/null 2>&1; then
-        record_pass "$step" "$label is loaded"
-    else
-        record_fail "$step" "$label is not loaded; run zsh macos/08installLidSleepGuard.zsh"
-    fi
-}
-
 # 验证指定阶段。
 # 入参：$1 阶段名称。
 # 返回值：无。失败项通过全局计数记录。
@@ -481,7 +441,6 @@ run_step() {
         apps) check_apps ;;
         hammerspoon) check_hammerspoon ;;
         login-items) check_login_items ;;
-        lid-sleep-guard) check_lid_sleep_guard ;;
         *)
             record_fail "$step" "unknown verification step"
             ;;

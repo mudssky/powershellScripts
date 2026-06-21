@@ -196,39 +196,7 @@ zsh macos/06verifyInstall.zsh --step login-items
 
 - **失败处理**: 如果脚本提示无法读取或写入登录项，按系统弹窗授予终端对 System Events 的自动化权限后重新执行。
 
-## 7. 安装合盖休眠守卫
-
-- **脚本**: `08installLidSleepGuard.zsh`
-- **执行方式**: `zsh macos/08installLidSleepGuard.zsh`
-- **前置条件**: 当前设备为 MacBook
-- **可跳过**: 是
-- **说明**: 安装当前用户 LaunchAgent，每 10 秒检查一次；如果电池供电且已合盖，会清理 `caffeinate` 这类防睡眠进程。这个守卫用于兜底 Hammerspoon 在合盖瞬间没有来得及触发的情况。
-- **执行方式**:
-
-```zsh
-zsh macos/08installLidSleepGuard.zsh
-```
-
-- **验证方式**:
-
-```zsh
-zsh macos/06verifyInstall.zsh --step lid-sleep-guard
-```
-
-- **状态排查**:
-
-```zsh
-"$HOME/Library/Application Support/PowerShellScripts/LidSleepGuard/lid-sleep-guard.zsh" --status
-tail -n 50 "$HOME/Library/Logs/PowerShellScripts/lid-sleep-guard.log"
-```
-
-- **卸载方式**:
-
-```zsh
-zsh macos/08installLidSleepGuard.zsh --uninstall
-```
-
-## 8. 总体验证
+## 7. 总体验证
 
 - **脚本**: `06verifyInstall.zsh`
 - **执行方式**:
@@ -237,7 +205,7 @@ zsh macos/08installLidSleepGuard.zsh --uninstall
 zsh macos/06verifyInstall.zsh
 ```
 
-- **说明**: 检查仓库结构、Homebrew、PowerShell、Shell 配置、关键 macOS 应用、Hammerspoon 配置部署结果、登录启动项和合盖休眠守卫。
+- **说明**: 检查仓库结构、Homebrew、PowerShell、Shell 配置、关键 macOS 应用、Hammerspoon 配置部署结果和登录启动项。
 
 ---
 
