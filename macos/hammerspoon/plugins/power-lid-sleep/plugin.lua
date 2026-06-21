@@ -22,7 +22,7 @@ local plugin = {
 		},
 		activeSleepHotkey = {
 			enabled = true,
-			modifiers = { "cmd", "alt", "ctrl" },
+			modifiers = { "cmd", "ctrl" },
 			key = "s",
 			delaySeconds = 2,
 		},
@@ -140,17 +140,21 @@ function plugin.start(context)
 
 	-- 按配置关闭蓝牙，并返回处理结果。
 	-- 入参：无。
-	-- 返回值：结果文本，说明本次蓝牙动作。
+	-- 返回值：结果文本和布尔值；布尔值为 false 时主动睡眠应取消。
 	local function guardBluetooth()
 		local bluetoothConfig = config.bluetooth or {}
 		if bluetoothConfig.enabled ~= true or bluetoothConfig.mode ~= "powerOff" then
-			return "蓝牙：未启用关闭"
+			return "蓝牙：未启用关闭", true
+		end
+
+		if not bluetoothGuard.available() then
+			return "蓝牙：未检测到 blueutil，跳过", true
 		end
 
 		local currentPower = bluetoothGuard.powerState()
 		if currentPower == nil then
 			log.w("跳过蓝牙休眠保护：未找到 blueutil 或无法读取蓝牙状态")
-			return "蓝牙：读取失败"
+			return "蓝牙：读取失败", false
 		end
 
 		if state.bluetoothOriginalPower == nil then
@@ -161,14 +165,14 @@ function plugin.start(context)
 			if bluetoothGuard.powerOff() then
 				state.bluetoothWasChanged = true
 				log.i("电池合盖，已关闭蓝牙")
-				return "蓝牙：已关闭"
+				return "蓝牙：已关闭", true
 			else
 				log.w("蓝牙关闭失败，请确认 blueutil 可用")
-				return "蓝牙：关闭失败"
+				return "蓝牙：关闭失败", false
 			end
 		end
 
-		return "蓝牙：已是关闭"
+		return "蓝牙：已是关闭", true
 	end
 
 	-- 检查并退出空闲应用。
@@ -218,9 +222,10 @@ function plugin.start(context)
 
 	-- 不依赖合盖状态，直接清理已配置的防睡眠进程。
 	-- 入参：showProcessAlerts 是否显示每个进程的独立提示。
-	-- 返回值：结果列表，说明本次进程清理动作。
+	-- 返回值：结果列表和布尔值；布尔值为 false 时主动睡眠应取消。
 	local function terminateSleepPreventingProcesses(showProcessAlerts)
 		local results = {}
+		local allSucceeded = true
 		for _, processConfig in ipairs(config.processes or {}) do
 			local processName = processConfig.name
 			if processName and processName ~= "" and processConfig.terminateWhenLidClosed ~= false and processGuard.isRunning(processConfig) then
@@ -230,6 +235,7 @@ function plugin.start(context)
 				else
 					log.w("睡眠事件触发，防睡眠进程清理失败: " .. processName)
 					table.insert(results, processName .. "：清理失败")
+					allSucceeded = false
 				end
 				state.processIdleChecks[processName] = 0
 			elseif processName and processName ~= "" then
@@ -241,7 +247,7 @@ function plugin.start(context)
 			table.insert(results, "防睡眠进程：未配置")
 		end
 
-		return results
+		return results, allSucceeded
 	end
 
 	-- 执行主动睡眠动作。
@@ -250,12 +256,23 @@ function plugin.start(context)
 	local function activeSleep()
 		local activeSleepConfig = config.activeSleepHotkey or {}
 		local delaySeconds = numberOrDefault(activeSleepConfig.delaySeconds, 2, 0)
-		local actionResults = terminateSleepPreventingProcesses(false)
-		table.insert(actionResults, guardBluetooth())
-		table.insert(actionResults, string.format("%.0f 秒后进入睡眠", delaySeconds))
+		local actionResults, processesSucceeded = terminateSleepPreventingProcesses(false)
+		local bluetoothResult, bluetoothSucceeded = guardBluetooth()
+		table.insert(actionResults, bluetoothResult)
+
+		local shouldSleep = processesSucceeded and bluetoothSucceeded
+		if shouldSleep then
+			table.insert(actionResults, string.format("%.0f 秒后进入睡眠", delaySeconds))
+		else
+			table.insert(actionResults, "已取消睡眠")
+		end
 
 		if showAlerts ~= false then
 			hs.alert.show(table.concat(actionResults, "\n"), math.max(1.5, delaySeconds))
+		end
+
+		if not shouldSleep then
+			return
 		end
 
 		hs.timer.doAfter(delaySeconds, function()
@@ -272,7 +289,7 @@ function plugin.start(context)
 			return
 		end
 
-		local modifiers = activeSleepConfig.modifiers or { "cmd", "alt", "ctrl" }
+		local modifiers = activeSleepConfig.modifiers or { "cmd", "ctrl" }
 		local key = activeSleepConfig.key or "s"
 		state.activeSleepHotkey = hs.hotkey.bind(modifiers, key, activeSleep)
 		log.i("已绑定主动睡眠快捷键: " .. table.concat(modifiers, "+") .. "+" .. key)

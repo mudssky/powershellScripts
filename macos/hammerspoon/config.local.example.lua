@@ -38,7 +38,7 @@ return {
 	-- 		},
 	-- 		activeSleepHotkey = {
 	-- 			enabled = true,
-	-- 			modifiers = { "cmd", "alt", "ctrl" },
+	-- 			modifiers = { "cmd", "ctrl" },
 	-- 			key = "s",
 	-- 			delaySeconds = 2,
 	-- 		},

@@ -15,7 +15,7 @@
 | 打开 Spotlight | `Cmd+Alt+Ctrl+Space` |
 | 打开 System Settings | `Cmd+Alt+Ctrl+I` |
 | 重载 Hammerspoon 配置 | `Cmd+Alt+Ctrl+R` |
-| 主动睡眠 | `Cmd+Alt+Ctrl+S` |
+| 主动睡眠 | `Cmd+Ctrl+S` |
 
 默认关闭的可选功能组包括：`altTab`、`text`、`browser`、`system`、`screenshot`、`volume`、`spaces`、`apps`、`finderActions`。
 
@@ -159,7 +159,7 @@ return {
 
 - 只在电池供电且合盖时执行。
 - RustDesk 正在运行且连续 4 次检查都没有 TCP established 连接时退出 RustDesk。
-- 主动睡眠快捷键为 `Cmd+Alt+Ctrl+S`；触发后会先清理 `caffeinate`、按配置关闭蓝牙、提示实际执行结果，再延迟 2 秒进入睡眠。
+- 主动睡眠快捷键为 `Cmd+Ctrl+S`；触发后会先清理 `caffeinate`、按配置关闭蓝牙、提示实际执行结果，全部成功后再延迟 2 秒进入睡眠；目标未运行或依赖未检测到会跳过，只有已检测到但处理失败才会取消睡眠。
 - 蓝牙保护默认关闭；如需排查蓝牙外设唤醒，可在本机配置里开启 `plugins["power-lid-sleep"].bluetooth.enabled = true`。
 - 蓝牙保护依赖 `blueutil`，开启后会在合盖时关闭蓝牙，开盖或唤醒后按进入保护前的状态恢复。
 - 缺少 `blueutil` 时只跳过蓝牙保护，RustDesk 空闲退出仍可运行。
