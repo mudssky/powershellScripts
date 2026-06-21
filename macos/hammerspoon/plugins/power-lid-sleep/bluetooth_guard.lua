@@ -66,6 +66,26 @@ local function shellQuote(value)
 	return "'" .. tostring(value):gsub("'", [["'"']]) .. "'"
 end
 
+-- 执行 blueutil 命令并记录完整返回状态。
+-- 入参：arguments blueutil 参数字符串；label 日志标签。
+-- 返回值：命令输出、是否成功、退出类型和退出码。
+local function executeBlueutil(arguments, label)
+	local command = string.format("%s %s %s 2>&1", shellPath, shellQuote(blueutilPath()), arguments)
+	local output, success, exitType, rc = hs.execute(command, true)
+	log(
+		success == true and "info" or "warn",
+		string.format(
+			"blueutil %s: success=%s type=%s rc=%s output=%s",
+			label,
+			tostring(success),
+			tostring(exitType),
+			tostring(rc),
+			compactOutput(output)
+		)
+	)
+	return output, success, exitType, rc
+end
+
 -- 设置日志器。
 -- 入参：newLogger Hammerspoon logger 对象；newDiagnosticLogPath 诊断日志文件路径。
 -- 返回值：无。
@@ -108,10 +128,8 @@ function M.powerState()
 		return nil
 	end
 
-	local command = string.format("%s %s --power 2>/dev/null", shellPath, shellQuote(blueutilPath()))
-	local output, success = hs.execute(command, true)
+	local output, success = executeBlueutil("--power", "读取电源状态")
 	if success ~= true then
-		log("warn", string.format("blueutil 读取电源状态失败: success=%s output=%s", tostring(success), compactOutput(output)))
 		return nil
 	end
 
@@ -133,8 +151,7 @@ function M.setPower(state)
 		return false
 	end
 
-	local command = string.format("%s %s --power %s >/dev/null 2>&1", shellPath, shellQuote(blueutilPath()), shellQuote(state))
-	local _, success = hs.execute(command, true)
+	local _, success = executeBlueutil("--power " .. shellQuote(state), "设置电源状态为 " .. tostring(state))
 	if success == true then
 		log("info", "blueutil 电源状态设置成功: " .. tostring(state))
 	else

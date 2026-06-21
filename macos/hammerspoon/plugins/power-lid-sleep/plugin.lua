@@ -160,8 +160,15 @@ function plugin.start(context)
 
 		local currentPower = bluetoothGuard.powerState()
 		if currentPower == nil then
-			log.w("跳过蓝牙休眠保护：未找到 blueutil 或无法读取蓝牙状态")
-			return "蓝牙：读取失败", false
+			log.w("蓝牙状态读取失败，尝试直接关闭蓝牙")
+			if bluetoothGuard.powerOff() then
+				state.bluetoothWasChanged = true
+				state.bluetoothOriginalPower = nil
+				log.i("蓝牙状态读取失败，但已直接关闭蓝牙")
+				return "蓝牙：读取失败，已关闭", true
+			end
+			log.w("蓝牙状态读取失败，直接关闭蓝牙也失败")
+			return "蓝牙：读取和关闭失败", false
 		end
 
 		if state.bluetoothOriginalPower == nil then
