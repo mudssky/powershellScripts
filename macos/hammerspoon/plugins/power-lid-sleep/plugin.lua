@@ -156,8 +156,10 @@ function plugin.start(context)
 			return
 		end
 
-		if state.bluetoothWasChanged and state.bluetoothOriginalPower == 1 then
-			if bluetoothGuard.powerOn() then
+		if state.bluetoothWasChanged and state.bluetoothOriginalPower ~= 0 then
+			if type(bluetoothGuard.powerOnAsync) == "function" and bluetoothGuard.powerOnAsync() then
+				log.i("已安排后台恢复蓝牙电源")
+			elseif bluetoothGuard.powerOn() then
 				log.i("已恢复蓝牙电源")
 			else
 				log.w("蓝牙恢复失败，请确认 blueutil 可用")
@@ -179,6 +181,18 @@ function plugin.start(context)
 
 		if not bluetoothGuard.available() then
 			return "蓝牙：未检测到 blueutil，跳过", true
+		end
+
+		if type(bluetoothGuard.powerOffAsync) == "function" then
+			if bluetoothGuard.powerOffAsync() then
+				state.bluetoothWasChanged = true
+				state.bluetoothOriginalPower = nil
+				log.i("已安排后台关闭蓝牙")
+				return "蓝牙：后台关闭中", true
+			end
+
+			log.w("蓝牙后台关闭任务启动失败")
+			return "蓝牙：关闭任务启动失败", false
 		end
 
 		local currentPower = bluetoothGuard.powerState()

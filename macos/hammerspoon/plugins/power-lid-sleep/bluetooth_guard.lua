@@ -8,6 +8,7 @@ local cachedBlueutilPath = nil
 local shellPath = [[PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"]]
 local logger = nil
 local diagnosticLogPath = nil
+local activeTasks = {}
 
 -- 追加蓝牙守卫诊断日志到文件。
 -- 入参：level 日志级别；message 日志内容。
@@ -84,6 +85,59 @@ local function executeBlueutil(arguments, label)
 		)
 	)
 	return output, success, exitType, rc
+end
+
+-- 移除已结束的后台任务引用。
+-- 入参：task 已结束的 hs.task 对象。
+-- 返回值：无。
+local function removeTask(task)
+	for index, activeTask in ipairs(activeTasks) do
+		if activeTask == task then
+			table.remove(activeTasks, index)
+			return
+		end
+	end
+end
+
+-- 后台执行 blueutil 命令，避免阻塞 Hammerspoon 主线程。
+-- 入参：arguments blueutil 参数列表；label 日志标签。
+-- 返回值：布尔值，true 表示任务已启动。
+local function startBlueutilTask(arguments, label)
+	local path = blueutilPath()
+	if not path then
+		log("warn", "blueutil 后台任务未启动，缺少可执行文件: " .. tostring(label))
+		return false
+	end
+
+	local task
+	task = hs.task.new(path, function(exitCode, stdOut, stdErr)
+		log(
+			exitCode == 0 and "info" or "warn",
+			string.format(
+				"blueutil 后台%s结束: exitCode=%s stdout=%s stderr=%s",
+				label,
+				tostring(exitCode),
+				compactOutput(stdOut),
+				compactOutput(stdErr)
+			)
+		)
+		removeTask(task)
+	end, nil, arguments)
+
+	if not task then
+		log("warn", "blueutil 后台任务创建失败: " .. tostring(label))
+		return false
+	end
+
+	local started = task:start()
+	if not started then
+		log("warn", "blueutil 后台任务启动失败: " .. tostring(label))
+		return false
+	end
+
+	table.insert(activeTasks, task)
+	log("info", "blueutil 后台任务已启动: " .. tostring(label))
+	return true
 end
 
 -- 设置日志器。
@@ -167,11 +221,25 @@ function M.powerOff()
 	return M.setPower("0")
 end
 
+-- 后台关闭蓝牙。
+-- 入参：无。
+-- 返回值：布尔值，true 表示关闭任务已启动。
+function M.powerOffAsync()
+	return startBlueutilTask({ "--power", "0" }, "关闭蓝牙")
+end
+
 -- 开启蓝牙。
 -- 入参：无。
 -- 返回值：布尔值，true 表示命令执行成功。
 function M.powerOn()
 	return M.setPower("on")
+end
+
+-- 后台开启蓝牙。
+-- 入参：无。
+-- 返回值：布尔值，true 表示开启任务已启动。
+function M.powerOnAsync()
+	return startBlueutilTask({ "--power", "on" }, "开启蓝牙")
 end
 
 return M
