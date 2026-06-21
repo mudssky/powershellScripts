@@ -94,7 +94,11 @@ end
 -- 入参：无。
 -- 返回值：无。
 local function openBluetoothPrivacySettings()
-	hs.urlevent.openURL("x-apple.systempreferences:com.apple.preference.security?Privacy_Bluetooth")
+	local url = "x-apple.systempreferences:com.apple.preference.security?Privacy_Bluetooth"
+	hs.execute("/usr/bin/open " .. shellQuote(url) .. " >/dev/null 2>&1", false)
+	hs.timer.doAfter(0.5, function()
+		hs.urlevent.openURL(url)
+	end)
 end
 
 -- 追加主动睡眠诊断日志到文件。
@@ -492,10 +496,14 @@ function plugin.start(context)
 				state.activeSleepResultTimer:stop()
 				state.activeSleepResultTimer = nil
 				removeFile(resultPath)
+				local status = result:match("^status=([^\n]*)") or "unknown"
 				local message = result:gsub("^status=[^\n]*\n", "")
 				message = message:gsub("%s+$", "")
 				if showAlerts ~= false then
 					hs.alert.show(message, 4)
+				end
+				if status ~= "ok" and message:find("蓝牙", 1, true) then
+					openBluetoothPrivacySettings()
 				end
 				return
 			end
