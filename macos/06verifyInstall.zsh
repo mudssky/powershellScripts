@@ -14,7 +14,7 @@ PASS_COUNT=0
 WARN_COUNT=0
 FAIL_COUNT=0
 
-VALID_STEPS=(repo brew pwsh shell apps hammerspoon login-items)
+VALID_STEPS=(repo brew pwsh shell apps hammerspoon login-items quick-actions)
 SELECTED_STEPS=("${VALID_STEPS[@]}")
 
 # 显示帮助。
@@ -25,7 +25,7 @@ usage() {
 Usage: $SCRIPT_NAME [OPTIONS]
 
 Options:
-  --step <name>  只验证单个阶段：repo, brew, pwsh, shell, apps, hammerspoon, login-items
+  --step <name>  只验证单个阶段：repo, brew, pwsh, shell, apps, hammerspoon, login-items, quick-actions
   -h, --help     显示帮助
 
 Examples:
@@ -427,6 +427,67 @@ check_login_items() {
     done
 }
 
+# 验证 Finder 右键动作安装结果。
+# 入参：无。
+# 返回值：无。失败项通过全局计数记录。
+check_quick_actions() {
+    local step="quick-actions"
+    local services_dir="$HOME/Library/Services"
+    local workflow_name="Fix App Open Issue.workflow"
+    local source_workflow="$REPO_ROOT/macos/quick-actions/$workflow_name"
+    local installed_workflow="$services_dir/$workflow_name"
+    local runner_path="$REPO_ROOT/macos/quick-actions/run.zsh"
+    local script_path="$REPO_ROOT/macos/quick-actions/fix-app-open-issue.zsh"
+    local info_plist="$installed_workflow/Contents/Info.plist"
+    local document_wflow="$installed_workflow/Contents/document.wflow"
+    local command_string=""
+
+    if [ -f "$runner_path" ]; then
+        record_pass "$step" "found quick action runner"
+    else
+        record_fail "$step" "run.zsh not found under macos/quick-actions"
+    fi
+
+    if [ -f "$script_path" ]; then
+        record_pass "$step" "found fix-app-open-issue.zsh"
+    else
+        record_fail "$step" "fix-app-open-issue.zsh not found under macos/quick-actions"
+    fi
+
+    if [ -d "$source_workflow" ]; then
+        record_pass "$step" "found repository workflow template"
+    else
+        record_fail "$step" "repository workflow template not found; check macos/quick-actions"
+    fi
+
+    if [ -d "$installed_workflow" ]; then
+        record_pass "$step" "$installed_workflow exists"
+    else
+        record_fail "$step" "$installed_workflow not found; run zsh macos/08installQuickActions.zsh"
+        return
+    fi
+
+    if [ -f "$info_plist" ] && /usr/bin/plutil -lint "$info_plist" >/dev/null 2>&1; then
+        record_pass "$step" "installed Info.plist is valid"
+    else
+        record_fail "$step" "installed Info.plist missing or invalid"
+    fi
+
+    if [ -f "$document_wflow" ] && /usr/bin/plutil -lint "$document_wflow" >/dev/null 2>&1; then
+        record_pass "$step" "installed document.wflow is valid"
+    else
+        record_fail "$step" "installed document.wflow missing or invalid"
+    fi
+
+    if command_string="$(/usr/bin/plutil -extract actions.0.action.ActionParameters.COMMAND_STRING raw "$document_wflow" 2>/dev/null)" \
+        && [[ "$command_string" == *"$runner_path"* ]] \
+        && [[ "$command_string" == *"fix-app-open-issue"* ]]; then
+        record_pass "$step" "workflow points to repository runner and action"
+    else
+        record_fail "$step" "workflow does not point to $runner_path fix-app-open-issue; run zsh macos/08installQuickActions.zsh"
+    fi
+}
+
 # 验证指定阶段。
 # 入参：$1 阶段名称。
 # 返回值：无。失败项通过全局计数记录。
@@ -441,6 +502,7 @@ run_step() {
         apps) check_apps ;;
         hammerspoon) check_hammerspoon ;;
         login-items) check_login_items ;;
+        quick-actions) check_quick_actions ;;
         *)
             record_fail "$step" "unknown verification step"
             ;;

@@ -9,7 +9,7 @@
 
 - **脚本**: `06verifyInstall.zsh`
 - **执行方式**: `zsh macos/06verifyInstall.zsh`
-- **说明**: 只读验证当前机器状态，不执行安装、不写入用户目录、不启动或重启 GUI 应用；包含 Hammerspoon 和 Mos 登录项验证。
+- **说明**: 只读验证当前机器状态，不执行安装、不写入用户目录、不启动或重启 GUI 应用；包含 Hammerspoon、Mos 登录项和 Finder 右键动作验证。
 - **退出码**: 全部必需项通过返回 0，任一必需项失败返回非 0；WARN 只提示不影响退出码。
 
 ## 0. 拉取仓库
@@ -196,7 +196,41 @@ zsh macos/06verifyInstall.zsh --step login-items
 
 - **失败处理**: 如果脚本提示无法读取或写入登录项，按系统弹窗授予终端对 System Events 的自动化权限后重新执行。
 
-## 7. 总体验证
+## 7. 安装 Finder 右键动作
+
+- **脚本**: `08installQuickActions.zsh`
+- **执行方式**: `zsh macos/08installQuickActions.zsh`
+- **前置条件**: 仓库已 clone，Finder 可用
+- **可跳过**: 是
+- **说明**: 将仓库维护的 Automator workflow 安装到 `~/Library/Services/`，用于在 Finder 右键快捷操作中处理下载后的 `.app` 打不开问题。workflow 只作为 Finder 入口，实际动作由 `macos/quick-actions/run.zsh` 按动作 ID 分派。
+- **前置检查**:
+
+```zsh
+zsh macos/06verifyInstall.zsh --step repo
+```
+
+- **执行方式**:
+
+```zsh
+zsh macos/08installQuickActions.zsh
+```
+
+- **验证方式**:
+
+```zsh
+zsh macos/06verifyInstall.zsh --step quick-actions
+```
+
+- **使用方式**: 在 Finder 中选中一个或多个 `.app`，右键选择“快捷操作”或“服务”中的“处理 macOS 应用打不开”。脚本会打开 Terminal，依次输出 Gatekeeper 检查、签名检查、隔离属性检查，随后清除 `com.apple.quarantine` 并尝试打开应用。
+- **安全说明**: 该动作会自动清除传入 `.app` 的 quarantine 属性，只应对可信来源应用使用；它不会全局关闭 Gatekeeper，也不会处理非 `.app` 文件。
+- **失败处理**: 如果右键菜单未立即显示，重新打开 Finder 窗口或重启 Finder；首次执行若系统弹出自动化权限提示，允许 Finder/Automator 控制 Terminal 后重试；如果验证失败，重新执行安装脚本。
+- **卸载方式**:
+
+```zsh
+zsh macos/08installQuickActions.zsh --uninstall
+```
+
+## 8. 总体验证
 
 - **脚本**: `06verifyInstall.zsh`
 - **执行方式**:
@@ -205,7 +239,7 @@ zsh macos/06verifyInstall.zsh --step login-items
 zsh macos/06verifyInstall.zsh
 ```
 
-- **说明**: 检查仓库结构、Homebrew、PowerShell、Shell 配置、关键 macOS 应用、Hammerspoon 配置部署结果和登录启动项。
+- **说明**: 检查仓库结构、Homebrew、PowerShell、Shell 配置、关键 macOS 应用、Hammerspoon 配置部署结果、登录启动项和 Finder 右键动作。
 
 ---
 
