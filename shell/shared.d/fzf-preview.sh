@@ -2,9 +2,14 @@
 # ========================================================================
 # 文件: fzf-preview.sh
 # 作用: 基于 fzf 的文件查找/预览/打开组合命令。
-#       - fo(fzf-open): fd 查找文件 → fzf 列出(bat 预览) → 打开/编辑
-#       - fs(fzf-search): rg 搜索内容 → fzf 列出(高亮命中) → 打开
+#       - fzf-open(别名 fo): fd 查找文件 → fzf 列出(bat 预览) → 打开/编辑
+#       - fzf-search(别名 fs): rg 搜索内容 → fzf 列出(高亮命中) → 打开
 #       依赖 fzf-helpers.sh 的 fzf_pick_action 底座与 modern-tools.sh 的 bat。
+#
+# 命名约定:
+#   主函数用完整描述性名（fzf-open / fzf-search），与 tmux-sessions/
+#   zellij-sessions 的命名风格一致，便于自解释；另提供短别名 fo/fs
+#   供高频场景快速调用。alias 为条件式，未定义时不影响主函数。
 #
 # 设计原则:
 #   - 所有工具守护放在函数体内，缺失时友好提示而非 command not found。
@@ -38,12 +43,13 @@ _fp_preview_cmd() {
 }
 
 # ----------------------------------------------------------------------
-# fo — fzf-open: 在当前目录(或指定目录)递归查找文件并交互打开
+# fzf-open — 在当前目录(或指定目录)递归查找文件并交互打开
 #
 # 设计意图:
 #   fd 递归列出文件 → fzf 以 bat 预览展示 → 选中后:
 #     Enter   → 用 $EDITOR 打开（默认 vi）
 #     Ctrl-x  → 用系统默认程序打开（macOS open / Linux xdg-open）
+#   另提供短别名 fo 供高频场景快速调用。
 #
 # 入参:
 #   $1(可选) - 查找根目录，默认当前目录。
@@ -52,10 +58,10 @@ _fp_preview_cmd() {
 #
 # 健壮性: fd/fzf/bat 缺失逐级降级；find 兜底；空结果友好提示。
 # ----------------------------------------------------------------------
-fo() {
+fzf-open() {
   # 工具守护：fzf 必需，fd/find 至少一个。
   if ! command -v fzf >/dev/null 2>&1; then
-    printf '%s[fo]%s 请先安装 fzf。\n' "${_FZF_HLP_RED:-}" "${_FZF_HLP_NC:-}"
+    printf '%s[fzf-open]%s 请先安装 fzf。\n' "${_FZF_HLP_RED:-}" "${_FZF_HLP_NC:-}"
     return 0
   fi
 
@@ -73,12 +79,12 @@ fo() {
     # find 降级: -type f 仅文件, 排除 .git 目录避免噪音。
     files=$(find "$search_dir" -type f -not -path '*/.git/*' 2>/dev/null)
   else
-    printf '%s[fo]%s 需要 fd 或 find。\n' "${_FZF_HLP_RED:-}" "${_FZF_HLP_NC:-}"
+    printf '%s[fzf-open]%s 需要 fd 或 find。\n' "${_FZF_HLP_RED:-}" "${_FZF_HLP_NC:-}"
     return 0
   fi
 
   if [ -z "$files" ]; then
-    printf '%s[fo]%s 未找到文件。\n' "${_FZF_HLP_YELLOW:-}" "${_FZF_HLP_NC:-}"
+    printf '%s[fzf-open]%s 未找到文件。\n' "${_FZF_HLP_YELLOW:-}" "${_FZF_HLP_NC:-}"
     return 0
   fi
 
@@ -115,7 +121,7 @@ EOF
       elif command -v xdg-open >/dev/null 2>&1; then
         xdg-open "$file"
       else
-        printf '%s[fo]%s 无系统打开命令 (需 open/xdg-open)。\n' "${_FZF_HLP_RED:-}" "${_FZF_HLP_NC:-}"
+        printf '%s[fzf-open]%s 无系统打开命令 (需 open/xdg-open)。\n' "${_FZF_HLP_RED:-}" "${_FZF_HLP_NC:-}"
       fi
       ;;
     *)
@@ -126,11 +132,12 @@ EOF
 }
 
 # ----------------------------------------------------------------------
-# fs — fzf-search: 在当前目录按内容搜索(rg)并交互打开命中文件
+# fzf-search — 在当前目录按内容搜索(rg)并交互打开命中文件
 #
 # 设计意图:
 #   rg 输出「文件:行号:命中内容」 → fzf 展示(预览命中处上下文) →
 #   选中后用 $EDITOR 打开到对应行。
+#   另提供短别名 fs 供高频场景快速调用。
 #
 # 入参:
 #   $1      - 搜索关键词（正则）。
@@ -140,13 +147,13 @@ EOF
 #
 # 健壮性: rg 忺需; 无命中友好提示; 编辑器跳转行号格式兼容 vi/vim/nvim/code。
 # ----------------------------------------------------------------------
-fs() {
+fzf-search() {
   if ! command -v fzf >/dev/null 2>&1; then
-    printf '%s[fs]%s 请先安装 fzf。\n' "${_FZF_HLP_RED:-}" "${_FZF_HLP_NC:-}"
+    printf '%s[fzf-search]%s 请先安装 fzf。\n' "${_FZF_HLP_RED:-}" "${_FZF_HLP_NC:-}"
     return 0
   fi
   if ! command -v rg >/dev/null 2>&1; then
-    printf '%s[fs]%s 请先安装 ripgrep (rg)。\n' "${_FZF_HLP_RED:-}" "${_FZF_HLP_NC:-}"
+    printf '%s[fzf-search]%s 请先安装 ripgrep (rg)。\n' "${_FZF_HLP_RED:-}" "${_FZF_HLP_NC:-}"
     return 0
   fi
 
@@ -154,7 +161,7 @@ fs() {
   local search_dir="${2:-.}"
 
   if [ -z "$query" ]; then
-    printf '%s[fs]%s 用法: fs <关键词> [目录]\n' "${_FZF_HLP_YELLOW:-}" "${_FZF_HLP_NC:-}"
+    printf '%s[fzf-search]%s 用法: fzf-search <关键词> [目录]\n' "${_FZF_HLP_YELLOW:-}" "${_FZF_HLP_NC:-}"
     return 0
   fi
 
@@ -163,7 +170,7 @@ fs() {
   local matches
   matches=$(rg --line-number --no-heading --color=always "$query" "$search_dir" 2>/dev/null)
   if [ -z "$matches" ]; then
-    printf '%s[fs]%s 无匹配结果。\n' "${_FZF_HLP_YELLOW:-}" "${_FZF_HLP_NC:-}"
+    printf '%s[fzf-search]%s 无匹配结果。\n' "${_FZF_HLP_YELLOW:-}" "${_FZF_HLP_NC:-}"
     return 0
   fi
 
@@ -196,3 +203,15 @@ fs() {
     "${EDITOR:-vi}" "$file"
   fi
 }
+
+# ----------------------------------------------------------------------
+# 短别名（高频场景快捷调用）
+# 仅当对应主函数已定义时才设 alias；二者本质是同名函数的不同入口，
+# 故不重复守护工具，缺失场景由主函数自行提示。
+# ----------------------------------------------------------------------
+if command -v fzf-open >/dev/null 2>&1; then
+  alias fo='fzf-open'
+fi
+if command -v fzf-search >/dev/null 2>&1; then
+  alias fs='fzf-search'
+fi
