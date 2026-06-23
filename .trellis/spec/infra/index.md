@@ -19,3 +19,4 @@
 | [rathole template](./rathole.md) | rathole 裸二进制、PM2 管理、`.local.toml` 与公网白名单转发模板约定 | Active |
 | [Dev Container Templates](./devcontainer-templates.md) | VS Code Dev Container 标准模板、宿主配置挂载与 Agent CLI 复用约定 | Active |
 | [Hammerspoon Plugin Contract](./hammerspoon-plugins.md) | macOS Hammerspoon 插件目录、配置合并、部署 manifest 与验证契约 | Active |
+| [macOS Finder Quick Actions Contract](./macos-quick-actions.md) | Finder 快捷操作 workflow、Services 安装位置、通用 runner 和 AppleScript quoting 契约 | Active |
