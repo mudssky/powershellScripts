@@ -9,6 +9,8 @@
 #   - 工具替换一律用 `command -v X >/dev/null 2>&1` 守护，无 else 即回退。
 #   - 语法不兼容的工具（find→fd 等）不做 alias，只额外暴露新入口，
 #     避免覆盖破坏依赖原语法的既有命令/脚本。
+#   - 不重复其他文件已做的事：zoxide 初始化见 zz-prompt.sh，
+#     eza 的 ll/tree 见 aliases.sh，本文件只补尚未被覆盖的工具。
 #
 # 兼容性: bash 与 zsh 双 shell，shared.d 同被两种 rc source。
 # ========================================================================
@@ -35,26 +37,17 @@ if command -v lazygit >/dev/null 2>&1; then
 fi
 
 # ----------------------------------------------------------------------
-# 3. zoxide 初始化（智能 cd，频率记忆）
-#    zoxide 必须在当前 shell 进程 eval 初始化，才能注入 z/zi 函数；
-#    它本身根据 $0 判断 shell 类型，故这里按当前 shell 传入对应参数。
-#    未安装时整体跳过，不报错。
+# 3. zoxide（智能 cd）
+#    zoxide 的初始化（eval zoxide init + z/zi 注入 + zq/za/zr alias）
+#    已在 zz-prompt.sh 完成，此处不重复，避免重复 eval 导致数据库锁竞争
+#    与函数重复定义。本文件仅做说明，便于维护者查阅。
 #
-#    用法: z <关键词>     智能跳转（按访问频率）
-#          zi <关键词>    交互式选择（内嵌 fzf）
+#    用法（由 zz-prompt.sh 注入）:
+#      z <关键词>     智能跳转（按访问频率）
+#      zi <关键词>    交互式选择（内嵌 fzf）
+#      zq/za/zr       query/add/remove
 # ----------------------------------------------------------------------
-if command -v zoxide >/dev/null 2>&1; then
-  # 兼容 bash 与 zsh：zoxide init 按传入的 shell 名生成对应代码。
-  # $0 在 source 场景下取值不稳定，故显式按 $BASH_VERSION/$ZSH_VERSION 判定。
-  if [ -n "$BASH_VERSION" ]; then
-    eval "$(zoxide init bash)"
-  elif [ -n "$ZSH_VERSION" ]; then
-    eval "$(zoxide init zsh)"
-  fi
-fi
 
 # ----------------------------------------------------------------------
-# 4. eza 增强（若已由 aliases.sh 处理则不重复，此处仅补充 tree 别名的
-#    分页友好变体，避免长目录刷屏）。eza 的 ll/tree 已在 aliases.sh 定义，
-#    这里不重复，保持单一来源。
+# 4. eza 增强：ll/tree 已在 aliases.sh 定义，此处不重复，保持单一来源。
 # ----------------------------------------------------------------------
