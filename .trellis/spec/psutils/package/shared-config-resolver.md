@@ -38,6 +38,7 @@
 - Supported source types are `Hashtable`、`ProcessEnv`、`EnvFile`、`JsonFile`、`PowerShellDataFile`、`MarkdownFrontMatter` and `CliParameters`.
 - `Resolve-ConfigSources` merges sources in declaration order; later sources overwrite earlier values.
 - `-ConfigFile` treats `.json` paths as `JsonFile` and all other paths as `EnvFile`.
+- Structured file source `Path` values are normalized through `Resolve-ConfigPath`, so `EnvFile`、`JsonFile`、`PowerShellDataFile` and `MarkdownFrontMatter` support `~`, env placeholders and relative paths without script-level expansion.
 - Without `-Sources` or `-ConfigFile`, `Resolve-ConfigSources -BasePath <dir>` auto-discovers `.env` then `.env.local` under the base path.
 - `Resolve-DefaultEnvFiles -PrimaryBasePath <dir> -FallbackBasePath <dir>` only falls back when the primary directory has no default env file at all.
 - `CliParameters` converts explicit PowerShell parameters to snake_case keys and skips `$null`、empty strings and `ExcludeKeys`.
@@ -62,6 +63,7 @@
 | Missing file source without `-ErrorOnMissing` | Return empty values for that source |
 | Missing file source with `-ErrorOnMissing` | Throw `配置文件不存在: <path>` |
 | Unknown source `Type` | Throw `不支持的配置来源类型` |
+| Structured file source path starts with `~`, `~/` or `~\` | Expand to the current user's home directory before existence checks |
 | CLI parameter value is `$null` or whitespace | Omit it from merged config |
 | `${VAR}` placeholder references a missing env var | Throw `环境变量未设置: VAR（context）` |
 | `Resolve-ConfigPath` receives an empty path | Throw `路径配置不能为空: context` |
@@ -84,6 +86,7 @@
 - `psutils/tests/config.Tests.ps1` must cover source order override and `Sources` winner tracking.
 - Env file tests must assert `.env.local` overrides `.env` and invalid dotenv lines throw.
 - JSON and `.psd1` tests must assert values are converted to plain hashtables.
+- Structured file source tests must assert `Path = '~/.config\tool\file.local.json'` and relative paths are resolved before reading.
 - Markdown tests must assert metadata types, `__content`, and file/line-number parse errors.
 - CLI parameter tests must assert snake_case conversion, empty-value skipping and `ExcludeKeys`.
 - Scoped environment tests must assert restoration on success and on exception.
@@ -115,6 +118,7 @@ Import-Module (Join-Path $repoRoot 'psutils/modules/config.psm1') -Force
 
 $config = Resolve-ConfigSources -Sources @(
     @{ Type = 'Hashtable'; Name = 'Defaults'; Data = @{ retry_count = 3 } }
+    @{ Type = 'JsonFile'; Name = 'UserLocal'; Path = '~/.config/tool/tool.local.json' }
     @{ Type = 'EnvFile'; Name = '.env'; Path = '.env' }
     @{ Type = 'CliParameters'; Name = 'Cli'; Data = $PSBoundParameters; ExcludeKeys = @('Verbose') }
 ) -BasePath $workingDirectory -ErrorOnMissing

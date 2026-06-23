@@ -19,6 +19,13 @@ pwsh -NoProfile -File ./Manage-BinScripts.ps1 -Action sync -Force
 ./bin/Invoke-ProjectLauncher.ps1 proj-srm-trellis -Inline
 ```
 
+用户级本机配置默认路径：
+
+```text
+$XDG_CONFIG_HOME/project-launcher/project-launcher.local.json
+~/.config/project-launcher/project-launcher.local.json
+```
+
 ## SSH 来源
 
 默认读取当前用户的 `~/.ssh/config`。普通 Host 会生成 SSH 启动项，执行计划只包含：
@@ -33,7 +40,7 @@ ssh -tt <Host>
 
 JSON 只做增量：新增 WSL 启动项，或为同名 SSH Host 补展示元数据，不覆盖 SSH 的核心连接字段。
 
-默认会自动读取当前目录存在的 `project-launcher.json` 与 `project-launcher.local.json`。显式传入 `-ConfigPath ./foo.json` 时，也会在同目录存在 `foo.local.json` 时自动追加读取。`*.local.json` 已在仓库 `.gitignore` 中忽略，适合放本机私有项目入口。
+默认会按顺序自动读取当前目录存在的 `project-launcher.json`、`project-launcher.local.json`，以及用户级本机配置 `~/.config/project-launcher/project-launcher.local.json`。如果设置了 `XDG_CONFIG_HOME`，用户级路径会改为 `$XDG_CONFIG_HOME/project-launcher/project-launcher.local.json`。显式传入 `-ConfigPath ./foo.json` 时，只会额外读取同目录存在的 `foo.local.json`。`*.local.json` 已在仓库 `.gitignore` 中忽略，适合放本机私有项目入口。
 
 ```json
 {
@@ -59,6 +66,11 @@ JSON 只做增量：新增 WSL 启动项，或为同名 SSH Host 补展示元数
       "name": "proj-srm-trellis",
       "displayName": "SRM Trellis",
       "tags": ["remote", "work"]
+    },
+    {
+      "name": "proj-finance-reconciliation-trellis",
+      "displayName": "Finance Reconciliation Trellis",
+      "tags": ["remote", "aiadmin", "work"]
     }
   ]
 }
@@ -73,3 +85,5 @@ cd <workDir> && exec zellij attach -c <session>
 非 Windows 平台会过滤 WSL 启动项，只保留 SSH 项。
 
 真实执行前会打印 `启动: <command>`。Windows 下默认打开 Windows Terminal 新标签页承载 SSH/WSL 会话，当前 PowerShell 会立即返回，避免 fzf 选择后的 shell 被远端交互会话占住。需要在当前终端内执行时加 `-Inline`。
+
+使用 fzf 选择时可按 `Ctrl+Y` 复制当前项目的实际启动命令到剪贴板，例如 `ssh -tt proj-srm-trellis`，复制后不会启动会话。

@@ -133,13 +133,66 @@ function Get-InteractiveSelectionDisplayText {
     throw '对象候选项必须显式提供 -DisplayProperty 或 -DisplayScriptBlock。'
 }
 
+<#
+.SYNOPSIS
+    获取候选项的复制文本。
+
+.DESCRIPTION
+    调用方可通过脚本块为每个候选项生成专用复制内容；未提供时复制展示文本。
+    该设计让通用选择器保持领域无关，同时允许上层工具复制真实命令等业务值。
+
+.PARAMETER Item
+    原始候选项。
+
+.PARAMETER DisplayText
+    候选项的单行展示文本。
+
+.PARAMETER CopyScriptBlock
+    可选复制文本生成脚本块，脚本块中的 `$_` 表示当前候选项。
+
+.OUTPUTS
+    string
+    返回用于剪贴板的文本。
+#>
+function Get-InteractiveSelectionCopyText {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowNull()]
+        [object]$Item,
+
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$DisplayText,
+
+        [scriptblock]$CopyScriptBlock
+    )
+
+    if ($null -eq $CopyScriptBlock) {
+        return $DisplayText
+    }
+
+    $copyParts = @($Item | ForEach-Object -Process $CopyScriptBlock)
+    if ($copyParts.Count -eq 0) {
+        return $DisplayText
+    }
+
+    $copyText = (($copyParts | ForEach-Object { [string]$_ }) -join ' ')
+    if ([string]::IsNullOrWhiteSpace($copyText)) {
+        return $DisplayText
+    }
+
+    return $copyText
+}
+
 function New-InteractiveSelectionEntries {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
         [object[]]$Items,
         [string]$DisplayProperty,
-        [scriptblock]$DisplayScriptBlock
+        [scriptblock]$DisplayScriptBlock,
+        [scriptblock]$CopyScriptBlock
     )
 
     $hasObjectItem = $false
@@ -174,15 +227,52 @@ function New-InteractiveSelectionEntries {
 
         # fzf 与文本列表都依赖单行展示，因此这里统一清洗换行和制表符。
         $normalizedDisplayText = ([string]$displayText) -replace "`r?`n", ' ' -replace "`t", '    '
+        $copyText = Get-InteractiveSelectionCopyText `
+            -Item $Items[$index] `
+            -DisplayText $normalizedDisplayText `
+            -CopyScriptBlock $CopyScriptBlock
         $entries.Add([PSCustomObject]@{
                 Index       = $index
                 Number      = ($index + 1)
                 DisplayText = $normalizedDisplayText
+                CopyText    = $copyText
                 Item        = $Items[$index]
             }) | Out-Null
     }
 
     return $entries.ToArray()
+}
+
+<#
+.SYNOPSIS
+    将交互选择内容写入剪贴板。
+
+.DESCRIPTION
+    包装 PowerShell 的 `Set-Clipboard`，在不支持剪贴板的环境中给出明确警告。
+
+.PARAMETER Text
+    要写入剪贴板的文本。
+
+.OUTPUTS
+    bool
+    成功写入时返回 `$true`；当前环境不支持剪贴板时返回 `$false`。
+#>
+function Set-InteractiveSelectionClipboard {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$Text
+    )
+
+    if (-not (Get-Command -Name Set-Clipboard -ErrorAction SilentlyContinue)) {
+        Write-Warning '当前环境不支持 Set-Clipboard，无法复制到剪贴板。'
+        return $false
+    }
+
+    Set-Clipboard -Value $Text
+    Write-Host '已复制到剪贴板。' -ForegroundColor Green
+    return $true
 }
 
 function ConvertFrom-InteractiveSelectionTextInput {
@@ -348,25 +438,34 @@ function Invoke-InteractiveSelectionByFzf {
     }
 
     if ($AllowMultiple) {
-        $headerParts.Add('Tab 多选, Enter 确认, Esc 取消') | Out-Null
+        $headerParts.Add('Tab 多选, Enter 确认, Ctrl+Y 复制, Esc 取消') | Out-Null
     }
     else {
-        $headerParts.Add('Enter 确认, Esc 取消') | Out-Null
+        $headerParts.Add('Enter 确认, Ctrl+Y 复制, Esc 取消') | Out-Null
     }
 
     if ($headerParts.Count -gt 0) {
         $fzfArgs += @('--header', ($headerParts -join ' | '))
     }
 
-    $selectedRows = @($rows | & fzf @fzfArgs)
+    $fzfArgs += @('--expect=ctrl-y')
+
+    $fzfRows = @($rows | & fzf @fzfArgs)
     $fzfExitCode = $LASTEXITCODE
 
-    if ($fzfExitCode -eq 130 -or ($fzfExitCode -eq 1 -and $selectedRows.Count -eq 0)) {
+    if ($fzfExitCode -eq 130 -or ($fzfExitCode -eq 1 -and $fzfRows.Count -eq 0)) {
         return @()
     }
 
     if ($fzfExitCode -ne 0) {
         throw ("fzf 执行失败，exit code: {0}" -f $fzfExitCode)
+    }
+
+    $key = ''
+    $selectedRows = $fzfRows
+    if ($fzfRows.Count -gt 0 -and (@('', 'ctrl-y') -contains [string]$fzfRows[0])) {
+        $key = [string]$fzfRows[0]
+        $selectedRows = @($fzfRows | Select-Object -Skip 1)
     }
 
     if ($selectedRows.Count -eq 0) {
@@ -391,6 +490,18 @@ function Invoke-InteractiveSelectionByFzf {
         }
     }
 
+    if ($key -eq 'ctrl-y') {
+        $copyTexts = foreach ($selectedIndex in @($selectedIndexes)) {
+            [string]$Entries[$selectedIndex].CopyText
+        }
+        $copyText = ($copyTexts | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }) -join [Environment]::NewLine
+        if (-not [string]::IsNullOrWhiteSpace($copyText)) {
+            $null = Set-InteractiveSelectionClipboard -Text $copyText
+        }
+
+        return @()
+    }
+
     return $selectedIndexes.ToArray()
 }
 
@@ -411,6 +522,9 @@ function Invoke-InteractiveSelectionByFzf {
 
 .PARAMETER DisplayScriptBlock
     对象候选项的显示脚本块。脚本块中的 `$_` 表示当前候选项。
+
+.PARAMETER CopyScriptBlock
+    fzf 中按 `Ctrl+Y` 时使用的复制文本脚本块。未提供时复制展示行。
 
 .PARAMETER AllowMultiple
     启用多选模式。多选模式下返回原始项数组；取消时返回空数组。
@@ -440,6 +554,7 @@ function Select-InteractiveItem {
         [object[]]$Items,
         [string]$DisplayProperty,
         [scriptblock]$DisplayScriptBlock,
+        [scriptblock]$CopyScriptBlock,
         [switch]$AllowMultiple,
         [string]$Prompt = 'Select > ',
         [string]$Header
@@ -466,6 +581,9 @@ function Select-InteractiveItem {
     }
     if ($null -ne $DisplayScriptBlock) {
         $entryParams.DisplayScriptBlock = $DisplayScriptBlock
+    }
+    if ($null -ne $CopyScriptBlock) {
+        $entryParams.CopyScriptBlock = $CopyScriptBlock
     }
 
     $entries = New-InteractiveSelectionEntries @entryParams

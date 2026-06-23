@@ -63,6 +63,30 @@ this is not valid
         $result.Values.DEFAULT_PASSWORD | Should -Be '12345678'
         $result.Sources.DEFAULT_USER | Should -Be 'CliEnv'
     }
+
+    It 'resolves home-relative paths in explicit structured file sources' {
+        $userHome = [Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile)
+        $configPath = Join-Path $userHome '.config/project-launcher/config-source-test.local.json'
+        $configDirectory = Split-Path -Parent $configPath
+        New-Item -Path $configDirectory -ItemType Directory -Force | Out-Null
+        Set-Content -Path $configPath -Encoding utf8NoBOM -Value @'
+{
+  "PROJECT_LAUNCHER_TEST": "from-user-config"
+}
+'@
+
+        try {
+            $result = Resolve-ConfigSources -Sources @(
+                @{ Type = 'JsonFile'; Name = 'UserConfig'; Path = '~/.config\project-launcher\config-source-test.local.json' }
+            ) -BasePath $TestDrive -ErrorOnMissing
+        }
+        finally {
+            Remove-Item -LiteralPath $configPath -Force -ErrorAction SilentlyContinue
+        }
+
+        $result.Values.PROJECT_LAUNCHER_TEST | Should -Be 'from-user-config'
+        $result.Sources.PROJECT_LAUNCHER_TEST | Should -Be 'UserConfig'
+    }
 }
 
 Describe 'Resolve-DefaultEnvFiles' {
@@ -207,6 +231,14 @@ Describe 'Config path helpers' {
         $result = Resolve-ConfigPath -Path '~/skills' -BasePath $TestDrive -Context 'tool.path'
 
         $result | Should -Be ([System.IO.Path]::GetFullPath((Join-Path $userHome 'skills')))
+    }
+
+    It '支持混合分隔符的用户主目录 ~ 路径' {
+        $userHome = [Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile)
+
+        $result = Resolve-ConfigPath -Path '~/.config\project-launcher\project-launcher.local.json' -BasePath $TestDrive -Context 'tool.path'
+
+        $result | Should -Be ([System.IO.Path]::GetFullPath((Join-Path $userHome '.config/project-launcher/project-launcher.local.json')))
     }
 
     It '空白路径会抛出明确错误' {

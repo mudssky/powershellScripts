@@ -122,6 +122,8 @@ Describe 'Select-InteractiveItem' {
     Context 'fzf 路径' {
         BeforeEach {
             $script:FzfRows = [System.Collections.Generic.List[string]]::new()
+            $script:FzfOutput = $null
+            $script:ClipboardText = $null
 
             function global:fzf {
                 begin {
@@ -134,11 +136,18 @@ Describe 'Select-InteractiveItem' {
 
                 end {
                     $global:LASTEXITCODE = 0
+                    if ($null -ne $script:FzfOutput) {
+                        Write-Output $script:FzfOutput
+                        return
+                    }
+
                     Write-Output $script:FzfRows[1]
                 }
             }
 
             Mock -ModuleName selection Test-InteractiveSelectionFzfAvailable { return $true }
+            Mock -ModuleName selection Set-Clipboard { $script:ClipboardText = $Value }
+            Mock -ModuleName selection Write-Host {}
         }
 
         It '检测到 fzf 时使用 fzf 结果映射回原始项' {
@@ -146,6 +155,34 @@ Describe 'Select-InteractiveItem' {
 
             $result | Should -Be 'beta'
             $script:FzfRows.Count | Should -Be 2
+        }
+
+        It '按 Ctrl+Y 时复制展示行并取消选择' {
+            $script:FzfOutput = @('ctrl-y', '1	beta')
+
+            $result = Select-InteractiveItem -Items @('alpha', 'beta') -Prompt 'Pick'
+
+            $result | Should -Be $null
+            $script:ClipboardText | Should -Be 'beta'
+            Should -Invoke Set-Clipboard -ModuleName selection -Times 1 -Exactly
+        }
+
+        It '按 Ctrl+Y 时优先复制自定义复制文本' {
+            $script:FzfOutput = @('ctrl-y', '0	alpha')
+            $items = @(
+                [PSCustomObject]@{ Name = 'alpha'; Command = 'ssh alpha' },
+                [PSCustomObject]@{ Name = 'beta'; Command = 'ssh beta' }
+            )
+
+            $result = Select-InteractiveItem `
+                -Items $items `
+                -DisplayProperty 'Name' `
+                -CopyScriptBlock { $_.Command } `
+                -Prompt 'Pick'
+
+            $result | Should -Be $null
+            $script:ClipboardText | Should -Be 'ssh alpha'
+            Should -Invoke Set-Clipboard -ModuleName selection -Times 1 -Exactly
         }
     }
 

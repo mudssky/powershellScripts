@@ -24,6 +24,17 @@ Describe 'Project launcher catalog' {
         New-Item -Path $script:TestRoot -ItemType Directory -Force | Out-Null
         $script:SshConfigPath = Join-Path $script:TestRoot 'ssh_config'
         $script:ConfigPath = Join-Path $script:TestRoot 'launcher.json'
+        $script:OriginalXdgConfigHome = [Environment]::GetEnvironmentVariable('XDG_CONFIG_HOME', 'Process')
+        $env:XDG_CONFIG_HOME = Join-Path $script:TestRoot 'xdg-config'
+    }
+
+    AfterEach {
+        if ($null -eq $script:OriginalXdgConfigHome) {
+            Remove-Item Env:\XDG_CONFIG_HOME -ErrorAction SilentlyContinue
+        }
+        else {
+            $env:XDG_CONFIG_HOME = $script:OriginalXdgConfigHome
+        }
     }
 
     It 'builds SSH and WSL items while preserving SSH core fields when JSON name matches' {
@@ -184,6 +195,56 @@ Host proj-srm-trellis
         $catalog[0].Raw.Distro | Should -Be 'Ubuntu-24.04'
     }
 
+    It 'auto-loads user-level project launcher local JSON after working directory defaults' {
+        Push-Location $script:TestRoot
+        try {
+            Set-Content -Path (Join-Path $script:TestRoot 'project-launcher.json') -Encoding utf8NoBOM -Value @'
+{
+  "defaults": {
+    "wsl": {
+      "distro": "Ubuntu-22.04"
+    }
+  },
+  "entries": [
+    {
+      "name": "wsl-workspace",
+      "type": "wsl",
+      "command": "echo workspace"
+    }
+  ]
+}
+'@
+            $userConfigDir = Join-Path $env:XDG_CONFIG_HOME 'project-launcher'
+            New-Item -Path $userConfigDir -ItemType Directory -Force | Out-Null
+            Set-Content -Path (Join-Path $userConfigDir 'project-launcher.local.json') -Encoding utf8NoBOM -Value @'
+{
+  "defaults": {
+    "wsl": {
+      "distro": "Ubuntu-24.04"
+    }
+  },
+  "entries": [
+    {
+      "name": "wsl-user",
+      "type": "wsl",
+      "command": "echo user"
+    }
+  ]
+}
+'@
+
+            $config = Read-ProjectLauncherJsonConfig -BasePath (Get-Location).Path
+            $catalog = New-ProjectLauncherCatalog -Config $config
+        }
+        finally {
+            Pop-Location
+        }
+
+        ($catalog | ForEach-Object Name) | Should -Be @('wsl-user', 'wsl-workspace')
+        ($catalog | Where-Object Name -eq 'wsl-workspace').Raw.Distro | Should -Be 'Ubuntu-24.04'
+        ($catalog | Where-Object Name -eq 'wsl-user').Raw.Distro | Should -Be 'Ubuntu-24.04'
+    }
+
     It 'filters WSL entries on non-Windows platforms' {
         $items = @(
             [PSCustomObject]@{ Name = 'remote'; Type = 'ssh' },
@@ -234,6 +295,9 @@ Host remote
                 DisplayName    = 'remote'
                 Target         = 'remote.example'
                 CommandSummary = ''
+                Raw            = [PSCustomObject]@{
+                    RequestTTY = $null
+                }
             }
         )
 
@@ -242,6 +306,37 @@ Host remote
         $selected = Resolve-ProjectLauncherItem -Items $items
 
         $selected | Should -BeNullOrEmpty
+        Should -Invoke Select-InteractiveItem -Times 1
+    }
+
+    It 'passes execution command copy text to the interactive selector' {
+        $items = @(
+            [PSCustomObject]@{
+                Name           = 'remote'
+                Type           = 'ssh'
+                DisplayName    = 'remote'
+                Target         = 'remote.example'
+                CommandSummary = ''
+                Raw            = [PSCustomObject]@{
+                    RequestTTY = $null
+                }
+            }
+        )
+        $script:ProjectLauncherCopyText = ''
+        Mock Select-InteractiveItem {
+            param(
+                [object[]]$Items,
+                [scriptblock]$CopyScriptBlock
+            )
+
+            $script:ProjectLauncherCopyText = [string]($Items[0] | ForEach-Object -Process $CopyScriptBlock)
+            return $null
+        }
+
+        $selected = Resolve-ProjectLauncherItem -Items $items
+
+        $selected | Should -BeNullOrEmpty
+        $script:ProjectLauncherCopyText | Should -Be 'ssh -tt remote'
         Should -Invoke Select-InteractiveItem -Times 1
     }
 

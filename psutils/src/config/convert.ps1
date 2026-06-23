@@ -176,7 +176,11 @@ function Resolve-ConfigPath {
     }
 
     $expanded = Resolve-ConfigEnvPlaceholder -Value $Path.Trim() -Context $Context
-    if ($expanded -eq '~' -or $expanded.StartsWith('~/') -or $expanded.StartsWith('~\')) {
+    $isHomeRelativePath = (
+        $expanded -eq '~' -or
+        ($expanded.Length -gt 1 -and $expanded[0] -eq '~' -and @('/', '\') -contains $expanded[1])
+    )
+    if ($isHomeRelativePath) {
         $userHome = [Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile)
         if ([string]::IsNullOrWhiteSpace($userHome)) {
             throw "无法解析用户主目录: $Context"
@@ -375,11 +379,11 @@ function Get-ConfigSourceDescriptor {
     $sourceData = if ($Source.ContainsKey('Data')) { $Source['Data'] } else { $null }
     $excludeKeys = if ($Source.ContainsKey('ExcludeKeys')) { [string[]]$Source['ExcludeKeys'] } else { @() }
 
-    if (-not [string]::IsNullOrWhiteSpace($sourcePath) -and -not [System.IO.Path]::IsPathRooted($sourcePath)) {
-        $resolvedPath = Join-Path $BasePath $sourcePath
+    if (-not [string]::IsNullOrWhiteSpace($sourcePath)) {
+        $resolvedPath = Resolve-ConfigPath -Path $sourcePath -BasePath $BasePath -Context 'config.source.path'
     }
     else {
-        $resolvedPath = $sourcePath
+        $resolvedPath = ''
     }
 
     $type = [string]$Source.Type

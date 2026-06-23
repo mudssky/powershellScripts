@@ -12,7 +12,7 @@
 
 .PARAMETER ConfigPath
     自定义 JSON 增量配置路径。传入 `foo.json` 时会额外读取同目录的 `foo.local.json`。
-    未传入时自动读取当前目录的 `project-launcher.json` 与 `project-launcher.local.json`。
+    未传入时自动读取当前目录与用户配置目录中的默认配置。
 
 .PARAMETER SshConfigPath
     SSH client config 路径，默认使用当前用户的 `~/.ssh/config`。
@@ -239,11 +239,35 @@ function Resolve-ProjectLauncherLocalConfigPath {
 
 <#
 .SYNOPSIS
+    获取用户级启动器本机配置路径。
+
+.DESCRIPTION
+    优先使用 `XDG_CONFIG_HOME`，缺省时返回 `~/.config` 下的路径。
+    该函数只声明用户级配置位置，`~` 展开交给共享 `Resolve-ConfigPath` 处理。
+
+.OUTPUTS
+    string
+    返回用户级 `project-launcher.local.json` 绝对路径。
+#>
+function Resolve-ProjectLauncherUserConfigPath {
+    [CmdletBinding()]
+    param()
+
+    $configRoot = $env:XDG_CONFIG_HOME
+    if ([string]::IsNullOrWhiteSpace($configRoot)) {
+        $configRoot = '~/.config'
+    }
+
+    return [System.IO.Path]::Combine($configRoot, 'project-launcher', 'project-launcher.local.json')
+}
+
+<#
+.SYNOPSIS
     解析启动器需要读取的 JSON 配置文件。
 
 .DESCRIPTION
     显式配置文件必须存在；对应 `.local.json` 覆盖文件仅在存在时读取。
-    未显式指定时，自动读取当前目录下存在的默认配置与本机覆盖配置。
+    未显式指定时，自动读取当前目录下存在的默认配置、本机覆盖配置与用户级本机配置。
 
 .PARAMETER ConfigPath
     显式配置路径。
@@ -285,7 +309,13 @@ function Resolve-ProjectLauncherConfigFiles {
         return $files.ToArray()
     }
 
-    foreach ($defaultPath in @('project-launcher.json', 'project-launcher.local.json')) {
+    $defaultPaths = @(
+        'project-launcher.json',
+        'project-launcher.local.json',
+        (Resolve-ProjectLauncherUserConfigPath)
+    )
+
+    foreach ($defaultPath in $defaultPaths) {
         if (Test-ProjectLauncherConfigFileExists -Path $defaultPath -BasePath $BasePath) {
             $files.Add([pscustomobject]@{
                     Path     = $defaultPath
@@ -1031,6 +1061,7 @@ function Resolve-ProjectLauncherItem {
     return Select-InteractiveItem `
         -Items $Items `
         -DisplayScriptBlock { Format-ProjectLauncherItemDisplay -Item $_ } `
+        -CopyScriptBlock { (New-ProjectLauncherExecutionPlan -Item $_).CommandLine } `
         -Prompt 'Project > ' `
         -Header '请选择要启动的项目'
 }
