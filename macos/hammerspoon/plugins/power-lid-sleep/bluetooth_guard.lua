@@ -9,6 +9,7 @@ local shellPath = [[PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sb
 local logger = nil
 local diagnosticLogPath = nil
 local activeTasks = {}
+local blueutilPath
 
 -- 追加蓝牙守卫诊断日志到文件。
 -- 入参：level 日志级别；message 日志内容。
@@ -155,7 +156,7 @@ end
 -- 查找 blueutil 可执行文件。
 -- 入参：无。
 -- 返回值：成功时返回可执行文件路径；失败时返回 nil。
-local function blueutilPath()
+blueutilPath = function()
 	if cachedBlueutilPath ~= nil then
 		return cachedBlueutilPath
 	end

@@ -141,6 +141,7 @@ function plugin.start(context)
 		hs.fs.mkdir(logDir)
 	end
 	local diagnosticLogPath = logDir .. "/power-lid-sleep.log"
+	local bluetoothRestoreMarkerPath = logDir .. "/power-lid-sleep.restore-bluetooth"
 	if type(bluetoothGuard.setLogger) == "function" then
 		bluetoothGuard.setLogger(log, diagnosticLogPath)
 	end
@@ -202,14 +203,24 @@ function plugin.start(context)
 			return
 		end
 
-		if state.bluetoothWasChanged and state.bluetoothOriginalPower ~= 0 then
-			if type(bluetoothGuard.powerOnAsync) == "function" and bluetoothGuard.powerOnAsync() then
-				log.i("已安排后台恢复蓝牙电源")
-			elseif bluetoothGuard.powerOn() then
-				log.i("已恢复蓝牙电源")
-			else
-				log.w("蓝牙恢复失败，请确认 blueutil 可用")
-			end
+		local restoreMarked = hs.fs.pathToAbsolute(bluetoothRestoreMarkerPath) ~= nil
+		if restoreMarked then
+			appendDiagnosticLog(diagnosticLogPath, "检测到主动睡眠蓝牙恢复标记")
+		end
+
+		if restoreMarked or (state.bluetoothWasChanged and state.bluetoothOriginalPower ~= 0) then
+			local helperPath = context.pluginsDir .. "/" .. plugin.id .. "/active_sleep.zsh"
+			local command = string.format(
+				"/bin/zsh %s --restore-bluetooth %s >/dev/null 2>&1 &",
+				shellQuote(helperPath),
+				shellQuote(bluetoothRestoreMarkerPath)
+			)
+			hs.execute(command, false)
+			log.i("已安排独立执行器恢复蓝牙电源")
+			appendDiagnosticLog(diagnosticLogPath, "已安排独立执行器恢复蓝牙电源")
+			state.bluetoothWasChanged = false
+			state.bluetoothOriginalPower = nil
+			return
 		end
 
 		state.bluetoothWasChanged = false

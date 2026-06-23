@@ -10,11 +10,15 @@ set -u
 LOG_FILE="$HOME/.hammerspoon/logs/power-lid-sleep.log"
 MODE="sleep"
 RESULT_FILE="$HOME/.hammerspoon/logs/power-lid-sleep.result"
+RESTORE_MARKER_FILE="$HOME/.hammerspoon/logs/power-lid-sleep.restore-bluetooth"
 PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 if [ "${1:-}" = "--check-bluetooth-permission" ]; then
     MODE="check-bluetooth-permission"
     RESULT_FILE="${2:-$RESULT_FILE}"
+elif [ "${1:-}" = "--restore-bluetooth" ]; then
+    MODE="restore-bluetooth"
+    RESTORE_MARKER_FILE="${2:-$RESTORE_MARKER_FILE}"
 else
     RESULT_FILE="${1:-$RESULT_FILE}"
 fi
@@ -110,6 +114,73 @@ check_bluetooth_permission() {
     return "$rc"
 }
 
+# 读取蓝牙电源状态。
+# 入参：$1 blueutil 可执行文件路径。
+# 返回值：成功时输出 0 或 1，并返回 0；失败返回非 0。
+read_bluetooth_power() {
+    local blueutil_path="$1"
+    local power
+    power="$("$blueutil_path" --power 2>/tmp/power-lid-sleep-blueutil.err)"
+    local rc=$?
+    if [ "$rc" -ne 0 ]; then
+        local stderr
+        stderr="$(tr '\n' ' ' </tmp/power-lid-sleep-blueutil.err 2>/dev/null || true)"
+        rm -f /tmp/power-lid-sleep-blueutil.err
+        log_info "蓝牙状态读取失败: rc=$rc stderr=$stderr"
+        return "$rc"
+    fi
+
+    rm -f /tmp/power-lid-sleep-blueutil.err
+    power="${power//[[:space:]]/}"
+    if [ "$power" = "0" ] || [ "$power" = "1" ]; then
+        echo "$power"
+        return 0
+    fi
+
+    log_info "蓝牙状态读取结果无法解析: power=$power"
+    return 1
+}
+
+# 标记唤醒后需要恢复蓝牙。
+# 入参：$1 关闭前蓝牙状态。
+# 返回值：无。
+mark_bluetooth_restore() {
+    local original_power="$1"
+    mkdir -p "$(dirname "$RESTORE_MARKER_FILE")"
+    {
+        printf 'original_power=%s\n' "$original_power"
+        printf 'created_at=%s\n' "$(date '+%Y-%m-%d %H:%M:%S')"
+    } > "$RESTORE_MARKER_FILE"
+}
+
+# 恢复蓝牙并清理恢复标记。
+# 入参：无。
+# 返回值：0 表示已恢复，非 0 表示失败。
+restore_bluetooth() {
+    local blueutil_path
+    blueutil_path="$(command -v blueutil 2>/dev/null || true)"
+    if [ -z "$blueutil_path" ]; then
+        log_info "蓝牙恢复失败: 未检测到 blueutil"
+        return 1
+    fi
+
+    "$blueutil_path" --power on >/tmp/power-lid-sleep-blueutil.out 2>/tmp/power-lid-sleep-blueutil.err
+    local rc=$?
+    local stdout stderr
+    stdout="$(tr '\n' ' ' </tmp/power-lid-sleep-blueutil.out 2>/dev/null || true)"
+    stderr="$(tr '\n' ' ' </tmp/power-lid-sleep-blueutil.err 2>/dev/null || true)"
+    rm -f /tmp/power-lid-sleep-blueutil.out /tmp/power-lid-sleep-blueutil.err
+
+    if [ "$rc" -eq 0 ]; then
+        rm -f "$RESTORE_MARKER_FILE"
+        log_info "蓝牙恢复完成: stdout=$stdout stderr=$stderr"
+        return 0
+    fi
+
+    log_info "蓝牙恢复失败: rc=$rc stdout=$stdout stderr=$stderr"
+    return "$rc"
+}
+
 # 关闭蓝牙。
 # 入参：无。
 # 返回值：0 表示成功或跳过，非 0 表示失败；蓝牙失败会阻止主动睡眠。
@@ -122,6 +193,9 @@ disable_bluetooth() {
         return 0
     fi
 
+    local original_power
+    original_power="$(read_bluetooth_power "$blueutil_path" || true)"
+
     "$blueutil_path" --power 0 >/tmp/power-lid-sleep-blueutil.out 2>/tmp/power-lid-sleep-blueutil.err
     local rc=$?
     local stdout stderr
@@ -131,6 +205,10 @@ disable_bluetooth() {
 
     if [ "$rc" -eq 0 ]; then
         log_info "蓝牙关闭完成: stdout=$stdout stderr=$stderr"
+        if [ "$original_power" = "1" ]; then
+            mark_bluetooth_restore "$original_power"
+            log_info "已标记唤醒后恢复蓝牙"
+        fi
         echo "蓝牙：已关闭"
         return 0
     fi
@@ -156,6 +234,12 @@ if [ "$MODE" = "check-bluetooth-permission" ]; then
     fi
     notify "Hammerspoon 蓝牙权限" "$permission_result"
     exit 0
+fi
+
+if [ "$MODE" = "restore-bluetooth" ]; then
+    log_info "蓝牙恢复执行器启动"
+    restore_bluetooth
+    exit $?
 fi
 
 log_info "主动睡眠执行器启动"
