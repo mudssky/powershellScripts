@@ -1121,15 +1121,15 @@ function Invoke-RcloneOpsProcess {
         }
         $process = Start-Process -FilePath $FilePath -ArgumentList $Arguments -PassThru
         $startupProbeTimeoutMs = 3000
-        $startupProbe = [System.Diagnostics.Stopwatch]::StartNew()
-        while (-not $process.HasExited -and $startupProbe.ElapsedMilliseconds -lt $startupProbeTimeoutMs) {
-            Start-Sleep -Milliseconds 100
-            # Windows CI 上新建 pwsh 进程可能超过 300ms 才可观察到退出，刷新进程快照避免误写可用 PID。
-            $process.Refresh()
-        }
-        $startupProbe.Stop()
+        # 用 WaitForExit(超时) 替代手动 HasExited 轮询。
+        # 原因: Windows 上 Start-Process -PassThru 对「启动后立即退出」的瞬态进程
+        # (如 cmd.exe /c exit 7), HasExited 在 .NET 进程对象刷新完成前可能持续返回 false,
+        # 导致探测窗口内漏判退出、误走「成功启动」分支并返回 0。
+        # WaitForExit(ms) 是 .NET 处理进程退出的正确 API: 它在内核层面等待退出信号,
+        # 返回时保证 HasExited 与 ExitCode 已被可靠填充, 规避手动轮询的竞态。
+        $exitedWithinWindow = $process.WaitForExit($startupProbeTimeoutMs)
         $process.Refresh()
-        if ($process.HasExited) {
+        if ($exitedWithinWindow -and $process.HasExited) {
             if ($PidFile -and (Test-Path -LiteralPath $PidFile)) {
                 Remove-Item -LiteralPath $PidFile -Force
             }
