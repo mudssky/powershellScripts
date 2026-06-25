@@ -5,7 +5,7 @@
 在以下情况更新 `ai/skills/dev/powershellscripts-ops/`：
 
 - 新增仓库运维域，例如新的自托管服务、网关、备份恢复流程或部署脚本。
-- LiteLLM、LobeHub、安装流程的关键命令、文件路径、环境变量契约发生变化。
+- 安装流程的关键命令、文件路径、环境变量契约发生变化。
 - 用户希望把一次排查经验沉淀成后续 agent 可复用的操作知识。
 - `SKILL.md` 的触发范围和实际 reference 内容不一致。
 
@@ -57,7 +57,7 @@ pnpm test:pwsh:all
 `agents/openai.yaml` 是 UI 元数据，不是 agent 的主要执行说明。更新时保持：
 
 - `display_name` 简短。
-- `short_description` 能概括 LiteLLM、LobeHub 和依赖安装。
+- `short_description` 能概括依赖安装和仓库运维范围。
 - `default_prompt` 必须显式包含 `$powershellscripts-ops`。
 
 如需重新生成，可使用 skill-creator 初始化脚本或 `generate_openai_yaml.py`，并先阅读系统 skill-creator 的 `references/openai_yaml.md`。

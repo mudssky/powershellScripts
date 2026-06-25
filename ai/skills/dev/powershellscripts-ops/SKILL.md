@@ -12,8 +12,6 @@ description: 管理 powershellScripts 仓库运维任务时使用，包括项目
 - 项目依赖安装：根目录初始化、PowerShell 模块、Node/Bash 工具构建、pnpm QA。
 - 本 skill 维护：新增运维域、更新 reference、刷新 `agents/openai.yaml`、校验 skill 结构。
 
-> ⚠️ **长期自托管服务（LiteLLM / LobeHub / Forgejo / n8n）与 Windows OpenSSH Server 已迁出本仓**，本仓仅保留副本/一次性容器配置。对应的 `references/*.md` 仍可作为排障速查，但实际运维以现仓库为准；从本仓起停这些长期服务前先与用户确认。
-
 ## 工作流
 
 1. 先确认用户要处理的运维域，再只读取对应 reference。
@@ -50,7 +48,7 @@ pwsh -NoProfile -File ./ai/skills/Install-Skills.ps1 -Name powershellscripts-ops
 - 项目安装、依赖、QA：读取 `references/project-install.md`。
 - 修改本 skill 或新增运维域：读取 `references/skill-maintenance.md`。
 
-> 已迁出本仓的长期服务与 Windows OpenSSH Server 的速查仍保留在 `references/litellm.md`、`lobehub.md`、`forgejo.md`、`n8n.md`、`windows-openssh.md`，作为排障参考，实际运维以现仓库为准。
+> 已迁出本仓的长期自托管服务（LiteLLM / LobeHub / Forgejo / n8n）与 Windows OpenSSH Server 的速查已归档到 `references/deprecated/`，仅供排障参考，实际运维以现仓库为准。
 
 ## 操作边界
 
