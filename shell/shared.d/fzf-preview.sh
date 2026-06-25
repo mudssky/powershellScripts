@@ -99,8 +99,10 @@ fzf-open() {
   fi
 
   # 回流底座: preview 经 $3 透传, 内部统一处理选择+取消+解析。
-  printf '%s\n' "$files" | fzf_pick_action \
-    '[Enter]:编辑 | [Ctrl-x]:系统打开' 'ctrl-x' "$extra_opts"
+  # 不能用管道调用函数：bash 会在子 shell 执行管道右侧，导致全局回传变量丢失。
+  fzf_pick_action '[Enter]:编辑 | [Ctrl-x]:系统打开' 'ctrl-x' "$extra_opts" <<EOF
+$files
+EOF
   if [ $? -ne 0 ]; then
     return 0
   fi
@@ -157,8 +159,10 @@ fzf-search() {
     extra_opts="--delimiter=: --preview 'bat -pp --color=always {1} 2>/dev/null' --preview-window right:50%:wrap"
   fi
 
-  printf '%s\n' "$matches" | fzf_pick_action \
-    '[Enter]:打开到命中行' '' "$extra_opts"
+  # 不能用管道调用函数：bash 会在子 shell 执行管道右侧，导致全局回传变量丢失。
+  fzf_pick_action '[Enter]:打开到命中行' '' "$extra_opts" <<EOF
+$matches
+EOF
   if [ $? -ne 0 ]; then
     return 0
   fi

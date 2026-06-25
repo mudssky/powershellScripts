@@ -123,19 +123,23 @@ fzf_pick_action() {
     return 1
   fi
 
-  # 解析 fzf --expect 输出：
-  #   第 1 行 = 按下的 expect 键（按 Enter 时为空行）
-  #   第 2 行起 = 选中的条目
+  # 解析 fzf 输出：
+  #   有 --expect 时: 第 1 行 = 按下的 expect 键，Enter 为空行；第 2 行 = 选中条目。
+  #   无 --expect 时: fzf 只输出选中条目本身。
   # 用 read 配合「整体块」读取，避免管道子 shell 截断退出码。
   local key line
-  {
-    read -r key
-    read -r line
-  } <<EOF
+  if [ -n "$expect_keys" ]; then
+    {
+      read -r key
+      read -r line
+    } <<EOF
 $selection
 EOF
+  else
+    key=''
+    line="$selection"
+  fi
 
-  # 未按 expect 键时 fzf 第一行是空，第二行才是条目。
   FZF_PICK_ACTION="$key"
   FZF_PICK_ITEM="$line"
 
@@ -216,7 +220,10 @@ fzf_list_action() {
   fi
 
   # 交互选择(样板 #3/#4 下沉至 fzf_pick_action)。
-  printf '%s\n' "$items" | fzf_pick_action "$header" "ctrl-x" "$extra_opts"
+  # 不能用管道调用函数：bash 会在子 shell 执行管道右侧，导致全局回传变量丢失。
+  fzf_pick_action "$header" "ctrl-x" "$extra_opts" <<EOF
+$items
+EOF
   if [ $? -ne 0 ]; then
     return 0  # 用户取消
   fi
