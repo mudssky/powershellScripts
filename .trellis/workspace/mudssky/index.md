@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 20
-- **Last Active**: 2026-06-16
+- **Total Sessions**: 21
+- **Last Active**: 2026-06-25
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~685 | Active |
+| `journal-1.md` | ~718 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 21 | 2026-06-25 | 创建 skill 开发规范导航 | `5f67f22` | `master` |
 | 20 | 2026-06-16 | database-query 数据库候选自动发现 | `d0a59e9` | `master` |
 | 19 | 2026-06-11 | macOS mpv 安装与点击打开 | `a6dee22` | `master` |
 | 18 | 2026-06-08 | 完善 api-example-test-writer httpyac env 与认证示例 | `5ff4911`, `ba965a4` | `master` |

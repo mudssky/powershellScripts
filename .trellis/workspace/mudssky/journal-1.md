@@ -683,3 +683,36 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 21: 创建 skill 开发规范导航
+
+**Date**: 2026-06-25
+**Task**: 创建 skill 开发规范导航
+**Branch**: `master`
+
+### Summary
+
+新增 ai/skills/dev/skill-dev-guidelines 纯文档型 skill，提供本仓库 skill 开发的通用、Python 和 TypeScript 规范导航，并完成基础校验。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5f67f22` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
