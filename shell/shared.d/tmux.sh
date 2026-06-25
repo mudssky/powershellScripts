@@ -51,7 +51,8 @@ _tmux_dispatch() {
 #
 # 设计意图:
 #   声明式: 只声明「列表命令 + 解析器 + 分派器」, 其余(空列表提示/取消/
-#   fzf 选择/选中行解析)由 fzf_list_action 统一处理。
+#   fzf 选择/选中行解析)由 fzf_list_action 统一处理。Ctrl-x 删除后刷新列表
+#   继续停留, 便于连续清理会话；Enter attach 后退出选择流程。
 #
 # 入参: 无。
 # 返回码: 0 正常结束(含无会话/工具缺失/取消, 均为友好退出)。
@@ -66,5 +67,5 @@ tmux-sessions() {
   # 无 server 时 tmux list-sessions 退出码非0, fzf_list_action 捕获空输出后提示。
   fzf_list_action 'tmux list-sessions' 'tmux' \
     '[Enter]:attach | [Ctrl-x]:kill session' \
-    'cut -d: -f1' _tmux_dispatch
+    'cut -d: -f1' _tmux_dispatch '' 'ctrl-x'
 }

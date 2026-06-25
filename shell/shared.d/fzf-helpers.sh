@@ -178,6 +178,8 @@ EOF
 #   $5 action_cmd   动作分派器函数名。底座调用: $5 "$真实值" "$动作键"。
 #                   分派器内部 case 区分 attach/kill 等(见各领域文件示例)。
 #   $6 extra_opts   (可选) fzf 额外参数串(如 preview), 透传给 fzf_pick_action。
+#   $7 repeat_actions (可选) 逗号分隔的动作键列表。命中后刷新列表并继续选择,
+#                   适合 kill/delete 这类管理动作；默认动作(Enter)通常不重复。
 #
 # 返回码:
 #   0 - 正常结束(含空列表/取消/缺工具, 均为友好退出)。
@@ -193,6 +195,9 @@ EOF
 #     command -v tmux >/dev/null 2>&1 || { printf '%s[tmux]%s 未安装\n' ...; return 0; }
 #     fzf_list_action 'tmux list-sessions' 'tmux' \
 #       '[Enter]:attach | [Ctrl-x]:kill' 'cut -d: -f1' _tmux_dispatch
+#     # 若希望 Ctrl-x 删除后继续停留:
+#     # fzf_list_action 'tmux list-sessions' 'tmux' \
+#     #   '[Enter]:attach | [Ctrl-x]:kill' 'cut -d: -f1' _tmux_dispatch '' 'ctrl-x'
 #   }
 # ----------------------------------------------------------------------
 fzf_list_action() {
@@ -202,6 +207,7 @@ fzf_list_action() {
   local parser_cmd="${4:-cat}"
   local action_cmd="${5:-}"
   local extra_opts="${6:-}"
+  local repeat_actions="${7:-}"
 
   # 守护: fzf/底座 必需(领域工具的守护由调用方在调用前自行处理)。
   if ! command -v fzf >/dev/null 2>&1; then
@@ -209,36 +215,46 @@ fzf_list_action() {
     return 0
   fi
 
-  # 取列表。list_cmd 可能含管道(如 blueutil --paired | _bt_parse), 用 eval 展开。
-  # 列表为空 → 友好提示并返回(样板 #2 下沉至此)。
-  local items
-  # shellcheck disable=SC2086  # list_cmd 需按命令展开(含管道)
-  items=$(eval "$list_cmd" 2>/dev/null)
-  if [ -z "$items" ]; then
-    printf '%s[%s]%s 当前没有可选项。\n' "$_FZF_HLP_YELLOW" "$tag" "$_FZF_HLP_NC"
-    return 0
-  fi
+  while :; do
+    # 取列表。list_cmd 可能含管道(如 blueutil --paired | _bt_parse), 用 eval 展开。
+    # 列表为空 → 友好提示并返回(样板 #2 下沉至此)。
+    local items
+    # shellcheck disable=SC2086  # list_cmd 需按命令展开(含管道)
+    items=$(eval "$list_cmd" 2>/dev/null)
+    if [ -z "$items" ]; then
+      printf '%s[%s]%s 当前没有可选项。\n' "$_FZF_HLP_YELLOW" "$tag" "$_FZF_HLP_NC"
+      return 0
+    fi
 
-  # 交互选择(样板 #3/#4 下沉至 fzf_pick_action)。
-  # 不能用管道调用函数：bash 会在子 shell 执行管道右侧，导致全局回传变量丢失。
-  fzf_pick_action "$header" "ctrl-x" "$extra_opts" <<EOF
+    # 交互选择(样板 #3/#4 下沉至 fzf_pick_action)。
+    # 不能用管道调用函数：bash 会在子 shell 执行管道右侧，导致全局回传变量丢失。
+    fzf_pick_action "$header" "ctrl-x" "$extra_opts" <<EOF
 $items
 EOF
-  if [ $? -ne 0 ]; then
-    return 0  # 用户取消
-  fi
+    if [ $? -ne 0 ]; then
+      return 0  # 用户取消
+    fi
 
-  # 解析选中行为真实值(样板 #5 下沉至此: 调用方只声明 parser_cmd, 不手写)。
-  local real_value
-  real_value=$(printf '%s\n' "$FZF_PICK_ITEM" | eval "$parser_cmd" 2>/dev/null)
-  if [ -z "$real_value" ]; then
-    printf '%s[%s]%s 无法解析选中项。\n' "$_FZF_HLP_RED" "$tag" "$_FZF_HLP_NC"
+    # 解析选中行为真实值(样板 #5 下沉至此: 调用方只声明 parser_cmd, 不手写)。
+    local real_value
+    real_value=$(printf '%s\n' "$FZF_PICK_ITEM" | eval "$parser_cmd" 2>/dev/null)
+    if [ -z "$real_value" ]; then
+      printf '%s[%s]%s 无法解析选中项。\n' "$_FZF_HLP_RED" "$tag" "$_FZF_HLP_NC"
+      return 0
+    fi
+
+    # 动作分派: action_cmd 接收 (真实值, 动作键), 自行 case。
+    if [ -n "$action_cmd" ]; then
+      "$action_cmd" "$real_value" "$FZF_PICK_ACTION"
+    fi
+
+    # 管理动作执行后可刷新列表继续选择；默认动作(Enter)保持执行后退出。
+    if [ -n "$FZF_PICK_ACTION" ]; then
+      case ",$repeat_actions," in
+        *,"$FZF_PICK_ACTION",*) continue ;;
+      esac
+    fi
     return 0
-  fi
-
-  # 动作分派: action_cmd 接收 (真实值, 动作键), 自行 case。
-  if [ -n "$action_cmd" ]; then
-    "$action_cmd" "$real_value" "$FZF_PICK_ACTION"
-  fi
+  done
   return 0
 }
