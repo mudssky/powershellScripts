@@ -1,0 +1,98 @@
+# Windows OpenSSH Server 配置模板（加固默认值）
+#
+# 用途：这是仓库提供的可复制模板，不是本机运行态配置。
+#       复制到 $env:ProgramData\ssh\sshd_config 后按本机情况微调再应用。
+#       仓库脚本 ./scripts/pwsh/network/openssh/Enable-WindowsOpenSsh.ps1 可以一键完成
+#       安装服务、放行防火墙、应用本模板并在覆盖前打时间戳 .bak 备份。
+#
+# 设计意图：默认面向“仅经 Tailscale 内网暴露”的场景——密钥登录优先、关闭密码登录、
+#           限制可登录用户范围，把被控端攻击面压到最小。
+#           密码登录默认关闭是因为 SSH 流量已限定在 tailnet 内，密钥足够；如需密码登录请显式打开。
+
+# ───────────────────────── 基础网络 ─────────────────────────
+
+# 监听端口。默认 22；若想降低公网扫描噪音可改成非标准端口（tailnet 内通常不需要）。
+Port 22
+
+# 监听地址。默认空 = 绑定全部网卡。
+# 如果只想让 Tailscale 网卡（100.x.x.x）收到 SSH，取消下行注释并填入本机 tailnet IP：
+#ListenAddress 100.64.162.90
+
+# ───────────────────────── 认证策略 ─────────────────────────
+
+# 密钥登录：开启（默认即 yes，这里显式声明意图）。
+PubkeyAuthentication yes
+
+# 密码登录：默认关闭。改成 yes 前请确认你确实需要，且 SSH 已限定在可信网络。
+PasswordAuthentication no
+
+# 空密码：禁止。
+PermitEmptyPasswords no
+
+# Windows 没有 root 概念；这里保留语义明确，禁用管理员账户直接登录的高风险路径。
+PermitRootLogin no
+
+# 公钥文件位置。Windows 上普通用户的默认路径就是 ~/.ssh/authorized_keys。
+# 注意：管理员用户会被下方 Match 块重定向到共享文件，见说明。
+AuthorizedKeysFile .ssh/authorized_keys
+
+# 登录宽限时间（秒）：未完成认证前连接保留多久。
+LoginGraceTime 30
+
+# 登录失败最大尝试次数。
+MaxAuthTries 3
+
+# ───────────────────────── 用户范围限制 ─────────────────────────
+
+# 只允许列出的用户登录。请按本机实际情况填写用户名，多用户用空格分隔。
+# 示例：AllowUsers mudssky
+# 留空注释表示不额外限制；生产环境强烈建议显式收窄。
+#AllowUsers REPLACE_ME
+
+# ───────────────────────── Windows 专属坑：管理员 authorized_keys ─────────────────────────
+#
+# Windows 版 OpenSSH 默认在配置末尾带这一段：
+#
+#   Match Group administrators
+#          AuthorizedKeysFile __PROGRAMDATA__/ssh/administrators_authorized_keys
+#
+# 含义：凡是属于管理员组的用户，其公钥 NOT 从 ~/.ssh/authorized_keys 读取，
+#       而是从共享文件 C:\ProgramData\ssh\administrators_authorized_keys 读取。
+#
+# 这是 Windows 上最常见的高频坑——管理员用户明明配了 ~/.ssh/authorized_keys 却登不上。
+# 该共享文件还要求严格的 ACL（仅 Administrators + SYSTEM 可读写），否则 sshd 会忽略它。
+#
+# 另一个坑：Match Group 匹配的是“显示名”，在非英文 Windows 上“administrators”不匹配。
+# 中文系统的组名是“Administrators”（注意它恰好和英文一致，因为内置组 SID 固定，
+# 但任意本地化的自定义组仍可能不匹配）。
+#
+# 三种处理方式，任选其一（本模板默认注释掉，即让管理员也走 ~/.ssh/authorized_keys）：
+#
+#   方式 A（推荐 / 本模板默认）：注释掉 Match 块，所有用户统一走 ~/.ssh/authorized_keys。
+#   方式 B：保留 Match 块，把管理员公钥放进 administrators_authorized_keys 并修好 ACL。
+#   方式 C：改用 Match User 精确指定（避免组名本地化问题）：
+#             Match User mudssky
+#                    AuthorizedKeysFile .ssh/authorized_keys
+#
+# 本模板采用方式 A，保持和普通用户一致的体验。
+
+# Match Group administrators
+#        AuthorizedKeysFile __PROGRAMDATA__/ssh/administrators_authorized_keys
+
+# ───────────────────────── 日志与杂项 ─────────────────────────
+
+# 日志级别： quieter=QUIET, 常规=INFO, 排障=VERBOSE。
+LogLevel INFO
+
+# 允许 SSH agent 转发。tailnet 内自用场景可按需打开，默认关以减少凭据泄露面。
+AllowAgentForwarding no
+
+# 允许 TCP 转发。需要端口转发/rathole 之类时打开，默认关。
+AllowTcpForwarding no
+
+# X11 转发：Windows 不需要。
+X11Forwarding no
+
+# 客户端保活，防止中间 NAT/防火墙过早掐断空闲连接。
+ClientAliveInterval 60
+ClientAliveCountMax 3

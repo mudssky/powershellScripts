@@ -1,6 +1,6 @@
 ---
 name: powershellscripts-ops
-description: 管理 powershellScripts 仓库运维任务时使用，包括 LiteLLM 网关、LobeHub、Forgejo 与 n8n 自托管、项目依赖安装、Docker Compose 服务生命周期、日志状态排查、环境变量示例文件，以及维护本地 powershellscripts-ops skill。
+description: 管理 powershellScripts 仓库运维任务时使用，包括 LiteLLM 网关、LobeHub、Forgejo 与 n8n 自托管、Windows OpenSSH Server 启用与 Tailscale 远程连接、项目依赖安装、Docker Compose 服务生命周期、日志状态排查、环境变量示例文件，以及维护本地 powershellscripts-ops skill。
 ---
 
 # PowerShellScripts Ops
@@ -13,6 +13,7 @@ description: 管理 powershellScripts 仓库运维任务时使用，包括 LiteL
 - LobeHub 自托管：external/internal 模式、服务启动、状态、日志、RustFS bucket 初始化和常见排查。
 - Forgejo 自托管：服务启动、状态、日志、SSH 端口、数据盘、PostgreSQL 复用、Pull Mirror 同步和常见排查。
 - n8n 自托管：服务启动、状态、日志、Webhook URL、secure cookie、数据盘、PostgreSQL 复用和常见排查。
+- Windows OpenSSH Server：用 `Enable-WindowsOpenSsh.ps1` 一键启用 sshd、防火墙、DefaultShell 与加固模板，经 Tailscale 内网远程连接，密钥登录优先。
 - 项目依赖安装：根目录初始化、PowerShell 模块、Node/Bash 工具构建、pnpm QA。
 - 本 skill 维护：新增运维域、更新 reference、刷新 `agents/openai.yaml`、校验 skill 结构。
 
@@ -53,6 +54,7 @@ pwsh -NoProfile -File ./ai/skills/Install-Skills.ps1 -Name powershellscripts-ops
 - LobeHub 自托管任务：读取 `references/lobehub.md`。
 - Forgejo 自托管任务：读取 `references/forgejo.md`。
 - n8n 自托管任务：读取 `references/n8n.md`。
+- Windows OpenSSH Server 任务：读取 `references/windows-openssh.md`。
 - 项目安装、依赖、QA：读取 `references/project-install.md`。
 - 修改本 skill 或新增运维域：读取 `references/skill-maintenance.md`。
 

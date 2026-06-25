@@ -157,3 +157,65 @@ ssh 用户名@IP地址
 | **Time out** | 防火墙拦截 / IP错误 | 1. `ping IP地址` 看通不通。<br>2. 检查被控端防火墙是否放行 22 端口。 |
 | **Permission denied** | 密码错 / 用户名错 | 1. 确认密码无误。<br>2. Windows 用户如果是微软账号，尝试用 `whoami` 查看真实用户名。 |
 | **Windows 公钥无效** | 权限问题 | Windows 的 `authorized_keys` 文件权限极其严格，必须只有 System, Admin 和你自己有权限。 |
+
+---
+
+## 🌐 通过 Tailscale 连 Windows（仓库一键方案）
+
+上面的“方法 B”给出了手写 PowerShell 命令。仓库已经把整套 Windows OpenSSH Server 启用流程
+封装成模板 + 一键脚本，配合 Tailscale 内网使用，适合反复在新机器上复用。
+
+### 仓库产物
+
+| 产物 | 路径 | 作用 |
+| :--- | :--- | :--- |
+| 配置模板 | `config/network/openssh/sshd_config.example` | Windows 加固默认值（密钥登录优先、关闭密码登录、处理管理员 authorized_keys 坑） |
+| 一键脚本 | `scripts/pwsh/network/openssh/Enable-WindowsOpenSsh.ps1` | 装 capability → 起服务 → 开机自启 → 放行防火墙 → 设 DefaultShell → 应用配置（覆盖前自动 `.bak`） |
+| 集成规范 | `.trellis/spec/infra/openssh.md` | 模板/脚本/运行态边界与契约 |
+
+### 启用步骤（被控端 Windows 机器，需管理员）
+
+1. 先预览将执行的操作，不改动系统：
+
+    ```powershell
+    ./scripts/pwsh/network/openssh/Enable-WindowsOpenSsh.ps1 -DryRun
+    ```
+
+2. 确认无误后实际执行：
+
+    ```powershell
+    ./scripts/pwsh/network/openssh/Enable-WindowsOpenSsh.ps1
+    ```
+
+    只装服务和防火墙、不改 `sshd_config`：
+
+    ```powershell
+    ./scripts/pwsh/network/openssh/Enable-WindowsOpenSsh.ps1 -SkipSshdConfigApply
+    ```
+
+### 从另一台 Tailscale 节点连接
+
+前置条件：被控端已加入 Tailscale 且 MagicDNS 启用。
+
+```bash
+ssh <用户名>@<机器名>          # 例如 ssh mudssky@ser6pro
+ssh <用户名>@100.64.162.90     # 或直接用 tailnet IP
+```
+
+### Windows 管理员 authorized_keys 坑（重要）
+
+Windows 版 OpenSSH 默认带一段 `Match Group administrators`，会把管理员用户的公钥重定向到
+共享文件 `C:\ProgramData\ssh\administrators_authorized_keys`，而不是 `~/.ssh/authorized_keys`。
+这是 Windows 上 SSH 密钥登录失败的**最高频原因**。仓库模板默认注释掉这个 Match 块，
+让所有用户统一走 `~/.ssh/authorized_keys`，详见 `sshd_config.example` 内注释。
+
+> ⚠️ 不要在 Windows 上使用 `tailscale up --ssh`：Tailscale SSH 对 Windows 支持有限，
+> 主线走原生 OpenSSH Server 即可。
+
+### 验证
+
+```powershell
+Get-Service sshd                                # 应为 Running
+Get-NetFirewallRule -Name *ssh* | Format-Table  # 应有 sshd 规则
+```
+

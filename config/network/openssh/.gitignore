@@ -1,0 +1,11 @@
+# 本机 sshd 运行态配置，可能含服务器特定策略，不应提交。
+sshd_config
+sshd_config.local
+*.bak
+
+# 真实 authorized_keys / host keys / 用户私钥绝不入库。
+authorized_keys
+administrators_authorized_keys
+*_key
+*.pem
+id_*

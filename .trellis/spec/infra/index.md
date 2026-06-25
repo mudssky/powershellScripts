@@ -20,3 +20,4 @@
 | [Dev Container Templates](./devcontainer-templates.md) | VS Code Dev Container 标准模板、宿主配置挂载与 Agent CLI 复用约定 | Active |
 | [Hammerspoon Plugin Contract](./hammerspoon-plugins.md) | macOS Hammerspoon 插件目录、配置合并、部署 manifest 与验证契约 | Active |
 | [macOS Finder Quick Actions Contract](./macos-quick-actions.md) | Finder 快捷操作 workflow、Services 安装位置、通用 runner 和 AppleScript quoting 契约 | Active |
+| [OpenSSH Server (Windows)](./openssh.md) | Windows OpenSSH Server 模板、Enable-WindowsOpenSsh 启用流程、sshd_config 加固与本机运行态边界 | Active |

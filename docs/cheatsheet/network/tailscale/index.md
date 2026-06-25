@@ -78,6 +78,12 @@ sudo tailscale up --ssh
 
 - **连接方式**: 在客户端 `ssh <用户名>@<服务器TailscaleIP>` 或 `ssh <用户名>@<MagicDNS域名>`
 
+> ⚠️ **Windows 被控端不要走这条路**：Tailscale SSH 对 Windows 支持有限。
+> Windows 机器请用仓库封装的**原生 OpenSSH Server** 方案：
+> `scripts/pwsh/network/openssh/Enable-WindowsOpenSsh.ps1` + `config/network/openssh/sshd_config.example`。
+> 详见 [setup-ssh.md 的 Tailscale 连 Windows 段](../../vscode/remote/setup-ssh.md#-通过-tailscale-连-windows仓库一键方案)
+> 和 `.trellis/spec/infra/openssh.md`。
+
 ---
 
 ### 📂 4. 文件传输 (Taildrop)
