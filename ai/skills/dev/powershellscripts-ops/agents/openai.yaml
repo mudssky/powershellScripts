@@ -1,4 +1,4 @@
 interface:
   display_name: "PowerShellScripts Ops"
-  short_description: "管理本仓库 LiteLLM、LobeHub、Forgejo、n8n 与依赖安装"
+  short_description: "管理本仓库依赖安装、Docker Compose 服务生命周期与日志排查"
   default_prompt: "使用 $powershellscripts-ops 处理本仓库的运维任务。"

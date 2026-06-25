@@ -1,6 +1,6 @@
 ---
 name: powershellscripts-ops
-description: 管理 powershellScripts 仓库运维任务时使用，包括 LiteLLM 网关、LobeHub、Forgejo 与 n8n 自托管、Windows OpenSSH Server 启用与 Tailscale 远程连接、项目依赖安装、Docker Compose 服务生命周期、日志状态排查、环境变量示例文件，以及维护本地 powershellscripts-ops skill。
+description: 管理 powershellScripts 仓库运维任务时使用，包括项目依赖安装、Docker Compose 服务生命周期、日志状态排查、环境变量示例文件，以及维护本地 powershellscripts-ops skill。
 ---
 
 # PowerShellScripts Ops
@@ -9,13 +9,10 @@ description: 管理 powershellScripts 仓库运维任务时使用，包括 LiteL
 
 当用户要处理本仓库内的运维工作时使用本 skill，尤其是：
 
-- LiteLLM 网关：模型路由、fallback、配置同步、启动、重启、日志、运行时 smoke test。
-- LobeHub 自托管：external/internal 模式、服务启动、状态、日志、RustFS bucket 初始化和常见排查。
-- Forgejo 自托管：服务启动、状态、日志、SSH 端口、数据盘、PostgreSQL 复用、Pull Mirror 同步和常见排查。
-- n8n 自托管：服务启动、状态、日志、Webhook URL、secure cookie、数据盘、PostgreSQL 复用和常见排查。
-- Windows OpenSSH Server：用 `Enable-WindowsOpenSsh.ps1` 一键启用 sshd、防火墙、DefaultShell 与加固模板，经 Tailscale 内网远程连接，密钥登录优先。
 - 项目依赖安装：根目录初始化、PowerShell 模块、Node/Bash 工具构建、pnpm QA。
 - 本 skill 维护：新增运维域、更新 reference、刷新 `agents/openai.yaml`、校验 skill 结构。
+
+> ⚠️ **长期自托管服务（LiteLLM / LobeHub / Forgejo / n8n）与 Windows OpenSSH Server 已迁出本仓**，本仓仅保留副本/一次性容器配置。对应的 `references/*.md` 仍可作为排障速查，但实际运维以现仓库为准；从本仓起停这些长期服务前先与用户确认。
 
 ## 工作流
 
@@ -50,19 +47,12 @@ pwsh -NoProfile -File ./ai/skills/Install-Skills.ps1 -Name powershellscripts-ops
 
 ## Reference 选择
 
-- LiteLLM 网关任务：读取 `references/litellm.md`。
-- LobeHub 自托管任务：读取 `references/lobehub.md`。
-- Forgejo 自托管任务：读取 `references/forgejo.md`。
-- n8n 自托管任务：读取 `references/n8n.md`。
-- Windows OpenSSH Server 任务：读取 `references/windows-openssh.md`。
 - 项目安装、依赖、QA：读取 `references/project-install.md`。
 - 修改本 skill 或新增运维域：读取 `references/skill-maintenance.md`。
+
+> 已迁出本仓的长期服务与 Windows OpenSSH Server 的速查仍保留在 `references/litellm.md`、`lobehub.md`、`forgejo.md`、`n8n.md`、`windows-openssh.md`，作为排障参考，实际运维以现仓库为准。
 
 ## 操作边界
 
 - 不把真实 secret 写入 skill、任务文档、提交信息或最终答复。
 - 不默认停止、删除 volume、迁移数据或执行破坏性 Docker 操作；这类操作需要用户明确要求。
-- 不把 LiteLLM 的 OpenAI 兼容 `claw-` 路由和 Claude Code Anthropic messages 兜底路由混用。
-- 不把 LobeHub external 模式误认为项目会启动 PostgreSQL、Redis、RustFS；默认 external 依赖宿主机共享服务。
-- 不把 Forgejo 本机 `.env`、数据盘 `app.ini`、SSH host key、JWT key、数据库密码或访问 token 写入 skill、提交信息或最终答复。
-- 不把 n8n 本机 `.env`、`N8N_ENCRYPTION_KEY`、数据库密码、用户凭据或 workflow secret 写入 skill、提交信息或最终答复。
