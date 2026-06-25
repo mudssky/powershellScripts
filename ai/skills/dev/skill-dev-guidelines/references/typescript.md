@@ -2,12 +2,12 @@
 
 ## 适用范围
 
-当 skill 需要可维护 CLI、参数解析、业务规则测试、构建产物或 Node 生态依赖时，使用 TypeScript 脚本型结构。安装态必须能直接运行提交后的 `scripts/*.js`，不能要求用户安装依赖或构建源码。
+用于创建或维护包含 TypeScript CLI、Node.js 脚本、构建产物、参数解析、业务规则测试或 Node 生态依赖的全局 skill。本文件随 skill 一起分发，可以被 `SKILL.md` 直接引用；不要再引用开发该 skill 时所在项目的外部规范。
 
 ## 目录结构
 
 ```text
-ai/skills/dev/<skill-name>/
+<skill-name>/
   SKILL.md
   package.json
   tsconfig.json
@@ -57,7 +57,11 @@ pnpm install
 }
 ```
 
-本仓库根目录已经提供 `typescript`、`vitest`、`biome` 等共享工具。skill 子包不要重复声明这些根目录已有 dev dependency；只声明真正属于该 skill 的运行依赖或构建依赖。
+依赖规则：
+
+- 不要在每个 skill 里重复声明承载仓库已有的通用 dev dependency。
+- 只声明真正属于该 skill 的运行依赖、构建依赖或测试依赖。
+- 安装态入口不得依赖未打包的源码、未安装的开发工具或本机全局包。
 
 ## CLI 和构建
 
@@ -68,12 +72,12 @@ pnpm install
 - 构建面向现代 Node.js，不为了旧浏览器或旧 Node 做额外兼容降级。
 - 修复问题时改 `src/` 和测试，再重新构建；不要手工修补 `scripts/*.js`。
 
-## 配置和 secret
+## 配置和 Secret
 
 - 私有配置示例使用 `*.local.*` 时，确认真实文件被 `.gitignore` 或目录局部规则忽略。
 - 用户级私有配置使用 `$XDG_CONFIG_HOME/<skill-name>/`，未设置时回退 `~/.config/<skill-name>/`。
 - 配置查找优先级推荐为显式 `--config` > 当前项目目录 > XDG 用户配置目录。
-- 不把全局私有配置放进 `~/.codex/`、`~/.claude/` 或 skill 安装目录。
+- 不把全局私有配置放进 `~/.codex/`、`~/.claude/` 或 skill 安装目录，除非该 skill 明确只服务单一 agent。
 - 不把真实密码、token、连接串写入可提交配置或示例。
 
 ## 测试和验证
@@ -95,4 +99,12 @@ pnpm check
 
 测试应覆盖参数解析、核心业务规则、错误退出和配置优先级。新增默认配置查找路径时，应隔离 `HOME` / `XDG_CONFIG_HOME` 并覆盖显式路径、项目级路径、用户级路径之间的优先级。
 
-代码改动完成后执行根目录 `pnpm qa`。如果只是 skill 文档改动，可按项目规则说明原因后跳过。
+代码改动完成后按承载仓库规则执行对应 QA；如果只是 skill 文档改动，可说明原因后跳过。
+
+## 常见错误
+
+- `SKILL.md` 让用户执行 `npx tsx src/<script>.ts`，安装后依赖开发工具链。
+- 手工编辑生成的 `scripts/*.js` 修复问题，却不更新 TypeScript 源码和测试。
+- `package.json` 重复声明承载仓库已有的通用测试、lint 或 format 依赖。
+- 私有配置文件未忽略，导致 token 或本机路径有误提交风险。
+- 全局私有配置写入 skill 安装目录，重装或更新 skill 时覆盖用户数据。

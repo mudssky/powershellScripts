@@ -1,22 +1,26 @@
 # Python Skill 开发
 
+## 适用范围
+
+用于创建或维护包含 Python 脚本、Python CLI、uv 项目、本地 WebUI 或 Python 配置读取逻辑的全局 skill。本文件随 skill 一起分发，可以被 `SKILL.md` 直接引用；不要再引用开发该 skill 时所在项目的外部规范。
+
 ## 选择模型
 
 优先从轻量标准库脚本开始：
 
 ```text
-ai/skills/dev/<skill-name>/
+<skill-name>/
   SKILL.md
   scripts/
     <script>.py
-  references/
-  examples/
+  tests/
+    test_<script>.py
 ```
 
 当出现第三方依赖、复杂 HTML/WebUI、包内模板、复杂配置解析或需要锁定运行环境时，升级为 uv 项目：
 
 ```text
-ai/skills/dev/<skill-name>/
+<skill-name>/
   SKILL.md
   pyproject.toml
   uv.lock
@@ -26,8 +30,6 @@ ai/skills/dev/<skill-name>/
       cli.py
   tests/
     test_cli.py
-  references/
-  examples/
 ```
 
 ## 运行入口
@@ -51,7 +53,7 @@ uv run python -m <package>.cli [args]
 - 轻量脚本只用标准库，适合参数解析、JSON、文本处理、文件 IO、无状态检查和明确退出。
 - 轻量脚本一旦需要 `requests`、`pydantic`、`PyYAML`、`rich`、`fastapi` 等第三方包，就升级为 uv 项目。
 - uv 项目必须提交 `pyproject.toml` 和 `uv.lock`，并通过 `uv run` 运行测试和 CLI。
-- Python lint/format 复用根目录 `uvx ruff` 约定，不在轻量脚本 skill 内重复声明 formatter/linter 依赖。
+- Python lint/format 可以复用承载仓库的统一工具；不要在轻量脚本 skill 内重复声明 formatter/linter 依赖。
 
 ## 配置文件
 
@@ -87,4 +89,13 @@ uv run python -m <package>.cli [args]
 - 低风险轻量脚本至少执行 `python scripts/<script>.py --help` 或一个最小成功命令。
 - 含业务规则、校验逻辑、危险操作保护、复杂输入解析、文件修改或外部命令调用时必须有单元测试；轻量脚本优先用标准库 `unittest`。
 - uv 项目优先用锁定在项目中的 pytest，通过 `uv run pytest` 或等价命令运行。
-- 代码改动完成后按项目规则执行根目录 `pnpm qa`；只改文档说明可说明原因后跳过。
+- WebUI 使用极短 TTL 验证会打印 URL 并自动退出，并覆盖 `--no-review` / `--no-server` 不启动服务。
+- 代码改动完成后按承载仓库规则执行对应 QA；只改文档说明可说明原因后跳过。
+
+## 常见错误
+
+- 轻量脚本导入第三方包，却没有 `pyproject.toml` 和 `uv.lock`。
+- `SKILL.md` 要求用户先 `pip install` 或激活本机 venv。
+- 轻量脚本直接读取 YAML，却没有升级为 uv 项目。
+- `.env` 承载复杂嵌套配置，或把真实 token 写进可提交 JSON/YAML。
+- 复杂校验逻辑全部写在 CLI `main()` 中，只用 `--help` 做验证。
