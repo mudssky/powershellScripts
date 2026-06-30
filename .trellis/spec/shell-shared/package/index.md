@@ -15,6 +15,7 @@
 - [ ] **条件式守护**：工具替换用 `command -v X >/dev/null 2>&1`，无 `else` 即回退系统原命令（需求："没安装时回退"）。
 - [ ] **不破坏性 alias**：语法不兼容的工具（`find→fd`、`grep→rg`）**不做 alias**，当独立命令用——alias 会炸掉依赖原语法的脚本/命令。只有行为兼容的（`bat→cat`，管道自动退化）才 alias。
 - [ ] **加载顺序无关**：函数体内引用其它文件的函数时，确认函数定义为惰性（source 时只定义、调用时才解析），不依赖 `*.sh` glob 顺序。若必须保证顺序，用文件名前缀数字而非隐式依赖。
+- [ ] **解析 CLI 输出前先找机器可读选项**：优先使用 `--json`、`--porcelain`、`--format`/`-F`、`--short`、`--no-formatting` 等无样式/结构化输出；展示列可以丰富，但真实参数必须从稳定字段解析，避免 ANSI 颜色或展示文案混入真实参数。
 - [ ] **加任何 init 前，先全局 grep**：`eval "$(zoxide init ...)"`、`eval "$(starship init ...)"` 等初始化代码极易跨文件重复。新增前先 `grep -r "<tool>" shell/` 确认未被别处初始化（见下方 Anti-pattern）。
 
 ## Interactive Command Lifecycle（交互命令必读）
@@ -75,6 +76,12 @@
 **症状**：命令函数里手写 `fzf --expect=... $(...)` + `read key; read line <<EOF` 解析块。
 
 **正确**：回流 `fzf_pick_action`（用 `$3` 传 preview），或用 `fzf_list_action`。
+
+### ❌ 解析带 ANSI 样式的 CLI 展示输出
+
+**症状**：`zellij list-sessions` 在 TTY 中输出彩色会话名，`cut -d' ' -f1` 得到的第一列包含 ANSI 转义码，传给 `zellij attach` 后报「会话不存在」。
+
+**正确**：先查看工具是否提供机器可读/无格式选项；zellij 会话列表使用 `zellij list-sessions --no-formatting` 去掉颜色，tmux 会话列表使用 `tmux list-sessions -F` 固定列格式，再从稳定字段解析真实会话名。
 
 ## Out of Scope
 

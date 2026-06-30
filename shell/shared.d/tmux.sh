@@ -47,6 +47,23 @@ _tmux_dispatch() {
 }
 
 # ----------------------------------------------------------------------
+# _tmux_list_sessions — 输出供 fzf 展示的稳定 tmux 会话列表
+#
+# 设计意图:
+#   tmux 默认 list-sessions 是面向人看的展示格式，解析时依赖冒号分隔较脆。
+#   使用 -F 明确输出 tab 分隔列：第一列固定为真实会话名，后续列只做展示，
+#   这样 session 名解析不受默认文案变化影响。
+#
+# 入参: 无。
+# 返回值:
+#   stdout - tab 分隔的 tmux 会话列表: 会话名、窗口数、附着状态、创建时间。
+# 返回码: 透传 tmux list-sessions 退出码。
+# ----------------------------------------------------------------------
+_tmux_list_sessions() {
+  tmux list-sessions -F '#{session_name}	#{session_windows} windows	#{?session_attached,attached,detached}	#{session_created_string}'
+}
+
+# ----------------------------------------------------------------------
 # tmux-sessions — 列出 tmux 会话, 交互式 attach 或 kill
 #
 # 设计意图:
@@ -63,9 +80,9 @@ tmux-sessions() {
     printf '%s[tmux]%s 未检测到 tmux，请先安装。\n' "$_FZF_HLP_RED" "$_FZF_HLP_NC"
     return 0
   fi
-  # list-sessions 输出形如 "dev: 3 windows (attached)"; 用 cut -d: -f1 取会话名。
+  # _tmux_list_sessions 第一列固定为真实会话名，后续列仅用于 fzf 展示。
   # 无 server 时 tmux list-sessions 退出码非0, fzf_list_action 捕获空输出后提示。
-  fzf_list_action 'tmux list-sessions' 'tmux' \
+  fzf_list_action '_tmux_list_sessions' 'tmux' \
     '[Enter]:attach | [Ctrl-x]:kill session' \
-    'cut -d: -f1' _tmux_dispatch '' 'ctrl-x'
+    'cut -f1' _tmux_dispatch '' 'ctrl-x'
 }
