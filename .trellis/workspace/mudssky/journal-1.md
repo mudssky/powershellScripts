@@ -716,3 +716,36 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 22: 规范 API 示例测试 skill
+
+**Date**: 2026-06-28
+**Task**: 规范 API 示例测试 skill
+**Branch**: `master`
+
+### Summary
+
+更新 api-example-test-writer 的 env 抽取、响应可见性与日期时间写法规则，并通过 Install-Skills.ps1 安装到 Codex 全局 skill 目录。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ab06e67` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
