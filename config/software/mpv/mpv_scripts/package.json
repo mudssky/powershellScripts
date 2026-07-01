@@ -20,8 +20,8 @@
     "@rollup/plugin-commonjs": "^29.0.3",
     "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-typescript": "^12.3.0",
-    "@types/ramda": "^0.31.1",
-    "rollup": "^4.61.1",
+    "@types/ramda": "^0.32.0",
+    "rollup": "^4.62.2",
     "tslib": "^2.8.1",
     "typescript": "^6.0.3"
   },
