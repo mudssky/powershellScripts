@@ -103,8 +103,8 @@ fzf_pick_action() {
 
   # 统一组装 fzf 参数：基础项(--height/--reverse/--header) + 条件项。
   # --expect 为空时不传（避免 fzf 报错）；extra_opts 为空时不追加。
-  # extra_opts 用 eval 展开，以便正确处理其中嵌套的引号
-  # (如 "--preview 'bat {}'"), 否则整串会被当成单个参数。
+  # extra_opts 用 eval 解析为当前函数的位置参数, 以便正确处理其中嵌套的引号
+  # (如 "--preview 'bat {}'"), 否则整串会被当成单个参数或被普通词分割拆坏。
   # 安全性: extra_opts 来自本仓库的调用方, 非外部输入, eval 风险可控。
   local fzf_args=(--height=40% --reverse --header="$header")
   if [ -n "$expect_keys" ]; then
@@ -112,8 +112,8 @@ fzf_pick_action() {
   fi
 
   if [ -n "$extra_opts" ]; then
-    # shellcheck disable=SC2086  # 故意按词分割展开 extra_opts
-    selection=$(printf '%s\n' "$input" | fzf "${fzf_args[@]}" $extra_opts)
+    eval "set -- $extra_opts"
+    selection=$(printf '%s\n' "$input" | fzf "${fzf_args[@]}" "$@")
   else
     selection=$(printf '%s\n' "$input" | fzf "${fzf_args[@]}")
   fi
