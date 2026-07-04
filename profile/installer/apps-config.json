@@ -1071,6 +1071,20 @@
         ]
       },
       {
+        "name": "herdr",
+        "cliName": "herdr",
+        "description": "终端里的 Agent 多路复用器",
+        "command": "brew install herdr",
+        "supportOs": [
+          "macOS",
+          "linux"
+        ],
+        "tag": [
+          "linuxserver",
+          "macbook"
+        ]
+      },
+      {
         "name": "llmfit",
         "cliName": "llmfit",
         "description": "llmfit 命令行工具",
