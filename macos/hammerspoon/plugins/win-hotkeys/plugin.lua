@@ -315,19 +315,20 @@ end
 -- 返回值：无。
 local function registerText()
 	local mappings = {
-		{ "a", { modKeys.cmdKey }, "a", "全选" },
-		{ "c", { modKeys.cmdKey }, "c", "复制" },
-		{ "v", { modKeys.cmdKey }, "v", "粘贴" },
-		{ "x", { modKeys.cmdKey }, "x", "剪切" },
-		{ "z", { modKeys.cmdKey }, "z", "撤销" },
-		{ "y", { modKeys.cmdKey, "shift" }, "z", "重做" },
-		{ "s", { modKeys.cmdKey }, "s", "保存" },
-		{ "f", { modKeys.cmdKey }, "f", "查找" },
-		{ "n", { modKeys.cmdKey }, "n", "新建" },
-		{ "o", { modKeys.cmdKey }, "o", "打开" },
-		{ "p", { modKeys.cmdKey }, "p", "打印" },
-		{ "w", { modKeys.cmdKey }, "w", "关闭窗口" },
-		{ "t", { modKeys.cmdKey }, "t", "新建标签页" },
+		-- ponytail: 这些全局 Ctrl 文本映射会影响终端 SIGINT/常用控制键，需要时再逐个恢复。
+		-- { "a", { modKeys.cmdKey }, "a", "全选" },
+		-- { "c", { modKeys.cmdKey }, "c", "复制" },
+		-- { "v", { modKeys.cmdKey }, "v", "粘贴" },
+		-- { "x", { modKeys.cmdKey }, "x", "剪切" },
+		-- { "z", { modKeys.cmdKey }, "z", "撤销" },
+		-- { "y", { modKeys.cmdKey, "shift" }, "z", "重做" },
+		-- { "s", { modKeys.cmdKey }, "s", "保存" },
+		-- { "f", { modKeys.cmdKey }, "f", "查找" },
+		-- { "n", { modKeys.cmdKey }, "n", "新建" },
+		-- { "o", { modKeys.cmdKey }, "o", "打开" },
+		-- { "p", { modKeys.cmdKey }, "p", "打印" },
+		-- { "w", { modKeys.cmdKey }, "w", "关闭窗口" },
+		-- { "t", { modKeys.cmdKey }, "t", "新建标签页" },
 	}
 
 	for _, mapping in ipairs(mappings) do
