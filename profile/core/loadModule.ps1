@@ -1,113 +1,135 @@
-$moduleParent = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$psutilsRoot = Join-Path $moduleParent 'psutils'
-$moduleManifest = Join-Path $psutilsRoot 'psutils.psd1'
-$modulesDir = Join-Path $psutilsRoot 'modules'
+function Import-ProfileCoreModules {
+    <#
+    .SYNOPSIS
+        按平台依赖顺序同步导入 Profile 核心 psutils 子模块。
 
-# ── 第 1 层：同步加载核心子模块（仅 profile 启动路径必需的） ──
-# 使用 Import-Module 逐个加载（.psm1 不支持 dot-source，必须走模块系统）
-# 加载顺序按依赖关系：os → cache(依赖 os) → commandDiscovery → [env 仅 Linux/macOS] → proxy → wrapper
-# - test.psm1 已不在同步路径使用（Phase 4 用 Find-ExecutableCommand 替代 Test-EXEProgram）
-# - env.psm1 仅 Linux/macOS 需要（Sync-PathFromBash），Windows 上延迟到 OnIdle
-$coreModules = if ($IsWindows -or $env:OS -eq 'Windows_NT') {
-    @('os', 'cache', 'commandDiscovery', 'proxy', 'wrapper')
-}
-else {
-    @('os', 'cache', 'commandDiscovery', 'env', 'proxy', 'wrapper')
-}
-foreach ($mod in $coreModules) {
-    $modPath = Join-Path $modulesDir "$mod.psm1"
-    try {
-        Import-Module $modPath -Global -ErrorAction Stop
+    .PARAMETER ProfileRoot
+        Profile 脚本目录。
+
+    .PARAMETER PlatformContext
+        当前平台能力上下文，包含核心模块列表和路径比较规则。
+
+    .OUTPUTS
+        System.Management.Automation.PSCustomObject
+        返回完整模块清单路径和已导入核心模块名称。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$ProfileRoot,
+        [Parameter(Mandatory)]
+        [PSCustomObject]$PlatformContext
+    )
+
+    $repositoryRoot = Split-Path -Parent $ProfileRoot
+    $psutilsRoot = Join-Path $repositoryRoot 'psutils'
+    $moduleManifest = Join-Path $psutilsRoot 'psutils.psd1'
+    $modulesDir = Join-Path $psutilsRoot 'modules'
+
+    foreach ($moduleName in $PlatformContext.CoreModules) {
+        $modulePath = Join-Path $modulesDir "$moduleName.psm1"
+        try {
+            Import-Module $modulePath -Global -ErrorAction Stop
+        }
+        catch {
+            throw "核心模块 '$moduleName' 导入失败: $($_.Exception.Message)"
+        }
     }
-    catch {
-        Write-Error "[profile/core/loadModule.ps1] Import-Module 失败: $modPath :: $($_.Exception.Message)"
-        throw
+
+    $psutilsParent = Split-Path -Parent $psutilsRoot
+    $separator = [System.IO.Path]::PathSeparator
+    $currentPaths = @($env:PSModulePath -split [string]$separator | Where-Object { $_ })
+    $seenPaths = [System.Collections.Generic.HashSet[string]]::new($PlatformContext.PathComparer)
+    $uniquePaths = [System.Collections.Generic.List[string]]::new()
+
+    foreach ($path in @($currentPaths + $psutilsParent)) {
+        if ([string]::IsNullOrWhiteSpace($path)) { continue }
+        if ($seenPaths.Add($path)) {
+            $uniquePaths.Add($path) | Out-Null
+        }
     }
-}
+    $env:PSModulePath = ($uniquePaths.ToArray()) -join $separator
 
-# ── 第 2 层：PSModulePath 兜底（确保 PowerShell 自动发现 psutils.psd1） ──
-# 需要将 psutils 的父目录加入 PSModulePath（PowerShell 按 ModuleName/ModuleName.psd1 结构查找）
-$psutilsParent = Split-Path -Parent $psutilsRoot
-$sep = [System.IO.Path]::PathSeparator
-$pathComparer = if ($IsWindows -or $env:OS -eq 'Windows_NT') {
-    [System.StringComparer]::OrdinalIgnoreCase
-}
-else {
-    [System.StringComparer]::Ordinal
-}
-
-# 将 psutils 父目录追加到 PSModulePath（仅在尚未存在时）
-$currentPaths = ($env:PSModulePath -split [string]$sep) | Where-Object { $_ }
-$alreadyInPath = $false
-foreach ($p in $currentPaths) {
-    if ($pathComparer.Equals($p, $psutilsParent)) {
-        $alreadyInPath = $true
-        break
-    }
-}
-if (-not $alreadyInPath) {
-    $env:PSModulePath = $env:PSModulePath + $sep + $psutilsParent
-}
-
-# PSModulePath 去重（清理重复条目）
-$paths = ($env:PSModulePath -split [string]$sep) | Where-Object { $_ }
-$seenPaths = [System.Collections.Generic.HashSet[string]]::new($pathComparer)
-$uniquePaths = [System.Collections.Generic.List[string]]::new()
-
-foreach ($path in $paths) {
-    if ([string]::IsNullOrWhiteSpace($path)) { continue }
-    if ($seenPaths.Add($path)) {
-        $uniquePaths.Add($path) | Out-Null
+    return [PSCustomObject]@{
+        ModuleManifest = $moduleManifest
+        CoreModules    = @($PlatformContext.CoreModules)
     }
 }
 
-$env:PSModulePath = ($uniquePaths.ToArray()) -join $sep
+function Register-ProfileOnIdle {
+    <#
+    .SYNOPSIS
+        幂等注册 Profile 的一次性 OnIdle 延迟初始化任务。
 
-# ── 第 3 层：OnIdle 事件延迟全量加载（空闲时静默加载完整 psutils 模块） ──
-# 将 wrapper.ps1 的加载也合并到此处。OnIdle Action 会在事件 Job 的动态模块中执行，
-# 直接内联路径字面量，避免依赖局部闭包变量导致 Import-Module 收到空 Name。
-$__idleManifestPathLiteral = ([string]$moduleManifest).Replace("'", "''")
-$__idleWrapperPathLiteral = ([string](Join-Path (Split-Path -Parent $PSScriptRoot) 'wrapper.ps1')).Replace("'", "''")
-$__idleAction = [scriptblock]::Create(@"
-`$idleManifestPath = '$__idleManifestPathLiteral'
-`$idleWrapperPath = '$__idleWrapperPathLiteral'
+    .DESCRIPTION
+        使用会话级状态避免重复加载 Profile 时注册多个相同任务。
+        延迟任务分别完成 psutils 全量导入、包装函数与快捷键初始化。
+
+    .PARAMETER ProfileRoot
+        Profile 脚本目录。
+
+    .PARAMETER ModuleManifest
+        psutils 完整模块清单路径。
+
+    .OUTPUTS
+        System.Management.Automation.PSCustomObject
+        返回当前 OnIdle 注册状态与订阅 ID。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$ProfileRoot,
+        [Parameter(Mandatory)]
+        [string]$ModuleManifest
+    )
+
+    if ($null -ne $Global:__PowerShellProfileOnIdleState) {
+        return $Global:__PowerShellProfileOnIdleState
+    }
+
+    $wrapperPath = Join-Path $ProfileRoot 'wrapper.ps1'
+    $manifestPathLiteral = ([string]$ModuleManifest).Replace("'", "''")
+    $wrapperPathLiteral = ([string]$wrapperPath).Replace("'", "''")
+    $idleAction = [scriptblock]::Create(@"
+`$idleManifestPath = '$manifestPathLiteral'
+`$idleWrapperPath = '$wrapperPathLiteral'
 try {
     if ([string]::IsNullOrWhiteSpace(`$idleManifestPath)) {
         throw 'psutils 模块清单路径为空'
     }
-
-    # 全量加载 psutils 模块（覆盖单独加载的子模块，补全其余子模块）
     Import-Module `$idleManifestPath -Force -Global -ErrorAction Stop
 }
 catch {
-    Write-Warning "[profile/loadModule.ps1] OnIdle psutils 全量加载失败: `$(`$_.Exception.Message)"
+    Write-Warning "[profile/core/loadModule.ps1] OnIdle psutils 全量加载失败: `$(`$_.Exception.Message)"
 }
 try {
-    # 延迟加载 wrapper.ps1（yaz, Add-CondaEnv 等函数）
     if (-not [string]::IsNullOrWhiteSpace(`$idleWrapperPath) -and (Test-Path `$idleWrapperPath)) {
         . `$idleWrapperPath
     }
 }
 catch {
-    Write-Warning "[profile/loadModule.ps1] OnIdle wrapper.ps1 加载失败: `$(`$_.Exception.Message)"
+    Write-Warning "[profile/core/loadModule.ps1] OnIdle wrapper.ps1 加载失败: `$(`$_.Exception.Message)"
 }
 try {
-    # fzf 键绑定注册（Register-FzfHistorySmartKeyBinding 来自 functions.psm1，
-    # 全量加载完成后才可用，不能在同步路径中通过 Get-Command 查找）
     if (Get-Command -Name Register-FzfHistorySmartKeyBinding -CommandType Function -ErrorAction SilentlyContinue) {
         Register-FzfHistorySmartKeyBinding | Out-Null
     }
 }
 catch {
-    Write-Warning "[profile/loadModule.ps1] OnIdle fzf 键绑定注册失败: `$(`$_.Exception.Message)"
+    Write-Warning "[profile/core/loadModule.ps1] OnIdle fzf 键绑定注册失败: `$(`$_.Exception.Message)"
 }
 try {
-    # PSReadLine Tab 补全键绑定（从 encoding.ps1 同步路径移至此处，
-    # 避免冷启动时触发 PSReadLine 模块完整初始化 ~260ms）
     Set-PSReadLineKeyHandler -Key Tab -Function Complete
 }
 catch {
-    Write-Warning "[profile/loadModule.ps1] OnIdle PSReadLine Tab 键绑定注册失败: `$(`$_.Exception.Message)"
+    Write-Warning "[profile/core/loadModule.ps1] OnIdle PSReadLine Tab 键绑定注册失败: `$(`$_.Exception.Message)"
 }
 "@)
-Register-EngineEvent -SourceIdentifier PowerShell.OnIdle -MaxTriggerCount 1 -Action $__idleAction | Out-Null
+
+    $subscriber = Register-EngineEvent -SourceIdentifier PowerShell.OnIdle -MaxTriggerCount 1 -Action $idleAction
+    $Global:__PowerShellProfileOnIdleState = [PSCustomObject]@{
+        Status         = 'Registered'
+        SubscriptionId = $subscriber.SubscriptionId
+    }
+    return $Global:__PowerShellProfileOnIdleState
+}

@@ -1,431 +1,293 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-    Profile 完整性能诊断脚本 — 分步测量全部 4 个阶段及其子步骤的耗时。
+    使用真实 Profile 入口执行多样本启动性能诊断。
+
 .DESCRIPTION
-    此脚本使用 -NoProfile 冷启动并手动重放 profile 完整加载流程，对每个阶段
-    及其内部子步骤进行独立计时。用于定位性能回归或排查启动变慢的具体原因。
+    每个样本启动新的 pwsh -NoProfile 子进程并执行 profile.ps1，避免手工复制加载逻辑造成行为漂移。
+    报告分别统计 Profile 内部阶段耗时与父进程观察到的完整子进程耗时。
 
-    4 个阶段：
-    Phase 1: dot-source-definitions — 函数定义加载（6 个脚本文件）
-    Phase 2: mode-decision — 模式判定（Full/Minimal/UltraMinimal）
-    Phase 3: core-loaders — 核心模块加载 + 别名配置
-    Phase 4: initialize-environment — 工具初始化（代理、编码、starship 等）
+.PARAMETER Mode
+    要测量的 Profile 模式。
 
-    常见使用场景:
-    - 新增工具/别名后检查对启动速度的影响
-    - 跨平台缓存问题排查（Linux/Windows 缓存交叉污染）
-    - starship/zoxide 更新后的性能回归检测
+.PARAMETER Iterations
+    新进程正式采样轮数。
 
-    注意: 必须使用 -NoProfile 启动以避免 profile 被自动加载：
-      pwsh -NoProfile -NoLogo -File <此脚本路径>
+.PARAMETER Phase
+    人类可读输出中仅显示指定阶段序号；0 表示显示全部阶段。
+
+.PARAMETER SkipStarship
+    向真实 Profile 入口传递跳过 Starship 初始化开关。
+
+.PARAMETER SkipZoxide
+    向真实 Profile 入口传递跳过 Zoxide 初始化开关。
+
+.PARAMETER SkipProxy
+    向真实 Profile 入口传递跳过代理检测开关。
+
+.PARAMETER SkipAliases
+    向真实 Profile 入口传递跳过别名注册开关。
+
+.PARAMETER OutputPath
+    可选 JSON 报告输出路径。
+
+.PARAMETER AsJson
+    仅向 stdout 输出 JSON，不打印交互摘要。
+
+.OUTPUTS
+    System.String
+    使用 -AsJson 时输出 JSON 字符串；默认仅打印摘要。
+
 .EXAMPLE
-    pwsh -NoProfile -NoLogo -File ./profile/Debug-ProfilePerformance.ps1
+    pwsh -NoProfile -NoLogo -File ./profile/Debug-ProfilePerformance.ps1 -Mode Full -Iterations 5
+
 .EXAMPLE
-    pwsh -NoProfile -NoLogo -File ./profile/Debug-ProfilePerformance.ps1 -SkipStarship
-.EXAMPLE
-    pwsh -NoProfile -NoLogo -File ./profile/Debug-ProfilePerformance.ps1 -Phase 4
-.NOTES
-    不依赖 profile 已加载的任何状态，完全自包含。
+    pwsh -NoProfile -NoLogo -File ./profile/Debug-ProfilePerformance.ps1 -Mode Minimal -Iterations 7 -AsJson
 #>
 [CmdletBinding()]
 param(
+    [ValidateSet('Full', 'Minimal', 'UltraMinimal')]
+    [string]$Mode = 'Full',
+    [ValidateRange(1, 100)]
+    [int]$Iterations = 5,
+    [ValidateRange(0, 10)]
+    [int]$Phase = 0,
     [switch]$SkipStarship,
     [switch]$SkipZoxide,
     [switch]$SkipProxy,
     [switch]$SkipAliases,
-    [ValidateRange(1, 4)]
-    [int]$Phase = 0
+    [string]$OutputPath,
+    [switch]$AsJson
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# === 计时工具 ===
-$sw = [System.Diagnostics.Stopwatch]::StartNew()
-$timings = [ordered]@{}
-$phaseTimings = [ordered]@{}
+function Get-ProfileBenchmarkStats {
+    <#
+    .SYNOPSIS
+        计算一组毫秒样本的稳定摘要。
 
-function Lap {
-    param([string]$Name)
-    $timings[$Name] = $sw.ElapsedMilliseconds
-    $sw.Restart()
-}
+    .PARAMETER Samples
+        毫秒样本集合。
 
-function LapPhase {
-    param([string]$Name)
-    $phaseTimings[$Name] = $sw.ElapsedMilliseconds
-    $sw.Restart()
-}
+    .OUTPUTS
+        System.Management.Automation.PSCustomObject
+        返回平均值、中位数、最小值、最大值与排序后的样本。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [double[]]$Samples
+    )
 
-# === 自动检测 profile 根目录 ===
-$profileRoot = if ($PSScriptRoot) {
-    $PSScriptRoot
-}
-else {
-    Split-Path -Parent $MyInvocation.MyCommand.Path
-}
-
-Write-Host "=== Profile 完整性能诊断 ===" -ForegroundColor Cyan
-Write-Host "Profile root: $profileRoot" -ForegroundColor DarkGray
-Write-Host "Platform: $([System.Runtime.InteropServices.RuntimeInformation]::OSDescription)" -ForegroundColor DarkGray
-Write-Host "PowerShell: $($PSVersionTable.PSVersion)" -ForegroundColor DarkGray
-Write-Host ""
-
-# ╔══════════════════════════════════════════════╗
-# ║  Phase 1: dot-source-definitions             ║
-# ╚══════════════════════════════════════════════╝
-
-$script:ProfileRoot = $profileRoot
-$script:ProfileMode = 'Full'
-$script:UseMinimalProfile = $false
-$script:UseUltraMinimalProfile = $false
-$AliasDescPrefix = '[mudssky]'
-$profileLoadStartTime = [DateTime]::UtcNow
-
-$sw.Restart()
-
-. (Join-Path $profileRoot 'core/encoding.ps1')
-Lap '1.1-encoding.ps1'
-
-. (Join-Path $profileRoot 'core/mode.ps1')
-Lap '1.2-mode.ps1'
-
-. (Join-Path $profileRoot 'core/loaders.ps1')
-Lap '1.3-loaders.ps1'
-
-. (Join-Path $profileRoot 'features/environment.ps1')
-Lap '1.4-environment.ps1'
-
-. (Join-Path $profileRoot 'features/help.ps1')
-Lap '1.5-help.ps1'
-
-. (Join-Path $profileRoot 'features/install.ps1')
-Lap '1.6-install.ps1'
-
-# Phase 1 小计
-$phase1Total = 0
-foreach ($k in @('1.1-encoding.ps1', '1.2-mode.ps1', '1.3-loaders.ps1', '1.4-environment.ps1', '1.5-help.ps1', '1.6-install.ps1')) {
-    $phase1Total += $timings[$k]
-}
-$phaseTimings['Phase 1: dot-source-definitions'] = $phase1Total
-
-if ($Phase -eq 1) {
-    Write-Host "=== Phase 1: dot-source-definitions 分步计时 ===" -ForegroundColor Cyan
-    foreach ($e in $timings.GetEnumerator()) {
-        $color = if ($e.Value -gt 100) { 'Red' } elseif ($e.Value -gt 30) { 'Yellow' } else { 'Green' }
-        Write-Host ("  {0,-40} {1,6}ms" -f $e.Key, $e.Value) -ForegroundColor $color
+    $ordered = @($Samples | Sort-Object)
+    if ($ordered.Count -eq 0) {
+        throw '性能样本不能为空'
     }
-    Write-Host ("  {0,-40} {1,6}ms" -f 'SUBTOTAL', $phase1Total) -ForegroundColor Cyan
-    return
-}
 
-# ╔══════════════════════════════════════════════╗
-# ║  Phase 2: mode-decision                      ║
-# ╚══════════════════════════════════════════════╝
-
-$sw.Restart()
-
-$script:ProfileModeDecision = Get-ProfileModeDecision
-Lap '2.1-get-profile-mode-decision'
-
-$script:ProfileMode = [string]$script:ProfileModeDecision.Mode
-$script:UseMinimalProfile = $script:ProfileMode -eq 'Minimal'
-$script:UseUltraMinimalProfile = $script:ProfileMode -eq 'UltraMinimal'
-Lap '2.2-apply-mode-flags'
-
-$phase2Total = 0
-foreach ($k in @('2.1-get-profile-mode-decision', '2.2-apply-mode-flags')) {
-    $phase2Total += $timings[$k]
-}
-$phaseTimings['Phase 2: mode-decision'] = $phase2Total
-
-if ($Phase -eq 2) {
-    Write-Host "=== Phase 2: mode-decision 分步计时 ===" -ForegroundColor Cyan
-    $phase2Keys = @('2.1-get-profile-mode-decision', '2.2-apply-mode-flags')
-    foreach ($k in $phase2Keys) {
-        $v = $timings[$k]
-        $color = if ($v -gt 100) { 'Red' } elseif ($v -gt 30) { 'Yellow' } else { 'Green' }
-        Write-Host ("  {0,-40} {1,6}ms" -f $k, $v) -ForegroundColor $color
+    $median = if ($ordered.Count % 2 -eq 1) {
+        $ordered[[int]($ordered.Count / 2)]
     }
-    Write-Host ("  {0,-40} {1,6}ms" -f 'SUBTOTAL', $phase2Total) -ForegroundColor Cyan
-    Write-Host ""
-    Write-Host "Mode: $($script:ProfileMode) | Source: $($script:ProfileModeDecision.Source) | Reason: $($script:ProfileModeDecision.Reason)" -ForegroundColor DarkGray
-    return
-}
-
-# ╔══════════════════════════════════════════════╗
-# ║  Phase 3: core-loaders                       ║
-# ╚══════════════════════════════════════════════╝
-
-$sw.Restart()
-
-# 3.1 loadModule.ps1 — 加载核心 psutils 子模块（平台条件化） + PSModulePath + OnIdle 注册
-$loadModuleScript = Join-Path $profileRoot 'core/loadModule.ps1'
-. $loadModuleScript
-Lap '3.1-loadModule (core psutils + OnIdle)'
-
-# 3.2 user_aliases.ps1 — 加载别名配置对象
-$userAliasScript = Join-Path $profileRoot 'config/aliases/user_aliases.ps1'
-$script:userAlias = . $userAliasScript
-Lap '3.2-user_aliases config'
-
-$phase3Total = 0
-foreach ($k in @('3.1-loadModule (core psutils + OnIdle)', '3.2-user_aliases config')) {
-    $phase3Total += $timings[$k]
-}
-$phaseTimings['Phase 3: core-loaders'] = $phase3Total
-
-if ($Phase -eq 3) {
-    Write-Host "=== Phase 3: core-loaders 分步计时 ===" -ForegroundColor Cyan
-    $phase3Keys = @('3.1-loadModule (core psutils + OnIdle)', '3.2-user_aliases config')
-    foreach ($k in $phase3Keys) {
-        $v = $timings[$k]
-        $color = if ($v -gt 100) { 'Red' } elseif ($v -gt 30) { 'Yellow' } else { 'Green' }
-        Write-Host ("  {0,-40} {1,6}ms" -f $k, $v) -ForegroundColor $color
+    else {
+        ($ordered[($ordered.Count / 2) - 1] + $ordered[$ordered.Count / 2]) / 2
     }
-    Write-Host ("  {0,-40} {1,6}ms" -f 'SUBTOTAL', $phase3Total) -ForegroundColor Cyan
-    return
+
+    return [PSCustomObject]@{
+        AverageMs = [math]::Round((($ordered | Measure-Object -Average).Average), 3)
+        MedianMs  = [math]::Round($median, 3)
+        MinMs     = [math]::Round($ordered[0], 3)
+        MaxMs     = [math]::Round($ordered[-1], 3)
+        SamplesMs = @($ordered | ForEach-Object { [math]::Round($_, 3) })
+    }
 }
 
-# ╔══════════════════════════════════════════════╗
-# ║  Phase 4: initialize-environment             ║
-# ╚══════════════════════════════════════════════╝
+function Invoke-ProfilePerformanceSample {
+    <#
+    .SYNOPSIS
+        在独立 pwsh 进程中采集一次真实 Profile 性能样本。
 
-$sw.Restart()
+    .PARAMETER PwshPath
+        pwsh 可执行文件路径。
 
-# 4.1 设置项目根目录
-$env:POWERSHELL_SCRIPTS_ROOT = Split-Path -Parent $profileRoot
-Lap '4.01-env-root'
+    .PARAMETER ProfilePath
+        profile.ps1 绝对路径。
 
-# 4.2 Linux PATH 同步
-if ($IsLinux) {
-    if (Test-Path -Path "/home/linuxbrew/.linuxbrew/bin") {
-        $env:PATH += ":/home/linuxbrew/.linuxbrew/bin/"
-    }
+    .PARAMETER Mode
+        要测量的 Profile 模式。
+
+    .PARAMETER Iteration
+        当前样本序号。
+
+    .PARAMETER ProfileArguments
+        需要透传给真实 Profile 入口的开关名称。
+
+    .OUTPUTS
+        System.Management.Automation.PSCustomObject
+        返回真实入口报告和完整子进程耗时。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$PwshPath,
+        [Parameter(Mandatory)]
+        [string]$ProfilePath,
+        [Parameter(Mandatory)]
+        [ValidateSet('Full', 'Minimal', 'UltraMinimal')]
+        [string]$Mode,
+        [Parameter(Mandatory)]
+        [int]$Iteration,
+        [string[]]$ProfileArguments
+    )
+
+    $timingPath = Join-Path ([System.IO.Path]::GetTempPath()) ("profile-timing-{0}.json" -f [guid]::NewGuid().ToString('N'))
     try {
-        Sync-PathFromBash -CacheSeconds (4 * 3600) -ErrorAction Stop | Out-Null
-    }
-    catch {
-        Write-Warning "同步 PATH 失败: $($_.Exception.Message)"
-    }
-}
-Lap '4.02-linux-path-sync'
-
-# 4.3 代理自动检测
-if ((-not $SkipProxy) -and (Test-EnvSwitchEnabled -Name 'PROXY_AUTO_ENABLE' -DefaultEnabled)) {
-    try {
-        $proxyState = Invoke-WithCache `
-            -Key "proxy-auto-detect" `
-            -MaxAge ([TimeSpan]::FromMinutes(30)) `
-            -CacheType Text `
-            -ScriptBlock {
-                Set-Proxy -Command auto
-                if ($env:http_proxy) { 'on' } else { 'off' }
-            }
-        if ($proxyState -eq 'on' -and -not $env:http_proxy) {
-            Set-Proxy -Command on
+        $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+        $startInfo.FileName = $PwshPath
+        $startInfo.UseShellExecute = $false
+        $startInfo.RedirectStandardOutput = $true
+        $startInfo.RedirectStandardError = $true
+        $startInfo.CreateNoWindow = $true
+        $startInfo.ArgumentList.Add('-NoProfile')
+        $startInfo.ArgumentList.Add('-NoLogo')
+        $startInfo.ArgumentList.Add('-File')
+        $startInfo.ArgumentList.Add($ProfilePath)
+        $startInfo.ArgumentList.Add('-TimingOutputPath')
+        $startInfo.ArgumentList.Add($timingPath)
+        foreach ($argument in @($ProfileArguments)) {
+            $startInfo.ArgumentList.Add($argument)
         }
-    }
-    catch {
-        Set-Proxy -Command auto
-    }
-}
-Lap '4.03-proxy-detect'
 
-# 4.4 env.ps1
-$envScript = Join-Path $profileRoot 'env.ps1'
-if (Test-Path $envScript) { . $envScript }
-Lap '4.04-env-ps1'
-
-# 4.5 UTF-8 编码
-Set-ProfileUtf8Encoding
-Lap '4.05-utf8-encoding'
-
-# 4.6 命令探测（仅探测当前平台真正需要的工具和包管理器）
-$toolNames = @('starship', 'zoxide', 'sccache', 'fnm')
-$trackedToolNames = if ($IsWindows) {
-    @('starship', 'zoxide', 'sccache')
-}
-else {
-    $toolNames
-}
-$packageManagerNames = if ($IsWindows) {
-    @('scoop', 'winget', 'choco')
-}
-elseif ($IsMacOS) {
-    @('brew')
-}
-else {
-    @('brew', 'apt')
-}
-$trackedCommandNames = @($trackedToolNames + $packageManagerNames)
-$availableTools = [System.Collections.Generic.HashSet[string]]::new(
-    [System.StringComparer]::OrdinalIgnoreCase
-)
-$commandResults = Find-ExecutableCommand -Name $trackedCommandNames -CacheMisses
-if ($commandResults) {
-    foreach ($commandResult in $commandResults) {
-        if ($commandResult.Found -and $trackedToolNames -contains $commandResult.Name) {
-            $availableTools.Add([string]$commandResult.Name) | Out-Null
+        foreach ($environmentName in @(
+                'POWERSHELL_PROFILE_FULL',
+                'POWERSHELL_PROFILE_MODE',
+                'POWERSHELL_PROFILE_ULTRA_MINIMAL',
+                'POWERSHELL_PROFILE_TIMING',
+                'CODEX_THREAD_ID',
+                'CODEX_SANDBOX_NETWORK_DISABLED'
+            )) {
+            $startInfo.Environment.Remove($environmentName) | Out-Null
         }
-    }
-}
-Lap '4.06-command-discovery'
+        switch ($Mode) {
+            'Full' { $startInfo.Environment['POWERSHELL_PROFILE_FULL'] = '1' }
+            'Minimal' { $startInfo.Environment['POWERSHELL_PROFILE_MODE'] = 'minimal' }
+            'UltraMinimal' { $startInfo.Environment['POWERSHELL_PROFILE_MODE'] = 'ultra' }
+        }
 
-# 4.7 starship
-$platformId = if ($IsWindows) { 'win' } elseif ($IsMacOS) { 'macos' } else { 'linux' }
-$cacheDir = Join-Path $profileRoot '.cache'
-if (-not $SkipStarship -and $availableTools.Contains('starship')) {
-    $f = Invoke-WithFileCache `
-        -Key "starship-init-powershell-$platformId-v2" `
-        -MaxAge ([TimeSpan]::FromDays(7)) `
-        -Generator {
-            $initScriptLines = & starship init powershell --print-full-init 2>$null
-            if ($LASTEXITCODE -ne 0 -or -not $initScriptLines) {
-                $initScriptLines = & starship init powershell
-            }
-            $initScript = ($initScriptLines -join [System.Environment]::NewLine)
-            try {
-                $continuationPrompt = (& starship prompt --continuation) -join [System.Environment]::NewLine
-                if ($continuationPrompt) {
-                    $escaped = $continuationPrompt -replace "'", "''"
-                    $pattern = 'Set-PSReadLineOption -ContinuationPrompt \(\s*Invoke-Native -Executable .+? -Arguments @\(\s*"prompt",\s*"--continuation"\s*\)\s*\)'
-                    $replacement = "Set-PSReadLineOption -ContinuationPrompt '$escaped'"
-                    $result = [regex]::Replace($initScript, $pattern, $replacement, [System.Text.RegularExpressions.RegexOptions]::Singleline)
-                    if ($result -ne $initScript) { $initScript = $result }
-                }
-            }
-            catch {}
-            $initScript
-        } `
-        -BaseDir $cacheDir
-    . $f
-}
-Lap '4.07-starship'
+        $process = [System.Diagnostics.Process]::new()
+        $process.StartInfo = $startInfo
+        $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+        $process.Start() | Out-Null
+        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+        $stderrTask = $process.StandardError.ReadToEndAsync()
+        $process.WaitForExit()
+        $stopwatch.Stop()
+        $standardOutput = $stdoutTask.GetAwaiter().GetResult()
+        $standardError = $stderrTask.GetAwaiter().GetResult()
 
-# 4.8 zoxide
-if (-not $SkipZoxide -and $availableTools.Contains('zoxide')) {
-    $f = Invoke-WithFileCache `
-        -Key "zoxide-init-powershell-$platformId" `
-        -MaxAge ([TimeSpan]::FromDays(7)) `
-        -Generator { zoxide init powershell } `
-        -BaseDir $cacheDir
-    . $f
-}
-Lap '4.08-zoxide'
+        if ($process.ExitCode -ne 0) {
+            throw "Profile 样本进程失败，exit=$($process.ExitCode): $standardError$standardOutput"
+        }
+        if (-not (Test-Path -LiteralPath $timingPath)) {
+            throw "Profile 样本未生成计时报告: $standardError$standardOutput"
+        }
 
-# 4.9 sccache（跨平台）
-if ($availableTools.Contains('sccache')) {
-    $env:RUSTC_WRAPPER = 'sccache'
-}
-Lap '4.09-sccache'
+        $profileReport = Get-Content -LiteralPath $timingPath -Raw | ConvertFrom-Json
+        if ([string]$profileReport.FinalMode -ne $Mode) {
+            throw "Profile 样本模式不一致: requested=$Mode final=$($profileReport.FinalMode)"
+        }
 
-# 4.10 fnm (仅 Unix)
-if (-not $IsWindows -and $availableTools.Contains('fnm')) {
-    $fnmInitFile = Join-Path ([System.IO.Path]::GetTempPath()) "fnm-init-$PID.ps1"
-    try {
-        fnm env --shell=power-shell --use-on-cd | Set-Content -Path $fnmInitFile -Encoding utf8NoBOM
-        . $fnmInitFile
+        return [PSCustomObject]@{
+            Iteration       = $Iteration
+            ProcessElapsedMs = [math]::Round($stopwatch.Elapsed.TotalMilliseconds, 3)
+            ProfileReport   = $profileReport
+        }
     }
     finally {
-        Remove-Item -Path $fnmInitFile -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $timingPath -Force -ErrorAction SilentlyContinue
     }
 }
-Lap '4.10-fnm'
 
-# 4.11 别名注册
-if (-not $SkipAliases) {
-    Set-AliasProfile
+$profileRoot = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
+$profilePath = (Resolve-Path (Join-Path $profileRoot 'profile.ps1')).Path
+$pwshPath = (Get-Command pwsh -CommandType Application -ErrorAction Stop | Select-Object -First 1).Path
+$profileArguments = [System.Collections.Generic.List[string]]::new()
+if ($SkipStarship) { $profileArguments.Add('-SkipStarship') }
+if ($SkipZoxide) { $profileArguments.Add('-SkipZoxide') }
+if ($SkipProxy) { $profileArguments.Add('-SkipProxy') }
+if ($SkipAliases) { $profileArguments.Add('-SkipAliases') }
+
+$samples = [System.Collections.Generic.List[object]]::new()
+for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
+    $sample = Invoke-ProfilePerformanceSample `
+        -PwshPath $pwshPath `
+        -ProfilePath $profilePath `
+        -Mode $Mode `
+        -Iteration $iteration `
+        -ProfileArguments $profileArguments.ToArray()
+    $samples.Add($sample)
 }
-Lap '4.11-alias-profile'
 
-# Phase 4 小计
-$phase4Total = 0
-$phase4Keys = @(
-    '4.01-env-root', '4.02-linux-path-sync', '4.03-proxy-detect', '4.04-env-ps1',
-    '4.05-utf8-encoding', '4.06-command-discovery', '4.07-starship', '4.08-zoxide',
-    '4.09-sccache', '4.10-fnm', '4.11-alias-profile'
-)
-foreach ($k in $phase4Keys) {
-    $phase4Total += $timings[$k]
+$firstReport = $samples[0].ProfileReport
+$phaseStats = [ordered]@{}
+$phaseNames = @($firstReport.Timings.PSObject.Properties.Name | Where-Object { $_ -ne 'total' })
+foreach ($phaseName in $phaseNames) {
+    $phaseSamples = @($samples | ForEach-Object { [double]$_.ProfileReport.Timings.$phaseName })
+    $phaseStats[$phaseName] = Get-ProfileBenchmarkStats -Samples $phaseSamples
 }
-$phaseTimings['Phase 4: initialize-environment'] = $phase4Total
 
-# ╔══════════════════════════════════════════════╗
-# ║  输出报告                                     ║
-# ╚══════════════════════════════════════════════╝
-
-# === 阶段总览 ===
-Write-Host "=== 阶段总览 ===" -ForegroundColor Cyan
-$grandTotal = 0
-foreach ($e in $phaseTimings.GetEnumerator()) {
-    $grandTotal += $e.Value
-    $color = if ($e.Value -gt 300) { 'Red' } elseif ($e.Value -gt 100) { 'Yellow' } else { 'Green' }
-    Write-Host ("  {0,-40} {1,6}ms" -f $e.Key, $e.Value) -ForegroundColor $color
+$report = [PSCustomObject]@{
+    GeneratedAt       = (Get-Date).ToString('o')
+    Platform          = [string]$firstReport.Platform
+    PowerShellVersion = [string]$firstReport.PowerShellVersion
+    Mode              = $Mode
+    Iterations        = $Iterations
+    ProfileInternal   = Get-ProfileBenchmarkStats -Samples @($samples | ForEach-Object { [double]$_.ProfileReport.ProfileInternalMs })
+    ProcessElapsed    = Get-ProfileBenchmarkStats -Samples @($samples | ForEach-Object { [double]$_.ProcessElapsedMs })
+    Phases            = [PSCustomObject]$phaseStats
+    Samples           = @($samples | ForEach-Object {
+            [PSCustomObject]@{
+                Iteration        = $_.Iteration
+                ProfileInternalMs = [double]$_.ProfileReport.ProfileInternalMs
+                ProcessElapsedMs = [double]$_.ProcessElapsedMs
+            }
+        })
+    Notes             = @(
+        '每个样本使用新的 pwsh -NoProfile 子进程执行真实 profile.ps1',
+        'ProfileInternal 不包含 pwsh 进程创建成本，ProcessElapsed 包含完整子进程生命周期',
+        '结果仅代表当前平台、当前缓存状态与当前机器，不应外推为跨平台绝对基线'
+    )
 }
-Write-Host ("  {0,-40} {1,6}ms" -f 'TOTAL', $grandTotal) -ForegroundColor Cyan
 
-# === 分步明细 ===
-Write-Host ""
-Write-Host "=== 分步明细 ===" -ForegroundColor Cyan
-foreach ($e in $timings.GetEnumerator()) {
-    $color = if ($e.Value -gt 100) { 'Red' }
-    elseif ($e.Value -gt 30) { 'Yellow' }
-    else { 'Green' }
-    $line = "  {0,-40} {1,6}ms" -f $e.Key, $e.Value
-    Write-Host $line -ForegroundColor $color
-}
-Write-Host ("  {0,-40} {1,6}ms" -f 'TOTAL', $grandTotal) -ForegroundColor Cyan
-
-# === 环境信息 ===
-Write-Host ""
-Write-Host "=== 环境信息 ===" -ForegroundColor Cyan
-Write-Host "  Profile mode: $($script:ProfileMode) (source: $($script:ProfileModeDecision.Source), reason: $($script:ProfileModeDecision.Reason))" -ForegroundColor DarkGray
-Write-Host "  Detected tools: $($availableTools -join ', ')" -ForegroundColor DarkGray
-Write-Host "  Platform cache ID: $platformId" -ForegroundColor DarkGray
-
-# === 缓存文件信息 ===
-Write-Host ""
-Write-Host "=== 缓存文件状态 ===" -ForegroundColor Cyan
-$cacheFiles = Get-ChildItem -Path $cacheDir -Filter '*.ps1' -ErrorAction SilentlyContinue
-if ($cacheFiles) {
-    foreach ($cf in $cacheFiles) {
-        $age = (Get-Date) - $cf.LastWriteTime
-        $ageStr = if ($age.TotalDays -ge 1) { "{0:N1} 天" -f $age.TotalDays }
-        elseif ($age.TotalHours -ge 1) { "{0:N1} 小时" -f $age.TotalHours }
-        else { "{0:N0} 分钟" -f $age.TotalMinutes }
-        $sizeKb = "{0:N1} KB" -f ($cf.Length / 1024)
-        Write-Host ("  {0,-45} {1,8}  age: {2}" -f $cf.Name, $sizeKb, $ageStr) -ForegroundColor DarkGray
+$json = $report | ConvertTo-Json -Depth 10
+if (-not [string]::IsNullOrWhiteSpace($OutputPath)) {
+    $resolvedOutputPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputPath)
+    $outputDirectory = Split-Path -Parent $resolvedOutputPath
+    if (-not [string]::IsNullOrWhiteSpace($outputDirectory) -and -not (Test-Path -LiteralPath $outputDirectory)) {
+        New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null
     }
-}
-else {
-    Write-Host "  (无缓存文件)" -ForegroundColor DarkGray
+    $json | Set-Content -LiteralPath $resolvedOutputPath -Encoding utf8NoBOM
 }
 
-# === 性能建议 ===
-Write-Host ""
-$issues = @()
-foreach ($e in $timings.GetEnumerator()) {
-    if ($e.Value -gt 200) {
-        $issues += $e
-    }
+if ($AsJson) {
+    $json
+    return
 }
-if ($issues.Count -gt 0) {
-    Write-Host "=== 性能警告 ===" -ForegroundColor Yellow
-    foreach ($issue in $issues) {
-        Write-Host "  ⚠ $($issue.Key): $($issue.Value)ms — 超过 200ms 阈值" -ForegroundColor Yellow
+
+Write-Host '=== Profile 真实入口性能诊断 ===' -ForegroundColor Cyan
+Write-Host ("Platform: {0} | PowerShell: {1} | Mode: {2} | Samples: {3}" -f $report.Platform, $report.PowerShellVersion, $Mode, $Iterations) -ForegroundColor DarkGray
+Write-Host ("Profile internal  avg={0}ms median={1}ms min={2}ms max={3}ms" -f $report.ProfileInternal.AverageMs, $report.ProfileInternal.MedianMs, $report.ProfileInternal.MinMs, $report.ProfileInternal.MaxMs) -ForegroundColor Green
+Write-Host ("Process elapsed   avg={0}ms median={1}ms min={2}ms max={3}ms" -f $report.ProcessElapsed.AverageMs, $report.ProcessElapsed.MedianMs, $report.ProcessElapsed.MinMs, $report.ProcessElapsed.MaxMs) -ForegroundColor Green
+Write-Host ''
+Write-Host '=== 阶段中位数 ===' -ForegroundColor Cyan
+
+$displayPhases = @($report.Phases.PSObject.Properties)
+if ($Phase -gt 0) {
+    if ($Phase -gt $displayPhases.Count) {
+        throw "Phase 超出范围，当前报告只有 $($displayPhases.Count) 个阶段"
     }
-    Write-Host ""
-    Write-Host "  排查建议:" -ForegroundColor DarkGray
-    Write-Host "  - 如果 starship/zoxide 偏高：删除 .cache/ 下对应文件重新生成" -ForegroundColor DarkGray
-    Write-Host "  - 如果 proxy-detect 偏高：检查代理端口是否可达或延长缓存时间" -ForegroundColor DarkGray
-    Write-Host "  - 如果 utf8-encoding 偏高：检查是否有 PSReadLine 操作泄漏到同步路径" -ForegroundColor DarkGray
-    Write-Host "  - 如果 command-discovery 偏高：检查 PATH/PATHEXT 中是否有过多或畸形条目" -ForegroundColor DarkGray
-    Write-Host "  - 如果 dot-source 某文件偏高：该文件可能在定义阶段执行了逻辑，应延迟到调用时" -ForegroundColor DarkGray
-    Write-Host "  - 如果 loadModule 偏高：检查核心模块数量或 PSModulePath 条目数" -ForegroundColor DarkGray
-    Write-Host "  - 如果 linux-path-sync 偏高：检查 Bash PATH 同步缓存是否过期" -ForegroundColor DarkGray
+    $displayPhases = @($displayPhases[$Phase - 1])
 }
-else {
-    Write-Host "✅ 所有步骤均在 200ms 阈值内" -ForegroundColor Green
+foreach ($phaseProperty in $displayPhases) {
+    Write-Host ("  {0,-36} {1,8}ms" -f $phaseProperty.Name, $phaseProperty.Value.MedianMs)
 }

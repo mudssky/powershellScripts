@@ -1,4 +1,12 @@
 function Set-ProfileUtf8Encoding {
+    <#
+    .SYNOPSIS
+        将当前 PowerShell 会话的控制台与默认文件输出编码设置为 UTF-8。
+
+    .OUTPUTS
+        System.Void
+        仅修改当前会话编码设置。
+    #>
     [CmdletBinding()]
     param()
 

@@ -60,6 +60,7 @@ $qaDefaultPaths = @(
     "./tests/DeferredLoading.Tests.ps1"
     "./tests/losslessToAdaptiveAudio.Tests.ps1"
     "./tests/ProfileInstallHints.Tests.ps1"
+    "./tests/ProfileLoading.Tests.ps1"
     "./tests/ProfileMode.Tests.ps1"
     "./psutils/tests/commandDiscovery.Tests.ps1"
     "./tests/Switch-Mirrors.Tests.ps1"

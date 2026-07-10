@@ -35,10 +35,26 @@ function Set-AliasProfile {
 }
 
 function Get-ProfileInstallHintPlatform {
+    <#
+    .SYNOPSIS
+        返回安装提示使用的平台标识。
+
+    .PARAMETER PlatformContext
+        可选的平台能力上下文；省略时使用 Profile 当前上下文或运行时平台。
+
+    .OUTPUTS
+        System.String
+        返回 windows、macos 或 linux。
+    #>
     [CmdletBinding()]
-    param()
+    param(
+        [PSCustomObject]$PlatformContext = $script:ProfilePlatformContext
+    )
 
     process {
+        if ($null -ne $PlatformContext -and -not [string]::IsNullOrWhiteSpace([string]$PlatformContext.Id)) {
+            return [string]$PlatformContext.Id
+        }
         if ($IsWindows) { return 'windows' }
         if ($IsMacOS) { return 'macos' }
         return 'linux'
@@ -235,73 +251,6 @@ function Get-ProfileMissingToolInstallHint {
     }
 }
 
-function Add-ProfileRepositoryBinPath {
-    <#
-    .SYNOPSIS
-        将仓库 bin 目录加入当前 PowerShell 进程 PATH。
-    .DESCRIPTION
-        根据仓库根目录计算 bin 目录，并以去重方式追加到当前进程 PATH。
-        即使 bin 目录尚未生成也会保留该路径，确保本会话后续生成 shim 后可以直接发现命令。
-    .PARAMETER RepositoryRoot
-        powershellScripts 仓库根目录。
-    .OUTPUTS
-        System.Boolean
-        成功新增路径时返回 $true；路径已存在或仓库根目录为空时返回 $false。
-    #>
-    [CmdletBinding()]
-    param(
-        [string]$RepositoryRoot
-    )
-
-    process {
-        if ([string]::IsNullOrWhiteSpace($RepositoryRoot)) {
-            return $false
-        }
-
-        $repositoryBinPath = Join-Path $RepositoryRoot 'bin'
-        $pathSeparator = [System.IO.Path]::PathSeparator
-        $pathVariableName = if ($IsWindows -or $env:OS -eq 'Windows_NT') { 'Path' } else { 'PATH' }
-        $currentPath = [Environment]::GetEnvironmentVariable($pathVariableName, 'Process')
-        $pathComparer = if ($IsWindows -or $env:OS -eq 'Windows_NT') {
-            [System.StringComparer]::OrdinalIgnoreCase
-        }
-        else {
-            [System.StringComparer]::Ordinal
-        }
-
-        $targetPath = [System.IO.Path]::GetFullPath($repositoryBinPath)
-        $normalizedTargetPath = $targetPath.TrimEnd(
-            [System.IO.Path]::DirectorySeparatorChar,
-            [System.IO.Path]::AltDirectorySeparatorChar
-        )
-        $currentPaths = @($currentPath -split [regex]::Escape([string]$pathSeparator) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
-
-        foreach ($path in $currentPaths) {
-            $normalizedPath = [string]$path
-            try {
-                $normalizedPath = [System.IO.Path]::GetFullPath($normalizedPath)
-            }
-            catch {
-                Write-Verbose "跳过无法规范化的 PATH 条目: $path"
-            }
-
-            $normalizedPath = $normalizedPath.TrimEnd(
-                [System.IO.Path]::DirectorySeparatorChar,
-                [System.IO.Path]::AltDirectorySeparatorChar
-            )
-            if ($pathComparer.Equals($normalizedPath, $normalizedTargetPath)) {
-                Write-Verbose "仓库 bin 目录已在 PATH 中: $targetPath"
-                return $false
-            }
-        }
-
-        $updatedPaths = @($currentPaths + $targetPath)
-        [Environment]::SetEnvironmentVariable($pathVariableName, ($updatedPaths -join $pathSeparator), 'Process')
-        Write-Verbose "已将仓库 bin 目录加入 PATH: $targetPath"
-        return $true
-    }
-}
-
 function Initialize-Environment {
     <#
     .SYNOPSIS
@@ -329,6 +278,10 @@ function Initialize-Environment {
         跳过别名设置
     .PARAMETER Minimal
         最小化模式，等同于同时指定 -SkipTools -SkipAliases
+    .PARAMETER ProfileMode
+        当前 Profile 模式。
+    .PARAMETER PlatformContext
+        当前平台能力上下文。
     .EXAMPLE
         Initialize-Environment
         使用默认配置初始化环境
@@ -355,11 +308,18 @@ function Initialize-Environment {
         [switch]$SkipStarship,
         [switch]$SkipZoxide,
         [switch]$SkipAliases,
-        [switch]$Minimal
+        [switch]$Minimal,
+        [ValidateSet('Full', 'Minimal', 'UltraMinimal')]
+        [string]$ProfileMode = $script:ProfileMode,
+        [PSCustomObject]$PlatformContext = $script:ProfilePlatformContext
     )
 
     Write-Verbose "开始初始化 PowerShell 环境配置"
-    Write-Verbose ("Profile 模式提示: {0}" -f $script:ProfileMode)
+    Write-Verbose ("Profile 模式提示: {0}" -f $ProfileMode)
+
+    if ($null -eq $PlatformContext) {
+        $PlatformContext = Get-ProfilePlatformContext
+    }
 
     if (-not [string]::IsNullOrWhiteSpace($ScriptRoot)) {
         $script:ProfileRoot = $ScriptRoot
@@ -374,14 +334,10 @@ function Initialize-Environment {
         (Get-Location).Path
     }
 
-    if ($script:UseUltraMinimalProfile) {
+    if ($ProfileMode -eq 'UltraMinimal' -or $script:UseUltraMinimalProfile) {
         Write-Verbose "UltraMinimal 模式：仅执行最小初始化路径"
 
-        # 极简模式仅保留两项：根目录变量、UTF8 编码
-        $rootForEnv = if (-not [string]::IsNullOrWhiteSpace($ScriptRoot)) { $ScriptRoot } else { $profileRoot }
-        $env:POWERSHELL_SCRIPTS_ROOT = Split-Path -Parent $rootForEnv
-        Add-ProfileRepositoryBinPath -RepositoryRoot $env:POWERSHELL_SCRIPTS_ROOT | Out-Null
-        Set-ProfileUtf8Encoding
+        Initialize-ProfileBootstrap -ProfileRoot $profileRoot -PlatformContext $PlatformContext
 
         Write-ProfileModeDecisionSummary
         Write-ProfileModeFallbackGuide -VerboseOnly
@@ -389,24 +345,27 @@ function Initialize-Environment {
         return
     }
 
-    if ($script:UseMinimalProfile) {
+    $useMinimalInitialization = $false
+    if ($ProfileMode -eq 'Minimal' -or $script:UseMinimalProfile) {
         $SkipTools = $true
         $SkipAliases = $true
+        $useMinimalInitialization = $true
         Write-Verbose "检测到 Minimal 模式，自动跳过工具初始化与别名注册"
     }
 
     if ($Minimal -or (Test-Path -Path (Join-Path $profileRoot 'minimal')) -or (Test-EnvSwitchEnabled -Name 'POWERSHELL_PROFILE_MINIMAL')) {
         $SkipTools = $true
         $SkipAliases = $true
+        $useMinimalInitialization = $true
         Write-Verbose "命中 Minimal 开关，跳过工具初始化与别名注册"
     }
 
     # 设置项目根目录环境变量
     $env:POWERSHELL_SCRIPTS_ROOT = Split-Path -Parent $profileRoot
-    Add-ProfileRepositoryBinPath -RepositoryRoot $env:POWERSHELL_SCRIPTS_ROOT | Out-Null
+    Add-ProfileRepositoryBinPath -RepositoryRoot $env:POWERSHELL_SCRIPTS_ROOT -PlatformContext $PlatformContext | Out-Null
 
     # === 平台特定：Linux PATH 同步 ===
-    if ($IsLinux) {
+    if ($PlatformContext.SyncBashPath) {
         # 添加 Linuxbrew bin 目录到 PATH
         if (Test-Path -Path "/home/linuxbrew/.linuxbrew/bin") {
             $env:PATH += ":/home/linuxbrew/.linuxbrew/bin/"
@@ -454,27 +413,30 @@ function Initialize-Environment {
     # 设置控制台编码为 UTF8
     Set-ProfileUtf8Encoding
 
+    if ($useMinimalInitialization) {
+        Write-ProfileModeDecisionSummary
+        Write-ProfileModeFallbackGuide -VerboseOnly
+        Write-Debug "PowerShell 环境初始化完成（Minimal）"
+        return
+    }
+
     # === 工具初始化 ===
     Write-Verbose "初始化开发工具"
     $Global:__ZoxideInitialized = $false
 
     # 平台标识符（用于工具缓存 key，防止跨平台缓存交叉污染）
-    $runtimePlatform = Get-ProfileInstallHintPlatform
-    $platformId = if ($IsWindows) { 'win' } elseif ($IsMacOS) { 'macos' } else { 'linux' }
+    $runtimePlatform = Get-ProfileInstallHintPlatform -PlatformContext $PlatformContext
+    $platformId = [string]$PlatformContext.CacheId
 
     # 批量检测所有工具与包管理器（避免 Get-Command 未命中回退导致的冷启动卡顿）
     $toolNames = @('starship', 'zoxide', 'sccache', 'fnm')
-    $trackedToolNames = if ($runtimePlatform -eq 'windows') {
+    $trackedToolNames = if ($PlatformContext.IsWindows) {
         @('starship', 'zoxide', 'sccache')
     }
     else {
         $toolNames
     }
-    $packageManagerNames = switch ($runtimePlatform) {
-        'windows' { @('scoop', 'winget', 'choco') }
-        'macos' { @('brew') }
-        default { @('brew', 'apt') }
-    }
+    $packageManagerNames = @($PlatformContext.PackageManagers)
     $trackedCommandNames = @($trackedToolNames + $packageManagerNames)
     $availableCommands = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
     $availableTools = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
@@ -568,7 +530,7 @@ function Initialize-Environment {
         }
         fnm      = {
             # 仅 Unix：Node.js 版本管理器
-            if ($IsWindows -or $SkipTools) { return }
+            if ($PlatformContext.IsWindows -or $SkipTools) { return }
             Write-Verbose "初始化 fnm Node.js 版本管理器"
             # fnm env 输出包含会话特定的 multishell 临时路径，不适合长期缓存
             # 使用临时文件 dot-source 替代 Out-String | Invoke-Expression 以减少解析开销

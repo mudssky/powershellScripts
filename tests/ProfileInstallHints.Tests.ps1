@@ -3,6 +3,9 @@ Set-StrictMode -Version Latest
 BeforeAll {
     $script:ProfileRootDir = Join-Path $PSScriptRoot '..' 'profile'
     Import-Module (Join-Path $PSScriptRoot '..' 'psutils/modules/commandDiscovery.psm1') -Force
+    . (Join-Path $script:ProfileRootDir 'core/platform.ps1')
+    . (Join-Path $script:ProfileRootDir 'core/encoding.ps1')
+    . (Join-Path $script:ProfileRootDir 'core/bootstrap.ps1')
     . (Join-Path $script:ProfileRootDir 'features/environment.ps1')
 }
 
@@ -77,6 +80,7 @@ Describe 'Initialize-Environment command discovery integration' {
         $script:ProfileMode = 'Full'
         $script:UseUltraMinimalProfile = $false
         $script:UseMinimalProfile = $false
+        $script:ProfilePlatformContext = Get-ProfilePlatformContext
         $script:profileLoadStartTime = Get-Date
         $script:ProfileModeDecision = [PSCustomObject]@{
             Mode      = 'Full'
@@ -181,12 +185,26 @@ Describe 'Initialize-Environment command discovery integration' {
     }
 
     It 'should use Find-ExecutableCommand results to render one aggregated install hint' {
-        Initialize-Environment -ScriptRoot (Resolve-Path $script:ProfileRootDir).Path -SkipProxy -SkipAliases
+        Initialize-Environment -ScriptRoot (Resolve-Path $script:ProfileRootDir).Path -PlatformContext $script:ProfilePlatformContext -SkipProxy -SkipAliases
 
         Should -Invoke Find-ExecutableCommand -Times 1 -Exactly -ParameterFilter {
             $CacheMisses -and ((@($Name) -join '|') -eq ($script:ExpectedTrackedCommandNames -join '|'))
         }
         $script:WrittenHostLines | Should -Contain $script:ExpectedHintMessage
         $script:WrittenHostLines | Should -Contain $script:ExpectedHintCommand
+    }
+
+    It 'Minimal mode should skip command discovery and install hints' {
+        $script:ProfileMode = 'Minimal'
+        $script:UseMinimalProfile = $true
+
+        Initialize-Environment `
+            -ScriptRoot (Resolve-Path $script:ProfileRootDir).Path `
+            -ProfileMode Minimal `
+            -PlatformContext $script:ProfilePlatformContext `
+            -SkipProxy
+
+        Should -Invoke Find-ExecutableCommand -Times 0 -Exactly
+        $script:WrittenHostLines.Count | Should -Be 0
     }
 }

@@ -1,35 +1,54 @@
-$script:InvokeProfileCoreLoaders = {
+function Invoke-ProfileCoreLoaders {
+    <#
+    .SYNOPSIS
+        按 Profile 模式加载同步核心模块与用户别名配置。
+
+    .PARAMETER ProfileRoot
+        Profile 脚本目录。
+
+    .PARAMETER Mode
+        当前 Profile 模式。Full 与 Minimal 加载核心模块，只有 Full 读取别名配置。
+
+    .PARAMETER PlatformContext
+        当前平台能力上下文。
+
+    .OUTPUTS
+        System.Management.Automation.PSCustomObject
+        返回已加载模块、别名数量与 OnIdle 注册状态。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$ProfileRoot,
+        [Parameter(Mandatory)]
+        [ValidateSet('Full', 'Minimal')]
+        [string]$Mode,
+        [Parameter(Mandatory)]
+        [PSCustomObject]$PlatformContext
+    )
+
     $script:ProfileExtendedFeaturesLoaded = $false
     $script:userAlias = @()
 
-    $profileRoot = $script:ProfileRoot
+    $moduleResult = Import-ProfileCoreModules -ProfileRoot $ProfileRoot -PlatformContext $PlatformContext
+    $idleState = Register-ProfileOnIdle -ProfileRoot $ProfileRoot -ModuleManifest $moduleResult.ModuleManifest
 
-    if (-not $script:UseUltraMinimalProfile) {
-        # 加载自定义模块 (包含 Find-ExecutableCommand、Set-CustomAlias 等)
-        $loadModuleScript = Join-Path $profileRoot 'loadModule.ps1'
+    if ($Mode -eq 'Full') {
+        $userAliasScript = Join-Path $ProfileRoot 'config/aliases/user_aliases.ps1'
         try {
-            . $loadModuleScript
+            $script:userAlias = @(. $userAliasScript)
         }
         catch {
-            Write-Error "[profile/profile.ps1] dot-source 失败: $loadModuleScript :: $($_.Exception.Message)"
-            throw
+            Write-Warning "[profile/core/loaders.ps1] 用户别名配置加载失败，已使用空配置继续: $($_.Exception.Message)"
+            $script:userAlias = @()
         }
-
-        # wrapper.ps1 (yaz, Add-CondaEnv 等) 已移至 OnIdle 延迟加载（见 loadModule.ps1）
-
-        # 自定义别名配置（配置目录）
-        $userAliasScript = Join-Path $profileRoot 'config/aliases/user_aliases.ps1'
-        try {
-            $script:userAlias = . $userAliasScript
-        }
-        catch {
-            Write-Error "[profile/profile.ps1] dot-source 失败: $userAliasScript :: $($_.Exception.Message)"
-            throw
-        }
-
-        $script:ProfileExtendedFeaturesLoaded = $true
     }
-    else {
-        Write-Verbose 'UltraMinimal 模式已生效：跳过模块、包装函数与用户别名脚本加载'
+
+    $script:ProfileExtendedFeaturesLoaded = $true
+    return [PSCustomObject]@{
+        CoreModules       = @($moduleResult.CoreModules)
+        UserAliasCount    = $script:userAlias.Count
+        OnIdleStatus      = $idleState.Status
+        OnIdleSubscriptionId = $idleState.SubscriptionId
     }
 }

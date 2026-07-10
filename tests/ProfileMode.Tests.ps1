@@ -2,8 +2,10 @@ Set-StrictMode -Version Latest
 
 BeforeAll {
     $script:ProfileRootDir = Join-Path $PSScriptRoot '..' 'profile'
-    . (Join-Path $script:ProfileRootDir 'core/mode.ps1')
+    . (Join-Path $script:ProfileRootDir 'core/platform.ps1')
     . (Join-Path $script:ProfileRootDir 'core/encoding.ps1')
+    . (Join-Path $script:ProfileRootDir 'core/bootstrap.ps1')
+    . (Join-Path $script:ProfileRootDir 'core/mode.ps1')
     . (Join-Path $script:ProfileRootDir 'features/environment.ps1')
 }
 
@@ -95,6 +97,7 @@ Describe 'Initialize-Environment UltraMinimal path' {
         $script:ProfileMode = 'UltraMinimal'
         $script:UseUltraMinimalProfile = $true
         $script:UseMinimalProfile = $false
+        $script:ProfilePlatformContext = Get-ProfilePlatformContext
         $script:profileLoadStartTime = Get-Date
         $script:ProfileModeDecision = [PSCustomObject]@{
             Mode      = 'UltraMinimal'
@@ -152,6 +155,7 @@ Describe 'Initialize-Environment UltraMinimal path' {
 Describe 'Profile repository bin PATH setup' {
     BeforeEach {
         $script:OriginalPath = [Environment]::GetEnvironmentVariable('PATH', 'Process')
+        $script:ProfilePlatformContext = Get-ProfilePlatformContext
     }
 
     AfterEach {
@@ -163,8 +167,8 @@ Describe 'Profile repository bin PATH setup' {
         New-Item -ItemType Directory -Path $repoRoot -Force | Out-Null
         [Environment]::SetEnvironmentVariable('PATH', "/usr/bin", 'Process')
 
-        Add-ProfileRepositoryBinPath -RepositoryRoot $repoRoot | Should -BeTrue
-        Add-ProfileRepositoryBinPath -RepositoryRoot $repoRoot | Should -BeFalse
+        Add-ProfileRepositoryBinPath -RepositoryRoot $repoRoot -PlatformContext $script:ProfilePlatformContext | Should -BeTrue
+        Add-ProfileRepositoryBinPath -RepositoryRoot $repoRoot -PlatformContext $script:ProfilePlatformContext | Should -BeFalse
 
         $binPath = Join-Path $repoRoot 'bin'
         $pathEntries = @($env:PATH -split [regex]::Escape([string][System.IO.Path]::PathSeparator))
