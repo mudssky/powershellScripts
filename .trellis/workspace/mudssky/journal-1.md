@@ -749,3 +749,36 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 23: Profile Core 跨平台启动链优化
+
+**Date**: 2026-07-11
+**Task**: Profile Core 跨平台启动链优化
+**Branch**: `master`
+
+### Summary
+
+保留统一 profile.ps1 入口，新增集中式平台策略和 UltraMinimal bootstrap，明确 Full/Minimal/UltraMinimal 加载契约并保证 OnIdle 重载幂等；补充真实 Profile 子进程性能诊断、跨平台 Pester 测试和 Profile 运行规范。macOS 与 Linux Profile 窄测均 28/28 通过，pnpm qa 123 项通过，宿主 PowerShell 全量 654 项通过；Linux 全量仅有既存 Switch-Mirrors 官方仓库探活失败。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `57907b8` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
