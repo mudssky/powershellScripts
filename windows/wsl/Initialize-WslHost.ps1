@@ -67,7 +67,8 @@ if (-not $WhatIfPreference -and ($platform.SupportLevel -ne 'Full' -or $platform
     [Console]::Error.WriteLine("当前平台不支持 WSL 宿主自动配置: $($platform.Edition)/$($platform.Architecture)")
     exit 10
 }
-if ($platform.IsAdministrator) {
+# 管理员进程不应写真实用户配置；但 WhatIf 仅生成计划，需放行（见规范 Error Matrix）。
+if (-not $WhatIfPreference -and $platform.IsAdministrator) {
     [Console]::Error.WriteLine('.wslconfig 必须由普通用户进程写入')
     exit 10
 }

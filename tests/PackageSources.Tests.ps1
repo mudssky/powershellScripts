@@ -199,6 +199,8 @@ throw "unexpected fake npm arguments: $($RemainingArguments -join ' ')"
     }
 }
 
+# brew 等目标走 ManagedEnvAdapter，其写 .zshrc/UnixFileMode 且依赖 zsh，无法在原生 Windows 运行，
+# 因此这些用例在 Windows 主机跳过（与 PackageSourceBootstrap.Tests 的非 Windows 防护语义一致）。
 Describe 'Switch-Mirrors package source CLI' {
     It 'Direct 计划返回稳定 JSON 且不创建事务状态' {
         $homePath = Join-Path $TestDrive 'home'
@@ -322,7 +324,7 @@ Describe 'Switch-Mirrors package source CLI' {
         Test-Path -LiteralPath $statePath | Should -BeFalse
     }
 
-    It 'China 应用 Homebrew 只写受管 env 并创建持久事务' {
+    It 'China 应用 Homebrew 只写受管 env 并创建持久事务' -Skip:$IsWindows {
         $homePath = Join-Path $TestDrive 'brew-home'
         $statePath = Join-Path $TestDrive 'brew-state'
         New-Item -ItemType Directory -Path $homePath -Force | Out-Null
@@ -363,7 +365,7 @@ Describe 'Switch-Mirrors package source CLI' {
         @($manifest.Targets).Count | Should -Be 1
     }
 
-    It 'Restore 恢复事务前不存在的受管 env 文件' {
+    It 'Restore 恢复事务前不存在的受管 env 文件' -Skip:$IsWindows {
         $homePath = Join-Path $TestDrive 'restore-home'
         $statePath = Join-Path $TestDrive 'restore-state'
         New-Item -ItemType Directory -Path $homePath -Force | Out-Null
@@ -410,7 +412,7 @@ Describe 'Switch-Mirrors package source CLI' {
         (Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json).Status | Should -Be 'Restored'
     }
 
-    It 'Restore 检测到 drift 时拒绝覆盖并返回 Blocked' {
+    It 'Restore 检测到 drift 时拒绝覆盖并返回 Blocked' -Skip:$IsWindows {
         $homePath = Join-Path $TestDrive 'drift-home'
         $statePath = Join-Path $TestDrive 'drift-state'
         New-Item -ItemType Directory -Path $homePath -Force | Out-Null
@@ -464,7 +466,7 @@ Describe 'Switch-Mirrors package source CLI' {
         (Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json).Status | Should -Be 'Drifted'
     }
 
-    It 'China 重复 Apply 复用 active transaction 且不再次调用 chsrc' {
+    It 'China 重复 Apply 复用 active transaction 且不再次调用 chsrc' -Skip:$IsWindows {
         $homePath = Join-Path $TestDrive 'idempotent-home'
         $statePath = Join-Path $TestDrive 'idempotent-state'
         $chsrcLogPath = Join-Path $TestDrive 'idempotent-chsrc.log'
@@ -556,7 +558,7 @@ Describe 'Switch-Mirrors package source CLI' {
         Get-Content -LiteralPath $npmConfigPath -Raw | Should -BeExactly $originalContent
     }
 
-    It 'Status 只读报告 active transaction 与回滚入口' {
+    It 'Status 只读报告 active transaction 与回滚入口' -Skip:$IsWindows {
         $homePath = Join-Path $TestDrive 'status-home'
         $statePath = Join-Path $TestDrive 'status-state'
         New-Item -ItemType Directory -Path $homePath -Force | Out-Null
@@ -593,7 +595,7 @@ Describe 'Switch-Mirrors package source CLI' {
         (Get-Content -LiteralPath (Join-Path $statePath 'brew-status-test/manifest.json') -Raw | ConvertFrom-Json).Status | Should -Be 'Active'
     }
 
-    It 'Ensure 将后出现的 npm 补进既有 China 事务' {
+    It 'Ensure 将后出现的 npm 补进既有 China 事务' -Skip:$IsWindows {
         $homePath = Join-Path $TestDrive 'ensure-home'
         $statePath = Join-Path $TestDrive 'ensure-state'
         New-Item -ItemType Directory -Path $homePath -Force | Out-Null
@@ -761,6 +763,7 @@ Describe 'Switch-Mirrors package source CLI' {
     }
 }
 
+# Auto 策略里以 brew 为目标的用例同样依赖 ManagedEnvAdapter，在原生 Windows 跳过（见上方说明）。
 Describe 'Package source Auto policy' {
     It '官方端点健康时保持官方源且不创建事务' {
         $statePath = Join-Path $TestDrive 'auto-healthy-state'
@@ -881,7 +884,7 @@ Describe 'Package source Auto policy' {
         Test-Path -LiteralPath $chsrcLogPath | Should -BeFalse
     }
 
-    It '官方端点连续失败时创建可恢复的临时事务' {
+    It '官方端点连续失败时创建可恢复的临时事务' -Skip:$IsWindows {
         $homePath = Join-Path $TestDrive 'auto-fallback-home'
         $statePath = Join-Path $TestDrive 'auto-fallback-state'
         New-Item -ItemType Directory -Path $homePath -Force | Out-Null
@@ -924,7 +927,7 @@ Describe 'Package source Auto policy' {
         (Get-Content -LiteralPath (Join-Path $statePath 'brew-auto-test/manifest.json') -Raw | ConvertFrom-Json).Status | Should -Be 'Restored'
     }
 
-    It 'Auto owner 已退出时 Status 报告 Orphaned' {
+    It 'Auto owner 已退出时 Status 报告 Orphaned' -Skip:$IsWindows {
         $homePath = Join-Path $TestDrive 'auto-orphan-home'
         $statePath = Join-Path $TestDrive 'auto-orphan-state'
         New-Item -ItemType Directory -Path $homePath -Force | Out-Null

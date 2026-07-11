@@ -1,3 +1,11 @@
+# 默认对所有文本文件强制 LF 行尾，避免 Windows runner 的 core.autocrlf=true
+# 把 .psm1/.psd1/.env/.wslconfig 等检出成 CRLF，从而破坏哈希校验与内容比对。
+# git 仍会自动识别二进制（png/ico/zip/exe 等），不会被当作文本转换。
+* text=auto eol=lf
+
+# 显式声明仓库自有文本文件（顺带覆盖上面的通用规则，便于人类阅读）
 .gitattributes text eol=lf
-*.ps1 text eol=lf
+*.ps1   text eol=lf
+*.psm1  text eol=lf
+*.psd1  text eol=lf
 config/service/oss/rclone/rclone-ops.mjs text eol=lf

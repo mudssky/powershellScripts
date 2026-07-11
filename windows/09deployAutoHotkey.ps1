@@ -60,7 +60,8 @@ if (-not $WhatIfPreference -and ($platform.SupportLevel -ne 'Full' -or $platform
     [Console]::Error.WriteLine("当前平台不支持 AutoHotkey 自动部署: $($platform.Edition)/$($platform.Architecture)")
     exit 10
 }
-if ($platform.IsAdministrator) {
+# 管理员进程不应执行真实用户态副作用；但 WhatIf 仅生成计划，需放行（见规范 Error Matrix）。
+if (-not $WhatIfPreference -and $platform.IsAdministrator) {
     [Console]::Error.WriteLine('AutoHotkey Startup 配置必须由普通用户进程执行')
     exit 10
 }
