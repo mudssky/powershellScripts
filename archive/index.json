@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "id": "batch-1-config-frontend-deprecated",
+      "batch": 1,
+      "source": "config/frontend/deprecated/**",
+      "archive": "archive/config/frontend/deprecated/**",
+      "reason": "旧 Biome v1 与 Prettier 配置已退出当前工具链",
+      "replacement": {
+        "kind": "path",
+        "target": "biome.json",
+        "text": "使用根 biome.json"
+      }
+    },
+    {
+      "id": "batch-1-config-software-pixpin-deprecated",
+      "batch": 1,
+      "source": "config/software/pixpin/deprecated/**",
+      "archive": "archive/config/software/pixpin/deprecated/**",
+      "reason": "日期化旧配置快照不再作为当前真源",
+      "replacement": {
+        "kind": "path",
+        "target": "config/software/pixpin/PixPin.pixconf",
+        "text": "使用当前 PixPin 配置"
+      }
+    },
+    {
+      "id": "batch-1-config-vscode-back",
+      "batch": 1,
+      "source": "config/vscode/back/**",
+      "archive": "archive/config/vscode/back/**",
+      "reason": "历史 VS Code Vim 配置备份无活动引用",
+      "replacement": {
+        "kind": "paths",
+        "items": [
+          {
+            "target": "config/vscode/settings",
+            "text": "VS Code settings"
+          },
+          {
+            "target": "config/vscode/neovim",
+            "text": "VS Code Neovim 配置"
+          }
+        ]
+      }
+    },
+    {
+      "id": "batch-1-deprecated",
+      "batch": 1,
+      "source": "deprecated/**",
+      "archive": "archive/deprecated/**",
+      "reason": "旧脚本已失效、被替代或不再维护",
+      "replacement": {
+        "kind": "path",
+        "target": "scripts/pwsh/media/concatflv.ps1",
+        "text": "concatflv.ps1 使用当前脚本；其余文件仅供历史参考"
+      }
+    },
+    {
+      "id": "batch-1-macos-archive",
+      "batch": 1,
+      "source": "macos/archive/**",
+      "archive": "archive/macos/archive/**",
+      "reason": "LaunchAgent 合盖轮询方案无法可靠阻止残留进程",
+      "replacement": {
+        "kind": "paths",
+        "items": [
+          {
+            "target": "macos/hammerspoon",
+            "text": "Hammerspoon 配置"
+          },
+          {
+            "target": "macos/09deployHammerspoon.zsh",
+            "text": "Hammerspoon 部署脚本"
+          }
+        ]
+      }
+    },
+    {
+      "id": "batch-1-profile-deprecated",
+      "batch": 1,
+      "source": "profile/deprecated/**",
+      "archive": "archive/profile/deprecated/**",
+      "reason": "旧 Linux Profile 已被模块化 Profile 替代",
+      "replacement": {
+        "kind": "path",
+        "target": "profile/profile.ps1",
+        "text": "使用当前模块化 Profile"
+      }
+    },
+    {
+      "id": "batch-2-ipynb-renamelegal",
+      "batch": 2,
+      "source": "ipynb/renameLegal.ipynb",
+      "archive": "archive/ipynb/renameLegal.ipynb",
+      "reason": "Notebook 已有受维护的 PowerShell 脚本替代",
+      "replacement": {
+        "kind": "path",
+        "target": "scripts/pwsh/filesystem/renameLegal.ps1",
+        "text": "使用受维护的 PowerShell 脚本"
+      }
+    },
+    {
+      "id": "batch-2-vercel-project",
+      "batch": 2,
+      "source": ".vercel/project.json",
+      "archive": "archive/.vercel/project.json",
+      "reason": "本仓已停止使用 Vercel 部署",
+      "replacement": {
+        "kind": "note",
+        "text": "仅保留旧项目标识，无活动替代入口"
+      }
+    }
+  ]
+}

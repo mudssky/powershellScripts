@@ -10,7 +10,8 @@
 
 - 目标路径：`archive/<原始仓库相对路径>`。
 - 迁移动作：`git mv <source> archive/<source>`。
-- 索引：`archive/README.md`，固定字段为“批次、原路径、归档路径、原因、替代入口或恢复说明”。
+- 索引：`archive/index.json`，固定字段为 schema 版本、稳定 ID、批次、原路径、归档路径、原因、替代入口或恢复说明。
+- 自动化入口：`.agents/skills/project-archive/scripts/archive_project.py <check|plan|archive>`。
 - PowerShell 格式器：
 
 ```text
@@ -24,7 +25,10 @@ pwshfmt-rs <check|write> [--git-changed] [--path <path>] [--recurse]
 
 - `archive/` 继续由 Git 跟踪并允许普通搜索；不得通过根 `.gitignore` 隐藏。
 - 归档对象使用镜像路径，不按语言或平台重新分类；同一提交中不改写归档文件正文，以提高 rename 识别和 `git log --follow` 可追溯性。
-- 归档索引必须说明替代入口；没有替代入口时明确“仅供历史参考”，不得从归档路径建立新安装或运行入口。
+- `archive/index.json` 是归档事实唯一真源，不维护并行 Markdown 索引。
+- 每个索引项必须使用稳定 ID，说明替代入口；没有替代入口时明确“仅供历史参考”，不得从归档路径建立新安装或运行入口。
+- 索引路径必须使用仓库相对 POSIX 形式，且归档路径严格等于 `archive/<原路径>`。
+- 新归档先运行 `plan`；只有获得明确批准后才能运行带 `--execute` 的 `archive`。执行入口必须使用 `git mv` 并同步更新 JSON 索引。
 - 根 `archive/` 默认退出 pnpm workspace、Turbo、Pester/Vitest、Biome、rumdl、Ruff、lint-staged、notebook cleanup 和 PowerShell formatter。
 - betterleaks 等 secret 安全扫描继续覆盖归档文件，因为内容仍会进入 Git 历史。
 - Biome 使用 `files.includes` force-ignore：`["**", "!!archive"]`；普通 `!` 只排除处理但仍可能被 scanner 索引，不满足冷归档合同。
@@ -37,6 +41,8 @@ pwshfmt-rs <check|write> [--git-changed] [--path <path>] [--recurse]
 |---|---|
 | 候选仍有活动代码、测试或安装引用 | 不迁移，恢复为待确认状态 |
 | 目标不是 `archive/<原路径>` | 拒绝迁移，先修正镜像路径 |
+| `archive` 未显式传入 `--execute` | 拒绝修改，要求先审阅 `plan` 输出 |
+| 索引存在重复 ID、源路径或归档路径 | 校验失败，不执行移动 |
 | `git check-ignore archive/...` 命中 | 配置错误；归档必须保持可跟踪 |
 | 显式执行 Biome 检查归档文件 | 报告文件被配置忽略；“No files were processed” 可作为排除证据 |
 | PowerShell formatter 显式传入 `archive` | 成功快速退出，不处理文件 |
@@ -56,7 +62,7 @@ pwshfmt-rs <check|write> [--git-changed] [--path <path>] [--recurse]
 - Rust：递归 discovery 保留活动文件并跳过 `archive/**`；Git changed discovery 做同样断言。
 - Pester：PowerShell wrapper 的递归模式在无 Git 环境也验证归档排除；Git 可用时补充 changed 模式断言。
 - Config：Biome、rumdl、Ruff、lint-staged 和 notebook cleanup 均有根 archive 排除证据；lint-staged 的安全扫描仍匹配归档路径。
-- Repository：源路径消失、目标路径存在、未批准对象保持原位，`git check-ignore` 不命中归档文件。
+- Repository：`archive_project.py check` 通过；源路径消失、目标路径存在、未批准对象保持原位，`git check-ignore` 不命中归档文件。
 - Gate：`pnpm qa` 与 `pnpm test:pwsh:all` 通过；提交后抽查 `git log --follow -- archive/<file>`。
 
 ## 7. Wrong vs Correct

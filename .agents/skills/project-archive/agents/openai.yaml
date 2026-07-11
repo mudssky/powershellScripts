@@ -1,0 +1,4 @@
+interface:
+  display_name: "项目冷归档"
+  short_description: "安全审计、规划、执行并校验 Git 仓库中的冷归档内容"
+  default_prompt: "使用 $project-archive 审计候选路径并安全归档到 archive。"
