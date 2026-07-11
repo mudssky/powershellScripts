@@ -125,9 +125,9 @@ git diff --check
 
 - [x] 使用 `trellis-check` 完成规范、复用、跨层数据流和测试审查。
 - [x] 新增 `.trellis/spec/infra/linux-install-pipeline.md`，记录稳定平台合同、错误矩阵与测试要求。
-- [ ] 按逻辑边界提交实现与文档；不提交其他未跟踪任务目录。
+- [x] 按逻辑边界提交实现与文档；不提交其他未跟踪任务目录。
 - [x] 记录最终验证结果。
-- [ ] 归档当前任务并更新 journal。
+- [x] 归档当前任务并更新 journal。
 
 ## 最终验证记录
 
