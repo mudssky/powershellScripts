@@ -816,3 +816,37 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 25: 完成 macOS 安装流水线
+
+**Date**: 2026-07-11
+**Task**: 完成 macOS 安装流水线
+**Branch**: `master`
+
+### Summary
+
+完成 macOS 00-11 与 99 编号流水线、Core/Full 应用真源、幂等桌面集成和结构化验证；Bash、QA、macOS host 与 Linux Docker 全量门禁通过。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ed8edb1` | (see git log) |
+| `1e6d9ff` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
