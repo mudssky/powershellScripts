@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 31
+- **Total Sessions**: 32
 - **Last Active**: 2026-07-12
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1052 | Active |
+| `journal-1.md` | ~1085 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 32 | 2026-07-12 | 归档 PromptX Trae 与 OpenSpec | `bca88cb` | `master` |
 | 31 | 2026-07-12 | 项目冷归档技能与 JSON 索引 | `fe8b47b` | `master` |
 | 30 | 2026-07-12 | 收敛个人配置仓库边界并暂缓 Nix 试点 | - | `master` |
 | 29 | 2026-07-12 | 收尾 macOS Finder 快捷操作并暂缓 Nix 试点 | `796dc6d14504a0cfa9ac1b31ab5b51c3ee5f11bc`, `96c3260db4aa3a976e0d1dea6d8983e2d133bb6f` | `master` |

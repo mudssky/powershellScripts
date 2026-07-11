@@ -1050,3 +1050,36 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 32: 归档 PromptX Trae 与 OpenSpec
+
+**Date**: 2026-07-12
+**Task**: 归档 PromptX Trae 与 OpenSpec
+**Branch**: `master`
+
+### Summary
+
+使用 project-archive 将根 PromptX、Trae 与 OpenSpec 迁入冷归档，索引扩展到 11 条，清理活动引用和 OpenSpec 安装入口，并通过 host/Linux PowerShell 全量回归。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `bca88cb` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
