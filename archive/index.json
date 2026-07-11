@@ -146,6 +146,54 @@
         "target": ".trellis",
         "text": "使用 Trellis 任务、规范与工作流"
       }
+    },
+    {
+      "id": "batch-4-linux-archlinux",
+      "batch": 4,
+      "source": "linux/archlinux",
+      "archive": "archive/linux/archlinux",
+      "reason": "Arch 旧脚本的有效能力已吸收到统一 Linux 流水线与新的显式 yay 入口",
+      "replacement": {
+        "kind": "path",
+        "target": "linux/INSTALL.md",
+        "text": "使用统一 Linux 安装指南"
+      }
+    },
+    {
+      "id": "batch-4-linux-cloundsever",
+      "batch": 4,
+      "source": "linux/cloundsever",
+      "archive": "archive/linux/cloundsever",
+      "reason": "旧云服务器服务清单无活动调用，服务启动由受维护的通用容器入口提供",
+      "replacement": {
+        "kind": "path",
+        "target": "scripts/pwsh/devops/start-container.ps1",
+        "text": "使用通用容器启动管理脚本"
+      }
+    },
+    {
+      "id": "batch-4-linux-ubuntu",
+      "batch": 4,
+      "source": "linux/ubuntu",
+      "archive": "archive/linux/ubuntu",
+      "reason": "旧 Ubuntu 安装脚本已由统一 Linux 00-99 流水线替代",
+      "replacement": {
+        "kind": "path",
+        "target": "linux/INSTALL.md",
+        "text": "使用统一 Linux 安装指南"
+      }
+    },
+    {
+      "id": "batch-4-linux-wsl2",
+      "batch": 4,
+      "source": "linux/wsl2",
+      "archive": "archive/linux/wsl2",
+      "reason": "旧 WSL2 安装与服务脚本已由统一 Linux 客体流水线和 Windows WSL 宿主配置替代",
+      "replacement": {
+        "kind": "path",
+        "target": "linux/INSTALL.md",
+        "text": "使用统一 Linux 与 WSL 安装指南"
+      }
     }
   ]
 }

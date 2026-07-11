@@ -58,7 +58,7 @@ origin: docs/brainstorms/2026-04-05-fnos-portable-disk-mounting-requirements.md
 
 - `linux/fnos/remount.sh` 是当前唯一的 FNOS 挂载脚本，里面已经暴露出首版修复需求：按磁盘标识定位设备、停止挂载单元、按挂载点重新挂载、输出 `lsblk` 状态。但它把 UUID、挂载点、systemd 交互和激进 `fuser -k -9` 都耦合在一个文件里。
 - `linux/fnos/fnos-mount-manager/fstab` 体现了当前磁盘选项基线：`nofail,uid=1000,gid=1000,umask=022,iocharset=utf8,windows_names,big_writes`。这些选项应转成生成器默认值，而不是继续手工复制。
-- `linux/ubuntu/apply_config.sh` 展示了仓库内已有的 shell 工具风格：模块化函数、清晰日志、显式命令分支，而不是“一次性脚本里堆逻辑”。
+- `linux/00quickstart.sh` 展示了仓库内当前 shell 工具风格：模块化函数、清晰错误和显式命令分支，而不是“一次性脚本里堆逻辑”。
 - `.gitignore` 已全局忽略名为 `fstab` 的文件，这允许继续保留本机私有 `linux/fnos/fnos-mount-manager/fstab` 作为生成产物，而不会意外进 Git。
 - `scripts/node/tests/cli.test.ts` 与 `scripts/node/tests/rule-loader-installer.test.ts` 已经提供了仓库内的 `vitest + spawnSync` CLI 测试模式，适合复用来验证 shell 管理器的源码入口与单文件构建产物。
 - `scripts/qa.mjs` 与 `scripts/qa-turbo.mjs` 目前只覆盖 workspace QA 和 root PowerShell QA。若 `linux/fnos` 增加 `vitest` 测试而不接入这两个入口，后续实现将无法满足仓库现有的 `pnpm qa` 工作流。
@@ -226,7 +226,7 @@ None
 - `linux/fnos/README.md` 明确声明“不要手改 `fstab.example` / `fstab`，它们是生成产物”。
 
 **Patterns to follow:**
-- `linux/ubuntu/apply_config.sh`
+- `linux/00quickstart.sh`
 - `scripts/node/tests/cli.test.ts`
 - `scripts/node/tests/rule-loader-installer.test.ts`
 
@@ -464,7 +464,7 @@ Unit 4
 - **Origin document:** [docs/brainstorms/2026-04-05-fnos-portable-disk-mounting-requirements.md](docs/brainstorms/2026-04-05-fnos-portable-disk-mounting-requirements.md)
 - Related code: [linux/fnos/remount.sh](linux/fnos/remount.sh)
 - Related code: [linux/fnos/fnos-mount-manager/fstab](linux/fnos/fnos-mount-manager/fstab)
-- Related code: [linux/ubuntu/apply_config.sh](linux/ubuntu/apply_config.sh)
+- Related code: [linux/00quickstart.sh](../../linux/00quickstart.sh)
 - Related code: [scripts/qa.mjs](scripts/qa.mjs)
 - Related code: [scripts/qa-turbo.mjs](scripts/qa-turbo.mjs)
 - Related code: [scripts/node/tests/cli.test.ts](scripts/node/tests/cli.test.ts)
