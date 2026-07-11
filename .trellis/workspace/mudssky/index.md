@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 27
+- **Total Sessions**: 28
 - **Last Active**: 2026-07-11
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~920 | Active |
+| `journal-1.md` | ~954 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 28 | 2026-07-11 | 完成仓库冷归档批次 | `9e83a4d`, `0368941` | `master` |
 | 27 | 2026-07-11 | Windows 安装流水线 | `e7dd930`, `a7e09a7` | `master` |
 | 26 | 2026-07-11 | 完成 Linux WSL 安装流水线 | `4a989dd`, `06bc2ca` | `master` |
 | 25 | 2026-07-11 | 完成 macOS 安装流水线 | `ed8edb1`, `1e6d9ff` | `master` |

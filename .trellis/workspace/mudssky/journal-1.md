@@ -918,3 +918,37 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 28: 完成仓库冷归档批次
+
+**Date**: 2026-07-11
+**Task**: 完成仓库冷归档批次
+**Branch**: `master`
+
+### Summary
+
+建立根 archive 镜像索引并迁移 20 个历史文件；让 Biome、rumdl、Ruff、lint-staged、notebook 与 PowerShell formatter 排除冷归档；修复 QA changed 测试路径传递，补齐 Rust/Pester 跨平台回归。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `9e83a4d` | (see git log) |
+| `0368941` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
