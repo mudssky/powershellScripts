@@ -172,11 +172,8 @@ function Get-LinuxInstallEnvironment {
         -not [string]::IsNullOrWhiteSpace($XdgCurrentDesktop)
     $hasSystemd = Test-Path -LiteralPath $SystemdDirectory -PathType Container
 
-    $supportLevel = if ($distributionFamily -eq 'debian' -and $normalizedArchitecture -eq 'amd64') {
+    $supportLevel = if ($distributionFamily -in @('debian', 'arch') -and $normalizedArchitecture -eq 'amd64') {
         'Full'
-    }
-    elseif ($distributionFamily -eq 'arch' -and $normalizedArchitecture -eq 'amd64') {
-        'Partial'
     }
     else {
         'Blocked'
@@ -575,6 +572,93 @@ function Install-LinuxAptPackages {
     return $results.ToArray()
 }
 
+function Install-LinuxPacmanPackages {
+    <#
+    .SYNOPSIS
+        使用 pacman 安装声明式 Arch Linux 系统包。
+
+    .PARAMETER Name
+        组件结果名称。
+
+    .PARAMETER Package
+        要安装的包名数组。
+
+    .PARAMETER Update
+        安装前同步软件包数据库。
+
+    .PARAMETER Preview
+        只返回命令计划。
+
+    .OUTPUTS
+        PSCustomObject[]。pacman 同步与安装的组件结果。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Name,
+
+        [string[]]$Package,
+
+        [switch]$Update,
+
+        [switch]$Preview
+    )
+
+    $packages = @($Package | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } | Select-Object -Unique)
+    if ($packages.Count -eq 0) {
+        return @(New-LinuxInstallResult -Name $Name -Status Skipped -Message '没有声明系统包')
+    }
+
+    $operation = if ($Update) { '-Syu' } else { '-S' }
+    $arguments = @('pacman', $operation, '--needed', '--noconfirm') + $packages
+    return @((Invoke-LinuxNativeCommand -Name $Name -FilePath sudo -ArgumentList $arguments -Preview:$Preview))
+}
+
+function Install-LinuxSystemPackages {
+    <#
+    .SYNOPSIS
+        按发行版族安装声明式 Linux 系统包。
+
+    .PARAMETER DistributionFamily
+        debian 或 arch。
+
+    .PARAMETER Name
+        组件结果名称。
+
+    .PARAMETER Package
+        要安装的包名数组。
+
+    .PARAMETER Update
+        安装前刷新发行版软件包索引。
+
+    .PARAMETER Preview
+        只返回命令计划。
+
+    .OUTPUTS
+        PSCustomObject[]。发行版包管理器的结构化结果。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateSet('debian', 'arch')]
+        [string]$DistributionFamily,
+
+        [Parameter(Mandatory)]
+        [string]$Name,
+
+        [string[]]$Package,
+
+        [switch]$Update,
+
+        [switch]$Preview
+    )
+
+    if ($DistributionFamily -eq 'arch') {
+        return @(Install-LinuxPacmanPackages -Name $Name -Package $Package -Update:$Update -Preview:$Preview)
+    }
+    return @(Install-LinuxAptPackages -Name $Name -Package $Package -Update:$Update -Preview:$Preview)
+}
+
 function Resolve-LinuxAptAlternative {
     <#
     .SYNOPSIS
@@ -609,6 +693,41 @@ function Resolve-LinuxAptAlternative {
     return ''
 }
 
+function Resolve-LinuxPackageAlternative {
+    <#
+    .SYNOPSIS
+        按发行版族选择软件仓库可见的第一个候选包。
+
+    .PARAMETER DistributionFamily
+        debian 或 arch。
+
+    .PARAMETER Candidate
+        按优先级排列的候选包名。
+
+    .PARAMETER Preview
+        预览时直接选择首个候选。
+
+    .OUTPUTS
+        System.String。可用包名或空字符串。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateSet('debian', 'arch')]
+        [string]$DistributionFamily,
+
+        [string[]]$Candidate,
+
+        [switch]$Preview
+    )
+
+    $candidates = @($Candidate | Where-Object { $_ })
+    if ($Preview -or $DistributionFamily -eq 'arch') {
+        return $(if ($candidates.Count -gt 0) { [string]$candidates[0] } else { '' })
+    }
+    return Resolve-LinuxAptAlternative -Candidate $candidates
+}
+
 function Test-LinuxDockerAvailable {
     <#
     .SYNOPSIS
@@ -640,13 +759,13 @@ function Test-LinuxDockerAvailable {
 function Install-LinuxDocker {
     <#
     .SYNOPSIS
-        复用可用 Docker，或在受支持 Debian 系平台安装客体 Docker Engine。
+        复用可用 Docker，或在受支持 Linux 平台安装客体 Docker Engine。
 
     .PARAMETER Platform
         Get-LinuxInstallEnvironment 返回的平台对象。
 
     .PARAMETER PackageFamily
-        系统包清单中的 Debian 族配置。
+        系统包清单中的发行版族配置。
 
     .PARAMETER Preview
         只返回安装计划，不探测或修改 Docker。
@@ -668,12 +787,13 @@ function Install-LinuxDocker {
     if ($Preview) {
         $previewPackages = @($PackageFamily.Docker.Required)
         foreach ($group in @($PackageFamily.Docker.ComposeGroups)) {
-            $candidate = Resolve-LinuxAptAlternative -Candidate @($group) -Preview
+            $candidate = Resolve-LinuxPackageAlternative -DistributionFamily $Platform.DistributionFamily -Candidate @($group) -Preview
             if ($candidate) {
                 $previewPackages += $candidate
             }
         }
-        return @(New-LinuxInstallResult -Name docker -Status Preview -Message ("apt-get install {0}" -f ($previewPackages -join ' ')))
+        $packageManager = if ($Platform.DistributionFamily -eq 'arch') { 'pacman -Syu --needed' } else { 'apt-get install' }
+        return @(New-LinuxInstallResult -Name docker -Status Preview -Message ("{0} {1}" -f $packageManager, ($previewPackages -join ' ')))
     }
     if (Test-LinuxDockerAvailable) {
         return @(New-LinuxInstallResult -Name docker -Status AlreadyPresent -Message 'docker info 成功')
@@ -687,13 +807,13 @@ function Install-LinuxDocker {
 
     $packages = @($PackageFamily.Docker.Required)
     foreach ($group in @($PackageFamily.Docker.ComposeGroups)) {
-        $candidate = Resolve-LinuxAptAlternative -Candidate @($group)
+        $candidate = Resolve-LinuxPackageAlternative -DistributionFamily $Platform.DistributionFamily -Candidate @($group)
         if ($candidate) {
             $packages += $candidate
         }
     }
     $results = [System.Collections.Generic.List[object]]::new()
-    foreach ($result in @(Install-LinuxAptPackages -Name docker-packages -Package $packages -Update)) {
+    foreach ($result in @(Install-LinuxSystemPackages -DistributionFamily $Platform.DistributionFamily -Name docker-packages -Package $packages -Update)) {
         $results.Add($result)
     }
     if (@($results | Where-Object Status -eq 'Failed').Count -gt 0) {
@@ -924,7 +1044,10 @@ Export-ModuleMember -Function @(
     'Invoke-LinuxNativeCommand',
     'Get-LinuxSudoPreflightResult',
     'Install-LinuxAptPackages',
+    'Install-LinuxPacmanPackages',
+    'Install-LinuxSystemPackages',
     'Resolve-LinuxAptAlternative',
+    'Resolve-LinuxPackageAlternative',
     'Test-LinuxDockerAvailable',
     'Install-LinuxDocker',
     'Test-WslGuestConfigContent',

@@ -109,7 +109,7 @@ Describe 'Linux install platform model' -Tag 'Unit' {
         Resolve-LinuxFontEnvironment -Environment Desktop -Platform $environment | Should -Be 'Desktop'
     }
 
-    It 'classifies Arch as partial and arm64 as blocked' {
+    It 'classifies Arch amd64 as full and arm64 as blocked' {
         $archFixture = New-LinuxEnvironmentFixture -OsRelease "ID=arch"
         $armFixture = New-LinuxEnvironmentFixture -OsRelease "ID=ubuntu`nID_LIKE=debian"
         $script:FixtureRoots.Add($archFixture.Root)
@@ -130,7 +130,7 @@ Describe 'Linux install platform model' -Tag 'Unit' {
             -WslInterop '' `
             -WslDistroName ''
 
-        $arch.SupportLevel | Should -Be 'Partial'
+        $arch.SupportLevel | Should -Be 'Full'
         $arch.SourceTarget | Should -Be 'arch'
         $arm.Architecture | Should -Be 'arm64'
         $arm.SupportLevel | Should -Be 'Blocked'
@@ -158,22 +158,19 @@ Describe 'Linux install platform model' -Tag 'Unit' {
 }
 
 Describe 'Linux package catalog and result contract' -Tag 'Unit' {
-    It 'loads the Debian family from the shared config resolver' {
+    It 'loads Debian and Arch families from the shared config resolver' {
         $catalog = Import-LinuxPackageCatalog -Path $script:CatalogPath
         $family = Get-LinuxPackageFamily -Catalog $catalog -DistributionFamily debian
+        $archFamily = Get-LinuxPackageFamily -Catalog $catalog -DistributionFamily arch
 
         $catalog.SchemaVersion | Should -Be 1
         $family.DistributionIds | Should -Contain 'ubuntu'
         $family.CoreSystem | Should -Contain 'build-essential'
         $family.Docker.Required | Should -Contain 'docker.io'
         $family.DesktopFonts.Required | Should -Contain 'fontconfig'
-    }
-
-    It 'rejects unsupported package families' {
-        $catalog = Import-LinuxPackageCatalog -Path $script:CatalogPath
-
-        { Get-LinuxPackageFamily -Catalog $catalog -DistributionFamily arch } |
-            Should -Throw '*不支持发行版族*'
+        $archFamily.CoreSystem | Should -Contain 'base-devel'
+        $archFamily.Docker.Required | Should -Contain 'docker'
+        $archFamily.DesktopFonts.Required | Should -Contain 'noto-fonts-cjk'
     }
 
     It 'uses Failed before Blocked when aggregating exit codes' {
@@ -202,6 +199,18 @@ Describe 'Linux package catalog and result contract' -Tag 'Unit' {
             $FilePath -eq 'sudo' -and
             ($ArgumentList -join ' ') -eq '-n true'
         }
+    }
+
+    It 'previews pacman packages with idempotent non-interactive flags' {
+        $result = @(Install-LinuxSystemPackages `
+                -DistributionFamily arch `
+                -Name core-system `
+                -Package @('base-devel', 'git') `
+                -Update `
+                -Preview)
+
+        $result.Count | Should -Be 1
+        $result[0].Message | Should -Be 'sudo pacman -Syu --needed --noconfirm base-devel git'
     }
 }
 
@@ -275,6 +284,21 @@ Describe 'Linux PowerShell install leaves' -Tag 'Leaves' {
         $text | Should -Match '\[Preview\] docker:'
     }
 
+    It 'Arch 06/07 WhatIf 使用 pacman 且不依赖 AUR' {
+        Set-Content -LiteralPath $script:LeafFixture.OsReleasePath -Value "ID=arch`nID_LIKE=arch" -Encoding utf8NoBOM
+
+        $fontOutput = pwsh -NoProfile -File (Join-Path $script:ProjectRoot 'linux/06installFonts.ps1') -Environment Desktop -WhatIf 2>&1
+        $fontExitCode = $LASTEXITCODE
+        $profileOutput = pwsh -NoProfile -File (Join-Path $script:ProjectRoot 'linux/07installProfileTools.ps1') -WhatIf 2>&1
+        $profileExitCode = $LASTEXITCODE
+        $text = (($fontOutput + $profileOutput) | Out-String)
+
+        $fontExitCode | Should -Be 0
+        $profileExitCode | Should -Be 0
+        $text | Should -Match 'pacman -Syu --needed --noconfirm'
+        $text | Should -Not -Match 'aur\.archlinux|yay'
+    }
+
     It '05 到 08 拒绝互斥交互参数: <ScriptName>' -ForEach @(
         @{ ScriptName = '05installCoreCli.ps1' }
         @{ ScriptName = '06installFonts.ps1' }
@@ -317,8 +341,9 @@ Describe 'WSL guest config and Docker plan' -Tag 'Wsl', 'Unit' {
         $catalog = Import-LinuxPackageCatalog -Path $script:CatalogPath
         $family = Get-LinuxPackageFamily -Catalog $catalog -DistributionFamily debian
         $platform = [pscustomobject]@{
-            SupportLevel = 'Full'
-            HasSystemd   = $true
+            SupportLevel      = 'Full'
+            DistributionFamily = 'debian'
+            HasSystemd        = $true
         }
 
         $result = @(Install-LinuxDocker -Platform $platform -PackageFamily $family -Preview)
@@ -332,16 +357,17 @@ Describe 'WSL guest config and Docker plan' -Tag 'Wsl', 'Unit' {
         $catalog = Import-LinuxPackageCatalog -Path $script:CatalogPath
         $family = Get-LinuxPackageFamily -Catalog $catalog -DistributionFamily debian
         $platform = [pscustomobject]@{
-            SupportLevel = 'Full'
-            HasSystemd   = $true
-            IsWsl        = $false
+            SupportLevel       = 'Full'
+            DistributionFamily = 'debian'
+            HasSystemd         = $true
+            IsWsl              = $false
         }
         $originalUser = $env:USER
         $env:USER = 'pipeline-user'
 
         Mock Test-LinuxDockerAvailable { $false } -ModuleName LinuxInstall
-        Mock Resolve-LinuxAptAlternative { 'docker-compose-v2' } -ModuleName LinuxInstall
-        Mock Install-LinuxAptPackages {
+        Mock Resolve-LinuxPackageAlternative { 'docker-compose-v2' } -ModuleName LinuxInstall
+        Mock Install-LinuxSystemPackages {
             @(New-LinuxInstallResult -Name docker-packages -Status Succeeded)
         } -ModuleName LinuxInstall
         Mock Invoke-LinuxNativeCommand {

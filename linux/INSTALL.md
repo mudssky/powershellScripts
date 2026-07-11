@@ -1,6 +1,6 @@
 # Linux 与 WSL 安装指南
 
-Linux 新机流程分为 Stage 0 与 Stage 1。首期完整支持 Ubuntu/Debian、Ubuntu/Debian WSL 客体和 `x86_64/amd64`；Arch 与 ARM 只提供识别和明确的 Blocked 结果。
+Linux 新机流程分为 Stage 0 与 Stage 1。完整支持 Ubuntu/Debian、Arch Linux、Ubuntu/Debian WSL 客体和 `x86_64/amd64`；ARM 只提供识别和明确的 Blocked 结果。
 
 ## 推荐入口
 
@@ -33,13 +33,26 @@ bash linux/00quickstart.sh \
 - `China`：Linuxbrew 和 Stage 1 source 使用持久事务；汇总会提供 Restore 命令。
 - `Auto`：仅在官方源不可用时创建临时事务，根编排器在结束时恢复。
 
-PowerShell 7/chsrc 可用前没有 Linux 原生 Stage 0 apt 恢复 adapter。China/Auto 遇到缺少 `ca-certificates`、curl、Git、build-essential 或 PowerShell 时会返回 Blocked，不会静默回退 Direct。可通过预装前置、覆盖 repo URL 或提供本地 deb 继续：
+PowerShell 7/chsrc 可用前没有 Linux 原生 Stage 0 系统源恢复 adapter。China/Auto 遇到缺少发行版前置或 PowerShell 时会返回 Blocked，不会静默回退 Direct。可通过预装前置、覆盖 repo URL 或提供本地 `.deb`/`.tar.gz` 继续：
 
 ```bash
 bash linux/00quickstart.sh \
   --network-mode China \
   --powershell-package /path/to/powershell_7.x.x-1.deb_amd64.deb
 ```
+
+Arch Linux 可传入官方 `linux-x64.tar.gz`。Direct 模式会解析 GitHub 最新稳定版并校验官方 SHA256 后安装。
+
+## Arch Linux 可选能力
+
+Arch Core 默认只使用 pacman，不依赖 AUR。需要 yay 时显式执行：
+
+```bash
+bash linux/arch/installYay.sh --dry-run
+bash linux/arch/installYay.sh
+```
+
+yay 安装器使用临时构建目录，并要求以普通用户运行。fcitx5 输入法不属于本期自动安装范围。
 
 ## Core 与 Full
 
@@ -48,7 +61,7 @@ Core 执行 `03`～`07` 与 `99`：
 - 发行版、Linuxbrew 和语言生态 source
 - bash/zsh 受管配置片段
 - Linuxbrew Core CLI
-- 字体环境判断
+- 字体环境判断；Arch Desktop 使用 pacman 字体包
 - PowerShell Profile、模块、Node/pnpm、仓库工具与 Docker
 - 只读验证
 

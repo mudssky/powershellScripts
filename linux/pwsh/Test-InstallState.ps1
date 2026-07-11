@@ -146,6 +146,39 @@ function Test-LinuxCommandAvailable {
         -Message $(if ($commandInfo) { [string]$commandInfo.Source } else { "缺少命令: $Command" })
 }
 
+function Test-LinuxSystemPackageInstalled {
+    <#
+    .SYNOPSIS
+        只读检查当前发行版中的系统包是否已安装。
+
+    .PARAMETER DistributionFamily
+        debian 或 arch。
+
+    .PARAMETER Package
+        要检查的系统包名。
+
+    .OUTPUTS
+        System.Boolean。包已安装时返回 true。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateSet('debian', 'arch')]
+        [string]$DistributionFamily,
+
+        [Parameter(Mandatory)]
+        [string]$Package
+    )
+
+    if ($DistributionFamily -eq 'arch') {
+        $null = & pacman -Q $Package 2>$null
+    }
+    else {
+        $null = & dpkg-query -W -f='${Status}' $Package 2>$null
+    }
+    return $LASTEXITCODE -eq 0
+}
+
 function Add-LinuxCatalogChecks {
     <#
     .SYNOPSIS
@@ -258,8 +291,12 @@ foreach ($stepId in $selectedSteps) {
             }
             $family = Get-LinuxPackageFamily -Catalog $packageCatalog -DistributionFamily $platform.DistributionFamily
             foreach ($package in @($family.DesktopFonts.Required)) {
-                $null = & dpkg-query -W -f='${Status}' $package 2>$null
-                Add-LinuxInstallCheck -Step fonts -Name $package -Status $(if ($LASTEXITCODE -eq 0) { 'Pass' } else { 'Fail' }) -Message 'dpkg package state'
+                $installed = Test-LinuxSystemPackageInstalled -DistributionFamily $platform.DistributionFamily -Package $package
+                Add-LinuxInstallCheck `
+                    -Step fonts `
+                    -Name $package `
+                    -Status $(if ($installed) { 'Pass' } else { 'Fail' }) `
+                    -Message "$($platform.DistributionFamily) package state"
             }
         }
         'profile-tools' {

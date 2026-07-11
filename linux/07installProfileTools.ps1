@@ -75,7 +75,7 @@ if (@($results | Where-Object Status -eq 'Blocked').Count -gt 0) {
 
 $catalog = Import-LinuxPackageCatalog -Path (Join-Path $repoRoot 'config/install/linux-packages.psd1')
 $family = Get-LinuxPackageFamily -Catalog $catalog -DistributionFamily $platform.DistributionFamily
-foreach ($result in @(Install-LinuxAptPackages -Name core-system -Package @($family.CoreSystem) -Update -Preview:$WhatIfPreference)) {
+foreach ($result in @(Install-LinuxSystemPackages -DistributionFamily $platform.DistributionFamily -Name core-system -Package @($family.CoreSystem) -Update -Preview:$WhatIfPreference)) {
     $results.Add($result)
 }
 

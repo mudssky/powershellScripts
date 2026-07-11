@@ -43,7 +43,7 @@ if ($Unattended -and $NonInteractive) {
 $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 Import-Module (Join-Path $repoRoot 'linux/pwsh/LinuxInstall.psm1') -Force
 $platform = Get-LinuxInstallEnvironment
-if ($platform.Architecture -ne 'amd64' -or $platform.DistributionFamily -ne 'debian') {
+if ($platform.Architecture -ne 'amd64' -or $platform.DistributionFamily -notin @('debian', 'arch')) {
     [Console]::Error.WriteLine("当前平台不支持字体自动安装: $($platform.DistributionId)/$($platform.Architecture)")
     exit 10
 }
@@ -59,7 +59,7 @@ $family = Get-LinuxPackageFamily -Catalog $catalog -DistributionFamily $platform
 $packages = @($family.DesktopFonts.Required)
 if (-not $WhatIfPreference) {
     foreach ($optionalPackage in @($family.DesktopFonts.Optional)) {
-        $candidate = Resolve-LinuxAptAlternative -Candidate @($optionalPackage)
+        $candidate = Resolve-LinuxPackageAlternative -DistributionFamily $platform.DistributionFamily -Candidate @($optionalPackage)
         if ($candidate) {
             $packages += $candidate
         }
@@ -67,7 +67,7 @@ if (-not $WhatIfPreference) {
 }
 
 $results = [System.Collections.Generic.List[object]]::new()
-foreach ($result in @(Install-LinuxAptPackages -Name fonts-packages -Package $packages -Update -Preview:$WhatIfPreference)) {
+foreach ($result in @(Install-LinuxSystemPackages -DistributionFamily $platform.DistributionFamily -Name fonts-packages -Package $packages -Update -Preview:$WhatIfPreference)) {
     $results.Add($result)
 }
 if (@($results | Where-Object Status -eq 'Failed').Count -eq 0) {

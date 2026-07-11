@@ -27,7 +27,7 @@ Options:
   --repo-dir <path>                  clone 目录
   --preset Core|Full                 Stage 1 预设，默认 Core
   --network-mode Direct|China|Auto   网络模式，默认 Direct
-  --powershell-package <deb>         显式本地 PowerShell deb
+  --powershell-package <path>        显式本地 PowerShell deb 或 tar.gz
   --unattended                       允许开头一次 sudo 认证
   --non-interactive                  严格零提示，前置不足返回 10
   --dry-run                          只显示 Stage 0 与移交计划
@@ -53,6 +53,29 @@ stage0_apt_prerequisites_ready() {
     fi
 
     # 非 Debian 测试宿主没有 dpkg-query；用等价命令能力维持 dry-run fixture 可移植性。
+    local command_name
+    for command_name in curl git cc make; do
+        command -v "$command_name" >/dev/null 2>&1 || return 1
+    done
+    return 0
+}
+
+# 功能：判断 Arch Stage 0 的最小 pacman 前置是否完整。
+# 参数：无。
+# 返回：0 全部已安装，1 至少缺少一个前置包。
+stage0_pacman_prerequisites_ready() {
+    if [ "${POWERSHELL_SCRIPTS_FORCE_MISSING_PACMAN_PREREQUISITES:-}" = '1' ]; then
+        return 1
+    fi
+
+    if command -v pacman >/dev/null 2>&1; then
+        local package
+        for package in base-devel ca-certificates curl git; do
+            pacman -Q "$package" >/dev/null 2>&1 || return 1
+        done
+        return 0
+    fi
+
     local command_name
     for command_name in curl git cc make; do
         command -v "$command_name" >/dev/null 2>&1 || return 1
@@ -114,7 +137,7 @@ linux_install_value_in "$NETWORK_MODE" Direct China Auto || linux_install_fail "
 [ "$UNATTENDED" != true ] || [ "$NON_INTERACTIVE" != true ] || linux_install_fail '--unattended 与 --non-interactive 不能同时使用' 2
 linux_install_detect_platform || linux_install_fail 'Linux bootstrap 只能在 Linux/WSL 中运行' 10
 [ "$LI_ARCHITECTURE" = 'amd64' ] || linux_install_fail "首期不支持架构: $LI_ARCHITECTURE" 10
-[ "$LI_DISTRIBUTION_FAMILY" = 'debian' ] || linux_install_fail "首期 Stage 0 不支持发行版: $LI_DISTRIBUTION_ID" 10
+linux_install_value_in "$LI_DISTRIBUTION_FAMILY" debian arch || linux_install_fail "Stage 0 不支持发行版: $LI_DISTRIBUTION_ID" 10
 
 if [ -n "$POWERSHELL_PACKAGE" ] && [ ! -f "$POWERSHELL_PACKAGE" ]; then
     linux_install_fail "PowerShell deb 不存在: $POWERSHELL_PACKAGE" 2
@@ -127,22 +150,34 @@ else
     repo_root="$REPO_DIR"
 fi
 
-apt_prerequisites_ready=true
-if [ "${POWERSHELL_SCRIPTS_FORCE_MISSING_GIT:-}" = '1' ] || ! stage0_apt_prerequisites_ready; then
-    apt_prerequisites_ready=false
+prerequisites_ready=true
+if [ "${POWERSHELL_SCRIPTS_FORCE_MISSING_GIT:-}" = '1' ]; then
+    prerequisites_ready=false
+elif [ "$LI_DISTRIBUTION_FAMILY" = 'arch' ]; then
+    stage0_pacman_prerequisites_ready || prerequisites_ready=false
+else
+    stage0_apt_prerequisites_ready || prerequisites_ready=false
 fi
-if [ "$apt_prerequisites_ready" = false ]; then
+if [ "$prerequisites_ready" = false ]; then
     if [ "$NETWORK_MODE" != 'Direct' ]; then
-        linux_install_fail 'China/Auto 在 apt 前置不完整时没有可恢复的 Stage 0 adapter；请预装 ca-certificates/curl/git/build-essential 或使用 Direct' 10
+        linux_install_fail 'China/Auto 在系统包前置不完整时没有可恢复的 Stage 0 adapter；请预装发行版前置或使用 Direct' 10
     fi
     linux_install_prepare_sudo "$UNATTENDED" "$NON_INTERACTIVE" "$DRY_RUN" ||
         linux_install_fail '当前交互模式无法获得 sudo 权限' 10
     if [ "$DRY_RUN" = true ]; then
-        linux_install_print_command sudo apt-get update
-        linux_install_print_command sudo apt-get install -y ca-certificates curl git build-essential
+        if [ "$LI_DISTRIBUTION_FAMILY" = 'arch' ]; then
+            linux_install_print_command sudo pacman -Syu --needed --noconfirm base-devel ca-certificates curl git
+        else
+            linux_install_print_command sudo apt-get update
+            linux_install_print_command sudo apt-get install -y ca-certificates curl git build-essential
+        fi
     else
-        sudo apt-get update
-        sudo apt-get install -y ca-certificates curl git build-essential
+        if [ "$LI_DISTRIBUTION_FAMILY" = 'arch' ]; then
+            sudo pacman -Syu --needed --noconfirm base-devel ca-certificates curl git
+        else
+            sudo apt-get update
+            sudo apt-get install -y ca-certificates curl git build-essential
+        fi
     fi
 fi
 
