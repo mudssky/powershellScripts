@@ -253,10 +253,10 @@ pnpm benchmark -- <name>
 - `README.md`
 - `docs/local-cross-platform-testing.md`
 - `CLAUDE.md`（如 benchmark / full 职责说明需要补充）
-- `openspec/specs/pester-test-performance/spec.md`
+- `archive/openspec/specs/pester-test-performance/spec.md`
 - 视实际语义变化决定是否更新：
-  - `openspec/specs/local-cross-platform-pester-testing/spec.md`
-  - `openspec/specs/pester-coverage-50/spec.md`
+  - `archive/openspec/specs/local-cross-platform-pester-testing/spec.md`
+  - `archive/openspec/specs/pester-coverage-50/spec.md`
 - `docs/solutions/workflow-issues/` 新增实施后 solution
 
 **Tasks**
@@ -379,9 +379,9 @@ pnpm benchmark -- <name>
   - Host coverage 责任在 `test:pwsh:full`
   - Linux full 断言责任在 `test:pwsh:linux:full`
 - OpenSpec 中关于 full / coverage / cross-platform 的现有约束：
-  - `openspec/specs/pester-test-performance/spec.md:10`
-  - `openspec/specs/local-cross-platform-pester-testing/spec.md:14`
-  - `openspec/specs/pester-coverage-50/spec.md:3`
+  - `archive/openspec/specs/pester-test-performance/spec.md:10`
+  - `archive/openspec/specs/local-cross-platform-pester-testing/spec.md:14`
+  - `archive/openspec/specs/pester-coverage-50/spec.md:3`
 
 ## Risk Analysis & Mitigation
 
@@ -405,11 +405,11 @@ pnpm benchmark -- <name>
   - 明确 full 门禁与 benchmark 诊断的职责边界。
 - `CLAUDE.md`
   - 如需要，补充“性能比较类入口走 benchmark，而不是 full”的说明。
-- `openspec/specs/pester-test-performance/spec.md`
+- `archive/openspec/specs/pester-test-performance/spec.md`
   - 如果需要正式声明“full 默认不承载诊断型 benchmark 比较”，在这里更新规范。
-- `openspec/specs/local-cross-platform-pester-testing/spec.md`
+- `archive/openspec/specs/local-cross-platform-pester-testing/spec.md`
   - 仅当 full / benchmark 的职责边界影响本地 cross-platform 文档语义时更新。
-- `openspec/specs/pester-coverage-50/spec.md`
+- `archive/openspec/specs/pester-coverage-50/spec.md`
   - 预期本轮不改 coverage 责任；若实现中出现边界变化再同步修正。
 - `docs/solutions/workflow-issues/`
   - 新增实施后 solution，记录剩余热点收尾与 benchmark 分层的最终结论。
@@ -437,9 +437,9 @@ pnpm benchmark -- <name>
 - `psutils/tests/web.Tests.ps1:28`
 - `README.md:347,356,359,445`
 - `docs/local-cross-platform-testing.md:21,34,46,61`
-- `openspec/specs/pester-test-performance/spec.md:10`
-- `openspec/specs/local-cross-platform-pester-testing/spec.md:14`
-- `openspec/specs/pester-coverage-50/spec.md:3`
+- `archive/openspec/specs/pester-test-performance/spec.md:10`
+- `archive/openspec/specs/local-cross-platform-pester-testing/spec.md:14`
+- `archive/openspec/specs/pester-coverage-50/spec.md:3`
 
 ### Related Work
 

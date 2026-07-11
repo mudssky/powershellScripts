@@ -1303,16 +1303,6 @@
         "command": "npm install -g tsx"
       },
       {
-        "name": "openspec",
-        "cliName": "openspec",
-        "description": "Fission AI OpenSpec tool",
-        "command": "npm install -g @fission-ai/openspec",
-        "tag": [
-          "ai-cli",
-          "cli"
-        ]
-      },
-      {
         "name": "uipro-cli",
         "cliName": "uipro",
         "description": "UIPro 命令行工具",
@@ -1371,16 +1361,6 @@
         "cliName": "tsx",
         "description": "Node.js TS 运行器，零配置运行 TypeScript/ESM",
         "command": "bun add -g tsx"
-      },
-      {
-        "name": "openspec",
-        "cliName": "openspec",
-        "description": "Fission AI OpenSpec tool",
-        "command": "bun add -g @fission-ai/openspec",
-        "tag": [
-          "ai-cli",
-          "cli"
-        ]
       },
       {
         "name": "opencode-ai",

@@ -204,11 +204,11 @@ pnpm test:pwsh:all
   - 调整 `test:pwsh:all` 的聚合行为，确保 host / linux 两路结果与摘要都能落地，再统一决定退出码。
 - `docs/local-cross-platform-testing.md`
   - 如果 Linux full 不再承担 coverage，要同步调整覆盖率说明和 `test:pwsh:all` 的语义描述。
-- `openspec/specs/local-cross-platform-pester-testing/spec.md`
+- `archive/openspec/specs/local-cross-platform-pester-testing/spec.md`
   - 如果 `linux:full` 的 coverage 责任发生变化，要同步修正规范描述，避免实现与正式 spec 脱节。
-- `openspec/specs/pester-test-performance/spec.md`
+- `archive/openspec/specs/pester-test-performance/spec.md`
   - 若 full 模式的输出或性能目标定义发生变化，要同步校准规范。
-- `openspec/specs/pester-coverage-50/spec.md`
+- `archive/openspec/specs/pester-coverage-50/spec.md`
   - 若 coverage 责任收敛到 Host `full`，需要明确 50% coverage 规范绑定的验证入口。
 
 **Success Criteria**
@@ -402,11 +402,11 @@ pnpm test:pwsh:all
 - `docs/local-cross-platform-testing.md`
   - 更新 Linux `full` 是否承担 coverage 的说明。
   - 更新 `test:pwsh:all` 对 coverage 的职责描述。
-- `openspec/specs/local-cross-platform-pester-testing/spec.md`
+- `archive/openspec/specs/local-cross-platform-pester-testing/spec.md`
   - 更新 full / Linux / artifact / fallback 的规范表述。
-- `openspec/specs/pester-test-performance/spec.md`
+- `archive/openspec/specs/pester-test-performance/spec.md`
   - 更新 full 模式下对输出与性能目标的规范说明。
-- `openspec/specs/pester-coverage-50/spec.md`
+- `archive/openspec/specs/pester-coverage-50/spec.md`
   - 明确 coverage 责任绑定哪条命令验证。
 - `README.md`
   - 若用户可见行为变化（例如 full 输出更安静、Linux coverage 责任调整），同步更新命令说明。

@@ -90,6 +90,17 @@
       }
     },
     {
+      "id": "batch-2-vercel-project",
+      "batch": 2,
+      "source": ".vercel/project.json",
+      "archive": "archive/.vercel/project.json",
+      "reason": "本仓已停止使用 Vercel 部署",
+      "replacement": {
+        "kind": "note",
+        "text": "仅保留旧项目标识，无活动替代入口"
+      }
+    },
+    {
       "id": "batch-2-ipynb-renamelegal",
       "batch": 2,
       "source": "ipynb/renameLegal.ipynb",
@@ -102,14 +113,38 @@
       }
     },
     {
-      "id": "batch-2-vercel-project",
-      "batch": 2,
-      "source": ".vercel/project.json",
-      "archive": "archive/.vercel/project.json",
-      "reason": "本仓已停止使用 Vercel 部署",
+      "id": "batch-3-promptx",
+      "batch": 3,
+      "source": ".promptx",
+      "archive": "archive/.promptx",
+      "reason": "根 PromptX 项目角色与资源已退出活动维护",
       "replacement": {
         "kind": "note",
-        "text": "仅保留旧项目标识，无活动替代入口"
+        "text": "仅供历史参考；活动 PromptX MCP 配置位于 ai/mcp"
+      }
+    },
+    {
+      "id": "batch-3-trae",
+      "batch": 3,
+      "source": ".trae",
+      "archive": "archive/.trae",
+      "reason": "本仓库已退出 Trae 项目配置维护",
+      "replacement": {
+        "kind": "path",
+        "target": ".agents/skills",
+        "text": "使用共享 agent skills 与现有 Claude/Codex 配置"
+      }
+    },
+    {
+      "id": "batch-3-openspec",
+      "batch": 3,
+      "source": "openspec",
+      "archive": "archive/openspec",
+      "reason": "OpenSpec 工作流已退出本仓库活动维护",
+      "replacement": {
+        "kind": "path",
+        "target": ".trellis",
+        "text": "使用 Trellis 任务、规范与工作流"
       }
     }
   ]

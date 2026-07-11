@@ -663,7 +663,6 @@ powershellScripts/
 ├── ai/                      # AI 相关工具
 ├── linux/                   # Linux 特定脚本
 ├── macos/                   # macOS 特定脚本
-├── .trae/                   # Trae 配置
 ├── .vscode/                 # VS Code 配置
 └── *.ps1                    # 主要脚本文件
 ```

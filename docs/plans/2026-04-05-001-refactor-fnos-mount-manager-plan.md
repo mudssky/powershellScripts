@@ -65,8 +65,8 @@ origin: docs/brainstorms/2026-04-05-fnos-portable-disk-mounting-requirements.md
 
 ### Institutional Learnings
 
-- `.trae/documents/修正 NTFS 自动挂载冲突与启动时密码提示.md` 记录了当前已验证的失败模式：桌面或 NAS 侧自动挂载与 `fstab` 并行存在时，会形成重复挂载冲突；挂载方案必须显式考虑“同一路径只能有一个自动挂载来源”。
-- `.trae/documents/消除 pwsh 启动时的 sudo 密码提示（避免 bash 登录脚本触发）.md` 说明“在登录 shell 里补做 `mount -a`”会把挂载副作用带到不相关的终端启动路径中，新的管理器必须把这类动作收回到显式命令。
+- `archive/.trae/documents/修正 NTFS 自动挂载冲突与启动时密码提示.md` 记录了当前已验证的失败模式：桌面或 NAS 侧自动挂载与 `fstab` 并行存在时，会形成重复挂载冲突；挂载方案必须显式考虑“同一路径只能有一个自动挂载来源”。
+- `archive/.trae/documents/消除 pwsh 启动时的 sudo 密码提示（避免 bash 登录脚本触发）.md` 说明“在登录 shell 里补做 `mount -a`”会把挂载副作用带到不相关的终端启动路径中，新的管理器必须把这类动作收回到显式命令。
 - 现网 Samba 配置已经把共享直接指向固定外接盘挂载点，而不是父目录扫描；这意味着 automount 模式在“首次访问具体共享时再挂载”的体验上是可行的，但路径稳定性不能退化。
 
 ### External References
@@ -323,7 +323,7 @@ Unit 2
 **Patterns to follow:**
 - `scripts/qa.mjs`
 - `scripts/node/tests/cli.test.ts`
-- `.trae/documents/修正 NTFS 自动挂载冲突与启动时密码提示.md`
+- `archive/.trae/documents/修正 NTFS 自动挂载冲突与启动时密码提示.md`
 
 **Test scenarios:**
 - Happy path: 所有磁盘都已按配置生成且 system fstab 区块匹配时，`check` 返回成功退出码。
@@ -364,7 +364,7 @@ Unit 3
 
 **Patterns to follow:**
 - `linux/fnos/remount.sh`
-- `.trae/documents/消除 pwsh 启动时的 sudo 密码提示（避免 bash 登录脚本触发）.md`
+- `archive/.trae/documents/消除 pwsh 启动时的 sudo 密码提示（避免 bash 登录脚本触发）.md`
 
 **Test scenarios:**
 - Happy path: 某个受管 mount unit 处于 failed 状态时，默认 `repair` 可重置状态并重新尝试挂载受管挂载点。
@@ -468,7 +468,7 @@ Unit 4
 - Related code: [scripts/qa.mjs](scripts/qa.mjs)
 - Related code: [scripts/qa-turbo.mjs](scripts/qa-turbo.mjs)
 - Related code: [scripts/node/tests/cli.test.ts](scripts/node/tests/cli.test.ts)
-- Local learnings: [.trae/documents/修正 NTFS 自动挂载冲突与启动时密码提示.md](.trae/documents/修正%20NTFS%20自动挂载冲突与启动时密码提示.md)
-- Local learnings: [.trae/documents/消除 pwsh 启动时的 sudo 密码提示（避免 bash 登录脚本触发）.md](.trae/documents/消除%20pwsh%20启动时的%20sudo%20密码提示（避免%20bash%20登录脚本触发）.md)
+- Local learnings: [archive/.trae/documents/修正 NTFS 自动挂载冲突与启动时密码提示.md](../../archive/.trae/documents/修正%20NTFS%20自动挂载冲突与启动时密码提示.md)
+- Local learnings: [archive/.trae/documents/消除 pwsh 启动时的 sudo 密码提示（避免 bash 登录脚本触发）.md](../../archive/.trae/documents/消除%20pwsh%20启动时的%20sudo%20密码提示（避免%20bash%20登录脚本触发）.md)
 - External docs: https://man7.org/linux/man-pages/man5/systemd.automount.5.html
 - External docs: https://man7.org/linux/man-pages/man5/systemd.mount.5.html

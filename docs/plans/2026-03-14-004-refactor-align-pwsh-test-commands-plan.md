@@ -194,7 +194,7 @@ origin: docs/brainstorms/2026-03-14-pwsh-test-command-alignment-brainstorm.md
 - **Current QA boundary:** `docs/plans/2026-03-05-qa-speed-design.md`
 - **Local cross-platform testing guide:** `docs/local-cross-platform-testing.md`
 - **Cross-platform failure learnings:** `docs/solutions/test-failures/linux-macos-powershell-tooling-tests-system-20260314.md`
-- **Formal workflow constraints:** `openspec/specs/local-cross-platform-pester-testing/spec.md`, `openspec/specs/pester-test-performance/spec.md`, `openspec/specs/workspace-qa-standardization/spec.md`
+- **Formal workflow constraints:** `archive/openspec/specs/local-cross-platform-pester-testing/spec.md`, `archive/openspec/specs/pester-test-performance/spec.md`, `archive/openspec/specs/workspace-qa-standardization/spec.md`
 - **Existing contributor guidance:** `AGENTS.md`, `README.md`, `CLAUDE.md`
 - **Linux container harness:** `docker-compose.pester.yml`, `Dockerfile.pester`, `PesterConfiguration.ps1`
 - **External research:** 基于强本地上下文与已存在文档，本次计划未额外引入外部资料
