@@ -850,3 +850,37 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 26: 完成 Linux WSL 安装流水线
+
+**Date**: 2026-07-11
+**Task**: 完成 Linux WSL 安装流水线
+**Branch**: `master`
+
+### Summary
+
+补齐 Ubuntu/Debian 与 WSL 的 Stage 0、Core/Full 编号叶子、source/shell/Profile/Docker/字体/验证合同，抽取跨平台 Profile Tools，并通过 macOS host 与 Linux Docker 全量门禁。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4a989dd` | (see git log) |
+| `06bc2ca` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
