@@ -1,0 +1,4 @@
+{"file":".trellis/tasks/07-10-personal-config-nix-ansible/archive-candidates.md","reason":"已批准归档对象、批次、风险和替代入口的来源清单"}
+{"file":".trellis/spec/pwshfmt-rs/package/index.md","reason":"PowerShell 格式器 discovery、配置和测试变更规范"}
+{"file":".trellis/spec/pwsh-scripts/package/index.md","reason":"根 PowerShell 格式入口与质量门禁约定"}
+{"file":".trellis/spec/infra/macos-install-pipeline.md","reason":"旧 macOS 归档对象的现行 Hammerspoon 和安装验证边界"}

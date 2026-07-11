@@ -1,0 +1,4 @@
+{"file":".trellis/tasks/07-10-personal-config-nix-ansible/archive-candidates.md","reason":"核对只移动已批准对象并保留暂缓对象"}
+{"file":".trellis/spec/pwshfmt-rs/package/index.md","reason":"检查 formatter discovery、配置、CLI 与测试是否同步"}
+{"file":".trellis/spec/pwsh-scripts/package/index.md","reason":"检查根 PowerShell QA 与全量测试要求"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"检查路径移动对文档、工具配置、测试和 workspace 的跨层影响"}
