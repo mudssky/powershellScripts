@@ -56,7 +56,7 @@ powershell.exe -NoProfile -File ./scripts/pwsh/misc/Invoke-PackageSourceBootstra
 - `Plan` 和 `Status` 只读；写动作搭配 `-WhatIf` 必须降级为 `Plan`/`Status`，不能依赖未调用的 `ShouldProcess` 自动保护。
 - Restore 先比较当前 hash 与 after hash：相同才恢复；drift 返回 10。已恢复事务再次 Restore 必须幂等返回成功。
 - chsrc 的最低版本来自 catalog，当前为 `0.2.5`；版本、target capability、scope 和 option 顺序必须在 adapter 外层校验。
-- `brew`、`rustup` 使用 managed-env adapter：chsrc 只写隔离 HOME，adapter 只提取 catalog 白名单 HTTPS 变量，禁止修改真实 shell rc。
+- macOS/Linux 的 `brew` 与跨平台 `rustup` 使用 managed-env adapter：chsrc 只写隔离 HOME，adapter 只提取 catalog 白名单 HTTPS 变量，禁止修改真实 shell rc。
 - `npm`、`pnpm`、`pip`、`go` 使用 chsrc command adapter；`debian`、`ubuntu`、`arch` 使用系统文件 snapshot；Docker 使用仓库自有 JSON adapter。
 - `winget` Stage 1、`uv`、Cargo、Nix 在可靠结构化恢复实现前返回 Unsupported；不得写猜测性配置。
 - Windows Stage 0 只使用 `Microsoft.WinGet.Client` 结构化 cmdlets，首次 snapshot 不得被 China 重跑覆盖，成功 Restore 后删除 snapshot。

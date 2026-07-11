@@ -1,60 +1,69 @@
 ## ADDED Requirements
 
-### Requirement: Linux 安装脚本编号规范
+### Requirement: Linux 与 WSL 两阶段安装流水线
 
-`linux/` 目录 SHALL 包含按编号排序的安装脚本，每个脚本职责单一。
+`linux/` 目录 SHALL 为 Ubuntu/Debian 与 WSL 客体提供 Stage 0、编号 Stage 1 叶子和只读验证。
 
-#### Scenario: 完整脚本列表
+#### Scenario: 标准入口与编号
 
-- **WHEN** 列出 `linux/` 目录下的编号脚本
-- **THEN** SHALL 按以下顺序包含：
-  - `00quickstart.sh` — 拉取仓库
-  - `01installHomeBrew.sh` — 仅安装 Homebrew
-  - `02installPowerShell.sh` — 仅安装 PowerShell
-  - `03deployShellConfig.sh` — 调用 `shell/deploy.sh` 部署 shell 配置
-  - `04installApps.ps1` — 安装应用程序
+- **WHEN** 列出 Linux 安装入口
+- **THEN** SHALL 包含 `00quickstart.sh`、`01installHomeBrew.sh`、`02installPowerShell.sh`、`03configureSources.sh`、`04deployShellConfig.sh`、`05installCoreCli.ps1`、`06installFonts.ps1`、`07installProfileTools.ps1`、`08installFullApps.ps1` 与 `99verifyInstall.ps1`
+- **THEN** Linux 不适用的 `09`～`11` SHALL 由统一步骤注册表标记为不支持
 
-#### Scenario: Homebrew 和 PowerShell 职责分离
+#### Scenario: Stage 0 移交
 
-- **WHEN** 查看 `01installHomeBrew.sh` 内容
-- **THEN** SHALL 仅包含 Homebrew 安装和环境变量配置逻辑
-- **THEN** SHALL 不包含 PowerShell 安装逻辑
+- **WHEN** 在 Ubuntu/Debian 或对应 WSL 客体执行 `00quickstart.sh`
+- **THEN** SHALL 准备最小 Git、Linuxbrew 与 PowerShell 7 后调用根 `install.ps1 -Preset Core|Full`
+- **THEN** 远程 clone SHALL 默认使用 `--depth=1`
+- **THEN** China/Auto 前置不足 SHALL 返回 Blocked，不得静默回退 Direct
 
-#### Scenario: PowerShell 独立安装脚本
+### Requirement: Linux 软件与 source 单一真源
 
-- **WHEN** 查看 `02installPowerShell.sh` 内容
-- **THEN** SHALL 包含本地 deb 安装和 fallback 到 installer 脚本的逻辑（从原 `02installHomeBrew.sh` 拆出）
+#### Scenario: 系统包和 CLI 所有权
 
-#### Scenario: Shell 配置部署脚本
+- **WHEN** 安装 apt 系统包、Docker 或桌面字体
+- **THEN** SHALL 从 `config/install/linux-packages.psd1` 读取声明
+- **WHEN** 安装 Core CLI 或 Full terminal extras
+- **THEN** SHALL 从 `profile/installer/apps-config.json` 读取 Linux 标签
+- **THEN** 同一软件 SHALL NOT 同时由 apt 与 Linuxbrew 声明
 
-- **WHEN** 执行 `03deployShellConfig.sh`
-- **THEN** SHALL 调用 `shell/deploy.sh` 完成 `~/.bashrc.d/` 的部署
+#### Scenario: Source 事务
 
-### Requirement: Linux INSTALL.md manifest
+- **WHEN** 执行 `03configureSources.sh`
+- **THEN** SHALL 根据 `/etc/os-release` 选择 ubuntu、debian 或 arch target
+- **THEN** SHALL 委托共享 package source 引擎处理 Direct、China、Auto、snapshot 与 Restore
 
-`linux/INSTALL.md` SHALL 作为安装流水线的 manifest 文档，描述完整的安装流程。
+### Requirement: WSL 客体边界
 
-#### Scenario: manifest 文档结构
+#### Scenario: 客体配置与宿主重启
 
-- **WHEN** 查看 `linux/INSTALL.md`
-- **THEN** 每个安装步骤 SHALL 包含以下字段：脚本名、执行方式、前置条件、是否可跳过、说明
+- **WHEN** `/etc/wsl.conf` 内容需要变化
+- **THEN** SHALL 在变化时创建时间戳备份并原子替换
+- **THEN** SHALL 返回 Blocked/10 并提示在 Windows 执行 `wsl --shutdown`
+- **THEN** Linux 客体流水线 SHALL NOT 写 `.wslconfig`、Windows 用户目录或执行宿主重启
 
-#### Scenario: 仓库拉取指引
+#### Scenario: Docker 复用
 
-- **WHEN** 查看 `linux/INSTALL.md` 的第 0 步
-- **THEN** SHALL 包含通过 `gh` 或 `git clone` 拉取仓库的完整命令
+- **WHEN** `docker info` 已成功
+- **THEN** SHALL 复用当前 Docker Desktop 集成或客体 Engine
+- **WHEN** Docker 不可用且平台受支持
+- **THEN** SHALL 使用发行版系统包安装并验证客体 Docker Engine
+- **THEN** 当前用户需要新增 `docker` 组权限时 SHALL 返回 Blocked/10，并提示重新登录或重启 WSL 后重跑
 
-#### Scenario: 步骤顺序与脚本编号一致
+### Requirement: Linux 预设与验证
 
-- **WHEN** AI agent 按 INSTALL.md 中的步骤顺序执行
-- **THEN** 每个步骤对应的脚本编号 SHALL 与文档中的步骤编号一致
+#### Scenario: Core、Full 与字体
 
-#### Scenario: 前置条件声明
+- **WHEN** 执行 Core
+- **THEN** SHALL 安装核心 CLI、Profile/工具与 Docker，服务器和普通 WSL 默认跳过字体
+- **WHEN** 执行 Full
+- **THEN** SHALL 只追加 Linux terminal extras，不安装 GUI 应用
+- **WHEN** 显式选择 Desktop 字体模式
+- **THEN** SHALL 使用发行版字体包并更新 fontconfig 缓存
 
-- **WHEN** 某个步骤依赖前一步骤的产出（如 `04installApps.ps1` 依赖 PowerShell）
-- **THEN** INSTALL.md 中该步骤的"前置条件"字段 SHALL 明确声明此依赖
+#### Scenario: 只读验证
 
-#### Scenario: 末尾引导至跨平台安装
-
-- **WHEN** 完成 `linux/INSTALL.md` 的所有步骤
-- **THEN** 文档末尾 SHALL 包含指向 `docs/INSTALL.md` 的相对链接，引导继续跨平台 PowerShell 层安装
+- **WHEN** 执行 `99verifyInstall.ps1 -OutputFormat Json`
+- **THEN** stdout SHALL 只包含一个 JSON document
+- **THEN** 验证 SHALL 从共享应用与系统包清单读取期望，不维护第二份包名
+- **THEN** Arch、ARM 与未满足的 WSL 重启 SHALL 返回明确 Blocked

@@ -111,6 +111,7 @@ renameLegal.ps1 -reverse
 | Invoke-PackageSourceBootstrap.ps1 | Windows PowerShell 5.1 的 winget Stage 0 source helper | bootstrap, winget, source, windows |
 | Switch-Mirrors.ps1 | 跨平台 package source 计划、事务、状态与恢复入口 | mirror, source, transaction, restore |
 | InstallOrchestrator.psm1 | Core/Full 步骤选择、依赖传播、source cleanup 与 Text/JSON 汇总模块 | install, orchestrator, preset, resume |
+| ProfileTools.psm1 | macOS/Linux 共享的 Profile、模块、Node/pnpm、bin 与仓库构建模块 | install, profile, toolchain, cross-platform |
 | start-container.ps1 | 容器启动管理脚本 | container, docker, start |
 | install.ps1 | 无参数准备仓库工具；显式 Preset 进入跨平台 Stage 1 | install, setup, preset, stage1 |
 | syncConfig.ps1 | 配置文件同步脚本 | sync, config, backup |
@@ -138,6 +139,18 @@ renameLegal.ps1 -reverse
 | pslint.ps1 | PowerShell代码检查脚本 | powershell, lint, code, quality |
 | runScripts.ps1 | 脚本运行器 | run, scripts, executor |
 | test-lint-staged.ps1 | lint-staged测试脚本 | lint-staged, test, git |
+
+### Linux/WSL 安装流水线
+
+| 入口 | 描述 | 关键词 |
+|---|---|---|
+| `linux/00quickstart.sh` | Ubuntu/Debian/WSL Stage 0、shallow clone 与 Stage 1 移交 | linux, wsl, bootstrap, stage0 |
+| `linux/03configureSources.sh` | 发行版、Linuxbrew 与语言生态 source 事务薄入口 | linux, source, transaction, mirror |
+| `linux/05installCoreCli.ps1` | 从统一应用清单安装 Linux Core CLI | linux, homebrew, core, cli |
+| `linux/06installFonts.ps1` | Server/WSL 默认跳过、Desktop 显式安装字体 | linux, wsl, fonts, desktop |
+| `linux/07installProfileTools.ps1` | Profile、仓库工具、Docker 与 WSL 客体配置 | linux, profile, docker, wsl |
+| `linux/08installFullApps.ps1` | Full 预设的 terminal extras，不安装 GUI | linux, full, terminal, cli |
+| `linux/99verifyInstall.ps1` | Linux/WSL Core/Full 只读 Text/JSON 验证 | linux, verify, json, status |
 
 ## 统计信息
 

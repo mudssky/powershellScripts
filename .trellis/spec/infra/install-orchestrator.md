@@ -23,7 +23,7 @@
 ```
 
 - 无参数调用保持仓库工具准备行为；不得隐式转为装机。
-- `-installApp` 仅为弃用兼容入口，不等价于 Full，也不能与编排参数组合。
+- `-installApp` 仅为弃用兼容入口，不等价于 Full，也不能与编排参数组合；Linux 分支只转发到新的 Core CLI 叶子。
 - Stage 0 获得 Git、平台包管理器和 PowerShell 7；根 Stage 1 从 `03 sources` 开始。
 - `Core` 选择 `03`～`07` 与 `99`；`Full` 追加 `08`～`11`。
 - `-Step` 精准执行且不展开依赖；`-FromStep` 假定前序已完成；`-SkipStep` 排除依赖时阻断下游。
