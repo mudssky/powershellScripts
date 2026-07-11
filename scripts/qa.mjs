@@ -53,6 +53,8 @@ const supportedModes = new Set(['changed', 'all'])
 const qaSmokeTestPaths = [
   './tests/DeferredLoading.Tests.ps1',
   './tests/losslessToAdaptiveAudio.Tests.ps1',
+  './tests/PackageSourceBootstrap.Tests.ps1',
+  './tests/PackageSources.Tests.ps1',
   './tests/ProfileMode.Tests.ps1',
   './tests/Switch-Mirrors.Tests.ps1',
   './psutils/tests/error.Tests.ps1',

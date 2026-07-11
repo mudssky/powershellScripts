@@ -1,0 +1,156 @@
+{
+  "schema_version": 1,
+  "chsrc": {
+    "minimum_version": "0.2.5",
+    "option_order": "command-options-target"
+  },
+  "defaults": {
+    "probe_timeout_seconds": 5,
+    "probe_attempts": 2
+  },
+  "targets": {
+    "brew": {
+      "platforms": ["macos"],
+      "phases": ["Bootstrap", "Runtime"],
+      "adapter": "managed-env",
+      "chsrc_target": "brew",
+      "scope": "user",
+      "managed_environment": [
+        "HOMEBREW_BREW_GIT_REMOTE",
+        "HOMEBREW_CORE_GIT_REMOTE",
+        "HOMEBREW_API_DOMAIN",
+        "HOMEBREW_BOTTLE_DOMAIN"
+      ],
+      "official_sources": ["https://github.com/Homebrew/brew.git"],
+      "official_probe_urls": ["https://formulae.brew.sh/api/formula.json"]
+    },
+    "npm": {
+      "platforms": ["windows", "macos", "linux"],
+      "phases": ["Runtime", "Toolchain"],
+      "adapter": "chsrc",
+      "chsrc_target": "npm",
+      "scope": "user",
+      "official_sources": ["https://registry.npmjs.org/"],
+      "official_probe_urls": ["https://registry.npmjs.org/-/ping"]
+    },
+    "pnpm": {
+      "platforms": ["windows", "macos", "linux"],
+      "phases": ["Runtime", "Toolchain"],
+      "adapter": "chsrc",
+      "chsrc_target": "pnpm",
+      "scope": "user",
+      "official_sources": ["https://registry.npmjs.org/"],
+      "official_probe_urls": ["https://registry.npmjs.org/-/ping"]
+    },
+    "pip": {
+      "platforms": ["windows", "macos", "linux"],
+      "phases": ["Runtime", "Toolchain"],
+      "adapter": "chsrc",
+      "chsrc_target": "pip",
+      "scope": "user",
+      "official_sources": ["https://pypi.org/simple/"],
+      "official_probe_urls": ["https://pypi.org/simple/"]
+    },
+    "uv": {
+      "platforms": ["windows", "macos", "linux"],
+      "phases": ["Runtime", "Toolchain"],
+      "adapter": "unsupported",
+      "chsrc_target": "uv",
+      "scope": "user",
+      "reason": "chsrc 会覆写 uv.toml，首期等待结构化 TOML 合并",
+      "official_probe_urls": ["https://pypi.org/simple/"]
+    },
+    "rust": {
+      "platforms": ["windows", "macos", "linux"],
+      "phases": ["Runtime", "Toolchain"],
+      "adapter": "unsupported",
+      "chsrc_target": "rust",
+      "scope": "user",
+      "reason": "chsrc 会覆写 Cargo config.toml，首期等待结构化 TOML 合并",
+      "official_probe_urls": ["https://crates.io/"]
+    },
+    "rustup": {
+      "platforms": ["windows", "macos", "linux"],
+      "phases": ["Runtime", "Toolchain"],
+      "adapter": "managed-env",
+      "chsrc_target": "rustup",
+      "scope": "user",
+      "managed_environment": ["RUSTUP_DIST_SERVER", "RUSTUP_UPDATE_ROOT"],
+      "official_sources": ["https://static.rust-lang.org/"],
+      "official_probe_urls": [
+        "https://static.rust-lang.org/dist/channel-rust-stable.toml.sha256"
+      ]
+    },
+    "go": {
+      "platforms": ["windows", "macos", "linux"],
+      "phases": ["Runtime", "Toolchain"],
+      "adapter": "chsrc",
+      "chsrc_target": "go",
+      "scope": "user",
+      "official_sources": ["https://proxy.golang.org/"],
+      "official_probe_urls": ["https://proxy.golang.org/"]
+    },
+    "winget": {
+      "platforms": ["windows"],
+      "phases": ["Bootstrap", "Runtime"],
+      "adapter": "winget",
+      "chsrc_target": "winget",
+      "scope": "user",
+      "reason": "Stage 1 仅在 Microsoft.WinGet.Client 结构化 source cmdlets、管理员权限与可恢复 snapshot 均可验证时启用；当前使用 Windows Stage 0 helper",
+      "official_probe_urls": ["https://cdn.winget.microsoft.com/cache"]
+    },
+    "debian": {
+      "platforms": ["linux"],
+      "phases": ["Bootstrap", "Runtime"],
+      "adapter": "chsrc-system",
+      "chsrc_target": "debian",
+      "scope": "system",
+      "resource_paths": [
+        "/etc/apt/sources.list",
+        "/etc/apt/sources.list.d/debian.sources"
+      ],
+      "official_probe_urls": ["https://deb.debian.org/debian/"]
+    },
+    "ubuntu": {
+      "platforms": ["linux"],
+      "phases": ["Bootstrap", "Runtime"],
+      "adapter": "chsrc-system",
+      "chsrc_target": "ubuntu",
+      "scope": "system",
+      "resource_paths": [
+        "/etc/apt/sources.list",
+        "/etc/apt/sources.list.d/ubuntu.sources"
+      ],
+      "official_probe_urls": ["https://archive.ubuntu.com/ubuntu/"]
+    },
+    "arch": {
+      "platforms": ["linux"],
+      "phases": ["Bootstrap", "Runtime"],
+      "adapter": "chsrc-system",
+      "chsrc_target": "arch",
+      "scope": "system",
+      "resource_paths": ["/etc/pacman.d/mirrorlist"],
+      "official_probe_urls": ["https://geo.mirror.pkgbuild.com/"]
+    },
+    "docker": {
+      "platforms": ["windows", "macos", "linux"],
+      "phases": ["Optional"],
+      "adapter": "docker",
+      "scope": "system",
+      "official_probe_urls": ["https://registry-1.docker.io/v2/"],
+      "mirror_urls": [
+        "https://docker.m.daocloud.io",
+        "https://docker.1panel.live"
+      ]
+    },
+    "nix": {
+      "platforms": ["macos", "linux"],
+      "phases": ["Optional"],
+      "adapter": "nix-extension",
+      "chsrc_target": "nix",
+      "scope": "user",
+      "reason": "由 Nix 试点按 flake/substituter 机制接入",
+      "official_probe_urls": ["https://cache.nixos.org/nix-cache-info"]
+    }
+  }
+}
