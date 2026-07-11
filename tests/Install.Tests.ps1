@@ -45,12 +45,14 @@ exit 0
 
         $legacyAppPaths = @(
             'profile/installer/installApp.ps1',
-            'linux/04installApps.ps1'
+            'linux/04installApps.ps1',
+            'linux/05installCoreCli.ps1'
         )
         foreach ($relativePath in $legacyAppPaths) {
             $appPath = Join-Path $script:TempRoot $relativePath
             New-Item -ItemType Directory -Path (Split-Path -Parent $appPath) -Force | Out-Null
             Set-Content -LiteralPath $appPath -Encoding utf8NoBOM -Value @'
+param([string]$Preset, [switch]$WhatIf)
 "legacy-app" | Set-Content -LiteralPath (Join-Path $ProjectRoot 'legacy-app-called.log') -Encoding utf8NoBOM
 '@
         }

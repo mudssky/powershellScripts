@@ -10,7 +10,7 @@
   },
   "targets": {
     "brew": {
-      "platforms": ["macos"],
+      "platforms": ["macos", "linux"],
       "phases": ["Bootstrap", "Runtime"],
       "adapter": "managed-env",
       "chsrc_target": "brew",

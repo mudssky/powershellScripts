@@ -206,7 +206,8 @@ if ($installApp) {
         . "$ProjectRoot/profile/installer/installApp.ps1"
     }
     elseif ( $IsLinux) {
-        . "$ProjectRoot/linux/04installApps.ps1"
+        & "$ProjectRoot/linux/05installCoreCli.ps1" -Preset Core -WhatIf:$WhatIfPreference
+        exit $LASTEXITCODE
     }
     elseif ($IsMacOS) {
         . "$ProjectRoot/profile/installer/installApp.ps1"

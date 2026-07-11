@@ -287,6 +287,14 @@ function resolveQaTestPaths(modeValue, sinceRef, pathspecs) {
       continue
     }
 
+    if (
+      changedFile.startsWith('linux/') ||
+      changedFile === 'config/network/package-sources.json'
+    ) {
+      addQaTestPath(selected, './tests/LinuxInstallPipeline.Tests.ps1')
+      continue
+    }
+
     if (changedFile.startsWith('tests/') && changedFile.endsWith('.Tests.ps1')) {
       addQaTestPath(selected, changedFile)
       continue
@@ -354,6 +362,8 @@ function runRootPwshQa(modeValue, sinceRef) {
   const pwshPathspecs = [
     'scripts/pwsh',
     'config/install',
+    'config/network/package-sources.json',
+    'linux',
     'macos',
     'profile',
     'tests',

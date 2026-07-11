@@ -1,44 +1,34 @@
+#!/usr/bin/env pwsh
 
+<#
+.SYNOPSIS
+    兼容旧 Linux 应用入口并转发到 Core CLI 叶子。
 
-$modulePath = Resolve-Path -Path (Join-Path $PSScriptRoot '../psutils')
-Import-Module -Name $modulePath
+.PARAMETER Unattended
+    透传无人值守模式。
 
-$configPath = (Resolve-Path -Path (Join-Path $PSScriptRoot '../profile/installer/apps-config.json')).Path
-Install-PackageManagerApps -PackageManager 'homebrew' -ConfigPath $configPath -FilterByOS $true -TargetOS 'Linux' -FilterPredicates {
-    param($appInfo)
-    $appInfo.tag -contains 'linuxserver'
+.PARAMETER NonInteractive
+    透传严格非交互模式。
+
+.OUTPUTS
+    新 Core CLI 叶子的文本结果和退出码。
+#>
+[CmdletBinding(SupportsShouldProcess)]
+param(
+    [switch]$Unattended,
+
+    [switch]$NonInteractive
+)
+
+$targetPath = Join-Path $PSScriptRoot '05installCoreCli.ps1'
+Write-Warning 'linux/04installApps.ps1 已弃用，请改用根 install.ps1 -Preset Core 或 linux/05installCoreCli.ps1'
+$parameters = @{
+    Preset         = 'Core'
+    Unattended     = $Unattended
+    NonInteractive = $NonInteractive
 }
-
-
-if (-not (Test-EXEProgram -Name 'bun')) {
-    # bash ./ubuntu/installer/install_bun.sh
-    npm install -g nrm --registry='https://registry.npmmirror.com'
-    nrm use taobao
-    npm install -g bun 
-    $bashrcPath = Join-Path $HOME '.bashrc'
-    # 确保.bashrc文件存在
-    # if (-not (Test-Path $bashrcPath)) {
-    #     New-Item -Path $bashrcPath -ItemType File -Force | Out-Null
-    # }
-    # 检查bashrc中是否已包含bun路径配置（使用简单字符串匹配避免正则表达式问题）
-    if (-not (Select-String -Path $bashrcPath -Pattern '.bun/bin' -SimpleMatch -Quiet)) {
-        Add-Content -Path $bashrcPath -Value "export PATH=\"~/.bun/bin:$PATH\""
-    }
+if ($WhatIfPreference) {
+    $parameters.WhatIf = $true
 }
-
-if (Test-EXEProgram -Name 'bun') {
-    Install-PackageManagerApps -PackageManager 'bun' -ConfigPath $configPath
-}
-
-if (Test-EXEProgram -Name 'cargo') {
-    Install-PackageManagerApps -PackageManager 'cargo' -ConfigPath $configPath
-} else {
-    Write-Warning "未检测到 Rust 环境 (Cargo)，跳过 Rust 工具安装"
-    Write-Host "建议安装 Rust 以支持相关工具 (如 pwshfmt-rs):" -ForegroundColor Cyan
-    Write-Host "  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh" -ForegroundColor Cyan
-}
-
-if ( -not (Test-EXEProgram -Name 'docker')) {
-    # bash ./ubuntu/installer/install_docker.sh
-    bash ./ubuntu/installer/installDocker.sh
-}
+& $targetPath @parameters
+exit $LASTEXITCODE

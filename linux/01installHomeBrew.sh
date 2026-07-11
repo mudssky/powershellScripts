@@ -1,73 +1,123 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-# 01installHomeBrew.sh
-# 集成官方源与国内源 (清华源) 的 Homebrew 安装脚本
-# 如果官方源连接失败，自动切换到国内源安装
+set -euo pipefail
 
-# 定义官方安装函数
-install_brew_official() {
-    echo "Starting official Homebrew installation..."
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+NETWORK_MODE='Direct'
+UNATTENDED=false
+NON_INTERACTIVE=false
+DRY_RUN=false
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+# shellcheck source=linux/lib/install-common.sh
+source "$SCRIPT_DIR/lib/install-common.sh"
+
+# 功能：输出 Linuxbrew 安装步骤帮助。
+# 参数：无。
+# 返回：无，内容写入 stdout。
+usage() {
+    cat <<'EOF'
+Usage: 01installHomeBrew.sh [options]
+
+Options:
+  --network-mode Direct|China|Auto  Stage 0 网络模式，默认 Direct
+  --unattended                     允许开头一次 sudo 认证
+  --non-interactive                严格零提示
+  --dry-run                        只显示计划
+  -h, --help                       显示帮助
+EOF
 }
 
-# 定义国内源安装函数 (清华源)
-install_brew_cn() {
-    echo "Starting Homebrew installation using Tsinghua mirrors..."
-    export HOMEBREW_BREW_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/brew.git"
-    export HOMEBREW_CORE_GIT_REMOTE="https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/homebrew-core.git"
-    export HOMEBREW_INSTALL_FROM_API=1
-
-    INSTALL_DIR="~/projects/env" # 指定安装目录
-
-    mkdir -p "${INSTALL_DIR}"
-
-    # 确保清理旧的临时目录
-    if [ -d "${INSTALL_DIR}/brew-install" ]; then
-        rm -rf "${INSTALL_DIR}/brew-install"
+# 功能：定位现有 Linuxbrew 可执行文件。
+# 参数：无。
+# 返回：0 并输出路径，1 未找到。
+find_linuxbrew() {
+    if [ "${POWERSHELL_SCRIPTS_FORCE_MISSING_BREW:-}" != '1' ] && command -v brew >/dev/null 2>&1; then
+        command -v brew
+        return 0
     fi
-
-    git clone --depth=1 https://mirrors.tuna.tsinghua.edu.cn/git/homebrew/install.git "${INSTALL_DIR}/brew-install"
-    /bin/bash "${INSTALL_DIR}/brew-install/install.sh"
-
-    # 清理安装脚本目录
-    rm -rf "${INSTALL_DIR}/brew-install"
-}
-
-# 配置环境变量函数
-configure_shell_env() {
-    # 检查环境变量，不存在则进行配置
-    if [ -z "$(echo $PATH | grep /home/linuxbrew/.linuxbrew/bin)" ]; then
-        echo "Configuring Homebrew environment variables..."
-
-        # 写入 .bashrc (如果尚未存在)
-        if ! grep -q "/home/linuxbrew/.linuxbrew/bin/brew shellenv" ~/.bashrc; then
-             echo >> ~/.bashrc
-             echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> ~/.bashrc
+    local candidate
+    for candidate in /home/linuxbrew/.linuxbrew/bin/brew "$HOME/.linuxbrew/bin/brew"; do
+        if [ "${POWERSHELL_SCRIPTS_FORCE_MISSING_BREW:-}" != '1' ] && [ -x "$candidate" ]; then
+            printf '%s\n' "$candidate"
+            return 0
         fi
-
-        # 立即生效
-        eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-    fi
+    done
+    return 1
 }
 
-# 主逻辑开始
+# 功能：加载 brew shellenv 并验证 prefix。
+# 参数：$1 brew 可执行文件。
+# 返回：0 验证成功，非零表示 shellenv 或 prefix 失败。
+load_linuxbrew_environment() {
+    local brew_path="$1"
+    eval "$("$brew_path" shellenv)"
+    brew --prefix >/dev/null
+}
 
-# 判断 brew 是否已安装
-if ! command -v brew &> /dev/null
-then
-    echo "Brew not found. Checking network connectivity to official source..."
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --network-mode)
+            [ "$#" -ge 2 ] || linux_install_fail '--network-mode 需要一个值' 2
+            NETWORK_MODE="$2"
+            shift 2
+            ;;
+        --unattended)
+            UNATTENDED=true
+            shift
+            ;;
+        --non-interactive)
+            NON_INTERACTIVE=true
+            shift
+            ;;
+        --dry-run)
+            DRY_RUN=true
+            shift
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            linux_install_fail "未知参数: $1" 2
+            ;;
+    esac
+done
 
-    # 测试官方源连通性 (5秒超时)
-    if curl --connect-timeout 5 -I https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh &> /dev/null; then
-        echo "Network check passed. Using official installer."
-        install_brew_official
-    else
-        echo "Network check failed or timed out. Falling back to Tsinghua mirrors."
-        install_brew_cn
-    fi
+linux_install_value_in "$NETWORK_MODE" Direct China Auto || linux_install_fail "不支持的 network mode: $NETWORK_MODE" 2
+[ "$UNATTENDED" != true ] || [ "$NON_INTERACTIVE" != true ] || linux_install_fail '--unattended 与 --non-interactive 不能同时使用' 2
+linux_install_detect_platform || linux_install_fail 'Linuxbrew 步骤只能在 Linux/WSL 中运行' 10
+[ "$LI_ARCHITECTURE" = 'amd64' ] || linux_install_fail "首期不支持架构: $LI_ARCHITECTURE" 10
 
-    # 配置环境变量
-    configure_shell_env
-else
-    echo "Brew found, skipping installation."
+if brew_path="$(find_linuxbrew)"; then
+    load_linuxbrew_environment "$brew_path"
+    printf 'Linuxbrew 已就绪: %s\n' "$(brew --prefix)"
+    exit 0
 fi
+
+command -v curl >/dev/null 2>&1 || linux_install_fail '缺少 curl，无法下载 Homebrew 安装器' 10
+linux_install_prepare_sudo "$UNATTENDED" "$NON_INTERACTIVE" "$DRY_RUN" ||
+    linux_install_fail '当前交互模式无法获得 sudo 权限' 10
+
+repo_root="$(cd -- "$SCRIPT_DIR/.." >/dev/null 2>&1 && pwd)"
+bootstrap_helper="$repo_root/scripts/bash/package-source-bootstrap.sh"
+[ -f "$bootstrap_helper" ] || linux_install_fail "Stage 0 source helper 不存在: $bootstrap_helper" 10
+
+if [ "$DRY_RUN" = true ]; then
+    printf '[DRY] 下载 Homebrew 官方安装器\n'
+    bash "$bootstrap_helper" --mode "$NETWORK_MODE" --target brew --dry-run -- /bin/bash /tmp/homebrew-install.sh
+    exit $?
+fi
+
+installer_path="$(mktemp -t powershellScripts-homebrew.XXXXXX)"
+trap 'rm -f "$installer_path"' EXIT
+curl -fsSL 'https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh' -o "$installer_path"
+
+install_command=(/bin/bash "$installer_path")
+if [ "$UNATTENDED" = true ] || [ "$NON_INTERACTIVE" = true ]; then
+    install_command=(env NONINTERACTIVE=1 /bin/bash "$installer_path")
+fi
+bash "$bootstrap_helper" --mode "$NETWORK_MODE" --target brew -- "${install_command[@]}"
+
+brew_path="$(find_linuxbrew)" || linux_install_fail 'Homebrew 安装完成后仍找不到 brew'
+load_linuxbrew_environment "$brew_path"
+printf 'Linuxbrew 安装完成: %s\n' "$(brew --prefix)"
