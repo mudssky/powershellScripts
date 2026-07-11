@@ -12,6 +12,7 @@
 
 * 优先复用根目录已有 PowerShell 脚本入口，例如 `format:pwsh`、`test:pwsh:qa`、`test:pwsh:full:assertions`。
 * 不要在包级脚本中重写 Pester 环境变量拼装逻辑；需要指定模式或路径时复用 `scripts/pwsh/devops/Invoke-PesterMode.ps1`。
+* `Invoke-PesterMode.ps1` 未显式传入 `-Path` 时必须保留上游 `PWSH_TEST_PATH`；只有显式参数才覆盖或清空，确保 `scripts/qa.mjs` 的 changed 测试集能到达 Pester。
 * 新增或修改脚本配置加载时，先阅读 [Config Loading](./config-loading.md)，优先复用 `psutils/src/config` 通过 `psutils/modules/config.psm1` 暴露的解析器。
 * 修改 `scripts/pwsh/misc/package-sources/**` 或 `Switch-Mirrors.ps1` 时，先阅读 [Package Source Transactions](../../infra/package-sources.md)。
 * 改动涉及 `profile` 或 `psutils` 时确认是否应归入对应包，不要把所有 PowerShell 规则塞进 `scripts/pwsh`。
@@ -28,6 +29,12 @@
 * 配置或文档改动可只做可发现性检查。
 * 修改 PowerShell 脚本逻辑时至少运行根目录 `qa:pwsh`，或按需运行 `pnpm --filter pwsh-scripts test:qa`。
 * 若改动影响 Pester 配置、coverage 规则或 Linux 容器测试，仍需遵循根目录 `pnpm test:pwsh:all` / coverage 规则。
+
+## Git Pathspec Contract
+
+* PowerShell 调用 Git 查找递归文件时使用 Git pathspec magic，例如 `:(glob)**/*.ps1`。
+* 不要把裸 `*.ps1` 作为 PowerShell 原生命令参数；PowerShell 可能先把它展开为当前目录文件，导致嵌套改动静默漏检。
+* wrapper 的 Git changed 与递归模式需要分别测试；Linux 测试镜像缺少 Git 时，只允许 Git-only 用例 Skip，递归发现仍必须执行。
 
 ## Guidelines
 

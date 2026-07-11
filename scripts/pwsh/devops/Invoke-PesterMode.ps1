@@ -23,6 +23,7 @@
 
 .PARAMETER Path
     可选的单文件或子集测试路径，对应 `PWSH_TEST_PATH`。
+    未显式传入时保留调用方已有环境变量，便于 QA 编排器注入 changed 测试集。
 
 .EXAMPLE
     pwsh -NoProfile -File ./scripts/pwsh/devops/Invoke-PesterMode.ps1 -Mode qa
@@ -99,11 +100,13 @@ try {
         Remove-Item Env:\PWSH_TEST_VERBOSE -ErrorAction SilentlyContinue
     }
 
-    if ([string]::IsNullOrWhiteSpace($Path)) {
-        Remove-Item Env:\PWSH_TEST_PATH -ErrorAction SilentlyContinue
-    }
-    else {
-        [Environment]::SetEnvironmentVariable('PWSH_TEST_PATH', $Path, 'Process')
+    if ($PSBoundParameters.ContainsKey('Path')) {
+        if ([string]::IsNullOrWhiteSpace($Path)) {
+            Remove-Item Env:\PWSH_TEST_PATH -ErrorAction SilentlyContinue
+        }
+        else {
+            [Environment]::SetEnvironmentVariable('PWSH_TEST_PATH', $Path, 'Process')
+        }
     }
 
     $configuration = & $configPath
