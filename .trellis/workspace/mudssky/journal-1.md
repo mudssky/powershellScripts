@@ -1083,3 +1083,37 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 33: Arch Linux Core 支持与旧目录归档
+
+**Date**: 2026-07-12
+**Task**: Arch Linux Core 支持与旧目录归档
+**Branch**: `master`
+
+### Summary
+
+将 Arch amd64 接入统一 Linux Core 流水线，新增 pacman、官方 PowerShell tarball 校验与可选 yay；归档旧 archlinux、ubuntu、wsl2 和 cloundsever 目录并更新归档索引。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e7683af` | (see git log) |
+| `b0dba43` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

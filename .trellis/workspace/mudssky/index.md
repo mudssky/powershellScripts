@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 32
+- **Total Sessions**: 33
 - **Last Active**: 2026-07-12
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1085 | Active |
+| `journal-1.md` | ~1119 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 33 | 2026-07-12 | Arch Linux Core 支持与旧目录归档 | `e7683af`, `b0dba43` | `master` |
 | 32 | 2026-07-12 | 归档 PromptX Trae 与 OpenSpec | `bca88cb` | `master` |
 | 31 | 2026-07-12 | 项目冷归档技能与 JSON 索引 | `fe8b47b` | `master` |
 | 30 | 2026-07-12 | 收敛个人配置仓库边界并暂缓 Nix 试点 | - | `master` |
