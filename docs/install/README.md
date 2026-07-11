@@ -7,8 +7,9 @@
 
 ## Windows 环境配置
 
-1. 执行 `profile/installer/installApp.ps1` 安装依赖
-2. 执行 `pwsh -File profile/profile.ps1 -LoadProfile` 加载配置
+1. 从普通用户 Windows PowerShell 执行 `windows/00quickstart.ps1 -Preset Core`
+2. 需要 terminal extras 与 AutoHotkey 时使用 `-Preset Full`
+3. 使用 `pwsh windows/99verifyInstall.ps1 -Preset Core|Full` 做只读验证
 
 ## macOS 环境配置
 
@@ -18,8 +19,8 @@
 
 ## Linux（WSL）环境配置
 
-1. 配置 `wslconfig`，执行 `./linux/wsl2/loadWslConfig.ps1`
-2. 配置 WSL2 DNS
+1. 在 Windows 宿主显式执行 `windows/00quickstart.ps1 -IncludeWsl`；配置变化后手工执行 `wsl --shutdown`
+2. WSL 客体执行 `linux/00quickstart.sh`，由 `linux/wsl/wsl.conf` 管理 systemd 等客体配置
 
 ```text
 # /etc/wsl.conf 这个文件增加下面的配置后，就不会随机生成了
@@ -33,7 +34,4 @@ generateResolvConf = false
 nameserver 114.114.114.114
 ```
 
-3. 安装 git 和 gh：`sudo apt install git gh`，或直接执行 `linux/00`
-4. 安装 Homebrew 与 PowerShell：执行 `linux\01installHomeBrew.sh`
-5. 执行 `linux\02installApps.ps1`
-6. 执行 `pwsh -File profile/profile.ps1 -LoadProfile` 加载配置
+3. 推荐直接执行 `bash linux/00quickstart.sh --preset Core`

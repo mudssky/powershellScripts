@@ -18,34 +18,33 @@
 
 ### 1. 安装 AutoHotkey 2.0
 
-项目提供了自动安装脚本 `install-autohotkey.ps1`，可以自动下载并安装最新版本的 AutoHotkey 2.0：
+Full 流水线会在 Stage 0 的一次 UAC 计划中安装 AutoHotkey v2，并在 09 中部署当前用户 Startup：
 
 ```powershell
-# 以管理员身份运行 PowerShell，然后执行：
-.\install-autohotkey.ps1
+# 从仓库根目录，以普通用户 PowerShell 运行
+powershell.exe -NoProfile -File .\windows\00quickstart.ps1 -Preset Full
 
-# 静默安装（无用户交互）
-.\install-autohotkey.ps1 -Silent
+# 独立安装或验证兼容入口
+pwsh .\scripts\ahk\install-autohotkey.ps1 -NetworkMode Direct
 
-# 强制重新安装（即使已安装）
-.\install-autohotkey.ps1 -Force
+# 预览构建、Startup 和启动动作
+pwsh .\windows\09deployAutoHotkey.ps1 -Preset Full -WhatIf
 ```
 
 #### 注意事项
 
-- 建议以管理员身份运行 PowerShell
-- 确保 PowerShell 执行策略允许运行脚本
-- 脚本会自动从 GitHub 下载最新版本
-- 安装完成后需要重启终端以使用 AutoHotkey 命令
+- 必须从普通用户 PowerShell 启动；机器安装由隔离 helper 请求 UAC。
+- `NonInteractive` 缺少 AutoHotkey 时返回 Blocked/10，不弹 UAC。
+- Direct 无 winget 时会下载官方 release 并校验 Authenticode 签名。
+- China/Auto 缺少结构化 winget source adapter 时不会静默回退 Direct。
 
 ### 2. 部署脚本
 
-makeScripts是powershell脚本，用于把scripts目录里面的所有脚本和base.ahk拼接成一个并且在startup目录创建快捷方式，然后再执行一遍最终生成的ahk脚本。
+`makeScripts.ps1` 把 `scripts` 目录与 `base.ahk` 生成稳定聚合脚本，在当前用户 Startup 创建快捷方式，并可启动最终脚本。
 
-注意先确认powershell的执行权限，还有autohotkey v2是否正确安装再执行。
-**可能会需要管理员权限才能执行**。
+脚本支持 `-WhatIf`、`-NoAutoStart`、`-SkipShortcut`，以及可覆盖的 Output/Startup 路径。构建和 Startup 不需要管理员权限，也不得由提升进程执行。
 
-默认会采用include的方式进行拼接，有一个 `-concatNotInclude`参数，如果传递给脚本
+默认会采用 include 的方式生成，有一个 `-ConcatNotInclude` 参数，如果传递给脚本
 最后生成的ahk文件就是完整拼接的了。
 
 ## 01. capslock.ahk

@@ -15,6 +15,7 @@
 * Pester 运行方式复用 `scripts/pwsh/devops/Invoke-PesterMode.ps1`，包内脚本通过 `PWSH_TEST_PATH` 限定 `./tests`。
 * 覆盖率门槛仍由根目录 `PesterConfiguration.ps1` 统一管理；包级 `test:full` 只做断言回归，不单独改 coverage 策略。
 * 修改 WSL Docker wrapper 或 docker 参数路径转换时，先阅读 [WSL Docker Wrapper](./wsl-docker-wrapper.md)。
+* NestedModules 之间不共享彼此的私有 session state。模块调用另一个模块导出的函数时，必须在自身作用域按需导入直接依赖；不能只依赖调用方已经导入聚合 `psutils` manifest。
 
 ## Package Script Contract
 
@@ -27,6 +28,7 @@
 * 配置或文档改动可只做可发现性检查。
 * 修改 `psutils/modules`、`psutils/src` 或 `psutils/tests` 时至少运行根目录 PowerShell QA，或按需运行 `pnpm --filter psutils test:qa`。
 * 修改 coverage 规则、Pester 配置或跨平台测试策略时，回到根目录执行完整 PowerShell 测试规则。
+* 修改 nested module 依赖时，至少用“单独导入消费模块后调用其公共函数”的测试覆盖，防止聚合 manifest 掩盖兄弟模块命令不可见问题。
 
 ## Guidelines
 

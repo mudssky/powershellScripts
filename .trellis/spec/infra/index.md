@@ -25,3 +25,4 @@
 | [Install Orchestrator](./install-orchestrator.md) | 根安装入口、Stage 1 步骤注册、Preset、失败传播与 source cleanup 合同 | Active |
 | [macOS Install Pipeline](./macos-install-pipeline.md) | macOS Stage 0、Core/Full 叶子、桌面集成幂等与 99 验证合同 | Active |
 | [Linux/WSL Install Pipeline](./linux-install-pipeline.md) | Ubuntu/Debian 与 WSL Stage 0、Core/Full、Docker、客体配置和 99 验证合同 | Active |
+| [Windows Install Pipeline](./windows-install-pipeline.md) | Windows Stage 0、一次 UAC、Core/Full、AutoHotkey、WSL 宿主和 99 验证合同 | Active |

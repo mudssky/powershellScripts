@@ -31,6 +31,7 @@
 ### 3. Contracts
 
 - `config/install/steps.psd1` 是编号、Preset、依赖和平台未来路径的唯一真源，只允许 data literal。
+- 非 source 叶子默认只接收 Preset 与交互参数；Windows `platform-automation` 额外接收 NetworkMode，以便独立 09 调用遵守 winget Stage 0 source 合同。
 - validator 必须拒绝重复 ID/编号、未知依赖、循环、未知 Runner、非法顺序和 Supported 但缺少 Path。
 - 步骤稳定串行执行；禁止 `Invoke-Expression` 或拼接命令行，必须使用 `ProcessStartInfo.ArgumentList`。
 - `Supported=false` 为 `Skipped`；入口缺失、依赖失败/跳过或叶子退出 10 为 `Blocked`；其他非零退出为 `Failed`。
