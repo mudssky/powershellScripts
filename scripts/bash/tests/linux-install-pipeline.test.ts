@@ -161,6 +161,27 @@ describe('Linux Stage 0 pipeline', () => {
     )
   })
 
+  it('previews Arch pacman prerequisites and Stage 1 handoff', async () => {
+    const workspace = createWorkspace('arch')
+    const result = await execa(
+      'bash',
+      [path.join(repoRoot, 'linux/00quickstart.sh'), '--dry-run'],
+      {
+        env: linuxEnv(workspace, {
+          POWERSHELL_SCRIPTS_FORCE_MISSING_PACMAN_PREREQUISITES: '1',
+        }),
+        reject: false,
+      },
+    )
+
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout).toContain(
+      'pacman -Syu --needed --noconfirm base-devel ca-certificates curl git',
+    )
+    expect(result.stdout).toContain('02installPowerShell.sh')
+    expect(result.stdout).toContain('-Preset Core')
+  })
+
   it('previews Linuxbrew and PowerShell without installing', async () => {
     const workspace = createWorkspace()
     const brew = await execa(
@@ -208,7 +229,47 @@ describe('Linux Stage 0 pipeline', () => {
     )
 
     expect(result.exitCode).toBe(10)
-    expect(result.stderr).toContain('请提供本地 deb 或预装 PowerShell 7')
+    expect(result.stderr).toContain('请提供本地安装包或预装 PowerShell 7')
+  })
+
+  it('previews the official PowerShell tarball path on Arch', async () => {
+    const workspace = createWorkspace('arch')
+    const result = await execa(
+      'bash',
+      [path.join(repoRoot, 'linux/02installPowerShell.sh'), '--dry-run'],
+      {
+        env: linuxEnv(workspace, {
+          POWERSHELL_SCRIPTS_FORCE_MISSING_PWSH: '1',
+        }),
+        reject: false,
+      },
+    )
+
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout).toContain('linux-x64 tarball')
+    expect(result.stdout).toContain('SHA256')
+    expect(result.stdout).toContain('/opt/microsoft/powershell/7')
+  })
+
+  it('previews optional yay without cloning or writing', async () => {
+    const workspace = createWorkspace('arch')
+    const result = await execa(
+      'bash',
+      [path.join(repoRoot, 'linux/arch/installYay.sh'), '--dry-run'],
+      {
+        env: linuxEnv(workspace, {
+          POWERSHELL_SCRIPTS_FORCE_MISSING_YAY: '1',
+        }),
+        reject: false,
+      },
+    )
+
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout).toContain(
+      'pacman -S --needed --noconfirm base-devel git',
+    )
+    expect(result.stdout).toContain('aur.archlinux.org/yay.git')
+    expect(result.stdout).toContain('makepkg -si --needed --noconfirm')
   })
 })
 
@@ -292,7 +353,7 @@ describe('Linux Stage 1 shell wrappers', () => {
         `source "${path.join(repoRoot, 'shell/shared.d/homebrew.sh')}"; printf '%s\\n%s' "$HOMEBREW_PREFIX" "$PATH"`,
       ],
       {
-        // 显式指定 prefix，跳过路径探测，避免 CI（如 ubuntu-latest 预装的系统级 Linuxbrew）干扰隔离 fixture。
+        // 显式指定 prefix，跳过路径探测，避免 CI 预装的系统级 Linuxbrew 干扰隔离 fixture。
         env: linuxEnv(workspace, {
           POWERSHELL_SCRIPTS_HOMEBREW_PREFIX: prefix,
         }),
