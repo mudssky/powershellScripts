@@ -986,3 +986,34 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 30: 收敛个人配置仓库边界并暂缓 Nix 试点
+
+**Date**: 2026-07-12
+**Task**: 收敛个人配置仓库边界并暂缓 Nix 试点
+**Branch**: `master`
+
+### Summary
+
+完成个人配置仓库边界父任务的 PRD convergence：规则化 CLI/脚本准入、单仓库与冷归档边界、三平台安装、Ansible/Nix 职责均已确认；父任务归档，Nix devshell 保留为独立 planning 任务并暂缓实施。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+(No commits - planning session)
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
