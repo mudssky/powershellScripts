@@ -15,11 +15,38 @@
     .\install.ps1
     安装命令行工具，支持windows，linux平台
     .\install.ps1 -installApp
+
+.EXAMPLE
+    .\install.ps1 -Preset Core -WhatIf
+
+.EXAMPLE
+    .\install.ps1 -Preset Full -NetworkMode China -OutputFormat Json
 #>
 
-[CmdletBinding()]
+[CmdletBinding(SupportsShouldProcess)]
 param(
-    [switch]$installApp
+    [switch]$installApp,
+
+    [ValidateSet('Core', 'Full')]
+    [string]$Preset = '',
+
+    [switch]$ListSteps,
+
+    [string[]]$Step,
+
+    [string]$FromStep = '',
+
+    [string[]]$SkipStep,
+
+    [ValidateSet('Direct', 'China', 'Auto')]
+    [string]$NetworkMode = 'Direct',
+
+    [ValidateSet('Text', 'Json')]
+    [string]$OutputFormat = 'Text',
+
+    [switch]$Unattended,
+
+    [switch]$NonInteractive
 )
 
 
@@ -27,9 +54,153 @@ param(
 $ProjectRoot = $PSScriptRoot
 $BinDir = Join-Path $ProjectRoot 'bin'
 $NodeScriptsDir = Join-Path $ProjectRoot 'scripts/node'
+$InstallOrchestratorModule = Join-Path $ProjectRoot 'scripts/pwsh/install/InstallOrchestrator.psm1'
+$InstallStepRegistry = Join-Path $ProjectRoot 'config/install/steps.psd1'
+
+
+function Write-InstallCliError {
+    <#
+    .SYNOPSIS
+        按请求的输出格式写入安装入口参数错误。
+
+    .PARAMETER Message
+        参数错误说明。
+
+    .PARAMETER Format
+        Text 或 Json。
+
+    .OUTPUTS
+        None。错误写入 stderr 或 JSON stdout。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Message,
+
+        [ValidateSet('Text', 'Json')]
+        [string]$Format = 'Text'
+    )
+
+    if ($Format -eq 'Json') {
+        [pscustomobject]@{
+            SchemaVersion = 1
+            Status        = 'InvalidArguments'
+            ExitCode      = 2
+            Message       = $Message
+        } | ConvertTo-Json -Depth 5
+        return
+    }
+    [Console]::Error.WriteLine($Message)
+}
+
+$orchestratorParameterNames = @(
+    'Preset',
+    'ListSteps',
+    'Step',
+    'FromStep',
+    'SkipStep',
+    'NetworkMode',
+    'OutputFormat',
+    'Unattended',
+    'NonInteractive'
+)
+$hasOrchestratorIntent = @($orchestratorParameterNames | Where-Object { $PSBoundParameters.ContainsKey($_) }).Count -gt 0
+
+if ($installApp -and $hasOrchestratorIntent) {
+    Write-InstallCliError -Message 'installApp 不能与 Preset、步骤选择或编排输出参数组合' -Format $OutputFormat
+    exit 2
+}
+$listStepsExecutionArguments = -not [string]::IsNullOrWhiteSpace($Preset) -or
+    @($Step | Where-Object { $_ }).Count -gt 0 -or
+    -not [string]::IsNullOrWhiteSpace($FromStep) -or
+    @($SkipStep | Where-Object { $_ }).Count -gt 0 -or
+    $PSBoundParameters.ContainsKey('NetworkMode') -or
+    $Unattended -or
+    $NonInteractive -or
+    $PSBoundParameters.ContainsKey('WhatIf')
+if ($ListSteps -and $listStepsExecutionArguments) {
+    Write-InstallCliError -Message 'ListSteps 只能与 OutputFormat 组合，不能携带执行参数' -Format $OutputFormat
+    exit 2
+}
+if ($PSBoundParameters.ContainsKey('OutputFormat') -and -not $ListSteps -and
+    [string]::IsNullOrWhiteSpace($Preset) -and -not $installApp) {
+    Write-InstallCliError -Message 'OutputFormat 必须与 ListSteps 或 Preset Core/Full 一起使用' -Format $OutputFormat
+    exit 2
+}
+if ($Unattended -and $NonInteractive) {
+    Write-InstallCliError -Message 'Unattended 与 NonInteractive 不能同时使用' -Format $OutputFormat
+    exit 2
+}
+if (@($Step | Where-Object { $_ }).Count -gt 0 -and -not [string]::IsNullOrWhiteSpace($FromStep)) {
+    Write-InstallCliError -Message 'Step 与 FromStep 不能同时使用' -Format $OutputFormat
+    exit 2
+}
+
+$hasExecutionFilter = @($Step | Where-Object { $_ }).Count -gt 0 -or
+    -not [string]::IsNullOrWhiteSpace($FromStep) -or
+    @($SkipStep | Where-Object { $_ }).Count -gt 0 -or
+    $PSBoundParameters.ContainsKey('NetworkMode') -or
+    $Unattended -or
+    $NonInteractive -or
+    $PSBoundParameters.ContainsKey('WhatIf')
+if ($hasExecutionFilter -and [string]::IsNullOrWhiteSpace($Preset) -and -not $installApp) {
+    Write-InstallCliError -Message '步骤执行参数必须与 Preset Core 或 Full 一起使用' -Format $OutputFormat
+    exit 2
+}
+
+if ($ListSteps -or -not [string]::IsNullOrWhiteSpace($Preset)) {
+    if (-not (Test-Path -LiteralPath $InstallOrchestratorModule -PathType Leaf)) {
+        Write-InstallCliError -Message "安装编排模块不存在: $InstallOrchestratorModule" -Format $OutputFormat
+        exit 1
+    }
+    Import-Module $InstallOrchestratorModule -Force
+    try {
+        $registry = Import-InstallStepRegistry -Path $InstallStepRegistry
+        $platform = Resolve-InstallPlatform
+        if ($ListSteps) {
+            $steps = Get-InstallStepCatalog -Registry $registry -Platform $platform
+            if ($OutputFormat -eq 'Json') {
+                [pscustomobject]@{
+                    SchemaVersion = 1
+                    Platform      = $platform
+                    Steps         = @($steps)
+                } | ConvertTo-Json -Depth 20
+            }
+            else {
+                $steps | Format-Table Number, Id, Supported, Path -AutoSize
+            }
+            exit 0
+        }
+
+        $document = Invoke-InstallOrchestrator `
+            -Registry $registry `
+            -RepoRoot $ProjectRoot `
+            -Platform $platform `
+            -Preset $Preset `
+            -Step $Step `
+            -FromStep $FromStep `
+            -SkipStep $SkipStep `
+            -NetworkMode $NetworkMode `
+            -Preview:$WhatIfPreference `
+            -Unattended:$Unattended `
+            -NonInteractive:$NonInteractive
+        if ($OutputFormat -eq 'Json') {
+            [Console]::Out.WriteLine((ConvertTo-InstallRunJson -Document $document))
+        }
+        else {
+            Write-InstallRunText -Document $document
+        }
+        exit $document.ExitCode
+    }
+    catch {
+        Write-InstallCliError -Message $_.Exception.Message -Format $OutputFormat
+        exit 2
+    }
+}
 
 
 if ($installApp) {
+    Write-Warning 'installApp 已弃用；该兼容入口暂时保留，且不等价于 -Preset Full'
     Write-Host "安装应用..." -ForegroundColor Cyan
     if ($IsWindows) {
         . "$ProjectRoot/profile/installer/installApp.ps1"

@@ -277,6 +277,16 @@ function resolveQaTestPaths(modeValue, sinceRef, pathspecs) {
   }
 
   for (const changedFile of changedFiles) {
+    if (
+      changedFile === 'install.ps1' ||
+      changedFile.startsWith('config/install/') ||
+      changedFile.startsWith('scripts/pwsh/install/')
+    ) {
+      addQaTestPath(selected, './tests/Install.Tests.ps1')
+      addQaTestPath(selected, './tests/InstallOrchestrator.Tests.ps1')
+      continue
+    }
+
     if (changedFile.startsWith('tests/') && changedFile.endsWith('.Tests.ps1')) {
       addQaTestPath(selected, changedFile)
       continue
@@ -343,6 +353,7 @@ function runRootPwshQa(modeValue, sinceRef) {
   // 同时通过 PWSH_TEST_PATH 精确收缩测试范围，避免 changed 模式退化成全量 Pester。
   const pwshPathspecs = [
     'scripts/pwsh',
+    'config/install',
     'profile',
     'tests',
     'psutils/modules',
