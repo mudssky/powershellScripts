@@ -884,3 +884,37 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 27: Windows 安装流水线
+
+**Date**: 2026-07-11
+**Task**: Windows 安装流水线
+**Branch**: `master`
+
+### Summary
+
+新增 Windows PS5.1 Stage 0、一次受限 UAC、Scoop Core/Full、字体、Profile、AutoHotkey、WSL 宿主和 99 验证；补齐文档规范，并通过 pnpm qa 与 macOS/Linux Docker 全量 PowerShell 回归。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e7dd930` | (see git log) |
+| `a7e09a7` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
