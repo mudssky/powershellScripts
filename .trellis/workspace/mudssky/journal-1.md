@@ -782,3 +782,37 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 24: 完成统一安装编排器与预设
+
+**Date**: 2026-07-11
+**Task**: 完成统一安装编排器与预设
+**Branch**: `master`
+
+### Summary
+
+新增跨平台 Stage 1 注册表与编排引擎，保留 legacy 入口，完成 Direct/China/Auto source 生命周期、结构化输出、失败重跑、文档规范及 host/Linux 全量验证。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5ed1da4` | (see git log) |
+| `24d0ac2` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
