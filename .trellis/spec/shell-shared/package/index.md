@@ -5,9 +5,9 @@
 
 ## Scope
 
-* 包路径：`shell/shared.d`
-* shell 专属片段（`zle`/`bind -x` 等）属于 `shell/{bash,zsh}.d/`，不在本包
-* 部署机制：`shell/deploy.sh`（glob `*.sh` 软链 + rc 加载器）
+- 包路径：`shell/shared.d`
+- shell 专属片段（`zle`/`bind -x` 等）属于 `shell/{bash,zsh}.d/`，不在本包
+- 部署机制：`shell/deploy.sh`（glob `*.sh` 软链 + rc 加载器）
 
 ## Pre-Development Checklist
 
@@ -16,6 +16,7 @@
 - [ ] **不破坏性 alias**：语法不兼容的工具（`find→fd`、`grep→rg`）**不做 alias**，当独立命令用——alias 会炸掉依赖原语法的脚本/命令。只有行为兼容的（`bat→cat`，管道自动退化）才 alias。
 - [ ] **加载顺序无关**：函数体内引用其它文件的函数时，确认函数定义为惰性（source 时只定义、调用时才解析），不依赖 `*.sh` glob 顺序。若必须保证顺序，用文件名前缀数字而非隐式依赖。
 - [ ] **解析 CLI 输出前先找机器可读选项**：优先使用 `--json`、`--porcelain`、`--format`/`-F`、`--short`、`--no-formatting` 等无样式/结构化输出；展示列可以丰富，但真实参数必须从稳定字段解析，避免 ANSI 颜色或展示文案混入真实参数。
+- [ ] **package source env**：修改 `package-sources.sh` 前阅读 [Package Source Transactions](../../infra/package-sources.md)，只加载明确白名单的 HTTPS 变量。
 - [ ] **加任何 init 前，先全局 grep**：`eval "$(zoxide init ...)"`、`eval "$(starship init ...)"` 等初始化代码极易跨文件重复。新增前先 `grep -r "<tool>" shell/` 确认未被别处初始化（见下方 Anti-pattern）。
 
 ## Interactive Command Lifecycle（交互命令必读）
@@ -34,6 +35,7 @@
 | `fzf_list_action` | 「列表→选择→解析→分派」同构命令（会话/设备管理类） | 回调驱动：`$1` 列表命令、`$3` header、`$4` parser_cmd、`$5` action_cmd 分派器函数名 |
 
 **新增交互命令时**：
+
 1. 先判断它属于「同构列表类」（→ 用 `fzf_list_action`，只填 3 个回调）还是「自定义形态类」（→ 用 `fzf_pick_action` + preview）。
 2. **禁止内联 fzf 调用 + 手写 `--expect` 解析块**——这正是被消除的样板 #3/#4。若发现自己在写 `read key; read line <<EOF`，说明该回流底座了。
 3. 动作分派写成独立的 `_xxx_dispatch` 函数（`fzf_list_action` 按名回调），集中领域知识。

@@ -12,6 +12,7 @@
 
 * 确认改动是否属于 Bash 脚本域；如果只修改 Linux 发行版安装脚本，应优先检查 `linux/*` 目录规范，而不是归入本包。
 * 复用现有 `vitest.config.ts` 与 `systemd-service-manager/vitest.config.ts`，不要为同一测试集合新增平行配置。
+* 修改 package source Stage 0 helper 时，先阅读 [Package Source Transactions](../../infra/package-sources.md)。
 * 新增包级脚本时保持与根目录 `package.json` 的 QA 语义一致，避免根入口和包入口覆盖范围不同。
 
 ## Package Script Contract

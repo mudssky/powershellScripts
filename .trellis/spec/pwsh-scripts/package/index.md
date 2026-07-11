@@ -13,6 +13,7 @@
 * 优先复用根目录已有 PowerShell 脚本入口，例如 `format:pwsh`、`test:pwsh:qa`、`test:pwsh:full:assertions`。
 * 不要在包级脚本中重写 Pester 环境变量拼装逻辑；需要指定模式或路径时复用 `scripts/pwsh/devops/Invoke-PesterMode.ps1`。
 * 新增或修改脚本配置加载时，先阅读 [Config Loading](./config-loading.md)，优先复用 `psutils/src/config` 通过 `psutils/modules/config.psm1` 暴露的解析器。
+* 修改 `scripts/pwsh/misc/package-sources/**` 或 `Switch-Mirrors.ps1` 时，先阅读 [Package Source Transactions](../../infra/package-sources.md)。
 * 改动涉及 `profile` 或 `psutils` 时确认是否应归入对应包，不要把所有 PowerShell 规则塞进 `scripts/pwsh`。
 
 ## Package Script Contract

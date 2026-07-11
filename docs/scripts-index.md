@@ -107,7 +107,8 @@ renameLegal.ps1 -reverse
 | 脚本名 | 描述 | 关键词 |
 |--------|------|--------|
 | Compare-JsonFiles.ps1 | JSON文件对比脚本 | json, compare, diff |
-| Switch-Mirrors.ps1 | 镜像源切换脚本 | mirror, switch, network, china |
+| Invoke-PackageSourceBootstrap.ps1 | Windows PowerShell 5.1 的 winget Stage 0 source helper | bootstrap, winget, source, windows |
+| Switch-Mirrors.ps1 | 跨平台 package source 计划、事务、状态与恢复入口 | mirror, source, transaction, restore |
 | start-container.ps1 | 容器启动管理脚本 | container, docker, start |
 | install.ps1 | 项目安装脚本 | install, setup, configuration |
 | syncConfig.ps1 | 配置文件同步脚本 | sync, config, backup |
