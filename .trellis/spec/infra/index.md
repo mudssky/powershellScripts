@@ -23,3 +23,4 @@
 | [OpenSSH Server (Windows)](./openssh.md) | Windows OpenSSH Server 模板、Enable-WindowsOpenSsh 启用流程、sshd_config 加固与本机运行态边界 | Active |
 | [Package Source Transactions](./package-sources.md) | 跨平台 source 模式、事务、adapter、Stage 0、drift 与恢复合同 | Active |
 | [Install Orchestrator](./install-orchestrator.md) | 根安装入口、Stage 1 步骤注册、Preset、失败传播与 source cleanup 合同 | Active |
+| [macOS Install Pipeline](./macos-install-pipeline.md) | macOS Stage 0、Core/Full 叶子、桌面集成幂等与 99 验证合同 | Active |

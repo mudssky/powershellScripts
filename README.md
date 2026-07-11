@@ -49,6 +49,8 @@ cd powershellScripts
 .\install.ps1 -Preset Core -WhatIf
 ```
 
+macOS 新机可直接使用 `zsh macos/00bootstrap.zsh`；需要 GUI 与桌面集成时显式增加 `--preset Full`。
+
 安装完成后，建议**重启终端**以使环境变量生效。
 
 ### 脚本管理
@@ -160,9 +162,9 @@ runScripts -CommandName build -enableGlobalScripts
 .\install.ps1 -Preset Core -FromStep core-cli
 ```
 
-Stage 0 由各平台入口负责获得 Git、包管理器与 PowerShell 7；根 Stage 1 从 `03 sources` 开始。`Core` 执行 `03`～`07` 与 `99 verify`，`Full` 再加入 `08`～`11`。当前真实新编号平台叶子尚未全部接入，因此缺失入口会明确返回 `Blocked`（退出码 10）。
+Stage 0 由各平台入口负责获得 Git、包管理器与 PowerShell 7；根 Stage 1 从 `03 sources` 开始。`Core` 执行 `03`～`07` 与 `99 verify`，`Full` 再加入 `08`～`11`。macOS 真实叶子已接入；其他平台缺失入口时会明确返回 `Blocked`（退出码 10）。
 
-旧 `-installApp` 暂时保留并输出弃用提示，它仍调用旧平台应用脚本，不等价于 `-Preset Full`。完整参数与 source 事务说明见 [安装指南](docs/INSTALL.md)。
+旧 `-installApp` 暂时保留并输出弃用提示，它调用 legacy 应用安装器，不等价于 `-Preset Full`。完整参数与 source 事务说明见 [安装指南](docs/INSTALL.md)。
 
 ## 🎬 媒体处理工具
 

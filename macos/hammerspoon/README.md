@@ -30,7 +30,7 @@
 2. 部署配置：
 
    ```zsh
-   zsh macos/05deployHammerspoon.sh
+   zsh macos/09deployHammerspoon.zsh
    ```
 
 部署脚本会复制 `init.lua`、默认配置和插件脚本到 `~/.hammerspoon/`，保留本机 `config.local.lua`，并启动或重启 Hammerspoon。
@@ -38,9 +38,9 @@
 常用参数：
 
 ```zsh
-zsh macos/05deployHammerspoon.sh --dry-run
-zsh macos/05deployHammerspoon.sh --no-launch
-zsh macos/05deployHammerspoon.sh --install
+zsh macos/09deployHammerspoon.zsh --dry-run
+zsh macos/09deployHammerspoon.zsh --no-launch
+zsh macos/09deployHammerspoon.zsh --install
 ```
 
 ## 配置
@@ -217,4 +217,4 @@ hammerspoon/
 - 主动睡眠提示蓝牙读取失败：打开 Hammerspoon Console，过滤 `power-lid-sleep` 或 `blueutil`，也可以查看 `~/.hammerspoon/logs/power-lid-sleep.log` 中的 blueutil 路径、读取输出和失败阶段。
 - 合盖休眠保护不生效：确认运行设备是 MacBook、`plugins["power-lid-sleep"].enabled = true`，且当前是电池供电和合盖状态。
 - 蓝牙未关闭：确认已安装 `blueutil`，并在本机配置里开启 `plugins["power-lid-sleep"].bluetooth.enabled = true`。
-- 部署脚本找不到 Hammerspoon：确认已安装，或运行 `zsh macos/05deployHammerspoon.sh --install`。
+- 部署脚本找不到 Hammerspoon：确认已安装，或运行 `zsh macos/09deployHammerspoon.zsh --install`。

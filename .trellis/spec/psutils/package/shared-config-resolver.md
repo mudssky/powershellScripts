@@ -52,6 +52,8 @@
 - Missing file sources return an empty table by default; `-ErrorOnMissing` changes that to `配置文件不存在: <path>`.
 - `Invoke-WithScopedEnvironment` must restore overwritten variables and remove newly created variables even when the script block throws.
 - `psutils/modules/config.psm1` must export public resolver functions and must not contain a second implementation of the parser.
+- 在函数内部延迟 `Import-Module` 后还要由调用方继续使用导出命令时，必须用 `-Global`（或让所有消费都留在同一函数作用域）；不得把局部导入误标记为会话已加载。
+- 依赖 config 的其他模块仅在 `ConvertTo-ConfigHashtable` 等公共命令尚不可用时导入 `config.psm1`；不得用无条件 `-Force` 替换调用方已经建立的全局模块实例。
 
 ### 4. Validation & Error Matrix
 
@@ -69,6 +71,8 @@
 | `Resolve-ConfigPath` receives an empty path | Throw `路径配置不能为空: context` |
 | Platform map is a scalar without `-AllowScalar` | Throw `<label> 需要按平台配置` |
 | SSH config Host line contains multiple patterns or wildcards | Keep the block but set `IsLaunchCandidate = false` |
+| 函数内局部导入后设置全局“已加载”标记 | 后续调用会找不到 resolver；导入必须对消费作用域可见 |
+| 下游模块无条件 `-Force` 重载 config | 可能移除调用方的全局导出；检测公共命令后再按需导入 |
 
 ### 5. Good/Base/Bad Cases
 
@@ -77,9 +81,11 @@
 - Good: `scripts/pwsh/devops/postgresql/core/context.ps1` uses `Resolve-DefaultEnvFiles` and `Resolve-ConfigSources` for PostgreSQL env defaults.
 - Good: `scripts/pwsh/devops/project-launcher/main.ps1` uses `Read-ConfigSshClientConfig` for SSH Host discovery and still launches by Host alias, so OpenSSH owns final connection semantics while the launcher controls TTY and terminal-hosting behavior.
 - Base: `scripts/pwsh/download/Install-GitHubCli.ps1` imports `psutils/modules/config.psm1` and uses `JsonFile` plus `CliParameters` sources.
+- Good: 延迟 loader 使用 `Import-Module ... -Global`，而 `install.psm1` 只在 resolver 不可用时补导入 config。
 - Bad: Add a new `Read-EnvFile` helper inside a script when `Read-ConfigEnvFile` already covers strict dotenv parsing.
 - Bad: Parse `.md` preset frontmatter with ad hoc regex in a feature script instead of using `Read-ConfigMarkdownFrontMatter`.
 - Bad: Reimplement SSH config parsing inside a launcher script when `Read-ConfigSshClientConfig` can provide Host block discovery.
+- Bad: 函数内 `Import-Module -Force` 后返回，再假设导出的命令仍在调用者作用域中。
 
 ### 6. Tests Required
 
@@ -92,6 +98,7 @@
 - Scoped environment tests must assert restoration on success and on exception.
 - SSH config tests must assert ordinary Host blocks, `RemoteCommand`, equals syntax, wildcard or multi-pattern filtering, and `Match` boundary handling.
 - When a downstream script adopts the resolver, add focused Pester tests around the script's source order and validation behavior, not around `psutils` internals.
+- 延迟模块 loader 测试必须在 loader 返回后调用至少一个 resolver；同时覆盖另一个依赖模块随后加载时不会移除该命令。
 
 ### 7. Wrong vs Correct
 
@@ -125,3 +132,27 @@ $config = Resolve-ConfigSources -Sources @(
 ```
 
 理由：调用方只声明配置来源和优先级，解析、错误语义、键名规范化和测试契约都由 `psutils/src/config` 维护。
+
+#### Wrong
+
+```powershell
+function Import-SharedConfig {
+    Import-Module ./psutils/modules/config.psm1 -Force
+    $script:ConfigLoaded = $true
+}
+```
+
+#### Correct
+
+```powershell
+function Import-SharedConfig {
+    Import-Module ./psutils/modules/config.psm1 -Force -Global
+    $script:ConfigLoaded = $true
+}
+
+if (-not (Get-Command ConvertTo-ConfigHashtable -ErrorAction SilentlyContinue)) {
+    Import-Module ./psutils/modules/config.psm1 -Force
+}
+```
+
+理由：loader 的缓存标记必须和命令实际可见范围一致；依赖模块也不能用 `-Force` 破坏调用方已导入的实例。

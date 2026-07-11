@@ -12,8 +12,9 @@
 
 ## macOS 环境配置
 
-1. 执行 `profile/installer/installApp.ps1` 安装依赖
-2. 执行 `pwsh -File profile/profile.ps1 -LoadProfile` 加载配置
+1. 执行 `zsh macos/00bootstrap.zsh` 完成默认 Core 安装
+2. 需要 GUI 与桌面集成时执行 `zsh macos/00bootstrap.zsh --preset Full`
+3. 使用 `zsh macos/99verifyInstall.zsh --preset Core|Full` 做只读验证
 
 ## Linux（WSL）环境配置
 

@@ -13,7 +13,7 @@
 - 安装入口：
 
 ```zsh
-zsh macos/08installQuickActions.zsh [--dry-run] [--uninstall]
+zsh macos/11installQuickActions.zsh [--dry-run] [--uninstall]
 ```
 
 - 通用分派器：
@@ -35,6 +35,8 @@ zsh macos/quick-actions/fix-app-open-issue.zsh [--dry-run] <app-path>...
   - 安装脚本复制 workflow 到 `~/Library/Services/<Name>.workflow`。
   - workflow 的 Run Shell Script 只负责调用 `run.zsh <action-id> "$@"`。
   - workflow 内部不要内联业务逻辑，不要直接调用具体动作脚本。
+  - 覆盖现有 workflow 前必须创建可读时间戳 `.bak`；新内容先在同一文件系统的临时目录配置并通过 `plutil`，再原子替换目标。
+  - 配置后的内容与目标一致时不得创建备份或重写。
 - runner contract:
   - 第一个参数必须是 action id。
   - 未知 action id 返回 2，并输出可读错误。
@@ -50,7 +52,7 @@ zsh macos/quick-actions/fix-app-open-issue.zsh [--dry-run] <app-path>...
 |------|----------|
 | `run.zsh` 缺少 action id | 返回 2，输出 usage |
 | `run.zsh` 收到未知 action id | 返回 2，输出未知动作和 usage |
-| workflow 未安装 | `06verifyInstall.zsh --step quick-actions` 失败并提示运行安装脚本 |
+| workflow 未安装 | `99verifyInstall.zsh --step desktop-integration` 失败并提示运行安装脚本 |
 | workflow 命令未指向 `run.zsh` 和 action id | quick-actions 验证失败 |
 | 传入非 `.app` 到 `fix-app-open-issue` | 安全跳过，返回成功 |
 | 传入 `.app` 到 `fix-app-open-issue` | 输出 `spctl`、`codesign`、quarantine 状态，再按安全边界处理 |
@@ -66,7 +68,7 @@ zsh macos/quick-actions/fix-app-open-issue.zsh [--dry-run] <app-path>...
 - 静态检查：
 
 ```zsh
-zsh -n macos/08installQuickActions.zsh macos/quick-actions/run.zsh macos/quick-actions/*.zsh
+zsh -n macos/11installQuickActions.zsh macos/quick-actions/run.zsh macos/quick-actions/*.zsh
 plutil -lint "macos/quick-actions/Fix App Open Issue.workflow/Contents/Info.plist"
 plutil -lint "macos/quick-actions/Fix App Open Issue.workflow/Contents/document.wflow"
 ```
@@ -74,9 +76,9 @@ plutil -lint "macos/quick-actions/Fix App Open Issue.workflow/Contents/document.
 - 行为检查：
 
 ```zsh
-zsh macos/08installQuickActions.zsh --dry-run
-zsh macos/08installQuickActions.zsh
-zsh macos/06verifyInstall.zsh --step quick-actions
+zsh macos/11installQuickActions.zsh --dry-run
+zsh macos/11installQuickActions.zsh
+zsh macos/99verifyInstall.zsh --step desktop-integration
 zsh macos/quick-actions/run.zsh fix-app-open-issue --dry-run /tmp/not-an-app
 ```
 

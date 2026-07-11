@@ -5,7 +5,7 @@
 ### 1. Scope / Trigger
 
 - Trigger: 修改 `macos/hammerspoon/` 下的 Hammerspoon 功能、部署脚本、插件目录或验证契约时使用。
-- Scope: `macos/hammerspoon/init/init.lua`、`macos/hammerspoon/plugins/**`、`macos/hammerspoon/load_scripts.zsh`、`macos/06verifyInstall.zsh` 和 `profile/installer/apps-config.json` 中 Hammerspoon 相关依赖。
+- Scope: `macos/hammerspoon/init/init.lua`、`macos/hammerspoon/plugins/**`、`macos/hammerspoon/load_scripts.zsh`、`macos/09deployHammerspoon.zsh`、`macos/99verifyInstall.zsh` 和 `profile/installer/apps-config.json` 中 Hammerspoon 相关依赖。
 
 ### 2. Signatures
 
@@ -45,6 +45,8 @@ return {
 - 插件私有模块应放在同一插件目录下，用 `context.pluginsDir .. "/" .. plugin.id .. "/<module>.lua"` 加载。
 - `load_scripts.zsh` 只部署 `plugins/**/*.lua`、`init.lua`、`config.lua` 和首次生成的 `config.local.lua`；新增插件文件必须进入 manifest。
 - 删除或迁移托管文件时，依赖 manifest 清理旧路径，例如从 `scripts/win.lua` 迁移到 `scripts/plugins/win-hotkeys/plugin.lua`。
+- 源文件与目标内容相同时不得备份或复制；manifest 内容相同时不得重写。
+- `09deployHammerspoon.zsh` 只包装 loader，不修改仓库脚本执行权限；dry-run 不探测或启动 GUI 应用。
 
 ### 4. Validation & Error Matrix
 
@@ -67,10 +69,10 @@ return {
 
 ### 6. Tests Required
 
-- 运行 `zsh -n macos/hammerspoon/load_scripts.zsh`、`zsh -n macos/05deployHammerspoon.sh`、`zsh -n macos/06verifyInstall.zsh`。
+- 运行 `zsh -n macos/hammerspoon/load_scripts.zsh`、`zsh -n macos/09deployHammerspoon.zsh`、`zsh -n macos/99verifyInstall.zsh`。
 - 运行 `zsh macos/hammerspoon/load_scripts.zsh --dry-run --no-launch --install`，确认输出包含所有插件文件和 manifest 条目，并清理被移除的托管旧路径。
 - 使用 Lua parser 或 Hammerspoon 控制台验证所有 `plugins/**/*.lua` 和 `init/init.lua` 语法。
-- 修改 `macos/06verifyInstall.zsh` 时运行根目录 QA；若涉及 pwsh 相关验证契约，执行 `pnpm test:pwsh:all` 或记录 Linux Docker 分支不可用原因。
+- 修改 `macos/99verifyInstall.zsh` 时运行根目录 QA；若涉及 pwsh 相关验证契约，执行 `pnpm test:pwsh:all` 或记录 Linux Docker 分支不可用原因。
 
 ### 7. Wrong vs Correct
 
