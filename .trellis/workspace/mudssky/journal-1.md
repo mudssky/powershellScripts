@@ -952,3 +952,37 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 29: 收尾 macOS Finder 快捷操作并暂缓 Nix 试点
+
+**Date**: 2026-07-12
+**Task**: 收尾 macOS Finder 快捷操作并暂缓 Nix 试点
+**Branch**: `master`
+
+### Summary
+
+归档已完成且通过 pnpm qa 的 macOS Finder Quick Action 任务；Nix devshell 任务完成规划与采用理由 research，但按用户决定保持 planning 暂缓实施。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `796dc6d14504a0cfa9ac1b31ab5b51c3ee5f11bc` | (see git log) |
+| `96c3260db4aa3a976e0d1dea6d8983e2d133bb6f` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
