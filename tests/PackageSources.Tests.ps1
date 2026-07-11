@@ -5,6 +5,15 @@ BeforeAll {
     $script:SwitchMirrorsPath = Join-Path $script:RepoRoot 'scripts/pwsh/misc/Switch-Mirrors.ps1'
     $script:PackageSourcesModulePath = Join-Path $script:RepoRoot 'scripts/pwsh/misc/package-sources/PackageSources.psm1'
     $script:PwshPath = (Get-Process -Id $PID).Path
+    $script:ExecutableFixtureRoot = if ($IsWindows) {
+        $null
+    }
+    else {
+        Join-Path $script:RepoRoot 'tests/.tmp-executables' ("package-sources-{0}" -f [Guid]::NewGuid())
+    }
+    if ($script:ExecutableFixtureRoot) {
+        New-Item -ItemType Directory -Path $script:ExecutableFixtureRoot -Force | Out-Null
+    }
     Import-Module $script:PackageSourcesModulePath -Force
 
     function Invoke-PackageSourceCli {
@@ -64,6 +73,105 @@ BeforeAll {
         }
     }
 
+    function Invoke-PackageSourceInProcess {
+        <#
+        .SYNOPSIS
+            在当前 Pester 进程中执行 package source 领域入口。
+
+        .DESCRIPTION
+            复用原 CLI 测试的参数数组与 JSON 结果形态，但跳过重复的 pwsh 冷启动。
+            仅用于不验证 Switch-Mirrors 参数绑定的领域行为用例。
+
+        .PARAMETER Arguments
+            与 Switch-Mirrors.ps1 新合同一致的参数列表。
+
+        .PARAMETER Environment
+            调用期间临时覆盖的进程环境变量。
+
+        .OUTPUTS
+            PSCustomObject。包含 ExitCode、StdOut 与 StdErr。
+        #>
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [string[]]$Arguments,
+
+            [hashtable]$Environment = @{}
+        )
+
+        $parameters = @{
+            Action         = 'Plan'
+            Mode           = 'Direct'
+            Phase          = 'Runtime'
+            Target         = @()
+            TransactionId  = ''
+            Selection      = 'Auto'
+            MirrorUrl      = @()
+            TimeoutSeconds = 5
+            Retry          = 1
+            Force          = $false
+        }
+        for ($index = 0; $index -lt $Arguments.Count; $index++) {
+            $name = $Arguments[$index]
+            switch ($name) {
+                '-Action' { $parameters.Action = $Arguments[++$index] }
+                '-Mode' { $parameters.Mode = $Arguments[++$index] }
+                '-Phase' { $parameters.Phase = $Arguments[++$index] }
+                '-Target' { $parameters.Target = @($Arguments[++$index]) }
+                '-TransactionId' { $parameters.TransactionId = $Arguments[++$index] }
+                '-Selection' { $parameters.Selection = $Arguments[++$index] }
+                '-MirrorUrls' { $parameters.MirrorUrl = @($Arguments[++$index]) }
+                '-TimeoutSec' { $parameters.TimeoutSeconds = [int]$Arguments[++$index] }
+                '-Retry' { $parameters.Retry = [int]$Arguments[++$index] }
+                '-Force' { $parameters.Force = $true }
+                '-OutputFormat' { $index++ }
+                default { throw "进程内测试入口不支持参数: $name" }
+            }
+        }
+
+        $originalValues = @{}
+        foreach ($entry in $Environment.GetEnumerator()) {
+            $key = [string]$entry.Key
+            $originalValues[$key] = [Environment]::GetEnvironmentVariable($key, 'Process')
+            [Environment]::SetEnvironmentVariable($key, [string]$entry.Value, 'Process')
+        }
+
+        try {
+            $document = Invoke-PackageSourceAction @parameters
+            return [PSCustomObject]@{
+                ExitCode = [int]$document.ExitCode
+                StdOut   = $document | ConvertTo-Json -Depth 20
+                StdErr   = ''
+            }
+        }
+        catch {
+            $exitCode = if ($_.Exception.Data.Contains('ExitCode')) { [int]$_.Exception.Data['ExitCode'] } else { 1 }
+            $errorCode = if ($_.Exception.Data.Contains('Code')) { [string]$_.Exception.Data['Code'] } else { 'Failed' }
+            $document = [ordered]@{
+                SchemaVersion = 1
+                Action        = $parameters.Action
+                Mode          = $parameters.Mode
+                TransactionId = $parameters.TransactionId
+                ExitCode      = $exitCode
+                Results       = @()
+                Error         = [ordered]@{
+                    Code    = $errorCode
+                    Message = $_.Exception.Message
+                }
+            }
+            return [PSCustomObject]@{
+                ExitCode = $exitCode
+                StdOut   = $document | ConvertTo-Json -Depth 20
+                StdErr   = $_.Exception.Message
+            }
+        }
+        finally {
+            foreach ($entry in $originalValues.GetEnumerator()) {
+                [Environment]::SetEnvironmentVariable([string]$entry.Key, $entry.Value, 'Process')
+            }
+        }
+    }
+
     function New-FakeChsrcScript {
         <#
         .SYNOPSIS
@@ -88,6 +196,84 @@ BeforeAll {
 
             [string]$Version = '0.2.5'
         )
+
+        if (-not $IsWindows) {
+            # Linux Pester 容器将 /tmp 挂载为 noexec，因此可执行 fixture
+            # 必须放在仓库挂载目录；状态与用户文件仍保持在 TestDrive。
+            $path = Join-Path $script:ExecutableFixtureRoot 'fake-chsrc.sh'
+            $scriptContent = @'
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ -n "${FAKE_CHSRC_LOG:-}" ]]; then
+    printf '%s\n' "$*" >>"$FAKE_CHSRC_LOG"
+fi
+
+if [[ " ${*} " == *" --version "* ]]; then
+    printf 'chsrc v__CHSRC_VERSION__ (test)\n'
+    exit 0
+fi
+
+target=''
+for argument in "$@"; do
+    case "$argument" in
+        brew|npm|ubuntu) target="$argument" ;;
+    esac
+done
+
+case "$target" in
+    brew)
+        cat >"$HOME/.zshrc" <<'EOF'
+# ------ chsrc BLOCK BEGIN for Homebrew ------
+export HOMEBREW_BREW_GIT_REMOTE="https://mirror.example/git/homebrew/brew.git"
+export HOMEBREW_CORE_GIT_REMOTE="https://mirror.example/git/homebrew/homebrew-core.git"
+export HOMEBREW_API_DOMAIN="https://mirror.example/homebrew-bottles/api"
+export HOMEBREW_BOTTLE_DOMAIN="https://mirror.example/homebrew-bottles"
+# ------ chsrc BLOCK ENDIN for Homebrew ------
+EOF
+        printf '选中镜像站: Test Mirror (test)\n'
+        ;;
+    npm)
+        config_path="$HOME/.npmrc"
+        temp_path="$config_path.tmp"
+        found=false
+        if [[ -f "$config_path" ]]; then
+            while IFS= read -r line || [[ -n "$line" ]]; do
+                if [[ "$line" == registry=* ]]; then
+                    printf 'registry=https://mirror.example/npm/\n' >>"$temp_path"
+                    found=true
+                else
+                    printf '%s\n' "$line" >>"$temp_path"
+                fi
+            done <"$config_path"
+        fi
+        if [[ "$found" == false ]]; then
+            printf 'registry=https://mirror.example/npm/\n' >>"$temp_path"
+            [[ -f "$config_path" ]] && cat "$config_path" >>"$temp_path"
+        fi
+        mv "$temp_path" "$config_path"
+        printf '选中镜像站: Test npm Mirror (test)\n'
+        ;;
+    ubuntu)
+        sources_path="$POWERSHELL_SCRIPTS_SYSTEM_SOURCE_ROOT/etc/apt/sources.list"
+        temp_path="$sources_path.tmp"
+        sed 's|http://archive.ubuntu.com/ubuntu|https://mirror.example/ubuntu|g' "$sources_path" >"$temp_path"
+        mv "$temp_path" "$sources_path"
+        printf '选中镜像站: Test Ubuntu Mirror (test)\n'
+        ;;
+    *)
+        printf 'unexpected fake chsrc arguments: %s\n' "$*" >&2
+        exit 1
+        ;;
+esac
+'@
+            $scriptContent.Replace('__CHSRC_VERSION__', $Version) | Set-Content -LiteralPath $path -Encoding utf8NoBOM
+            & chmod '+x' $path
+            if ($LASTEXITCODE -ne 0) {
+                throw "无法设置 fake chsrc 执行权限: $path"
+            }
+            return $path
+        }
 
         $path = Join-Path $Root 'fake-chsrc.ps1'
         $scriptContent = @'
@@ -171,6 +357,42 @@ throw "unexpected fake chsrc arguments: $($RemainingArguments -join ' ')"
             [string]$Root
         )
 
+        if (-not $IsWindows) {
+            $path = Join-Path $script:ExecutableFixtureRoot 'fake-npm.sh'
+            @'
+#!/usr/bin/env bash
+set -euo pipefail
+
+command_text="$*"
+if [[ "$command_text" == 'config get userconfig' ]]; then
+    printf '%s\n' "$HOME/.npmrc"
+    exit 0
+fi
+
+if [[ "$command_text" == 'config get registry' ]]; then
+    config_path="$HOME/.npmrc"
+    if [[ -f "$config_path" ]]; then
+        while IFS= read -r line || [[ -n "$line" ]]; do
+            if [[ "$line" == registry=* ]]; then
+                printf '%s\n' "${line#registry=}"
+                exit 0
+            fi
+        done <"$config_path"
+    fi
+    printf 'https://registry.npmjs.org/\n'
+    exit 0
+fi
+
+printf 'unexpected fake npm arguments: %s\n' "$command_text" >&2
+exit 1
+'@ | Set-Content -LiteralPath $path -Encoding utf8NoBOM
+            & chmod '+x' $path
+            if ($LASTEXITCODE -ne 0) {
+                throw "无法设置 fake npm 执行权限: $path"
+            }
+            return $path
+        }
+
         $path = Join-Path $Root 'fake-npm.ps1'
         @'
 param([Parameter(ValueFromRemainingArguments)][string[]]$RemainingArguments)
@@ -197,11 +419,45 @@ throw "unexpected fake npm arguments: $($RemainingArguments -join ' ')"
 '@ | Set-Content -LiteralPath $path -Encoding utf8NoBOM
         return $path
     }
+
+    function Set-PackageSourceNetworkGuard {
+        <#
+        .SYNOPSIS
+            为当前测试注册默认失败的网络边界 Mock。
+
+        .OUTPUTS
+            None。未被具体用例覆盖的网络访问会立即使测试失败。
+        #>
+        [CmdletBinding()]
+        param()
+
+        Mock -CommandName Invoke-WebRequest -ModuleName PackageSources -MockWith {
+            throw '测试未声明的 PackageSources 网络访问'
+        }
+
+        # DockerAdapter 由 PackageSources 在首次领域调用时惰性加载；首个 BeforeEach
+        # 不应为了注册 Mock 提前改变生产模块的加载时序。
+        if (Get-Module -Name DockerAdapter) {
+            Mock -CommandName Invoke-WebRequest -ModuleName DockerAdapter -MockWith {
+                throw '测试未声明的 DockerAdapter 网络访问'
+            }
+        }
+    }
+}
+
+AfterAll {
+    if ($script:ExecutableFixtureRoot) {
+        Remove-Item -LiteralPath $script:ExecutableFixtureRoot -Recurse -Force -ErrorAction SilentlyContinue
+    }
 }
 
 # brew 等目标走 ManagedEnvAdapter，其写 .zshrc/UnixFileMode 且依赖 zsh，无法在原生 Windows 运行，
 # 因此这些用例在 Windows 主机跳过（与 PackageSourceBootstrap.Tests 的非 Windows 防护语义一致）。
 Describe 'Switch-Mirrors package source CLI' {
+    BeforeEach {
+        Set-PackageSourceNetworkGuard
+    }
+
     It 'Direct 计划返回稳定 JSON 且不创建事务状态' {
         $homePath = Join-Path $TestDrive 'home'
         $statePath = Join-Path $TestDrive 'state'
@@ -248,7 +504,7 @@ Describe 'Switch-Mirrors package source CLI' {
         $statePath = Join-Path $TestDrive 'china-plan-state'
         New-Item -ItemType Directory -Path $homePath -Force | Out-Null
 
-        $result = Invoke-PackageSourceCli -Arguments @(
+        $result = Invoke-PackageSourceInProcess -Arguments @(
             '-Action', 'Plan',
             '-Mode', 'China',
             '-Target', 'npm',
@@ -307,7 +563,7 @@ Describe 'Switch-Mirrors package source CLI' {
     It 'winget Stage 1 计划明确返回 Unsupported' {
         $statePath = Join-Path $TestDrive 'winget-plan-state'
 
-        $result = Invoke-PackageSourceCli -Arguments @(
+        $result = Invoke-PackageSourceInProcess -Arguments @(
             '-Action', 'Plan',
             '-Mode', 'China',
             '-Target', 'winget',
@@ -330,7 +586,7 @@ Describe 'Switch-Mirrors package source CLI' {
         New-Item -ItemType Directory -Path $homePath -Force | Out-Null
         $fakeChsrcPath = New-FakeChsrcScript -Root $TestDrive
 
-        $result = Invoke-PackageSourceCli -Arguments @(
+        $result = Invoke-PackageSourceInProcess -Arguments @(
             '-Action', 'Apply',
             '-Mode', 'China',
             '-Target', 'brew',
@@ -378,7 +634,7 @@ Describe 'Switch-Mirrors package source CLI' {
             POWERSHELL_SCRIPTS_CHSRC_PATH                = $fakeChsrcPath
         }
 
-        $applyResult = Invoke-PackageSourceCli -Arguments @(
+        $applyResult = Invoke-PackageSourceInProcess -Arguments @(
             '-Action', 'Apply',
             '-Mode', 'China',
             '-Target', 'brew',
@@ -388,7 +644,7 @@ Describe 'Switch-Mirrors package source CLI' {
         ) -Environment $environment
         $applyResult.ExitCode | Should -Be 0 -Because $applyResult.StdErr
 
-        $restoreResult = Invoke-PackageSourceCli -Arguments @(
+        $restoreResult = Invoke-PackageSourceInProcess -Arguments @(
             '-Action', 'Restore',
             '-TransactionId', 'brew-restore-test',
             '-OutputFormat', 'Json'
@@ -400,7 +656,7 @@ Describe 'Switch-Mirrors package source CLI' {
         $document.Results[0].Status | Should -Be 'Restored'
         Test-Path -LiteralPath (Join-Path $homePath '.config/powershellScripts/package-sources.env') | Should -BeFalse
 
-        $secondRestoreResult = Invoke-PackageSourceCli -Arguments @(
+        $secondRestoreResult = Invoke-PackageSourceInProcess -Arguments @(
             '-Action', 'Restore',
             '-TransactionId', 'brew-restore-test',
             '-OutputFormat', 'Json'
@@ -425,7 +681,7 @@ Describe 'Switch-Mirrors package source CLI' {
             POWERSHELL_SCRIPTS_CHSRC_PATH                = $fakeChsrcPath
         }
 
-        $applyResult = Invoke-PackageSourceCli -Arguments @(
+        $applyResult = Invoke-PackageSourceInProcess -Arguments @(
             '-Action', 'Apply',
             '-Mode', 'China',
             '-Target', 'brew',
@@ -439,7 +695,7 @@ Describe 'Switch-Mirrors package source CLI' {
         Add-Content -LiteralPath $managedEnvPath -Value '# user change after apply'
         $driftedContent = Get-Content -LiteralPath $managedEnvPath -Raw
 
-        $statusResult = Invoke-PackageSourceCli -Arguments @(
+        $statusResult = Invoke-PackageSourceInProcess -Arguments @(
             '-Action', 'Status',
             '-TransactionId', 'brew-drift-test',
             '-OutputFormat', 'Json'
@@ -450,7 +706,7 @@ Describe 'Switch-Mirrors package source CLI' {
         $statusDocument.ExitCode | Should -Be 10
         $statusDocument.Results[0].Status | Should -Be 'Drifted'
 
-        $restoreResult = Invoke-PackageSourceCli -Arguments @(
+        $restoreResult = Invoke-PackageSourceInProcess -Arguments @(
             '-Action', 'Restore',
             '-TransactionId', 'brew-drift-test',
             '-OutputFormat', 'Json'
@@ -489,8 +745,8 @@ Describe 'Switch-Mirrors package source CLI' {
             '-OutputFormat', 'Json'
         )
 
-        $firstResult = Invoke-PackageSourceCli -Arguments $arguments -Environment $environment
-        $secondResult = Invoke-PackageSourceCli -Arguments $arguments -Environment $environment
+        $firstResult = Invoke-PackageSourceInProcess -Arguments $arguments -Environment $environment
+        $secondResult = Invoke-PackageSourceInProcess -Arguments $arguments -Environment $environment
 
         $firstResult.ExitCode | Should -Be 0 -Because $firstResult.StdErr
         $secondResult.ExitCode | Should -Be 0 -Because $secondResult.StdErr
@@ -526,7 +782,7 @@ Describe 'Switch-Mirrors package source CLI' {
             POWERSHELL_SCRIPTS_NPM_PATH                  = $fakeNpmPath
         }
 
-        $applyResult = Invoke-PackageSourceCli -Arguments @(
+        $applyResult = Invoke-PackageSourceInProcess -Arguments @(
             '-Action', 'Apply',
             '-Mode', 'China',
             '-Target', 'npm',
@@ -549,7 +805,7 @@ Describe 'Switch-Mirrors package source CLI' {
             [System.IO.File]::GetUnixFileMode($snapshotPath.FullName) | Should -Be ([System.IO.UnixFileMode]::UserRead -bor [System.IO.UnixFileMode]::UserWrite)
         }
 
-        $restoreResult = Invoke-PackageSourceCli -Arguments @(
+        $restoreResult = Invoke-PackageSourceInProcess -Arguments @(
             '-Action', 'Restore',
             '-TransactionId', 'npm-secret-test',
             '-OutputFormat', 'Json'
@@ -571,7 +827,7 @@ Describe 'Switch-Mirrors package source CLI' {
             POWERSHELL_SCRIPTS_CHSRC_PATH                = $fakeChsrcPath
         }
 
-        $applyResult = Invoke-PackageSourceCli -Arguments @(
+        $applyResult = Invoke-PackageSourceInProcess -Arguments @(
             '-Action', 'Apply',
             '-Mode', 'China',
             '-Target', 'brew',
@@ -581,7 +837,7 @@ Describe 'Switch-Mirrors package source CLI' {
         ) -Environment $environment
         $applyResult.ExitCode | Should -Be 0 -Because $applyResult.StdErr
 
-        $statusResult = Invoke-PackageSourceCli -Arguments @(
+        $statusResult = Invoke-PackageSourceInProcess -Arguments @(
             '-Action', 'Status',
             '-TransactionId', 'brew-status-test',
             '-OutputFormat', 'Json'
@@ -610,7 +866,7 @@ Describe 'Switch-Mirrors package source CLI' {
             POWERSHELL_SCRIPTS_NPM_PATH                  = $fakeNpmPath
         }
 
-        $applyResult = Invoke-PackageSourceCli -Arguments @(
+        $applyResult = Invoke-PackageSourceInProcess -Arguments @(
             '-Action', 'Apply',
             '-Mode', 'China',
             '-Target', 'brew',
@@ -620,7 +876,7 @@ Describe 'Switch-Mirrors package source CLI' {
         ) -Environment $environment
         $applyResult.ExitCode | Should -Be 0 -Because $applyResult.StdErr
 
-        $ensureResult = Invoke-PackageSourceCli -Arguments @(
+        $ensureResult = Invoke-PackageSourceInProcess -Arguments @(
             '-Action', 'Ensure',
             '-Target', 'npm',
             '-TransactionId', 'ensure-test',
@@ -642,7 +898,7 @@ Describe 'Switch-Mirrors package source CLI' {
         $statePath = Join-Path $TestDrive 'unsupported-state'
         New-Item -ItemType Directory -Path $homePath -Force | Out-Null
 
-        $result = Invoke-PackageSourceCli -Arguments @(
+        $result = Invoke-PackageSourceInProcess -Arguments @(
             '-Action', 'Apply',
             '-Mode', 'China',
             '-Target', 'uv',
@@ -669,7 +925,7 @@ Describe 'Switch-Mirrors package source CLI' {
         New-Item -ItemType Directory -Path $homePath -Force | Out-Null
         $fakeChsrcPath = New-FakeChsrcScript -Root $TestDrive -Version '0.2.2'
 
-        $result = Invoke-PackageSourceCli -Arguments @(
+        $result = Invoke-PackageSourceInProcess -Arguments @(
             '-Action', 'Apply',
             '-Mode', 'China',
             '-Target', 'brew',
@@ -700,7 +956,7 @@ Describe 'Switch-Mirrors package source CLI' {
         $lockStream = [System.IO.File]::Open($lockPath, [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
 
         try {
-            $result = Invoke-PackageSourceCli -Arguments @(
+            $result = Invoke-PackageSourceInProcess -Arguments @(
                 '-Action', 'Apply',
                 '-Mode', 'China',
                 '-Target', 'brew',
@@ -742,7 +998,7 @@ Describe 'Switch-Mirrors package source CLI' {
             POWERSHELL_SCRIPTS_SYSTEM_SOURCE_ROOT        = $systemRoot
         }
 
-        $applyResult = Invoke-PackageSourceCli -Arguments @(
+        $applyResult = Invoke-PackageSourceInProcess -Arguments @(
             '-Action', 'Apply',
             '-Mode', 'China',
             '-Target', 'ubuntu',
@@ -753,7 +1009,7 @@ Describe 'Switch-Mirrors package source CLI' {
 
         $applyResult.ExitCode | Should -Be 0 -Because $applyResult.StdErr
         Get-Content -LiteralPath $sourcesPath -Raw | Should -Match 'https://mirror\.example/ubuntu'
-        $restoreResult = Invoke-PackageSourceCli -Arguments @(
+        $restoreResult = Invoke-PackageSourceInProcess -Arguments @(
             '-Action', 'Restore',
             '-TransactionId', 'ubuntu-system-test',
             '-OutputFormat', 'Json'
@@ -765,6 +1021,10 @@ Describe 'Switch-Mirrors package source CLI' {
 
 # Auto 策略里以 brew 为目标的用例同样依赖 ManagedEnvAdapter，在原生 Windows 跳过（见上方说明）。
 Describe 'Package source Auto policy' {
+    BeforeEach {
+        Set-PackageSourceNetworkGuard
+    }
+
     It '官方端点健康时保持官方源且不创建事务' {
         $statePath = Join-Path $TestDrive 'auto-healthy-state'
         $originalStateRoot = [Environment]::GetEnvironmentVariable('POWERSHELL_SCRIPTS_PACKAGE_SOURCE_STATE_ROOT', 'Process')
@@ -981,6 +1241,10 @@ Describe 'Package source Auto policy' {
 }
 
 Describe 'Docker package source adapter' {
+    BeforeEach {
+        Set-PackageSourceNetworkGuard
+    }
+
     It '保留 daemon JSON 其它字段并可通过事务恢复' {
         $homePath = Join-Path $TestDrive 'docker-home'
         $statePath = Join-Path $TestDrive 'docker-state'

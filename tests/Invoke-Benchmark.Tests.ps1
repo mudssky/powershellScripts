@@ -288,4 +288,34 @@ Describe 'Invoke-Benchmark helper functions' {
 
         $selected.File | Should -Be 'HelpSearch.Benchmark.ps1'
     }
+
+    It '仓库 catalog 中可发现 package-sources-test benchmark' {
+        $repoBenchmarksRoot = Join-Path $PSScriptRoot 'benchmarks'
+        $catalog = Get-BenchmarkCatalog -BenchmarksRoot $repoBenchmarksRoot
+
+        $selected = Resolve-BenchmarkCatalogItem -Catalog $catalog -Name 'package-sources-test' -RepoRoot $PWD.Path
+
+        $selected.File | Should -Be 'PackageSourcesTest.Benchmark.ps1'
+    }
+
+    It 'package-sources-test 使用微型 fixture 输出可解析 JSON' {
+        $fixturePath = Join-Path $script:TestRoot 'Tiny.Tests.ps1'
+        Set-Content -LiteralPath $fixturePath -Encoding utf8NoBOM -Value @'
+Describe 'tiny benchmark fixture' {
+    It 'passes' {
+        1 | Should -Be 1
+    }
+}
+'@
+        $benchmarkPath = Join-Path $PSScriptRoot 'benchmarks' 'PackageSourcesTest.Benchmark.ps1'
+
+        $json = & $benchmarkPath -Iterations 1 -TestPath $fixturePath -AsJson
+        $report = $json | ConvertFrom-Json
+
+        $report.Iterations | Should -Be 1
+        $report.Passed | Should -Be 1
+        $report.Failed | Should -Be 0
+        $report.SamplesMs.Count | Should -Be 1
+        $report.MedianMs | Should -BeGreaterThan 0
+    }
 }

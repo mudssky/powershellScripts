@@ -27,6 +27,11 @@ param()
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+# PowerShell 7.5 会在交互终端为 Pester TestDrive 清理渲染
+# `Removed x of y files` 进度行。只静音 Remove-Item 的进度流，
+# 保留其他命令的进度、warning、error 和测试输出。
+$global:PSDefaultParameterValues['Remove-Item:ProgressAction'] = 'SilentlyContinue'
+
 $excludeTags = @('Slow')
 if ($IsLinux -or $IsMacOS) {
     $excludeTags += 'windowsOnly'

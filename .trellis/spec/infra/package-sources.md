@@ -64,6 +64,10 @@ powershell.exe -NoProfile -File ./scripts/pwsh/misc/Invoke-PackageSourceBootstra
 - 新机顺序固定为：package manager -> PowerShell 7/chsrc bootstrap -> Stage 1 sources -> CLI/fonts/profile。macOS 物理编号为 `02 pwsh`、`03 sources`，避免 source 引擎依赖自身尚未安装的运行时。
 - 未实现 Linux 原生 Stage 0 系统源 adapter 时，PowerShell 7/chsrc 前的 China/Auto 必须返回 Blocked，不能静默回退 Direct。
 - 默认 QA 仅使用临时 HOME、伪命令和 fixture；真实 China/Auto Apply 必须获得单独明确批准。
+- PackageSources Pester 只保留参数、JSON/退出码、`-WhatIf` 和 legacy Docker 的少量 CLI 子进程合同；事务、drift、orphan、Auto 和 adapter 行为直接调用 `Invoke-PackageSourceAction`。
+- 进程内测试默认将 `PackageSources`/`DockerAdapter` 内的 `Invoke-WebRequest` Mock 为失败；需要探活的用例必须显式覆盖并断言调用。
+- Linux Pester 容器的 `/tmp` 为 `noexec`；Bash 伪命令必须放到仓库内 `tests/.tmp-executables/` 的唯一临时目录，并在 `AfterAll` 清理。状态、HOME 和配置 fixture 仍放在 `$TestDrive`。
+- 统一 Pester 配置只将 `Remove-Item:ProgressAction` 默认为 `SilentlyContinue`，避免 PowerShell 7.5 的 `Removed x of y files` TestDrive 清理进度干扰断言查看；不得全局禁用 `$ProgressPreference` 或丢弃 stdout。
 
 ### 4. Validation & Error Matrix
 
@@ -97,6 +101,8 @@ powershell.exe -NoProfile -File ./scripts/pwsh/misc/Invoke-PackageSourceBootstra
 - Pester：Direct 零写入、China snapshot/幂等/重复 Restore、Auto Official/External/ExternalUnavailable、orphan、drift、锁与低版本 chsrc。
 - Pester：JSON stdout 单文档、参数退出 2、Unsupported 退出 10、旧 Docker 兼容参数与模块级 Web mock。
 - Pester：Windows Stage 0 保持 PowerShell 5.1 可解析；真实 WinGet source 行为由 Windows runner smoke test 验证。
+- Pester：新增网络调用时，未显式覆盖的请求必须由默认失败 Mock 拦截，禁止依赖开发机联网状态。
+- Benchmark：`pnpm benchmark -- package-sources-test -Iterations 3 -AsJson` 输出平台、PowerShell 版本、样本、平均值、中位数和最慢值；CI 只验证微型 fixture 输出合同，不设绝对耗时门槛。
 - Vitest：POSIX Stage 0 的 Direct/China/Auto 环境作用域；bash/zsh shell loader 只加载白名单 HTTPS export 且不执行任意内容。
 - Shell：`bash -n` 与 `zsh -n` 均通过。
 - 项目门禁：`pnpm test:bash`、`pnpm test:pwsh:all`、`pnpm qa`。
