@@ -14,6 +14,6 @@
     "cac": "^7.0.0"
   },
   "devDependencies": {
-    "rolldown": "^1.1.0"
+    "rolldown": "^1.1.5"
   }
 }
