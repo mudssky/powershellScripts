@@ -1,8 +1,3 @@
-$windowsFonts = @(
-    'JetBrainsMono-NF',
-    'FiraCode-NF'
-)
-
 $macOSFontCasks = @(
     'font-jetbrains-mono-nerd-font',
     'font-fira-code-nerd-font',
@@ -30,22 +25,11 @@ if ($IsMacOS) {
 }
 
 if ($IsWindows) {
-    if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
-        throw '未找到 Scoop，无法安装 Windows Nerd Fonts。请先安装 scoop。'
+    $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
+    & (Join-Path $repoRoot 'windows/06installFonts.ps1') -Preset Core -WhatIf:$WhatIfPreference
+    if ($LASTEXITCODE -ne 0) {
+        throw "Windows 字体叶子退出码: $LASTEXITCODE"
     }
-
-    scoop bucket add nerd-fonts
-    foreach ($font in $windowsFonts) {
-        $installedFonts = scoop list 2>$null
-        if ($LASTEXITCODE -eq 0 -and $installedFonts -match [regex]::Escape($font)) {
-            Write-Host "✓ $font 已安装" -ForegroundColor Gray
-            continue
-        }
-
-        Write-Host "正在安装 $font..." -ForegroundColor Yellow
-        scoop install $font
-    }
-
     return
 }
 

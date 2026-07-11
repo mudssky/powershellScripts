@@ -9,6 +9,11 @@ if (-not (Get-Command ConvertTo-ConfigHashtable -ErrorAction SilentlyContinue) -
     Import-Module $configModulePath -Force
 }
 
+$testModulePath = Join-Path $PSScriptRoot 'test.psm1'
+if (-not (Get-Command Test-ApplicationInstalled -ErrorAction SilentlyContinue) -and (Test-Path $testModulePath)) {
+    Import-Module $testModulePath -Force
+}
+
 if (-not $script:ModuleInstalledCache) {
     $script:ModuleInstalledCache = @{}
 }

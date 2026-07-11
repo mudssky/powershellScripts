@@ -97,7 +97,7 @@ function Invoke-ProfileToolsInstall {
         仓库根目录。
 
     .PARAMETER Platform
-        macOS 或 Linux，用于选择 PowerShell 模块平台策略。
+        Windows、macOS 或 Linux，用于选择 PowerShell 模块平台策略。
 
     .OUTPUTS
         PSCustomObject[]。逐组件结果，不在模块内终止调用进程。
@@ -108,7 +108,7 @@ function Invoke-ProfileToolsInstall {
         [string]$RepoRoot,
 
         [Parameter(Mandatory)]
-        [ValidateSet('macOS', 'Linux')]
+        [ValidateSet('Windows', 'macOS', 'Linux')]
         [string]$Platform
     )
 
@@ -186,7 +186,9 @@ function Invoke-ProfileToolsInstall {
         $manageBinArguments += '-WhatIf'
     }
     $results.Add((Invoke-ProfileToolNativeCommand -Name bin-shims -FilePath pwsh -ArgumentList $manageBinArguments -Preview:$WhatIfPreference))
-    $results.Add((Invoke-ProfileToolNativeCommand -Name bash-build -FilePath bash -ArgumentList @((Join-Path $resolvedRepoRoot 'scripts/bash/build.sh')) -Preview:$WhatIfPreference))
+    if ($Platform -ne 'Windows') {
+        $results.Add((Invoke-ProfileToolNativeCommand -Name bash-build -FilePath bash -ArgumentList @((Join-Path $resolvedRepoRoot 'scripts/bash/build.sh')) -Preview:$WhatIfPreference))
+    }
     $results.Add((Invoke-ProfileToolNativeCommand -Name node-dependencies -FilePath pnpm -ArgumentList @('--dir', (Join-Path $resolvedRepoRoot 'scripts/node'), 'install', '--ignore-scripts') -Preview:$WhatIfPreference))
     $results.Add((Invoke-ProfileToolNativeCommand -Name node-build -FilePath pnpm -ArgumentList @('--dir', (Join-Path $resolvedRepoRoot 'scripts/node'), 'run', 'build') -Preview:$WhatIfPreference))
 

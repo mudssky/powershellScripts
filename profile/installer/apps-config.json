@@ -78,7 +78,9 @@
         "name": "zoxide",
         "cliName": "zoxide",
         "description": "更智能的cd",
-        "command": "scoop install zoxide"
+        "command": "scoop install zoxide",
+        "supportOs": ["Windows"],
+        "tag": ["core", "cli"]
       },
       {
         "name": "pueue",
@@ -138,7 +140,9 @@
         "name": "fnm",
         "cliName": "fnm",
         "description": "nvm的rust替代，跨平台node版本管理",
-        "command": "scoop install fnm"
+        "command": "scoop install fnm",
+        "supportOs": ["Windows"],
+        "tag": ["core", "cli"]
       },
       {
         "name": "bun",
@@ -162,7 +166,9 @@
         "name": "starship",
         "cliName": "starship",
         "description": "跨平台shell提示符",
-        "command": "scoop install starship"
+        "command": "scoop install starship",
+        "supportOs": ["Windows"],
+        "tag": ["core", "cli"]
       },
       {
         "name": "ffmpeg",
@@ -174,13 +180,17 @@
         "name": "fzf",
         "cliName": "fzf",
         "description": "go编写的模糊查找神器",
-        "command": "scoop install fzf"
+        "command": "scoop install fzf",
+        "supportOs": ["Windows"],
+        "tag": ["core", "cli"]
       },
       {
         "name": "ripgrep",
         "cliName": "rg",
         "description": "rust正则查找神器",
-        "command": "scoop install ripgrep"
+        "command": "scoop install ripgrep",
+        "supportOs": ["Windows"],
+        "tag": ["core", "cli"]
       },
       {
         "name": "cht",
@@ -210,37 +220,49 @@
         "name": "jq",
         "cliName": "jq",
         "description": "命令行处理json",
-        "command": "scoop install jq"
+        "command": "scoop install jq",
+        "supportOs": ["Windows"],
+        "tag": ["core", "cli"]
       },
       {
         "name": "xh",
         "cliName": "xh",
         "description": "HTTP 请求调试工具，友好快速的 curl/httpie 替代",
-        "command": "scoop install xh"
+        "command": "scoop install xh",
+        "supportOs": ["Windows"],
+        "tag": ["cli", "terminal-extras"]
       },
       {
         "name": "uv",
         "cliName": "uv",
         "description": "Rust 编写的 Python 包管理、虚拟环境与工具运行器",
-        "command": "scoop install uv"
+        "command": "scoop install uv",
+        "supportOs": ["Windows"],
+        "tag": ["core", "cli"]
       },
       {
         "name": "ast-grep",
         "cliName": "ast-grep",
         "description": "基于 AST 的结构化代码搜索、lint 与重写工具",
-        "command": "scoop install ast-grep"
+        "command": "scoop install ast-grep",
+        "supportOs": ["Windows"],
+        "tag": ["cli", "terminal-extras"]
       },
       {
         "name": "just",
         "cliName": "just",
         "description": "命令运行器，类似 make 但更现代",
-        "command": "scoop install just"
+        "command": "scoop install just",
+        "supportOs": ["Windows"],
+        "tag": ["cli", "terminal-extras"]
       },
       {
         "name": "lazygit",
         "cliName": "lazygit",
         "description": "git的TUI界面",
-        "command": "scoop install lazygit"
+        "command": "scoop install lazygit",
+        "supportOs": ["Windows"],
+        "tag": ["cli", "terminal-extras"]
       },
       {
         "name": "scc",
@@ -258,7 +280,9 @@
         "name": "bottom",
         "cliName": "btm",
         "description": "rust 版本的top，任务管理器bottom",
-        "command": "scoop install bottom"
+        "command": "scoop install bottom",
+        "supportOs": ["Windows"],
+        "tag": ["cli", "terminal-extras"]
       },
       {
         "name": "helix",
@@ -270,31 +294,41 @@
         "name": "sevenzip",
         "cliName": "7z",
         "description": "7zip压缩工具",
-        "command": "scoop install 7zip"
+        "command": "scoop install 7zip",
+        "supportOs": ["Windows"],
+        "tag": ["cli", "terminal-extras"]
       },
       {
         "name": "poppler",
         "cliName": "pdfinfo",
         "description": "PDF处理工具集",
-        "command": "scoop install poppler"
+        "command": "scoop install poppler",
+        "supportOs": ["Windows"],
+        "tag": ["cli", "terminal-extras"]
       },
       {
         "name": "resvg",
         "cliName": "resvg",
         "description": "SVG渲染工具",
-        "command": "scoop install resvg"
+        "command": "scoop install resvg",
+        "supportOs": ["Windows"],
+        "tag": ["cli", "terminal-extras"]
       },
       {
         "name": "imagemagick",
         "cliName": "magick",
         "description": "图像处理工具",
-        "command": "scoop install imagemagick"
+        "command": "scoop install imagemagick",
+        "supportOs": ["Windows"],
+        "tag": ["cli", "terminal-extras"]
       },
       {
         "name": "yazi",
         "cliName": "yazi",
         "description": "终端文件管理器",
-        "command": "scoop install yazi"
+        "command": "scoop install yazi",
+        "supportOs": ["Windows"],
+        "tag": ["cli", "terminal-extras"]
       },
       {
         "name": "difftastic",
@@ -312,19 +346,25 @@
         "name": "neovim",
         "cliName": "nvim",
         "description": "现代化的 Vim 文本编辑器",
-        "command": "scoop install neovim"
+        "command": "scoop install neovim",
+        "supportOs": ["Windows"],
+        "tag": ["cli", "terminal-extras"]
       },
       {
         "name": "bat",
         "cliName": "bat",
         "description": "cat的替代品",
-        "command": "scoop install bat"
+        "command": "scoop install bat",
+        "supportOs": ["Windows"],
+        "tag": ["core", "cli"]
       },
       {
         "name": "fd",
         "cliName": "fd",
         "description": "搜索用的命令行工具",
-        "command": "scoop install fd"
+        "command": "scoop install fd",
+        "supportOs": ["Windows"],
+        "tag": ["core", "cli"]
       },
       {
         "name": "lsd",
@@ -336,7 +376,9 @@
         "name": "eza",
         "cliName": "eza",
         "description": "现代 ls 替代品，支持丰富展示",
-        "command": "scoop install eza"
+        "command": "scoop install eza",
+        "supportOs": ["Windows"],
+        "tag": ["core", "cli"]
       },
       {
         "name": "hyperfine",
@@ -384,7 +426,9 @@
         "name": "llmfit",
         "cliName": "llmfit",
         "description": "llmfit 命令行工具",
-        "command": "scoop install llmfit"
+        "command": "scoop install llmfit",
+        "supportOs": ["Windows"],
+        "tag": ["cli", "terminal-extras"]
       },
       {
         "name": "perl",
@@ -394,6 +438,14 @@
       }
     ],
     "winget": [
+      {
+        "name": "autohotkey",
+        "cliName": "AutoHotkey.exe",
+        "description": "Windows 桌面自动化运行时",
+        "command": "winget install --id AutoHotkey.AutoHotkey --exact",
+        "supportOs": ["Windows"],
+        "tag": ["full", "platform"]
+      },
       {
         "name": "eartrumpet",
         "cliName": "eartrumpet",

@@ -70,6 +70,7 @@ $qaDefaultPaths = @(
     "./tests/PackageSources.Tests.ps1"
     "./psutils/tests/commandDiscovery.Tests.ps1"
     "./tests/Switch-Mirrors.Tests.ps1"
+    "./tests/WindowsInstallPipeline.Tests.ps1"
     "./psutils/tests/error.Tests.ps1"
     "./psutils/tests/filesystem.Tests.ps1"
     "./psutils/tests/font.Tests.ps1"

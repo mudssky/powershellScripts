@@ -381,6 +381,10 @@ function Get-InstallLeafArguments {
     else {
         $arguments.Add($(if ($isPowerShell) { '-Preset' } else { '--preset' }))
         $arguments.Add($Preset)
+        if ($StepId -eq 'platform-automation' -and $isPowerShell) {
+            $arguments.Add('-NetworkMode')
+            $arguments.Add($NetworkMode)
+        }
     }
 
     if ($Unattended) {

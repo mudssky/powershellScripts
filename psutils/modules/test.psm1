@@ -3,6 +3,11 @@ if (-not $script:ExeProgramCache) {
     $script:ExeProgramCache = @{}
 }
 
+$osModulePath = Join-Path $PSScriptRoot 'os.psm1'
+if (-not (Get-Command Get-OperatingSystem -ErrorAction SilentlyContinue) -and (Test-Path $osModulePath)) {
+    Import-Module $osModulePath -Force
+}
+
 # Test-EXEProgram 属于高频能力，优先复用仓库里已经优化过的轻量命令探测，
 # 避免再次落回 Get-Command 的慢路径。
 $commandDiscoveryModulePath = Join-Path $PSScriptRoot 'commandDiscovery.psm1'

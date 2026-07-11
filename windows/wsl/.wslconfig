@@ -1,0 +1,16 @@
+[wsl2]
+memory=16GB
+processors=4
+swap=8GB
+localhostForwarding=true
+guiApplications=true
+nestedVirtualization=true
+networkingMode=mirrored
+dnsTunneling=true
+firewall=true
+autoProxy=true
+
+[experimental]
+autoMemoryReclaim=gradual
+sparseVhd=true
+hostAddressLoopback=true
