@@ -1,6 +1,8 @@
 #!/bin/bash
 
 # ========================================================
+
+set -euo pipefail
 # 脚本名称: deploy.sh
 # 作用: 管理 ~/.bashrc.d/ 下的配置片段，并确保主 bashrc/zshrc 能加载它们
 #       自动同步 shared.d/ + bash.d/ 或 zsh.d/ 的配置片段
@@ -20,6 +22,7 @@ NC='\033[0m' # No Color
 # 默认参数
 DRY_RUN=false
 EXCLUDE_LIST=()
+EXCLUDE_COUNT=0
 SHELL_TYPE=""
 
 # 获取脚本所在目录 (兼容软链接)
@@ -74,7 +77,7 @@ detect_shell() {
     if [ -n "$SHELL_TYPE" ]; then
         return
     fi
-    SHELL_TYPE=$(basename "$SHELL")
+    SHELL_TYPE=$(basename "${SHELL:-}")
     if [ "$SHELL_TYPE" != "bash" ] && [ "$SHELL_TYPE" != "zsh" ]; then
         log_warn "无法识别默认 shell '$SHELL_TYPE'，将使用 bash 模式"
         SHELL_TYPE="bash"
@@ -101,13 +104,15 @@ ensure_loader() {
         if [ "$CREATE_IF_MISSING" = true ]; then
             if [ "$DRY_RUN" = true ]; then
                 log_dry "创建 $RC_FILE (因为不存在)"
+                log_dry "向 $RC_FILE 添加加载逻辑"
+                return 0
             else
-                touch "$RC_FILE"
-                log_info "已创建 $RC_FILE"
+                 touch "$RC_FILE"
+                 log_info "已创建 $RC_FILE"
             fi
         else
             # 如果文件不存在且不强制创建，则跳过
-            return
+            return 0
         fi
     fi
 
@@ -121,6 +126,14 @@ ensure_loader() {
     fi
 
     log_info "检测到未配置加载器，正在向 $RC_FILE 添加加载逻辑..."
+
+    if [ -s "$RC_FILE" ]; then
+        local timestamp backup_path
+        timestamp=$(date '+%Y-%m-%d_%H-%M-%S')
+        backup_path="${RC_FILE}.${timestamp}.bak"
+        cp -p "$RC_FILE" "$backup_path"
+        log_info "已备份现有配置: $backup_path"
+    fi
 
     cat << 'EOF' >> "$RC_FILE"
 
@@ -138,6 +151,9 @@ EOF
 
 is_excluded() {
     local filename="$1"
+    if [ "$EXCLUDE_COUNT" -eq 0 ]; then
+        return 1
+    fi
     for pattern in "${EXCLUDE_LIST[@]}"; do
         # 使用 bash 的 [[ string == pattern ]] 进行通配符匹配
         if [[ "$filename" == $pattern ]]; then
@@ -164,7 +180,7 @@ cleanup_stale_symlinks() {
                 rm "$link"
                 log_info "已删除失效 symlink: $(basename "$link") -> $target"
             fi
-            ((stale_count++))
+            stale_count=$((stale_count + 1))
         fi
     done
 
@@ -206,13 +222,15 @@ sync_dir() {
             fi
             local target_path="$CONFIG_DIR/$target_name"
 
-            if [ "$DRY_RUN" = true ]; then
+            if [ -L "$target_path" ] && [ "$(readlink "$target_path")" = "$file" ]; then
+                log_info "软链接已是目标内容: $target_name"
+            elif [ "$DRY_RUN" = true ]; then
                 log_dry "创建软链接 $filename -> $target_path"
             else
                 ln -sf "$file" "$target_path"
                 log_info "已创建软链接: $filename -> $target_name"
             fi
-            ((count++))
+            count=$((count + 1))
         fi
     done
     shopt -u nullglob
@@ -222,7 +240,7 @@ sync_dir() {
 
 sync_snippets() {
     log_info "开始同步配置片段 (shell: $SHELL_TYPE)..."
-    if [ ${#EXCLUDE_LIST[@]} -gt 0 ]; then
+    if [ "$EXCLUDE_COUNT" -gt 0 ]; then
         echo -e "    ${YELLOW}排除列表: ${EXCLUDE_LIST[*]}${NC}" >&2
     fi
 
@@ -286,27 +304,28 @@ while [[ $# -gt 0 ]]; do
                 SHELL_TYPE="$2"
                 if [ "$SHELL_TYPE" != "bash" ] && [ "$SHELL_TYPE" != "zsh" ]; then
                     log_err "--shell 参数仅支持 bash 或 zsh"
-                    exit 1
+                    exit 2
                 fi
                 shift 2
             else
                 log_err "参数 --shell 需要一个值 (bash 或 zsh)"
-                exit 1
+                exit 2
             fi
             ;;
         -e|--exclude)
             if [[ -n "$2" && "$2" != -* ]]; then
                 EXCLUDE_LIST+=("$2")
+                EXCLUDE_COUNT=$((EXCLUDE_COUNT + 1))
                 shift 2
             else
                 log_err "参数 --exclude 需要一个模式值"
-                exit 1
+                exit 2
             fi
             ;;
         *)
             log_err "未知参数: $1"
             usage
-            exit 1
+            exit 2
             ;;
     esac
 done

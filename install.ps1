@@ -209,7 +209,7 @@ if ($installApp) {
         . "$ProjectRoot/linux/04installApps.ps1"
     }
     elseif ($IsMacOS) {
-        . "$ProjectRoot/macos/04installApps.ps1"
+        . "$ProjectRoot/profile/installer/installApp.ps1"
     }
     else {
         Write-Host "不支持的平台: $($PSVersionTable.OS)" -ForegroundColor Red

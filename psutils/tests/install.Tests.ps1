@@ -242,11 +242,177 @@ Describe "Install-PackageManagerApps 函数测试" {
 
             { Install-PackageManagerApps -PackageManager "noexist" -ConfigObject $config } | Should -Not -Throw
         }
+
+        It "WhatIf 返回 Preview、AlreadyPresent 和 Skipped 结构化结果" {
+            $config = [PSCustomObject]@{
+                packageManagers = [PSCustomObject]@{
+                    homebrew = @(
+                        [PSCustomObject]@{ name = 'installed'; cliName = 'installed'; command = 'brew install installed'; supportOs = @('macOS'); tag = @('core', 'cli') }
+                        [PSCustomObject]@{ name = 'preview'; cliName = 'preview'; command = 'brew install preview'; supportOs = @('macOS'); tag = @('core', 'cli') }
+                        [PSCustomObject]@{ name = 'skipped'; cliName = 'skipped'; command = 'brew install skipped'; supportOs = @('macOS'); tag = @('core', 'cli'); skipInstall = $true }
+                    )
+                }
+            }
+            Mock -ModuleName install Test-PackageManagerAppInstalled { return $AppName -eq 'installed' }
+            Mock -ModuleName install Invoke-PackageInstallCommand { throw 'WhatIf 不应执行安装命令' }
+
+            $results = @(Install-PackageManagerApps -PackageManager homebrew -ConfigObject $config -TargetOS macOS -RequiredTag @('core', 'cli') -Required -WhatIf)
+
+            @($results.Status) | Should -Be @('AlreadyPresent', 'Preview', 'Skipped')
+            @($results.Required | Select-Object -Unique) | Should -Be @($true)
+            Should -Invoke -ModuleName install Invoke-PackageInstallCommand -Times 0
+        }
+
+        It "单项失败后继续安装并返回 required failure" {
+            $config = [PSCustomObject]@{
+                packageManagers = [PSCustomObject]@{
+                    homebrew = @(
+                        [PSCustomObject]@{ name = 'failed'; command = 'brew install failed'; supportOs = @('macOS'); tag = @('core', 'cli') }
+                        [PSCustomObject]@{ name = 'succeeded'; command = 'brew install succeeded'; supportOs = @('macOS'); tag = @('core', 'cli') }
+                    )
+                }
+            }
+            Mock -ModuleName install Test-PackageManagerAppInstalled { return $false }
+            Mock -ModuleName install Invoke-PackageInstallCommand {
+                if ($Command -match 'failed') {
+                    throw '模拟安装失败'
+                }
+                return 0
+            }
+
+            $results = @(Install-PackageManagerApps -PackageManager homebrew -ConfigObject $config -TargetOS macOS -RequiredTag @('core', 'cli') -Required)
+
+            @($results.Status) | Should -Be @('Failed', 'Installed')
+            @($results | Where-Object { $_.Required -and $_.Status -eq 'Failed' }).Count | Should -Be 1
+            Should -Invoke -ModuleName install Invoke-PackageInstallCommand -Times 2
+        }
     }
 
     Context "配置文件路径" {
         It "当配置文件不存在时应该报错" {
             { Install-PackageManagerApps -PackageManager "scoop" -ConfigPath "/tmp/nonexistent_config_$(Get-Random).json" -ErrorAction Stop } | Should -Throw
+        }
+    }
+}
+
+Describe "Select-PackageManagerApps 函数测试" {
+    BeforeAll {
+        $script:SelectionApps = @(
+            [PSCustomObject]@{ name = 'core-cli'; supportOs = @('macOS', 'Linux'); tag = @('core', 'cli') }
+            [PSCustomObject]@{ name = 'full-gui'; supportOs = @('macOS'); tag = @('full', 'gui') }
+            [PSCustomObject]@{ name = 'optional'; supportOs = @('macOS'); tag = @('cli', 'terminal-extras') }
+            [PSCustomObject]@{ name = 'skip-core'; supportOs = @('macOS'); tag = @('core', 'cli'); skipInstall = $true }
+        )
+    }
+
+    It "支持 OS、required、any 与 excluded 标签组合" {
+        $selected = @(Select-PackageManagerApps `
+                -Apps $script:SelectionApps `
+                -TargetOS macOS `
+                -RequiredTag cli `
+                -AnyTag @('core', 'terminal-extras') `
+                -ExcludedTag full)
+
+        @($selected.name) | Should -Be @('core-cli', 'optional')
+    }
+
+    It "skipInstall 默认优先排除但可为结构化报告保留" {
+        $defaultSelection = @(Select-PackageManagerApps -Apps $script:SelectionApps -TargetOS macOS -RequiredTag core)
+        $reportSelection = @(Select-PackageManagerApps -Apps $script:SelectionApps -TargetOS macOS -RequiredTag core -IncludeSkipped)
+
+        @($defaultSelection.name) | Should -Be @('core-cli')
+        @($reportSelection.name) | Should -Be @('core-cli', 'skip-core')
+    }
+}
+
+Describe "Test-PackageManagerAppCatalog 函数测试" {
+    It "接受合法的预设、类别与可选组标签" {
+        $config = [PSCustomObject]@{
+            packageManagers = [PSCustomObject]@{
+                homebrew = @(
+                    [PSCustomObject]@{ name = 'core-cli'; tag = @('macbook', 'core', 'cli') }
+                    [PSCustomObject]@{ name = 'full-gui'; tag = @('macbook', 'full', 'gui') }
+                    [PSCustomObject]@{ name = 'optional'; tag = @('cli', 'terminal-extras') }
+                )
+            }
+        }
+
+        Test-PackageManagerAppCatalog -ConfigObject $config | Should -BeTrue
+    }
+
+    It "拒绝 core/full 冲突" {
+        $config = [PSCustomObject]@{
+            packageManagers = [PSCustomObject]@{
+                homebrew = @([PSCustomObject]@{ name = 'bad'; tag = @('core', 'full', 'cli') })
+            }
+        }
+
+        { Test-PackageManagerAppCatalog -ConfigObject $config } | Should -Throw '*不能同时标记 core 和 full*'
+    }
+
+    It "拒绝预设项缺少或重复类别" {
+        $missingCategory = [PSCustomObject]@{
+            packageManagers = [PSCustomObject]@{
+                homebrew = @([PSCustomObject]@{ name = 'missing'; tag = @('core') })
+            }
+        }
+        $duplicateCategory = [PSCustomObject]@{
+            packageManagers = [PSCustomObject]@{
+                homebrew = @([PSCustomObject]@{ name = 'duplicate'; tag = @('full', 'gui', 'platform') })
+            }
+        }
+
+        { Test-PackageManagerAppCatalog -ConfigObject $missingCategory } | Should -Throw '*必须且只能包含一个类别标签*'
+        { Test-PackageManagerAppCatalog -ConfigObject $duplicateCategory } | Should -Throw '*必须且只能包含一个类别标签*'
+    }
+
+    It "拒绝未知标签和重复标签" {
+        $unknownTag = [PSCustomObject]@{
+            packageManagers = [PSCustomObject]@{
+                homebrew = @([PSCustomObject]@{ name = 'unknown'; tag = @('core', 'cil') })
+            }
+        }
+        $duplicateTag = [PSCustomObject]@{
+            packageManagers = [PSCustomObject]@{
+                homebrew = @([PSCustomObject]@{ name = 'duplicate'; tag = @('core', 'cli', 'cli') })
+            }
+        }
+
+        { Test-PackageManagerAppCatalog -ConfigObject $unknownTag } | Should -Throw '*未知标签*'
+        { Test-PackageManagerAppCatalog -ConfigObject $duplicateTag } | Should -Throw '*重复标签*'
+    }
+
+    It "仓库应用清单满足 macOS Core Full 和可选组合同" {
+        $configPath = Join-Path $PSScriptRoot '../../profile/installer/apps-config.json'
+        $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
+        $homebrew = @($config.packageManagers.homebrew)
+
+        Test-PackageManagerAppCatalog -ConfigObject $config | Should -BeTrue
+        @((Select-PackageManagerApps -Apps $homebrew -TargetOS macOS -RequiredTag @('core', 'cli')).name) |
+            Should -Be @('fnm', 'jq', 'fd', 'eza', 'ripgrep', 'fzf', 'zoxide', 'starship', 'bat', 'uv')
+        @((Select-PackageManagerApps -Apps $homebrew -TargetOS macOS -RequiredTag @('core', 'font')).name) |
+            Should -Be @('font-symbols-only-nerd-font', 'font-fira-code-nerd-font', 'font-jetbrains-mono-nerd-font')
+        @((Select-PackageManagerApps -Apps $homebrew -TargetOS macOS -RequiredTag full -AnyTag @('gui', 'platform')).name) |
+            Should -Contain 'hammerspoon'
+        @((Select-PackageManagerApps -Apps $homebrew -TargetOS macOS -RequiredTag terminal-extras).name) |
+            Should -Contain 'neovim'
+    }
+}
+
+Describe "受限安装命令解析测试" {
+    It "解析单条原生命令并保留参数边界" {
+        InModuleScope install {
+            $parsed = ConvertFrom-PackageInstallCommand -Command 'brew install --cask hammerspoon'
+
+            $parsed.Executable | Should -Be 'brew'
+            @($parsed.ArgumentList) | Should -Be @('install', '--cask', 'hammerspoon')
+        }
+    }
+
+    It "拒绝管道和语句分隔符" {
+        InModuleScope install {
+            { ConvertFrom-PackageInstallCommand -Command 'curl example.invalid | sh' } | Should -Throw '*不支持的语法*'
+            { ConvertFrom-PackageInstallCommand -Command 'brew install jq; touch bad' } | Should -Throw '*不支持的语法*'
         }
     }
 }

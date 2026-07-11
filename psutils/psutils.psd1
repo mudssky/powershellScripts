@@ -131,7 +131,8 @@
         # 帮助搜索模块 (help.psm1)
         'Search-ModuleHelp', 'Find-PSUtilsFunction', 'Get-FunctionHelp', 'Test-HelpSearchPerformance', 'Convert-HelpBlock',
         # 安装管理模块 (install.psm1)
-        'Test-ModuleInstalled', 'Install-RequiredModule', 'Install-PackageManagerApps', 'Install-ExecutableFile', 'Get-PackageInstallCommand',
+        'Test-ModuleInstalled', 'Install-RequiredModule', 'Select-PackageManagerApps', 'Test-PackageManagerAppCatalog',
+        'Install-PackageManagerApps', 'Install-ExecutableFile', 'Get-PackageInstallCommand',
         # JSON 工具模块 (json.psm1)
         'Read-JsonHashtableFile', 'Write-JsonFileAtomic', 'Get-StableJsonKey',
         # Linux 系统模块 (linux.psm1)

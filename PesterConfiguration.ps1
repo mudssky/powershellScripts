@@ -64,6 +64,7 @@ $qaDefaultPaths = @(
     "./tests/ProfileMode.Tests.ps1"
     "./tests/Install.Tests.ps1"
     "./tests/InstallOrchestrator.Tests.ps1"
+    "./tests/MacOSInstallPipeline.Tests.ps1"
     "./tests/PackageSourceBootstrap.Tests.ps1"
     "./tests/PackageSources.Tests.ps1"
     "./psutils/tests/commandDiscovery.Tests.ps1"

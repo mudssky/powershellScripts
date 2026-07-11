@@ -507,7 +507,9 @@
         ],
         "tag": [
           "linuxserver",
-          "macbook"
+          "macbook",
+          "core",
+          "cli"
         ]
       },
       {
@@ -531,7 +533,9 @@
         ],
         "tag": [
           "linuxserver",
-          "macbook"
+          "macbook",
+          "cli",
+          "terminal-extras"
         ]
       },
       {
@@ -542,6 +546,10 @@
         "supportOs": [
           "macOS",
           "linux"
+        ],
+        "tag": [
+          "cli",
+          "terminal-extras"
         ]
       },
       {
@@ -582,7 +590,9 @@
           "macOS"
         ],
         "tag": [
-          "macbook"
+          "macbook",
+          "full",
+          "gui"
         ]
       },
       {
@@ -603,6 +613,10 @@
         "supportOs": [
           "linux",
           "macOS"
+        ],
+        "tag": [
+          "cli",
+          "terminal-extras"
         ]
       },
       {
@@ -624,6 +638,10 @@
         "supportOs": [
           "linux",
           "macOS"
+        ],
+        "tag": [
+          "cli",
+          "terminal-extras"
         ]
       },
       {
@@ -637,7 +655,9 @@
         ],
         "tag": [
           "linuxserver",
-          "macbook"
+          "macbook",
+          "core",
+          "cli"
         ]
       },
       {
@@ -648,6 +668,10 @@
         "supportOs": [
           "linux",
           "macOS"
+        ],
+        "tag": [
+          "cli",
+          "terminal-extras"
         ]
       },
       {
@@ -661,7 +685,9 @@
         ],
         "tag": [
           "linuxserver",
-          "macbook"
+          "macbook",
+          "core",
+          "cli"
         ]
       },
       {
@@ -675,7 +701,9 @@
         ],
         "tag": [
           "linuxserver",
-          "macbook"
+          "macbook",
+          "core",
+          "cli"
         ]
       },
       {
@@ -689,7 +717,9 @@
         ],
         "tag": [
           "linuxserver",
-          "macbook"
+          "macbook",
+          "core",
+          "cli"
         ]
       },
       {
@@ -703,7 +733,9 @@
         ],
         "tag": [
           "linuxserver",
-          "macbook"
+          "macbook",
+          "core",
+          "cli"
         ]
       },
       {
@@ -717,7 +749,9 @@
         ],
         "tag": [
           "linuxserver",
-          "macbook"
+          "macbook",
+          "core",
+          "cli"
         ]
       },
       {
@@ -728,6 +762,10 @@
         "supportOs": [
           "linux",
           "macOS"
+        ],
+        "tag": [
+          "cli",
+          "terminal-extras"
         ]
       },
       {
@@ -738,6 +776,10 @@
         "supportOs": [
           "linux",
           "macOS"
+        ],
+        "tag": [
+          "cli",
+          "terminal-extras"
         ]
       },
       {
@@ -749,7 +791,9 @@
           "macOS"
         ],
         "tag": [
-          "macbook"
+          "macbook",
+          "core",
+          "font"
         ]
       },
       {
@@ -762,7 +806,9 @@
           "macOS"
         ],
         "tag": [
-          "macbook"
+          "macbook",
+          "full",
+          "gui"
         ]
       },
       {
@@ -774,7 +820,9 @@
           "macOS"
         ],
         "tag": [
-          "macbook"
+          "macbook",
+          "full",
+          "gui"
         ]
       },
       {
@@ -786,7 +834,9 @@
           "macOS"
         ],
         "tag": [
-          "macbook"
+          "macbook",
+          "full",
+          "gui"
         ]
       },
       {
@@ -798,7 +848,9 @@
           "macOS"
         ],
         "tag": [
-          "macbook"
+          "macbook",
+          "full",
+          "gui"
         ]
       },
       {
@@ -810,7 +862,9 @@
           "macOS"
         ],
         "tag": [
-          "macbook"
+          "macbook",
+          "full",
+          "gui"
         ]
       },
       {
@@ -822,7 +876,9 @@
           "macOS"
         ],
         "tag": [
-          "macbook"
+          "macbook",
+          "full",
+          "gui"
         ]
       },
       {
@@ -834,7 +890,9 @@
           "macOS"
         ],
         "tag": [
-          "macbook"
+          "macbook",
+          "full",
+          "gui"
         ]
       },
       {
@@ -846,7 +904,9 @@
           "macOS"
         ],
         "tag": [
-          "macbook"
+          "macbook",
+          "full",
+          "gui"
         ]
       },
       {
@@ -858,7 +918,9 @@
           "macOS"
         ],
         "tag": [
-          "macbook"
+          "macbook",
+          "full",
+          "platform"
         ]
       },
       {
@@ -872,7 +934,9 @@
         ],
         "tag": [
           "linuxserver",
-          "macbook"
+          "macbook",
+          "core",
+          "cli"
         ]
       },
       {
@@ -886,7 +950,9 @@
         ],
         "tag": [
           "linuxserver",
-          "macbook"
+          "macbook",
+          "core",
+          "cli"
         ]
       },
       {
@@ -907,7 +973,9 @@
         ],
         "tag": [
           "linuxserver",
-          "macbook"
+          "macbook",
+          "cli",
+          "terminal-extras"
         ]
       },
       {
@@ -921,7 +989,9 @@
         ],
         "tag": [
           "linuxserver",
-          "macbook"
+          "macbook",
+          "cli",
+          "terminal-extras"
         ]
       },
       {
@@ -935,7 +1005,9 @@
         ],
         "tag": [
           "linuxserver",
-          "macbook"
+          "macbook",
+          "cli",
+          "terminal-extras"
         ]
       },
       {
@@ -949,7 +1021,9 @@
         ],
         "tag": [
           "linuxserver",
-          "macbook"
+          "macbook",
+          "cli",
+          "terminal-extras"
         ]
       },
       {
@@ -963,7 +1037,9 @@
         ],
         "tag": [
           "linuxserver",
-          "macbook"
+          "macbook",
+          "core",
+          "cli"
         ]
       },
       {
@@ -974,6 +1050,10 @@
         "supportOs": [
           "linux",
           "macOS"
+        ],
+        "tag": [
+          "cli",
+          "terminal-extras"
         ]
       },
       {
@@ -984,6 +1064,10 @@
         "supportOs": [
           "linux",
           "macOS"
+        ],
+        "tag": [
+          "cli",
+          "terminal-extras"
         ]
       },
       {
@@ -994,6 +1078,10 @@
         "supportOs": [
           "linux",
           "macOS"
+        ],
+        "tag": [
+          "cli",
+          "terminal-extras"
         ]
       },
       {
@@ -1004,6 +1092,10 @@
         "supportOs": [
           "linux",
           "macOS"
+        ],
+        "tag": [
+          "cli",
+          "terminal-extras"
         ]
       },
       {
@@ -1017,7 +1109,9 @@
         ],
         "tag": [
           "linuxserver",
-          "macbook"
+          "macbook",
+          "cli",
+          "terminal-extras"
         ]
       },
       {
@@ -1029,7 +1123,9 @@
           "macOS"
         ],
         "tag": [
-          "macbook"
+          "macbook",
+          "full",
+          "gui"
         ]
       },
       {
@@ -1041,7 +1137,9 @@
           "macOS"
         ],
         "tag": [
-          "macbook"
+          "macbook",
+          "core",
+          "font"
         ]
       },
       {
@@ -1053,7 +1151,9 @@
           "macOS"
         ],
         "tag": [
-          "macbook"
+          "macbook",
+          "core",
+          "font"
         ]
       },
       {
@@ -1067,7 +1167,9 @@
         ],
         "tag": [
           "linuxserver",
-          "macbook"
+          "macbook",
+          "cli",
+          "terminal-extras"
         ]
       },
       {
@@ -1081,7 +1183,9 @@
         ],
         "tag": [
           "linuxserver",
-          "macbook"
+          "macbook",
+          "cli",
+          "terminal-extras"
         ]
       },
       {
@@ -1092,6 +1196,10 @@
         "supportOs": [
           "macOS",
           "linux"
+        ],
+        "tag": [
+          "cli",
+          "terminal-extras"
         ]
       }
     ],
@@ -1100,25 +1208,41 @@
         "name": "gemini-cli",
         "cliName": "gemini",
         "description": "gemini的命令行工具",
-        "command": "npm install -g @google/gemini-cli"
+        "command": "npm install -g @google/gemini-cli",
+        "tag": [
+          "ai-cli",
+          "cli"
+        ]
       },
       {
         "name": "qwen-coder",
         "cliName": "qwen",
         "description": "qwen的命令行工具",
-        "command": "npm install -g @qwen-code/qwen-code@latest"
+        "command": "npm install -g @qwen-code/qwen-code@latest",
+        "tag": [
+          "ai-cli",
+          "cli"
+        ]
       },
       {
         "name": "claude-code",
         "cliName": "claude",
         "description": "claude-code的命令行工具",
-        "command": "npm install -g @anthropic-ai/claude-code"
+        "command": "npm install -g @anthropic-ai/claude-code",
+        "tag": [
+          "ai-cli",
+          "cli"
+        ]
       },
       {
         "name": "openai-codex",
         "cliName": "codex",
         "description": "OpenAI Codex 命令行工具",
-        "command": "npm install -g @openai/codex"
+        "command": "npm install -g @openai/codex",
+        "tag": [
+          "ai-cli",
+          "cli"
+        ]
       },
       {
         "name": "tsx",
@@ -1130,7 +1254,11 @@
         "name": "openspec",
         "cliName": "openspec",
         "description": "Fission AI OpenSpec tool",
-        "command": "npm install -g @fission-ai/openspec"
+        "command": "npm install -g @fission-ai/openspec",
+        "tag": [
+          "ai-cli",
+          "cli"
+        ]
       },
       {
         "name": "uipro-cli",
@@ -1138,7 +1266,9 @@
         "description": "UIPro 命令行工具",
         "command": "npm install -g uipro-cli",
         "tag": [
-          "aicoding"
+          "aicoding",
+          "ai-cli",
+          "cli"
         ]
       }
     ],
@@ -1147,26 +1277,42 @@
         "name": "gemini-cli",
         "cliName": "gemini",
         "description": "gemini的命令行工具",
-        "command": "bun add -g @google/gemini-cli"
+        "command": "bun add -g @google/gemini-cli",
+        "tag": [
+          "ai-cli",
+          "cli"
+        ]
       },
       {
         "name": "qwen-coder",
         "cliName": "qwen",
         "description": "qwen的命令行工具",
         "command": "bun add -g @qwen-code/qwen-code@latest",
-        "skipInstall": true
+        "skipInstall": true,
+        "tag": [
+          "ai-cli",
+          "cli"
+        ]
       },
       {
         "name": "claude-code",
         "cliName": "claude",
         "description": "claude-code的命令行工具",
-        "command": "bun add -g @anthropic-ai/claude-code"
+        "command": "bun add -g @anthropic-ai/claude-code",
+        "tag": [
+          "ai-cli",
+          "cli"
+        ]
       },
       {
         "name": "openai-codex",
         "cliName": "codex",
         "description": "OpenAI Codex 命令行工具",
-        "command": "bun add -g @openai/codex"
+        "command": "bun add -g @openai/codex",
+        "tag": [
+          "ai-cli",
+          "cli"
+        ]
       },
       {
         "name": "tsx",
@@ -1178,13 +1324,21 @@
         "name": "openspec",
         "cliName": "openspec",
         "description": "Fission AI OpenSpec tool",
-        "command": "bun add -g @fission-ai/openspec"
+        "command": "bun add -g @fission-ai/openspec",
+        "tag": [
+          "ai-cli",
+          "cli"
+        ]
       },
       {
         "name": "opencode-ai",
         "cliName": "opencode-ai",
         "description": "OpenCode AI 命令行工具",
-        "command": "bun add -g opencode-ai"
+        "command": "bun add -g opencode-ai",
+        "tag": [
+          "ai-cli",
+          "cli"
+        ]
       }
     ],
     "pacman": [

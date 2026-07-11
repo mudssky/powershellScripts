@@ -6,31 +6,55 @@
     如果已有配置文件，会先备份（带时间戳后缀）。
 #>
 function Set-PowerShellProfile {
-    [CmdletBinding()]
+    <#
+    .SYNOPSIS
+        幂等写入统一 PowerShell Profile 入口。
+
+    .OUTPUTS
+        PSCustomObject。包含 Status、ProfilePath、BackupPath 与 Message。
+    #>
+    [CmdletBinding(SupportsShouldProcess)]
     param()
 
-    try {
-        # 备份逻辑：覆盖前备份，防止数据丢失
-        if (Test-Path -Path $profile) {
-            $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
-            $backupPath = "$profile.$timestamp.bak"
-            Write-Warning "发现现有的profile文件，备份为 $backupPath"
-            Copy-Item -Path $profile -Destination $backupPath -Force
+    $profilePath = [string]$PROFILE
+    $profileContent = ". `"$script:ProfileEntryScriptPath`""
+    $backupPath = ''
+    if (Test-Path -LiteralPath $profilePath -PathType Leaf) {
+        $currentContent = Get-Content -LiteralPath $profilePath -Raw
+        if ($currentContent.TrimEnd("`r", "`n") -eq $profileContent) {
+            return [pscustomobject]@{
+                Status      = 'AlreadyPresent'
+                ProfilePath = $profilePath
+                BackupPath  = ''
+                Message     = 'Profile 已指向统一入口'
+            }
         }
-
-        # 确保 profile 目录存在
-        $profileDir = Split-Path -Path $profile -Parent
-        if (-not (Test-Path -Path $profileDir)) {
-            Write-Verbose "创建 PowerShell 配置文件目录: $profileDir"
-            New-Item -Path $profileDir -ItemType Directory -Force | Out-Null
-        }
-
-        # 写入配置文件
-        $profileContent = ". `"$script:ProfileEntryScriptPath`""
-        Set-Content -Path $profile -Value $profileContent -Encoding UTF8
-        Write-Host -ForegroundColor Green "已成功将配置写入 PowerShell 配置文件: $profile"
     }
-    catch {
-        Write-Error "设置 PowerShell 配置文件时出错: $($_.Exception.Message)"
+
+    if (-not $PSCmdlet.ShouldProcess($profilePath, '写入统一 PowerShell Profile 入口')) {
+        return [pscustomobject]@{
+            Status      = if ($WhatIfPreference) { 'Preview' } else { 'Skipped' }
+            ProfilePath = $profilePath
+            BackupPath  = ''
+            Message     = '未写入 Profile'
+        }
+    }
+
+    $profileDir = Split-Path -Path $profilePath -Parent
+    if (-not (Test-Path -LiteralPath $profileDir -PathType Container)) {
+        New-Item -Path $profileDir -ItemType Directory -Force | Out-Null
+    }
+    if (Test-Path -LiteralPath $profilePath -PathType Leaf) {
+        $timestamp = Get-Date -Format 'yyyy-MM-dd_HH-mm-ss'
+        $backupPath = "$profilePath.$timestamp.bak"
+        Copy-Item -LiteralPath $profilePath -Destination $backupPath -Force
+    }
+    Set-Content -LiteralPath $profilePath -Value $profileContent -Encoding utf8NoBOM
+
+    return [pscustomobject]@{
+        Status      = 'Updated'
+        ProfilePath = $profilePath
+        BackupPath  = $backupPath
+        Message     = '已写入统一 Profile 入口'
     }
 }

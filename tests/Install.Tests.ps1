@@ -45,8 +45,7 @@ exit 0
 
         $legacyAppPaths = @(
             'profile/installer/installApp.ps1',
-            'linux/04installApps.ps1',
-            'macos/04installApps.ps1'
+            'linux/04installApps.ps1'
         )
         foreach ($relativePath in $legacyAppPaths) {
             $appPath = Join-Path $script:TempRoot $relativePath

@@ -4,6 +4,11 @@ if (Test-Path $osModulePath) {
     Import-Module $osModulePath -Force
 }
 
+$configModulePath = Join-Path $PSScriptRoot "config.psm1"
+if (-not (Get-Command ConvertTo-ConfigHashtable -ErrorAction SilentlyContinue) -and (Test-Path $configModulePath)) {
+    Import-Module $configModulePath -Force
+}
+
 if (-not $script:ModuleInstalledCache) {
     $script:ModuleInstalledCache = @{}
 }
@@ -17,6 +22,8 @@ function Invoke-InstallModuleCommand {
         同时避免测试意外触发真实 PowerShell Gallery 路径。
     .PARAMETER ModuleName
         要安装的模块名称。
+    .OUTPUTS
+        None。安装失败时抛出异常。
     #>
     [CmdletBinding()]
     param(
@@ -36,18 +43,20 @@ function Import-InstalledModule {
         避免测试阶段回退到真实模块解析链路。
     .PARAMETER ModuleName
         要导入的模块名称。
-    .PARAMETER ErrorAction
+    .PARAMETER ImportErrorAction
         导入失败时的错误策略。
+    .OUTPUTS
+        None。导入结果写入当前 PowerShell 会话。
     #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
         [string]$ModuleName,
         [Parameter()]
-        [System.Management.Automation.ActionPreference]$ErrorAction = [System.Management.Automation.ActionPreference]::Continue
+        [System.Management.Automation.ActionPreference]$ImportErrorAction = [System.Management.Automation.ActionPreference]::Continue
     )
 
-    Import-Module $ModuleName -ErrorAction $ErrorAction
+    Import-Module $ModuleName -ErrorAction $ImportErrorAction
 }
 
 function Find-InstalledModulePath {
@@ -171,34 +180,64 @@ function Install-RequiredModule {
     .DESCRIPTION
         检查并安装指定的PowerShell模块，如果模块已存在则直接导入
     .PARAMETER ModuleNames
-        要安装的模块名称数组
+        要确保可用的模块名称数组。
+
     .EXAMPLE
         Install-RequiredModule -ModuleNames @("Pester", "PSReadLine")
         安装Pester和PSReadLine模块
+
+    .OUTPUTS
+        PSCustomObject[]。包含 Name、Status、ExitCode 与 Message。
     #>
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess)]
     param(
         [Parameter(Mandatory = $true)]
         [string[]]$ModuleNames
     )
     
+    $results = [System.Collections.Generic.List[object]]::new()
     foreach ($module in $ModuleNames) {
+        $status = ''
+        $exitCode = 0
+        $message = ''
         if (-not (Test-ModuleInstalled -ModuleName $module)) {
             try {
-                Write-Host "正在安装 $module 模块..." -ForegroundColor Yellow
-                Invoke-InstallModuleCommand -ModuleName $module
-                Import-InstalledModule -ModuleName $module -ErrorAction Stop
-                Write-Host "$module 模块安装成功!" -ForegroundColor Green
+                if (-not $PSCmdlet.ShouldProcess($module, '安装 PowerShell 模块')) {
+                    $status = if ($WhatIfPreference) { 'Preview' } else { 'Skipped' }
+                    $message = if ($WhatIfPreference) { '预览模块安装' } else { '用户跳过模块安装' }
+                }
+                else {
+                    Write-Host "正在安装 $module 模块..." -ForegroundColor Yellow
+                    Invoke-InstallModuleCommand -ModuleName $module
+                    Import-InstalledModule -ModuleName $module -ImportErrorAction Stop
+                    $script:ModuleInstalledCache[$module] = $true
+                    $status = 'Installed'
+                    $message = '模块安装并导入成功'
+                }
             }
             catch {
-                Write-Warning "无法安装 $module 模块: $_"
+                $status = 'Failed'
+                $exitCode = 1
+                $message = $_.Exception.Message
+                Write-Warning "无法安装 $module 模块: $message"
             }
         }
         else {
             Write-Verbose "模块 $module 已安装，正在导入..."
-            Import-InstalledModule -ModuleName $module -ErrorAction SilentlyContinue
+            Import-InstalledModule -ModuleName $module -ImportErrorAction SilentlyContinue
+            $status = 'AlreadyPresent'
+            $message = '模块已安装'
         }
+
+        $results.Add([pscustomobject]@{
+                Name     = $module
+                Status   = $status
+                ExitCode = $exitCode
+                Message  = $message
+            })
     }
+
+    return $results.ToArray()
 }
 
 
@@ -260,215 +299,449 @@ function Test-AppFilter {
     }
 }
 
-function Install-PackageManagerApps() {
+function Get-PackageManagerAppTags {
     <#
     .SYNOPSIS
-        根据配置文件安装指定包管理器的应用程序
-    .DESCRIPTION
-        从配置文件中读取指定包管理器的应用列表，并根据条件过滤后批量安装应用程序。
-        支持操作系统过滤、自定义函数过滤等多种筛选方式。
-    .PARAMETER PackageManager
-        包管理器名称（如：homebrew, choco, scoop）
-    .PARAMETER ConfigObject
-        配置对象（与 ConfigPath 二选一）
-    .PARAMETER ConfigPath
-        配置文件路径，默认为 "$PSScriptRoot/apps-config.json"
-    .PARAMETER FilterByOS
-        是否按操作系统筛选，默认为 $true
-    .PARAMETER TargetOS
-        目标操作系统（Windows, Linux, macOS），未指定时自动检测
-    .PARAMETER FilterPredicate
-        单个过滤脚本块，用于自定义过滤逻辑
-    .PARAMETER FilterPredicates
-        多个过滤脚本块数组，与 FilterMode 配合使用
-    .PARAMETER FilterMode
-        过滤模式："And" 表示所有条件都必须满足，"Or" 表示任一条件满足即可，默认为 "And"
-    .EXAMPLE
-        # 基础用法 - 安装所有适用于当前系统的 homebrew 应用
-        Install-PackageManagerApps -PackageManager "homebrew"
-    .EXAMPLE
-        # 使用自定义过滤器 - 只安装带有 linuxserver 标签的应用
-        $linuxServerFilter = { param($app) $app.tag -and "linuxserver" -in $app.tag }
-        Install-PackageManagerApps -PackageManager "homebrew" -FilterPredicate $linuxServerFilter
-    .EXAMPLE
-        # 使用多过滤器 - 安装开发工具或 Git 相关工具
-        $filters = @(
-            { param($app) $app.tag -contains "development" },
-            { param($app) $app.name -like "*git*" }
-        )
-        Install-PackageManagerApps -PackageManager "homebrew" -FilterPredicates $filters -FilterMode "Or"
-    .EXAMPLE
-        # 复杂业务逻辑过滤
-        $businessFilter = {
-            param($app)
-            $isLinuxCompatible = $app.supportOs -contains "Linux"
-            $notSkipped = -not $app.skipInstall
-            $isServerTool = $app.tag -and "linuxserver" -in $app.tag
-            
-            return $isLinuxCompatible -and $notSkipped -and $isServerTool
-        }
-        Install-PackageManagerApps -PackageManager "homebrew" -FilterPredicate $businessFilter
-    .INPUTS
-        None. 此函数不接受管道输入。
+        返回规范化的小写应用标签。
+
+    .PARAMETER AppInfo
+        应用配置对象。
+
     .OUTPUTS
-        None. 此函数不返回输出。
-    .NOTES
-        过滤脚本块接收一个参数 $app，代表应用信息对象，包含以下属性：
-        - name: 应用名称
-        - cliName: CLI 命令名称
-        - description: 应用描述
-        - command: 安装命令
-        - supportOs: 支持的操作系统数组
-        - skipInstall: 是否跳过安装
-        - tag: 标签数组
+        System.String[]。去除空值后的标签数组。
     #>
-    [CmdletBinding(SupportsShouldProcess)]
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$AppInfo
+    )
+
+    return @($AppInfo.tag | ForEach-Object { ([string]$_).Trim().ToLowerInvariant() } | Where-Object { $_ })
+}
+
+function Select-PackageManagerApps {
+    <#
+    .SYNOPSIS
+        按操作系统和标签选择包管理器应用。
+
+    .DESCRIPTION
+        该函数只执行纯筛选，不检测或安装软件。RequiredTag 必须全部命中，AnyTag
+        至少命中一个，ExcludedTag 任一命中即排除；skipInstall 默认始终优先排除。
+
+    .PARAMETER Apps
+        待筛选的应用配置数组。
+
+    .PARAMETER TargetOS
+        可选目标操作系统。未传时不做操作系统筛选。
+
+    .PARAMETER RequiredTag
+        必须全部包含的标签。
+
+    .PARAMETER AnyTag
+        至少包含一个的标签。
+
+    .PARAMETER ExcludedTag
+        任一命中即排除的标签。
+
+    .PARAMETER IncludeSkipped
+        为生成结构化 Skipped 结果保留 skipInstall 条目；不会改变其跳过语义。
+
+    .OUTPUTS
+        System.Object[]。保持原配置顺序的应用对象数组。
+    #>
+    [CmdletBinding()]
+    param(
+        [object[]]$Apps,
+
+        [ValidateSet('', 'Windows', 'Linux', 'macOS')]
+        [string]$TargetOS = '',
+
+        [string[]]$RequiredTag,
+
+        [string[]]$AnyTag,
+
+        [string[]]$ExcludedTag,
+
+        [switch]$IncludeSkipped
+    )
+
+    $requiredTags = @($RequiredTag | ForEach-Object { ([string]$_).Trim().ToLowerInvariant() } | Where-Object { $_ })
+    $anyTags = @($AnyTag | ForEach-Object { ([string]$_).Trim().ToLowerInvariant() } | Where-Object { $_ })
+    $excludedTags = @($ExcludedTag | ForEach-Object { ([string]$_).Trim().ToLowerInvariant() } | Where-Object { $_ })
+
+    return @($Apps | Where-Object {
+            $app = $_
+            if (-not $IncludeSkipped -and [bool]$app.skipInstall) {
+                return $false
+            }
+            if ($TargetOS -and $app.supportOs -and $TargetOS -notin @($app.supportOs)) {
+                return $false
+            }
+
+            $tags = @(Get-PackageManagerAppTags -AppInfo $app)
+            if (@($requiredTags | Where-Object { $_ -notin $tags }).Count -gt 0) {
+                return $false
+            }
+            if ($anyTags.Count -gt 0 -and @($anyTags | Where-Object { $_ -in $tags }).Count -eq 0) {
+                return $false
+            }
+            if (@($excludedTags | Where-Object { $_ -in $tags }).Count -gt 0) {
+                return $false
+            }
+            return $true
+        })
+}
+
+function Test-PackageManagerAppCatalog {
+    <#
+    .SYNOPSIS
+        校验应用清单中的预设和类别标签。
+
+    .PARAMETER ConfigObject
+        包含 packageManagers 的应用配置对象。
+
+    .PARAMETER AllowedTag
+        允许使用的标签集合；默认包含仓库现有场景、预设、类别与可选组标签。
+
+    .OUTPUTS
+        System.Boolean。校验通过返回 true，失败时抛出包含包管理器和应用名的异常。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$ConfigObject,
+
+        [string[]]$AllowedTag = @(
+            'linuxserver', 'macbook', 'aicoding',
+            'core', 'full',
+            'cli', 'font', 'gui', 'platform',
+            'terminal-extras', 'ai-cli'
+        )
+    )
+
+    $config = ConvertTo-ConfigHashtable -InputObject $ConfigObject
+    if (-not $config.ContainsKey('packageManagers')) {
+        throw '应用配置缺少 packageManagers'
+    }
+    $packageManagers = ConvertTo-ConfigHashtable -InputObject $config.packageManagers
+
+    $allowedTags = @($AllowedTag | ForEach-Object { ([string]$_).Trim().ToLowerInvariant() } | Where-Object { $_ })
+    $categoryTags = @('cli', 'font', 'gui', 'platform')
+    foreach ($packageManager in @($packageManagers.Keys)) {
+        foreach ($app in @($packageManagers[$packageManager])) {
+            $appName = [string]$app.name
+            if ([string]::IsNullOrWhiteSpace($appName)) {
+                throw "包管理器 $packageManager 包含缺少 name 的应用配置"
+            }
+
+            $tags = @(Get-PackageManagerAppTags -AppInfo $app)
+            if (@($tags | Select-Object -Unique).Count -ne $tags.Count) {
+                throw "应用 $packageManager/$appName 包含重复标签"
+            }
+            foreach ($tag in $tags) {
+                if ($tag -notmatch '^[a-z0-9]+(?:-[a-z0-9]+)*$' -or $tag -notin $allowedTags) {
+                    throw "应用 $packageManager/$appName 包含未知标签: $tag"
+                }
+            }
+            if ('core' -in $tags -and 'full' -in $tags) {
+                throw "应用 $packageManager/$appName 不能同时标记 core 和 full"
+            }
+            if ('core' -in $tags -or 'full' -in $tags) {
+                $categories = @($categoryTags | Where-Object { $_ -in $tags })
+                if ($categories.Count -ne 1) {
+                    throw "预设应用 $packageManager/$appName 必须且只能包含一个类别标签"
+                }
+            }
+        }
+    }
+
+    return $true
+}
+
+function ConvertFrom-PackageInstallCommand {
+    <#
+    .SYNOPSIS
+        把受限的单条原生命令解析为参数数组。
+
+    .DESCRIPTION
+        仅接受命令、命令参数和字符串 token，拒绝管道、重定向、变量和语句分隔符，
+        防止仓库配置中的展示字符串通过 Invoke-Expression 执行额外语义。
+
+    .PARAMETER Command
+        应用配置中的安装命令。
+
+    .OUTPUTS
+        PSCustomObject。Executable 为命令名，ArgumentList 为字符串参数数组。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Command
+    )
+
+    $parseErrors = $null
+    $tokens = @([System.Management.Automation.PSParser]::Tokenize($Command, [ref]$parseErrors))
+    if (@($parseErrors).Count -gt 0 -or $tokens.Count -eq 0) {
+        throw "安装命令无法解析: $Command"
+    }
+
+    $allowedTokenTypes = @('Command', 'CommandArgument', 'CommandParameter', 'String')
+    $unsupportedToken = $tokens | Where-Object { [string]$_.Type -notin $allowedTokenTypes } | Select-Object -First 1
+    if ($unsupportedToken) {
+        throw "安装命令包含不支持的语法 $($unsupportedToken.Type): $Command"
+    }
+
+    $parts = @($tokens | ForEach-Object { [string]$_.Content })
+    return [pscustomobject]@{
+        Executable   = $parts[0]
+        ArgumentList = @($parts | Select-Object -Skip 1)
+    }
+}
+
+function Invoke-PackageInstallCommand {
+    <#
+    .SYNOPSIS
+        使用参数数组执行应用安装命令。
+
+    .PARAMETER Command
+        受限的单条原生命令字符串。
+
+    .OUTPUTS
+        System.Int32。原生命令退出码；执行失败时抛出异常。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Command
+    )
+
+    $parsed = ConvertFrom-PackageInstallCommand -Command $Command
+    $commandInfo = Get-Command $parsed.Executable -ErrorAction Stop
+    & $commandInfo.Source @($parsed.ArgumentList)
+    $exitCode = [int]$LASTEXITCODE
+    if ($exitCode -ne 0) {
+        throw "安装命令退出码为 ${exitCode}: $Command"
+    }
+    return $exitCode
+}
+
+function Test-PackageManagerAppInstalled {
+    <#
+    .SYNOPSIS
+        通过共享应用检测能力判断应用是否已安装。
+
+    .PARAMETER AppName
+        CLI 或应用检测名称。
+
+    .PARAMETER FilterCli
+        是否只检测命令行程序。
+
+    .OUTPUTS
+        System.Boolean。已安装返回 true。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$AppName,
+
+        [switch]$FilterCli
+    )
+
+    return [bool](Test-ApplicationInstalled -AppName $AppName -FilterCli:$FilterCli)
+}
+
+function Install-PackageManagerApps {
+    <#
+    .SYNOPSIS
+        根据统一应用清单筛选并安装指定包管理器的应用。
+
+    .DESCRIPTION
+        保留 ConfigPath、ConfigObject 和 predicate 兼容参数；新增标签筛选与逐项结构化结果。
+        单项失败不会中止同一步其他应用，调用方可通过 Required 与 Failed 状态决定步骤退出码。
+
+    .PARAMETER PackageManager
+        包管理器名称，如 homebrew、choco、scoop。
+
+    .PARAMETER ConfigObject
+        配置对象，与 ConfigPath 二选一。
+
+    .PARAMETER ConfigPath
+        JSON 配置路径。
+
+    .PARAMETER FilterByOS
+        是否按目标操作系统筛选。
+
+    .PARAMETER TargetOS
+        Windows、Linux 或 macOS；未指定时自动检测。
+
+    .PARAMETER FilterPredicate
+        兼容的单个自定义过滤脚本块。
+
+    .PARAMETER FilterPredicates
+        兼容的多个自定义过滤脚本块。
+
+    .PARAMETER FilterMode
+        多 predicate 的 And 或 Or 组合方式。
+
+    .PARAMETER RequiredTag
+        必须全部包含的标签。
+
+    .PARAMETER AnyTag
+        至少包含一个的标签。
+
+    .PARAMETER ExcludedTag
+        任一命中即排除的标签。
+
+    .PARAMETER Required
+        标记本次候选为步骤必需项，供调用方汇总失败。
+
+    .OUTPUTS
+        PSCustomObject[]。字段包含 Name、PackageManager、Status、ExitCode、Message、Required 和 Command。
+    #>
+    [CmdletBinding(SupportsShouldProcess, DefaultParameterSetName = 'ConfigPath')]
     param(
         [Parameter(Mandatory)]
         [string]$PackageManager,
-		
+
         [Parameter(Mandatory, ParameterSetName = 'ConfigObject')]
-        [PSCustomObject]$ConfigObject,
-		
+        [object]$ConfigObject,
+
         [Parameter(ParameterSetName = 'ConfigPath')]
         [string]$ConfigPath = "$PSScriptRoot/apps-config.json",
-        
-        [Parameter()]
+
         [bool]$FilterByOS = $true,
-        
-        [Parameter()]
-        [ValidateSet("Windows", "Linux", "macOS")]
+
+        [ValidateSet('Windows', 'Linux', 'macOS')]
         [string]$TargetOS,
-        
-        [Parameter()]
+
         [ScriptBlock]$FilterPredicate,
-        
-        [Parameter()]
+
         [ScriptBlock[]]$FilterPredicates,
-        
-        [Parameter()]
-        [ValidateSet("And", "Or")]
-        [string]$FilterMode = "And"
+
+        [ValidateSet('And', 'Or')]
+        [string]$FilterMode = 'And',
+
+        [string[]]$RequiredTag,
+
+        [string[]]$AnyTag,
+
+        [string[]]$ExcludedTag,
+
+        [switch]$Required
     )
-	
-    # 获取目标操作系统
-    if ($FilterByOS) {
-        if ([string]::IsNullOrWhiteSpace($TargetOS)) {
-            # 如果未指定目标操作系统，则使用当前操作系统
-            $TargetOS = Get-OperatingSystem
-            Write-Verbose "自动检测到当前操作系统: $TargetOS"
-        }
-        else {
-            Write-Verbose "使用指定的目标操作系统: $TargetOS"
-        }
+
+    if ($FilterByOS -and [string]::IsNullOrWhiteSpace($TargetOS)) {
+        $TargetOS = Get-OperatingSystem
+        Write-Verbose "自动检测到当前操作系统: $TargetOS"
     }
-    
-    # 根据参数集确定安装列表
-    if ($PSCmdlet.ParameterSetName -eq 'ConfigObject') {
-        $InstallList = $ConfigObject.packageManagers.$PackageManager
+
+    $config = if ($PSCmdlet.ParameterSetName -eq 'ConfigObject') {
+        ConvertTo-ConfigHashtable -InputObject $ConfigObject
     }
-    elseif ($PSCmdlet.ParameterSetName -eq 'ConfigPath') {
-        if (-not (Test-Path $ConfigPath)) {
-            Write-Error "配置文件不存在: $ConfigPath"
-            return
-        }
-        $config = Get-Content $ConfigPath | ConvertFrom-Json
-        $InstallList = $config.packageManagers.$PackageManager
+    else {
+        (Resolve-ConfigSources -Sources @(
+                @{ Type = 'JsonFile'; Name = 'AppsConfig'; Path = $ConfigPath }
+            ) -BasePath (Get-Location).Path -ErrorOnMissing).Values
     }
-	
-    if (-not $InstallList) {
+    $packageManagers = if ($config.ContainsKey('packageManagers')) {
+        ConvertTo-ConfigHashtable -InputObject $config.packageManagers
+    }
+    else {
+        @{}
+    }
+
+    if (-not $packageManagers.ContainsKey($PackageManager)) {
         Write-Warning "未找到 $PackageManager 的应用配置"
         return
     }
-    
-    # 根据操作系统筛选应用
-    if ($FilterByOS) {
-        $originalCount = @($InstallList).Count
-        $InstallList = $InstallList | Where-Object {
-            # 如果应用没有 supportOs 字段，则不进行筛选
-            if (-not $_.supportOs) {
-                return $true
-            }
-            # 检查当前操作系统是否在支持列表中
-            return $_.supportOs -contains $TargetOS
-        }
-        
-        $filteredCount = @($InstallList).Count
-        Write-Verbose "操作系统筛选: 原始应用数量 $originalCount，筛选后应用数量 $filteredCount"
-        
-        if ($filteredCount -eq 0) {
-            Write-Warning "经过操作系统筛选后，没有找到适用于 $TargetOS 的 $PackageManager 应用"
-            return
-        }
+
+    $selectionParameters = @{
+        Apps           = @($packageManagers[$PackageManager])
+        RequiredTag    = $RequiredTag
+        AnyTag         = $AnyTag
+        ExcludedTag    = $ExcludedTag
+        IncludeSkipped = $true
     }
-    
-    # 应用自定义过滤器
+    if ($FilterByOS) {
+        $selectionParameters.TargetOS = $TargetOS
+    }
+    $installList = @(Select-PackageManagerApps @selectionParameters)
+
     if ($FilterPredicate -or $FilterPredicates) {
         $predicates = @()
-        if ($FilterPredicate) { $predicates += $FilterPredicate }
-        if ($FilterPredicates) { $predicates += $FilterPredicates }
-        
-        $originalCount = @($InstallList).Count
-        $InstallList = $InstallList | Where-Object {
-            Test-AppFilter -AppInfo $_ -Predicates $predicates -Mode $FilterMode
+        if ($FilterPredicate) {
+            $predicates += $FilterPredicate
         }
-        
-        $filteredCount = @($InstallList).Count
-        Write-Verbose "自定义过滤器筛选: 原始应用数量 $originalCount，筛选后应用数量 $filteredCount"
-        
-        if ($filteredCount -eq 0) {
-            Write-Warning "经过自定义过滤器筛选后，没有找到符合条件的 $PackageManager 应用"
-            return
+        if ($FilterPredicates) {
+            $predicates += $FilterPredicates
         }
+        $installList = @($installList | Where-Object {
+                Test-AppFilter -AppInfo ([pscustomobject]$_) -Predicates $predicates -Mode $FilterMode
+            })
     }
-	
+
+    if ($installList.Count -eq 0) {
+        Write-Warning "没有找到符合条件的 $PackageManager 应用"
+        return
+    }
+
+    $results = [System.Collections.Generic.List[object]]::new()
     Write-Host "开始检查 $PackageManager 应用..." -ForegroundColor Green
-	
-    foreach ($appInfo in $InstallList) {
-        # 获取应用基本信息
-        $appName = $appInfo.name
-        $cliName = if ($appInfo.cliName) { $appInfo.cliName } else { $appInfo.name }
-		
-        # 生成安装命令（如果未配置则根据包管理器自动生成）
-        $command = Get-PackageInstallCommand -PackageManager $PackageManager -AppName $appName -CustomCommand $appInfo.command
-        if (-not $command) {
-            Write-Warning "未知的包管理器: $PackageManager，跳过 $appName"
-            continue
+    foreach ($appInfo in $installList) {
+        $appName = [string]$appInfo.name
+        $cliName = if ($appInfo.cliName) { [string]$appInfo.cliName } else { $appName }
+        $command = Get-PackageInstallCommand -PackageManager $PackageManager -AppName $appName -CustomCommand ([string]$appInfo.command)
+        $status = ''
+        $exitCode = 0
+        $message = ''
+
+        if ([bool]$appInfo.skipInstall) {
+            $status = 'Skipped'
+            $message = '配置标记 skipInstall'
         }
-		
-        # 检查是否跳过安装
-        if ($appInfo.skipInstall) {
-            Write-Host "跳过安装 $appName" -ForegroundColor Gray
-            continue
+        elseif ([string]::IsNullOrWhiteSpace($command)) {
+            $status = 'Failed'
+            $exitCode = 2
+            $message = "不支持的包管理器或安装命令为空: $PackageManager"
         }
-        
-        # 执行安装逻辑
-        try {
-            # 检查应用是否已安装（使用更智能的检测方法）
-            $isInstalled = if ($appInfo.filterCli) {
-                # 如果配置中指定仅检测CLI，则只检测命令行程序
-                Test-ApplicationInstalled -AppName $cliName -FilterCli $true
-            }
-            else {
-                # 默认检测所有类型（命令行和应用程序）
-                Test-ApplicationInstalled -AppName $cliName
-            }
-            
-            if (-not $isInstalled) {
-                if ($PSCmdlet.ShouldProcess($appName, "安装应用")) {
+        else {
+            try {
+                $isInstalled = Test-PackageManagerAppInstalled -AppName $cliName -FilterCli:([bool]$appInfo.filterCli)
+                if ($isInstalled) {
+                    $status = 'AlreadyPresent'
+                    $message = '应用已安装'
+                }
+                elseif (-not $PSCmdlet.ShouldProcess($appName, '安装应用')) {
+                    $status = if ($WhatIfPreference) { 'Preview' } else { 'Skipped' }
+                    $message = if ($WhatIfPreference) { '预览安装命令' } else { '用户跳过安装' }
+                }
+                else {
                     Write-Host "正在安装 $appName..." -ForegroundColor Yellow
-                    Invoke-Expression $command
-                    Write-Host "✓ $appName 安装完成" -ForegroundColor Green
+                    $null = Invoke-PackageInstallCommand -Command $command
+                    $status = 'Installed'
+                    $message = '安装完成'
                 }
             }
-            else {
-                Write-Host "✓ $appName 已安装" -ForegroundColor Gray
+            catch {
+                $status = 'Failed'
+                $exitCode = 1
+                $message = $_.Exception.Message
+                Write-Warning "安装 $appName 失败: $message"
             }
         }
-        catch {
-            Write-Error "安装 $appName 失败: $($_.Exception.Message)"
-        }
+
+        $results.Add([pscustomobject]@{
+                Name           = $appName
+                PackageManager = $PackageManager
+                Status         = $status
+                ExitCode       = $exitCode
+                Message        = $message
+                Required       = [bool]$Required
+                Command        = $command
+            })
     }
+
+    return $results.ToArray()
 }
 
 function Install-ExecutableFile {
@@ -593,4 +866,12 @@ function Get-PackageInstallCommand {
     }
 }
 
-Export-ModuleMember -Function Test-ModuleInstalled, Install-RequiredModule, Install-PackageManagerApps, Install-ExecutableFile, Get-PackageInstallCommand
+Export-ModuleMember -Function @(
+    'Test-ModuleInstalled'
+    'Install-RequiredModule'
+    'Select-PackageManagerApps'
+    'Test-PackageManagerAppCatalog'
+    'Install-PackageManagerApps'
+    'Install-ExecutableFile'
+    'Get-PackageInstallCommand'
+)

@@ -76,9 +76,9 @@ backup_file() {
     run_cmd cp "$file_path" "$backup_path"
 }
 
-# 复制文件并按需备份目标文件。
+# 复制内容发生变化的文件，并按需备份目标文件。
 # 入参：$1 源文件；$2 目标文件；$3 是否备份 existing 目标。
-# 返回值：无。
+# 返回值：内容相同返回 0；复制成功返回 0；失败由严格模式终止。
 copy_file() {
     local source_file="$1"
     local target_file="$2"
@@ -87,6 +87,11 @@ copy_file() {
     if [ ! -f "$source_file" ]; then
         log_err "源文件不存在: $source_file"
         exit 1
+    fi
+
+    if [ -f "$target_file" ] && cmp -s "$source_file" "$target_file"; then
+        log_info "内容未变化，跳过: $target_file"
+        return 0
     fi
 
     if [ "$should_backup" = true ]; then
@@ -156,10 +161,15 @@ read_manifest() {
     fi
 }
 
-# 写入本轮托管文件清单。
+# 在清单变化时写入本轮托管文件。
 # 入参：文件路径列表。
-# 返回值：无。
+# 返回值：清单不变或写入成功返回 0。
 write_manifest() {
+    if [ -f "$MANIFEST_FILE" ] && printf '%s\n' "$@" | cmp -s - "$MANIFEST_FILE"; then
+        log_info "manifest 未变化: $MANIFEST_FILE"
+        return 0
+    fi
+
     if [ "$DRY_RUN" = true ]; then
         echo -e "${BLUE}[DRY] 写入 manifest: $MANIFEST_FILE${NC}"
         printf '%s\n' "$@"
@@ -285,8 +295,8 @@ while [ $# -gt 0 ]; do
             ;;
         *)
             log_err "未知参数: $1"
-            usage
-            exit 1
+            usage >&2
+            exit 2
             ;;
     esac
 done
@@ -294,7 +304,9 @@ done
 echo -e "${BLUE}Hammerspoon Lua Scripts Loader${NC}"
 echo -e "${BLUE}================================${NC}"
 
-if ! is_hammerspoon_installed; then
+if [ "$DRY_RUN" = true ]; then
+    log_info "dry-run 模式不探测或启动 Hammerspoon 应用"
+elif ! is_hammerspoon_installed; then
     if [ "$INSTALL_HAMMERSPOON" = true ]; then
         install_hammerspoon
     else
@@ -305,9 +317,7 @@ if ! is_hammerspoon_installed; then
     fi
 fi
 
-if [ "$DRY_RUN" = true ]; then
-    log_info "dry-run 模式下继续模拟部署"
-else
+if [ "$DRY_RUN" = false ]; then
     log_info "Hammerspoon 已安装"
 fi
 

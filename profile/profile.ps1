@@ -1,4 +1,4 @@
-[CmdletBinding()]
+[CmdletBinding(SupportsShouldProcess)]
 param(
     [Parameter(HelpMessage = '是否将配置加载到 PowerShell 配置文件中')]
     [switch]$LoadProfile,
@@ -243,7 +243,7 @@ try {
 
     if ($LoadProfile) {
         if (Get-Command -Name Set-PowerShellProfile -CommandType Function -ErrorAction SilentlyContinue) {
-            Set-PowerShellProfile
+            $null = Set-PowerShellProfile
         }
         else {
             Write-Warning 'Set-PowerShellProfile 不可用，已跳过 -LoadProfile 请求'

@@ -354,6 +354,7 @@ function runRootPwshQa(modeValue, sinceRef) {
   const pwshPathspecs = [
     'scripts/pwsh',
     'config/install',
+    'macos',
     'profile',
     'tests',
     'psutils/modules',

@@ -155,7 +155,8 @@ function Import-GitHubCliConfigModule {
             throw "未找到共享 PowerShell helper 模块: $modulePath"
         }
 
-        Import-Module $modulePath -Force
+        # 该 loader 本身位于函数作用域；显式导入到会话全局，避免返回后公共命令随局部作用域消失。
+        Import-Module $modulePath -Force -Global
     }
 
     $script:GitHubCliConfigModuleLoaded = $true

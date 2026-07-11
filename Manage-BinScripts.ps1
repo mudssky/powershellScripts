@@ -606,9 +606,6 @@ function Sync-BinScripts {
 
                 # 写入文件
                 Set-Content -Path $targetPath -Value $shimContentLines -Encoding utf8NoBOM -Force
-
-                # 写入文件
-                Set-Content -Path $targetPath -Value $shimContentLines -Encoding utf8NoBOM -Force
                 
                 if (-not $IsWindows) {
                     chmod +x $targetPath
