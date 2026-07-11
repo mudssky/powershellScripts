@@ -11,6 +11,7 @@ scripts/
     ├── filesystem/      # 文件系统操作脚本
     ├── network/         # 网络和下载脚本
     ├── devops/          # DevOps和开发工具脚本
+    ├── install/         # Stage 1 安装编排模块
     └── misc/           # 其他杂项脚本
 
 bin/                   # 脚本可执行文件目录
@@ -109,8 +110,9 @@ renameLegal.ps1 -reverse
 | Compare-JsonFiles.ps1 | JSON文件对比脚本 | json, compare, diff |
 | Invoke-PackageSourceBootstrap.ps1 | Windows PowerShell 5.1 的 winget Stage 0 source helper | bootstrap, winget, source, windows |
 | Switch-Mirrors.ps1 | 跨平台 package source 计划、事务、状态与恢复入口 | mirror, source, transaction, restore |
+| InstallOrchestrator.psm1 | Core/Full 步骤选择、依赖传播、source cleanup 与 Text/JSON 汇总模块 | install, orchestrator, preset, resume |
 | start-container.ps1 | 容器启动管理脚本 | container, docker, start |
-| install.ps1 | 项目安装脚本 | install, setup, configuration |
+| install.ps1 | 无参数准备仓库工具；显式 Preset 进入跨平台 Stage 1 | install, setup, preset, stage1 |
 | syncConfig.ps1 | 配置文件同步脚本 | sync, config, backup |
 | proxyHelper.ps1 | 代理助手脚本 | proxy, network, helper |
 | cleanEnvPath.ps1 | 环境变量PATH清理脚本 | env, path, clean, environment |

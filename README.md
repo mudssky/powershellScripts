@@ -42,8 +42,11 @@ git clone <repository-url>
 cd powershellScripts
 
 # 运行安装脚本
-# 该脚本会自动配置 PATH 并同步脚本到 bin 目录
+# 无参数保持仓库工具准备：配置 PATH、同步 bin 并构建脚本工具
 .\install.ps1
+
+# PowerShell 7 可用后，显式进入跨平台 Stage 1
+.\install.ps1 -Preset Core -WhatIf
 ```
 
 安装完成后，建议**重启终端**以使环境变量生效。
@@ -139,18 +142,27 @@ runScripts -CommandName build -enableGlobalScripts
 
 #### `install.ps1`
 
-**功能**: 项目安装和初始化脚本
+**功能**: 仓库工具准备入口，以及显式启用的跨平台 Stage 1 安装编排器
 
 ```powershell
+# 兼容入口：只准备本仓库的脚本开发环境
 .\install.ps1
+
+# 查看统一步骤目录
+.\install.ps1 -ListSteps
+
+# 预览 Core，或执行 Full
+.\install.ps1 -Preset Core -WhatIf
+.\install.ps1 -Preset Full -NetworkMode Direct
+
+# 失败后精准重跑或从某一步继续
+.\install.ps1 -Preset Core -Step core-cli
+.\install.ps1 -Preset Core -FromStep core-cli
 ```
 
-**功能**:
+Stage 0 由各平台入口负责获得 Git、包管理器与 PowerShell 7；根 Stage 1 从 `03 sources` 开始。`Core` 执行 `03`～`07` 与 `99 verify`，`Full` 再加入 `08`～`11`。当前真实新编号平台叶子尚未全部接入，因此缺失入口会明确返回 `Blocked`（退出码 10）。
 
-- 检查管理员权限
-- 安装必要的 PowerShell 模块（如 Pester）
-- 创建符号链接
-- 加载配置文件
+旧 `-installApp` 暂时保留并输出弃用提示，它仍调用旧平台应用脚本，不等价于 `-Preset Full`。完整参数与 source 事务说明见 [安装指南](docs/INSTALL.md)。
 
 ## 🎬 媒体处理工具
 
