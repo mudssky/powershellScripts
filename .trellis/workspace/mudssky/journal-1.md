@@ -1017,3 +1017,36 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 31: 项目冷归档技能与 JSON 索引
+
+**Date**: 2026-07-12
+**Task**: 项目冷归档技能与 JSON 索引
+**Branch**: `master`
+
+### Summary
+
+新增 project-archive 项目级 skill 和标准库 Python CLI，将 archive 索引迁移到 index.json，删除 Markdown 索引，并补齐归档校验、测试与规范。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `fe8b47b` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
