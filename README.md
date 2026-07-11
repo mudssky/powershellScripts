@@ -658,11 +658,11 @@ powershellScripts/
 ├── psutils/                 # 通用工具模块
 ├── profile/                 # PowerShell 配置文件
 ├── config/                  # 配置文件
+├── archive/                 # 冷归档索引与镜像历史内容
 ├── templates/               # 脚本模板
 ├── ai/                      # AI 相关工具
 ├── linux/                   # Linux 特定脚本
 ├── macos/                   # macOS 特定脚本
-├── deprecated/              # 已弃用的脚本
 ├── .trae/                   # Trae 配置
 ├── .vscode/                 # VS Code 配置
 └── *.ps1                    # 主要脚本文件

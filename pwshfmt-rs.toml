@@ -1,0 +1,2 @@
+# 根归档目录保留历史内容，不参与默认 PowerShell 格式化。
+exclude_paths = ["archive"]

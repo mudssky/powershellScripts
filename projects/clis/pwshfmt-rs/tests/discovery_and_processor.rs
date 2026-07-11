@@ -39,6 +39,7 @@ fn config_with_path(path: &str) -> Config {
     Config {
         git_changed: false,
         paths: vec![path.to_string()],
+        exclude_paths: Vec::new(),
         recurse: false,
         strict_fallback: false,
         fallback_script: PathBuf::from("scripts/pwsh/devops/Format-PowerShellCode.ps1"),
@@ -92,6 +93,7 @@ fn discovers_git_changed_files() {
     let config = Config {
         git_changed: true,
         paths: Vec::new(),
+        exclude_paths: Vec::new(),
         recurse: false,
         strict_fallback: false,
         fallback_script: PathBuf::from("scripts/pwsh/devops/Format-PowerShellCode.ps1"),
@@ -104,6 +106,67 @@ fn discovers_git_changed_files() {
             .to_string_lossy()
             .replace('\\', "/")
             .ends_with("tracked.ps1")
+    );
+}
+
+#[test]
+fn recursive_discovery_skips_excluded_directories() {
+    let workspace = common::create_workspace();
+    common::write_file(workspace.path(), "scripts/active.ps1", "Get-ChildItem\n");
+    common::write_file(
+        workspace.path(),
+        "archive/scripts/legacy.ps1",
+        "Get-ChildItem\n",
+    );
+
+    let mut config = config_with_path(".");
+    config.recurse = true;
+    config.exclude_paths = vec!["archive".to_string()];
+
+    let files =
+        discovery::discover_files(&config, workspace.path()).expect("discover active files");
+    assert_eq!(files.len(), 1);
+    assert!(
+        files[0]
+            .to_string_lossy()
+            .replace('\\', "/")
+            .ends_with("scripts/active.ps1")
+    );
+}
+
+#[test]
+fn git_changed_discovery_skips_excluded_directories() {
+    let workspace = common::create_workspace();
+    common::init_git_repo(workspace.path());
+
+    common::write_file(workspace.path(), "active.ps1", "Get-ChildItem\n");
+    common::write_file(workspace.path(), "archive/legacy.ps1", "Get-ChildItem\n");
+    common::git_commit_all(workspace.path(), "init");
+
+    common::write_file(workspace.path(), "active.ps1", "get-childitem -path .\n");
+    common::write_file(
+        workspace.path(),
+        "archive/legacy.ps1",
+        "get-childitem -path .\n",
+    );
+
+    let config = Config {
+        git_changed: true,
+        paths: Vec::new(),
+        exclude_paths: vec!["archive".to_string()],
+        recurse: false,
+        strict_fallback: false,
+        fallback_script: PathBuf::from("scripts/pwsh/devops/Format-PowerShellCode.ps1"),
+    };
+
+    let files =
+        discovery::discover_files(&config, workspace.path()).expect("discover active change");
+    assert_eq!(files.len(), 1);
+    assert!(
+        files[0]
+            .to_string_lossy()
+            .replace('\\', "/")
+            .ends_with("active.ps1")
     );
 }
 

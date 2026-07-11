@@ -13,6 +13,9 @@
 .PARAMETER Recurse
     递归处理子目录中的 PowerShell 文件。
 
+.PARAMETER ExcludePath
+    要排除的文件或目录路径。相对路径以仓库根目录为基准，目录会连同后代文件一起跳过。
+
 .PARAMETER Settings
     兼容参数（已弃用）。
     `pwshfmt-rs` 不使用 PSScriptAnalyzer settings，此参数会被忽略。
@@ -43,6 +46,9 @@ param(
 
     [Parameter(HelpMessage = "递归处理子目录")]
     [switch]$Recurse,
+
+    [Parameter(HelpMessage = "排除文件或目录路径")]
+    [string[]]$ExcludePath = @('archive'),
 
     [Parameter(HelpMessage = "兼容参数（已弃用）：PSScriptAnalyzer settings 文件路径")]
     [string]$Settings,
@@ -110,6 +116,60 @@ function Get-RepositoryRoot {
 
     $root = Resolve-Path -Path (Join-Path $PSScriptRoot '..\..\..')
     return $root.Path
+}
+
+function Test-IsExcludedPowerShellPath {
+    <#
+    .SYNOPSIS
+        判断 PowerShell 文件是否位于排除路径内。
+
+    .PARAMETER FilePath
+        要检查的文件路径。
+
+    .PARAMETER RepoRoot
+        仓库根目录，用于解析相对排除路径。
+
+    .OUTPUTS
+        System.Boolean
+        文件等于排除路径或位于排除目录内时返回 true。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath,
+
+        [Parameter(Mandatory = $true)]
+        [string]$RepoRoot
+    )
+
+    $comparison = if ([OperatingSystem]::IsWindows()) {
+        [StringComparison]::OrdinalIgnoreCase
+    }
+    else {
+        [StringComparison]::Ordinal
+    }
+    $normalizedFile = [System.IO.Path]::GetFullPath($FilePath).TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
+
+    foreach ($rawExcludePath in @($ExcludePath)) {
+        if ([string]::IsNullOrWhiteSpace($rawExcludePath)) {
+            continue
+        }
+
+        $resolvedExcludePath = if ([System.IO.Path]::IsPathRooted($rawExcludePath)) {
+            $rawExcludePath
+        }
+        else {
+            Join-Path $RepoRoot $rawExcludePath
+        }
+        $normalizedExcludePath = [System.IO.Path]::GetFullPath($resolvedExcludePath).TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
+        $excludePrefix = $normalizedExcludePath + [System.IO.Path]::DirectorySeparatorChar
+
+        if ($normalizedFile.Equals($normalizedExcludePath, $comparison) -or $normalizedFile.StartsWith($excludePrefix, $comparison)) {
+            return $true
+        }
+    }
+
+    return $false
 }
 
 function Get-PowerShellFiles {
@@ -189,7 +249,8 @@ function Get-GitChangedPowerShellFiles {
         return @()
     }
 
-    $pathSpec = @('*.ps1', '*.psm1', '*.psd1')
+    # 使用 Git glob magic，避免 PowerShell 在调用原生命令前把通配符展开成根目录文件。
+    $pathSpec = @(':(glob)**/*.ps1', ':(glob)**/*.psm1', ':(glob)**/*.psd1')
 
     $changed = @()
     $changed += git -C $gitRoot diff '--name-only' '--diff-filter=ACMRT' '--' @pathSpec
@@ -221,16 +282,21 @@ function Resolve-TargetFiles {
     }
 
     $set = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $repoRoot = Get-RepositoryRoot
 
     if ($GitChanged) {
         foreach ($file in @(Get-GitChangedPowerShellFiles)) {
-            $null = $set.Add($file)
+            if (-not (Test-IsExcludedPowerShellPath -FilePath $file -RepoRoot $repoRoot)) {
+                $null = $set.Add($file)
+            }
         }
     }
 
     foreach ($inputPath in $inputPaths) {
         foreach ($file in @(Get-PowerShellFiles -InputPath $inputPath -UseRecurse:$Recurse.IsPresent)) {
-            $null = $set.Add($file)
+            if (-not (Test-IsExcludedPowerShellPath -FilePath $file -RepoRoot $repoRoot)) {
+                $null = $set.Add($file)
+            }
         }
     }
 
@@ -252,6 +318,12 @@ function Build-PwshFmtRsArguments {
 
     foreach ($inputPath in @(Get-EffectiveInputPaths)) {
         $args += @('--path', $inputPath)
+    }
+
+    foreach ($excludedPath in @($ExcludePath)) {
+        if (-not [string]::IsNullOrWhiteSpace($excludedPath)) {
+            $args += @('--exclude-path', $excludedPath)
+        }
     }
 
     if ($Recurse.IsPresent) {

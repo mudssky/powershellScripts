@@ -44,6 +44,15 @@ pub struct Cli {
     pub paths: Vec<String>,
 
     #[arg(
+        long = "exclude-path",
+        global = true,
+        value_name = "PATH",
+        action = clap::ArgAction::Append,
+        help = "排除路径，可重复传入；目录会连同后代文件一起跳过"
+    )]
+    pub exclude_paths: Vec<String>,
+
+    #[arg(
         long,
         global = true,
         num_args = 0..=1,
@@ -80,6 +89,8 @@ pub struct CliOverrides {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub paths: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub exclude_paths: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub recurse: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub strict_fallback: Option<bool>,
@@ -99,6 +110,7 @@ impl Cli {
         CliOverrides {
             git_changed: self.git_changed,
             paths: (!self.paths.is_empty()).then_some(self.paths.clone()),
+            exclude_paths: (!self.exclude_paths.is_empty()).then_some(self.exclude_paths.clone()),
             recurse: self.recurse,
             strict_fallback: self.strict_fallback,
             fallback_script: self.fallback_script.clone(),

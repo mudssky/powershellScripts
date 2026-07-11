@@ -48,6 +48,7 @@ fn config_uses_defaults_when_file_missing() {
         Config {
             git_changed: false,
             paths: vec!["scripts/demo.ps1".to_string()],
+            exclude_paths: Vec::new(),
             recurse: false,
             strict_fallback: false,
             fallback_script: std::path::PathBuf::from("fallback.ps1"),
@@ -66,6 +67,7 @@ fn config_layering_is_cli_over_env_over_file_over_defaults() {
         r#"
 git_changed = true
 paths = ["from-config.ps1"]
+exclude_paths = ["from-config"]
 recurse = false
 strict_fallback = false
 fallback_script = "from-config-fallback.ps1"
@@ -77,6 +79,8 @@ fallback_script = "from-config-fallback.ps1"
         "write",
         "--path",
         "from-cli.ps1",
+        "--exclude-path",
+        "from-cli",
         "--strict-fallback",
         "--fallback-script",
         fallback
@@ -92,6 +96,7 @@ fallback_script = "from-config-fallback.ps1"
 
         assert!(config.git_changed);
         assert_eq!(config.paths, vec!["from-cli.ps1".to_string()]);
+        assert_eq!(config.exclude_paths, vec!["from-cli".to_string()]);
         assert!(config.recurse);
         assert!(config.strict_fallback);
         assert_eq!(

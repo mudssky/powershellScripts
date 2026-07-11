@@ -14,19 +14,30 @@ const SUPPORTED_EXTENSIONS: [&str; 3] = ["ps1", "psm1", "psd1"];
 
 pub fn discover_files(config: &Config, cwd: &Path) -> Result<Vec<PathBuf>> {
     let mut deduped = BTreeSet::new();
+    let excluded_roots = resolve_excluded_roots(config, cwd);
 
     if config.git_changed {
-        collect_git_changed_files(cwd, &mut deduped)?;
+        collect_git_changed_files(cwd, &excluded_roots, &mut deduped)?;
     }
 
     for raw in &config.paths {
-        collect_files_from_path_or_pattern(cwd, raw, config.recurse, &mut deduped)?;
+        collect_files_from_path_or_pattern(
+            cwd,
+            raw,
+            config.recurse,
+            &excluded_roots,
+            &mut deduped,
+        )?;
     }
 
     Ok(deduped.into_iter().collect())
 }
 
-fn collect_git_changed_files(cwd: &Path, deduped: &mut BTreeSet<PathBuf>) -> Result<()> {
+fn collect_git_changed_files(
+    cwd: &Path,
+    excluded_roots: &[PathBuf],
+    deduped: &mut BTreeSet<PathBuf>,
+) -> Result<()> {
     let git_root = git_repo_root(cwd)?;
 
     for cached in [false, true] {
@@ -42,9 +53,11 @@ fn collect_git_changed_files(cwd: &Path, deduped: &mut BTreeSet<PathBuf>) -> Res
         command.arg("--");
         command.args(["*.ps1", "*.psm1", "*.psd1"]);
 
-        let output = command.output().map_err(|source| AppError::GitCommandFailed {
-            message: format!("执行 git diff 失败: {source}"),
-        })?;
+        let output = command
+            .output()
+            .map_err(|source| AppError::GitCommandFailed {
+                message: format!("执行 git diff 失败: {source}"),
+            })?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr).trim().to_owned();
@@ -58,9 +71,16 @@ fn collect_git_changed_files(cwd: &Path, deduped: &mut BTreeSet<PathBuf>) -> Res
         }
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        for line in stdout.lines().map(str::trim).filter(|line| !line.is_empty()) {
+        for line in stdout
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty())
+        {
             let candidate = git_root.join(line);
-            if candidate.is_file() && is_supported_pwsh_file(&candidate) {
+            if candidate.is_file()
+                && is_supported_pwsh_file(&candidate)
+                && !is_excluded(&candidate, excluded_roots)
+            {
                 deduped.insert(normalize_existing_path(&candidate));
             }
         }
@@ -103,22 +123,28 @@ fn collect_files_from_path_or_pattern(
     cwd: &Path,
     raw: &str,
     recurse: bool,
+    excluded_roots: &[PathBuf],
     deduped: &mut BTreeSet<PathBuf>,
 ) -> Result<()> {
     let resolved_path = resolve_from_cwd(cwd, Path::new(raw));
 
     if resolved_path.exists() {
-        return collect_files_from_real_path(&resolved_path, recurse, deduped);
+        return collect_files_from_real_path(&resolved_path, recurse, excluded_roots, deduped);
     }
 
-    collect_files_from_pattern(cwd, raw, recurse, deduped)
+    collect_files_from_pattern(cwd, raw, recurse, excluded_roots, deduped)
 }
 
 fn collect_files_from_real_path(
     path: &Path,
     recurse: bool,
+    excluded_roots: &[PathBuf],
     deduped: &mut BTreeSet<PathBuf>,
 ) -> Result<()> {
+    if is_excluded(path, excluded_roots) {
+        return Ok(());
+    }
+
     if path.is_file() {
         if is_supported_pwsh_file(path) {
             deduped.insert(normalize_existing_path(path));
@@ -135,10 +161,17 @@ fn collect_files_from_real_path(
         walker = walker.max_depth(1);
     }
 
-    for entry in walker {
+    for entry in walker
+        .into_iter()
+        .filter_entry(|entry| !is_excluded(entry.path(), excluded_roots))
+    {
         let entry = entry.map_err(|error| {
             let error_path = error.path().unwrap_or(path).to_path_buf();
-            AppError::io("遍历目录", error_path, std::io::Error::other(error.to_string()))
+            AppError::io(
+                "遍历目录",
+                error_path,
+                std::io::Error::other(error.to_string()),
+            )
         })?;
 
         if !entry.file_type().is_file() {
@@ -158,6 +191,7 @@ fn collect_files_from_pattern(
     cwd: &Path,
     pattern: &str,
     recurse: bool,
+    excluded_roots: &[PathBuf],
     deduped: &mut BTreeSet<PathBuf>,
 ) -> Result<()> {
     let normalized_pattern = pattern.replace('\\', "/");
@@ -181,10 +215,17 @@ fn collect_files_from_pattern(
         walker = walker.max_depth(1);
     }
 
-    for entry in walker {
+    for entry in walker
+        .into_iter()
+        .filter_entry(|entry| !is_excluded(entry.path(), excluded_roots))
+    {
         let entry = entry.map_err(|error| {
             let error_path = error.path().unwrap_or(&base_abs).to_path_buf();
-            AppError::io("遍历模式目录", error_path, std::io::Error::other(error.to_string()))
+            AppError::io(
+                "遍历模式目录",
+                error_path,
+                std::io::Error::other(error.to_string()),
+            )
         })?;
 
         if !entry.file_type().is_file() {
@@ -246,6 +287,21 @@ fn normalize_for_glob(path: &Path) -> String {
 
 fn normalize_existing_path(path: &Path) -> PathBuf {
     path.canonicalize().unwrap_or_else(|_| path.to_path_buf())
+}
+
+fn resolve_excluded_roots(config: &Config, cwd: &Path) -> Vec<PathBuf> {
+    config
+        .exclude_paths
+        .iter()
+        .map(|raw| normalize_existing_path(&resolve_from_cwd(cwd, Path::new(raw))))
+        .collect()
+}
+
+fn is_excluded(path: &Path, excluded_roots: &[PathBuf]) -> bool {
+    let normalized = normalize_existing_path(path);
+    excluded_roots
+        .iter()
+        .any(|root| normalized == *root || normalized.starts_with(root))
 }
 
 fn is_supported_pwsh_file(path: &Path) -> bool {

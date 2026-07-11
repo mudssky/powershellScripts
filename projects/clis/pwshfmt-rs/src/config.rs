@@ -22,6 +22,7 @@ pub const FALLBACK_ACTIVE_ENV: &str = "PWSHFMT_RS_FALLBACK_ACTIVE";
 pub struct Config {
     pub git_changed: bool,
     pub paths: Vec<String>,
+    pub exclude_paths: Vec<String>,
     pub recurse: bool,
     pub strict_fallback: bool,
     pub fallback_script: PathBuf,
@@ -32,6 +33,7 @@ impl Default for Config {
         Self {
             git_changed: false,
             paths: Vec::new(),
+            exclude_paths: Vec::new(),
             recurse: false,
             strict_fallback: false,
             fallback_script: PathBuf::from(DEFAULT_FALLBACK_SCRIPT),
@@ -83,6 +85,13 @@ fn resolve_config_path(cli: &Cli, cwd: &Path) -> PathBuf {
 fn normalize_config(config: &mut Config) {
     config.paths = config
         .paths
+        .iter()
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .collect();
+    config.exclude_paths = config
+        .exclude_paths
         .iter()
         .map(|value| value.trim())
         .filter(|value| !value.is_empty())

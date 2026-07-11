@@ -36,6 +36,7 @@ cargo run --manifest-path ./Cargo.toml -- write --git-changed --strict-fallback
 - `--config <FILE>`：指定配置文件（默认自动读取 `./pwshfmt-rs.toml`）
 - `--git-changed[=<BOOL>]`：处理 Git 改动文件
 - `--path <PATH_OR_GLOB>`：路径或 glob，可重复传入
+- `--exclude-path <PATH>`：排除路径，可重复传入；目录会连同后代文件一起跳过
 - `--recurse[=<BOOL>]`：目录递归扫描
 - `--strict-fallback[=<BOOL>]`：不安全语法时回退严格链路
 - `--fallback-script <FILE>`：严格回退脚本路径
@@ -47,6 +48,7 @@ cargo run --manifest-path ./Cargo.toml -- write --git-changed --strict-fallback
 ```toml
 git_changed = false
 paths = []
+exclude_paths = []
 recurse = false
 strict_fallback = false
 fallback_script = "scripts/pwsh/devops/Format-PowerShellCode.ps1"
@@ -68,6 +70,7 @@ fallback_script = "scripts/pwsh/devops/Format-PowerShellCode.ps1"
 ## 说明
 
 - 当前仅修复命令名与参数名大小写。
+- 排除路径同时作用于 Git 改动发现和目录递归发现；显式传入排除目录也不会处理其中的文件。
 - 字符串字面量、注释、here-string 内容不会被修改。
 - 若检测到不安全语法（例如动态调用），可通过 `strict_fallback` 调用既有严格脚本链路。
 - 错误输出基于 `miette`，格式较旧日志版本更结构化（属于预期变更）。
