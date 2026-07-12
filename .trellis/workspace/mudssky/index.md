@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 38
+- **Total Sessions**: 39
 - **Last Active**: 2026-07-12
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1285 | Active |
+| `journal-1.md` | ~1319 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 39 | 2026-07-12 | 完成 psutils 文档与示例可靠性修复 | `655c585`, `91694f4` | `master` |
 | 38 | 2026-07-12 | 归档 JSON 对比工具 | `d31cc56` | `master` |
 | 37 | 2026-07-12 | 统一测试报告输出目录 | `6688b3e` | `master` |
 | 36 | 2026-07-12 | 完成 psutils 核心入口与导出契约 | `0c90c4e`, `c4e1808` | `master` |

@@ -1283,3 +1283,37 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 39: 完成 psutils 文档与示例可靠性修复
+
+**Date**: 2026-07-12
+**Task**: 完成 psutils 文档与示例可靠性修复
+**Branch**: `master`
+
+### Summary
+
+对齐 manifest 驱动的 README 与 Get-Tree 文档，迁移弃用帮助示例，增加无副作用 smoke 契约，并冷归档失效缓存 demo。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `655c585` | (see git log) |
+| `91694f4` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
