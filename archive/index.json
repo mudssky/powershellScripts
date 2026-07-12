@@ -194,6 +194,119 @@
         "target": "linux/INSTALL.md",
         "text": "使用统一 Linux 与 WSL 安装指南"
       }
+    },
+    {
+      "id": "batch-5-profile-spacevim-d-global",
+      "batch": 5,
+      "source": "profile/.SpaceVim.d.global",
+      "archive": "archive/profile/.SpaceVim.d.global",
+      "reason": "旧编辑器配置、个人启动脚本与一次性工具安装入口已退出活动维护",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考，无活动替代入口"
+      }
+    },
+    {
+      "id": "batch-5-profile-installer-cz-config-js",
+      "batch": 5,
+      "source": "profile/installer/cz.config.js",
+      "archive": "archive/profile/installer/cz.config.js",
+      "reason": "旧编辑器配置、个人启动脚本与一次性工具安装入口已退出活动维护",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考，无活动替代入口"
+      }
+    },
+    {
+      "id": "batch-5-profile-installer-install-ps1",
+      "batch": 5,
+      "source": "profile/installer/install.ps1",
+      "archive": "archive/profile/installer/install.ps1",
+      "reason": "旧 Profile 安装聚合入口与字体兼容包装已由统一跨平台安装流水线替代",
+      "replacement": {
+        "kind": "path",
+        "target": "install.ps1",
+        "text": "使用根安装编排入口及平台字体步骤"
+      }
+    },
+    {
+      "id": "batch-5-profile-installer-installcommitzen-ps1",
+      "batch": 5,
+      "source": "profile/installer/installCommitzen.ps1",
+      "archive": "archive/profile/installer/installCommitzen.ps1",
+      "reason": "旧编辑器配置、个人启动脚本与一次性工具安装入口已退出活动维护",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考，无活动替代入口"
+      }
+    },
+    {
+      "id": "batch-5-profile-installer-installfont-ps1",
+      "batch": 5,
+      "source": "profile/installer/installFont.ps1",
+      "archive": "archive/profile/installer/installFont.ps1",
+      "reason": "旧 Profile 安装聚合入口与字体兼容包装已由统一跨平台安装流水线替代",
+      "replacement": {
+        "kind": "path",
+        "target": "install.ps1",
+        "text": "使用根安装编排入口及平台字体步骤"
+      }
+    },
+    {
+      "id": "batch-5-profile-installer-installnpmcli-ps1",
+      "batch": 5,
+      "source": "profile/installer/installNpmCli.ps1",
+      "archive": "archive/profile/installer/installNpmCli.ps1",
+      "reason": "旧编辑器配置、个人启动脚本与一次性工具安装入口已退出活动维护",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考，无活动替代入口"
+      }
+    },
+    {
+      "id": "batch-5-profile-installer-installrustenv-ps1",
+      "batch": 5,
+      "source": "profile/installer/installRustEnv.ps1",
+      "archive": "archive/profile/installer/installRustEnv.ps1",
+      "reason": "旧编辑器配置、个人启动脚本与一次性工具安装入口已退出活动维护",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考，无活动替代入口"
+      }
+    },
+    {
+      "id": "batch-5-profile-installer-installsoftware-ps1",
+      "batch": 5,
+      "source": "profile/installer/installSoftware.ps1",
+      "archive": "archive/profile/installer/installSoftware.ps1",
+      "reason": "旧编辑器配置、个人启动脚本与一次性工具安装入口已退出活动维护",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考，无活动替代入口"
+      }
+    },
+    {
+      "id": "batch-5-profile-startup-ps1",
+      "batch": 5,
+      "source": "profile/startup.ps1",
+      "archive": "archive/profile/startup.ps1",
+      "reason": "旧编辑器配置、个人启动脚本与一次性工具安装入口已退出活动维护",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考，无活动替代入口"
+      }
+    },
+    {
+      "id": "batch-5-profile-win-start-ps1",
+      "batch": 5,
+      "source": "profile/win_start.ps1",
+      "archive": "archive/profile/win_start.ps1",
+      "reason": "旧 Windows Scoop 引导脚本已由统一 Windows 安装流水线替代",
+      "replacement": {
+        "kind": "path",
+        "target": "windows/00quickstart.ps1",
+        "text": "使用 Windows 统一快速安装入口"
+      }
     }
   ]
 }

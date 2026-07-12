@@ -25,10 +25,15 @@ profile/
 ├── .cache/                  # 工具初始化缓存（自动生成，gitignored）
 ├── env.ps1                  # 个人环境变量（API keys 等，gitignored）
 ├── wrapper.ps1              # 包装函数（yaz, Add-CondaEnv 等，OnIdle 加载）
-├── installer/               # 环境安装脚本
+├── installer/               # Profile 工具与应用安装配置
+│   ├── apps-config.json      # 跨平台应用与字体清单真源
+│   ├── installApp.ps1        # 根安装编排器调用的应用安装入口
+│   └── installModules.ps1    # PowerShell 模块安装入口
 ├── Debug-ProfilePerformance.ps1  # 性能诊断脚本
 └── README.md                # 本文件
 ```
+
+系统级安装统一从仓库根 `install.ps1` 启动；`features/install.ps1` 仅负责 Profile 自身的安装与公共命令定义。
 
 ## 加载流程
 
