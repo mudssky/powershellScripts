@@ -502,6 +502,48 @@ function Test-WindowsRemotePsRemotingFirewallRule {
     $remoteAddresses.Count -eq 1 -and $remoteAddresses[0] -eq $script:TailscaleIPv4Range
 }
 
+function Get-WindowsRemotePsRemotingWsManState {
+    <#
+    .SYNOPSIS
+        读取 WSMan listener 与安全项，兼容尚未初始化 WinRM 的主机。
+
+    .OUTPUTS
+        PSCustomObject。包含 Listeners、AllowUnencrypted 和 Negotiate。
+    #>
+    [CmdletBinding()]
+    param()
+
+    $listenerPath = 'WSMan:\localhost\Listener'
+    $listeners = @()
+    if (Test-Path -LiteralPath $listenerPath) {
+        $listeners = @(Get-ChildItem -LiteralPath $listenerPath -ErrorAction Stop | ForEach-Object {
+                ConvertFrom-WindowsWsManListener -Listener $_
+            })
+    }
+
+    $allowUnencrypted = $false
+    $allowUnencryptedPath = 'WSMan:\localhost\Service\AllowUnencrypted'
+    if (Test-Path -LiteralPath $allowUnencryptedPath) {
+        $allowUnencrypted = ConvertTo-WindowsRemoteBoolean -Value (
+            Get-Item -LiteralPath $allowUnencryptedPath -ErrorAction Stop
+        ).Value
+    }
+
+    $negotiate = $true
+    $negotiatePath = 'WSMan:\localhost\Service\Auth\Negotiate'
+    if (Test-Path -LiteralPath $negotiatePath) {
+        $negotiate = ConvertTo-WindowsRemoteBoolean -Value (
+            Get-Item -LiteralPath $negotiatePath -ErrorAction Stop
+        ).Value
+    }
+
+    return [pscustomobject][ordered]@{
+        Listeners          = @($listeners)
+        AllowUnencrypted   = $allowUnencrypted
+        Negotiate          = $negotiate
+    }
+}
+
 function Get-WindowsRemotePsRemotingState {
     <#
     .SYNOPSIS
@@ -530,9 +572,8 @@ function Get-WindowsRemotePsRemotingState {
         })
     $selectedCertificate = Select-WindowsRemotePsRemotingCertificate -Certificate $certificates
     $managedThumbprints = @($certificates | ForEach-Object { [string]$_.Thumbprint })
-    $listeners = @(Get-ChildItem WSMan:\localhost\Listener -ErrorAction Stop | ForEach-Object {
-            ConvertFrom-WindowsWsManListener -Listener $_
-        })
+    $wsManState = Get-WindowsRemotePsRemotingWsManState
+    $listeners = @($wsManState.Listeners)
     $managedListeners = @($listeners | Where-Object { [string]$_.CertificateThumbprint -in $managedThumbprints })
     $portListeners = @($listeners | Where-Object {
             [string]$_.Transport -eq 'HTTPS' -and [int]$_.Port -eq $Port
@@ -566,8 +607,6 @@ function Get-WindowsRemotePsRemotingState {
                 -PortFilter $portFilter -AddressFilter $addressFilter -IPAddress $IPAddress -Port $Port
         }
     }
-    $allowUnencrypted = ConvertTo-WindowsRemoteBoolean -Value (Get-Item WSMan:\localhost\Service\AllowUnencrypted -ErrorAction Stop).Value
-    $negotiate = ConvertTo-WindowsRemoteBoolean -Value (Get-Item WSMan:\localhost\Service\Auth\Negotiate -ErrorAction Stop).Value
     return [pscustomobject][ordered]@{
         ManagedCertificates       = @($certificates)
         SelectedCertificate       = $selectedCertificate
@@ -578,8 +617,8 @@ function Get-WindowsRemotePsRemotingState {
         FirewallEnabled           = $firewallEnabled
         FirewallRuleExists        = $firewallRules.Count -gt 0
         FirewallRuleMatches       = $firewallRuleMatches
-        AllowUnencrypted          = $allowUnencrypted
-        Negotiate                 = $negotiate
+        AllowUnencrypted          = [bool]$wsManState.AllowUnencrypted
+        Negotiate                 = [bool]$wsManState.Negotiate
         ManagedFirewallRuleName   = $script:ManagedFirewallRuleName
         ManagedCertificatePrefix = $script:ManagedCertificateSubjectPrefix
     }

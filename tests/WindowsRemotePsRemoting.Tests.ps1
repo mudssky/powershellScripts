@@ -124,6 +124,22 @@ Describe 'Windows PSRP 证书与 listener 计划' {
         }
     }
 
+    It 'WinRM 尚未初始化时把 WSMan 状态视为缺失' {
+        InModuleScope WindowsRemotePsRemoting {
+            Mock Test-Path { $false }
+            Mock Get-ChildItem { throw 'WSMan 子路径缺失时不应读取 listener' }
+            Mock Get-Item { throw 'WSMan 子路径缺失时不应读取安全项' }
+
+            $state = Get-WindowsRemotePsRemotingWsManState
+
+            @($state.Listeners).Count | Should -Be 0
+            $state.AllowUnencrypted | Should -BeFalse
+            $state.Negotiate | Should -BeTrue
+            Should -Invoke Get-ChildItem -Times 0 -Exactly
+            Should -Invoke Get-Item -Times 0 -Exactly
+        }
+    }
+
     It '拒绝 wildcard 或其他接口 listener' {
         Test-WindowsRemotePsRemotingBinding -IPAddress '100.70.1.2' -Listener @(
             [pscustomobject]@{ Transport = 'HTTPS'; Address = '100.70.1.2'; Port = 5986 },

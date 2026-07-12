@@ -121,6 +121,7 @@ Ansible inventory 侧使用 `ansible_connection=psrp`、HTTPS、NTLM、`ansible_
 - 托管证书 subject 前缀为 `CN=powershellScripts-PSRP-`，位于 `Cert:\LocalMachine\My`，含私钥且剩余有效期超过 30 天时复用。
 - HTTPS listener 默认端口为 `5986`，`Address` 必须精确等于目标 Tailscale IPv4；同端口存在非托管 listener 时禁止覆盖。
 - WinRM 必须保持 `AllowUnencrypted=false`、`Negotiate=true`；禁止调用会创建 wildcard listener 的 `Enable-PSRemoting`。
+- 目标机尚未初始化 WinRM 时，`WSMan:\localhost\Listener` 和 `WSMan:\localhost\Service` 可以不存在；状态发现必须把它规约为无 listener、`AllowUnencrypted=false`、`Negotiate=true` 的 Missing 基线，使 WhatIf 能生成计划，不能误报 `StateDiscovery/1`。
 - Windows Firewall 至少一个 profile 启用时，固定 rule 必须同时限制 `LocalAddress=<tailscale-ip>`、`RemoteAddress=100.64.0.0/10`、`LocalPort=5986`、TCP/Inbound/Allow；所有 profile 关闭时不得启用全局防火墙。
 - rollback 只删除固定前缀证书、使用这些证书的 listener 和固定名称 rule；OpenSSH 服务、端口和授权文件始终不变。
 - JSON stdout 必须是单文档，字段至少包含 `SchemaVersion`、`Operation`、`Status`、`ExitCode`、`TailscaleIPv4`、`Port`、`FirewallEnabled`、`ListenerAddress`、`Results`、`RerunCommand`、`OpenSshUnchanged`。
@@ -132,6 +133,7 @@ Ansible inventory 侧使用 `ansible_connection=psrp`、HTTPS、NTLM、`ansible_
 | IP 非 CGNAT、未发现或存在多个候选 | `Invalid/2`，零系统写操作 |
 | 非 Windows 真实执行 | `Blocked/10`；显式 IP + WhatIf 仍可生成跨平台计划 |
 | Windows 非管理员真实执行 | 在读取系统状态前返回 `Blocked/10`，不请求 UAC |
+| WinRM 为 Manual/Stopped 且 WSMan Listener/Service 子路径不存在 | WhatIf 返回 Missing 配置计划；不调用 `Enable-PSRemoting`，不创建 wildcard listener |
 | 端口存在非托管或其他接口 HTTPS listener | `Blocked/10`，不删除或覆盖 listener |
 | Firewall profile 全部关闭 | 保持关闭，rule 动作为 `Skip`，仍验证 listener |
 | provider/certificate/firewall cmdlet 或最终验证失败 | `Failed/1`，结果中保留失败资源与消息 |
@@ -146,6 +148,7 @@ Ansible inventory 侧使用 `ansible_connection=psrp`、HTTPS、NTLM、`ansible_
 ### 6. Tests Required
 
 - Pester：CGNAT 边界、唯一地址选择、多地址拒绝、证书复用和 WSMan provider 子项读取。
+- Pester：WinRM 未初始化且 WSMan Listener/Service 子路径缺失时返回安全 Missing 基线，不调用缺失 provider 子项。
 - Pester：Missing/Matched/ManagedDrift/Conflict、Firewall 开关与精确 filter、幂等和 rollback action plan。
 - Pester：非管理员在状态读取前返回 `Blocked/10`；非 Windows 显式 IP WhatIf 输出可解析单文档 JSON。
 - Parser：模块与入口必须通过 parser、断言 UTF-8 BOM；Windows CI 还要由 Windows PowerShell 5.1 加载。
