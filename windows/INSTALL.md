@@ -28,6 +28,41 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File $entry -Preset Core
 
 远程 clone 默认使用 `--depth=1`。已有开发 clone 只复用，不 pull，也不改变 shallow 状态。
 
+## 远程 OpenSSH 到 PSRP Bootstrap
+
+目标机已经安装 Windows、加入 Tailscale，且管理员 OpenSSH 可登录后，可以从该管理员会话运行固定
+PSRP bootstrap。入口兼容 Windows PowerShell 5.1，不请求 UAC，也不修改 OpenSSH 服务、端口或
+authorized_keys：
+
+```powershell
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass `
+  -File .\windows\bootstrap\Enable-WindowsRemotePsRemoting.ps1 `
+  -WhatIf `
+  -OutputFormat Json
+
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass `
+  -File .\windows\bootstrap\Enable-WindowsRemotePsRemoting.ps1 `
+  -OutputFormat Json
+```
+
+脚本自动发现唯一的 `100.64.0.0/10` Tailscale IPv4，也可以用 `-TailscaleIPv4` 显式指定。
+HTTPS listener 固定使用 `5986` 并只绑定该 IP；`AllowUnencrypted` 保持 false。Windows Firewall
+启用时创建同时限制 local Tailscale IP 和 remote CGNAT range 的 rule；所有 profile 已关闭时不
+启用防火墙，只验证 listener 配置。
+
+回滚只删除 `powershellScripts-PSRP-` subject 前缀证书、对应 HTTPS listener 和固定防火墙 rule：
+
+```powershell
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass `
+  -File .\windows\bootstrap\Enable-WindowsRemotePsRemoting.ps1 `
+  -Rollback `
+  -OutputFormat Json
+```
+
+Ansible 随后使用 PSRP HTTPS + NTLM、`ansible_psrp_message_encryption=always` 连接。自签名证书
+首期使用 `ansible_psrp_cert_validation=ignore`，安全边界由 Tailscale 节点身份、精确 listener
+地址和防火墙 scoped rule 共同提供。
+
 ## Core 与 Full
 
 Core 安装以下 Scoop CLI：

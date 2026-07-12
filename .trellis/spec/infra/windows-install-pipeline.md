@@ -93,3 +93,82 @@ if ((Get-WindowsInstallExitCode -Result $results) -eq 0) {
 ```
 
 理由：UAC 取消和 result file 缺失可能只存在于提升 document 顶层；调用方必须先规约顶层状态，再决定是否执行用户态副作用。
+
+## Scenario: OpenSSH 到 PSRP HTTPS 远程 Bootstrap
+
+### 1. Scope / Trigger
+
+- Trigger: 修改 `windows/bootstrap/WindowsRemotePsRemoting.psm1`、`Enable-WindowsRemotePsRemoting.ps1`、远程 Ansible Windows inventory 或 PSRP bootstrap 文档。
+- Scope: 目标机已安装 Windows、Tailscale 和 OpenSSH Server，并允许管理员通过 SSH 执行固定脚本；本场景不负责操作系统无人值守安装或 OpenSSH 配置。
+- Design intent: SSH 只承担首次 bootstrap；稳定管理面使用仅绑定 Tailscale IPv4 的 PSRP HTTPS listener。
+
+### 2. Signatures
+
+```powershell
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass `
+  -File windows/bootstrap/Enable-WindowsRemotePsRemoting.ps1 `
+  [-TailscaleIPv4 <100.64.0.0/10 address>] [-Port 5986] `
+  [-CertificateValidityYears 1..10] [-Rollback] `
+  [-OutputFormat Text|Json] [-WhatIf]
+```
+
+Ansible inventory 侧使用 `ansible_connection=psrp`、HTTPS、NTLM、`ansible_psrp_message_encryption=always`；自签名证书首期允许 `ansible_psrp_cert_validation=ignore`。
+
+### 3. Contracts
+
+- 入口与模块必须兼容 Windows PowerShell 5.1；真实执行要求当前进程已是管理员，禁止请求 UAC。
+- 自动发现或显式参数必须解析为唯一的 `100.64.0.0/10` IPv4；拒绝 LAN、loopback、IPv6、wildcard 和多地址歧义。
+- 托管证书 subject 前缀为 `CN=powershellScripts-PSRP-`，位于 `Cert:\LocalMachine\My`，含私钥且剩余有效期超过 30 天时复用。
+- HTTPS listener 默认端口为 `5986`，`Address` 必须精确等于目标 Tailscale IPv4；同端口存在非托管 listener 时禁止覆盖。
+- WinRM 必须保持 `AllowUnencrypted=false`、`Negotiate=true`；禁止调用会创建 wildcard listener 的 `Enable-PSRemoting`。
+- Windows Firewall 至少一个 profile 启用时，固定 rule 必须同时限制 `LocalAddress=<tailscale-ip>`、`RemoteAddress=100.64.0.0/10`、`LocalPort=5986`、TCP/Inbound/Allow；所有 profile 关闭时不得启用全局防火墙。
+- rollback 只删除固定前缀证书、使用这些证书的 listener 和固定名称 rule；OpenSSH 服务、端口和授权文件始终不变。
+- JSON stdout 必须是单文档，字段至少包含 `SchemaVersion`、`Operation`、`Status`、`ExitCode`、`TailscaleIPv4`、`Port`、`FirewallEnabled`、`ListenerAddress`、`Results`、`RerunCommand`、`OpenSshUnchanged`。
+
+### 4. Validation & Error Matrix
+
+| Condition | Expected Behavior |
+|---|---|
+| IP 非 CGNAT、未发现或存在多个候选 | `Invalid/2`，零系统写操作 |
+| 非 Windows 真实执行 | `Blocked/10`；显式 IP + WhatIf 仍可生成跨平台计划 |
+| Windows 非管理员真实执行 | 在读取系统状态前返回 `Blocked/10`，不请求 UAC |
+| 端口存在非托管或其他接口 HTTPS listener | `Blocked/10`，不删除或覆盖 listener |
+| Firewall profile 全部关闭 | 保持关闭，rule 动作为 `Skip`，仍验证 listener |
+| provider/certificate/firewall cmdlet 或最终验证失败 | `Failed/1`，结果中保留失败资源与消息 |
+| WhatIf、幂等状态或成功 apply/rollback | exit `0`；WhatIf 状态为 `Preview` |
+
+### 5. Good / Base / Bad Cases
+
+- Good: 管理员 SSH 会话运行入口，脚本复用有效证书，listener 只绑定 Tailscale IP，防火墙 rule 同时限制本地与远端地址，随后 Ansible 切换到 PSRP。
+- Base: 防火墙全局关闭或资源已满足时不改变全局状态；重复执行返回 `AlreadyPresent`/`Skipped`，不重建无关资源。
+- Bad: 调用 `Enable-PSRemoting` 创建 `Address=*` listener，打开全局防火墙，或 rollback 按端口删除所有 HTTPS listener。
+
+### 6. Tests Required
+
+- Pester：CGNAT 边界、唯一地址选择、多地址拒绝、证书复用和 WSMan provider 子项读取。
+- Pester：Missing/Matched/ManagedDrift/Conflict、Firewall 开关与精确 filter、幂等和 rollback action plan。
+- Pester：非管理员在状态读取前返回 `Blocked/10`；非 Windows 显式 IP WhatIf 输出可解析单文档 JSON。
+- Parser：模块与入口必须通过 parser；Windows CI 还要由 Windows PowerShell 5.1 加载。
+- Gates：`pnpm qa`、`pnpm test:pwsh:all`、`git diff --check`。
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```powershell
+$state = Get-WindowsRemotePsRemotingState -IPAddress $resolvedIPAddress
+if (-not (Test-WindowsBootstrapAdministrator)) {
+    return New-BlockedResult
+}
+```
+
+#### Correct
+
+```powershell
+if (-not $Preview -and -not (Test-WindowsBootstrapAdministrator)) {
+    return New-BlockedResult
+}
+$state = Get-WindowsRemotePsRemotingState -IPAddress $resolvedIPAddress
+```
+
+理由：非管理员可能无权读取证书、WSMan 或 NetSecurity provider；权限边界必须先于系统状态发现，才能稳定兑现 `Blocked/10` 而不是误报 `Failed/1`。
