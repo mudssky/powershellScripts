@@ -23,4 +23,5 @@
 | [macOS Install Pipeline](./macos-install-pipeline.md) | macOS Stage 0、Core/Full 叶子、桌面集成幂等与 99 验证合同 | Active |
 | [Linux/WSL Install Pipeline](./linux-install-pipeline.md) | Ubuntu/Debian 与 WSL Stage 0、Core/Full、Docker、客体配置和 99 验证合同 | Active |
 | [Windows Install Pipeline](./windows-install-pipeline.md) | Windows Stage 0、一次 UAC、Core/Full、WSL 宿主、OpenSSH 到 PSRP bootstrap 和 99 验证合同 | Active |
+| [Ansible Managed Host Preparation](./ansible-managed-host-preparation.md) | Linux、macOS、Windows 首次接管前的 Tailscale/SSH/Python 自动准备、ManualSteps 与统一退出码合同 | Active |
 | [Repository Cold Archive](./repository-archive.md) | 根 `archive/` 镜像路径、JSON 索引、归档 CLI、Git 历史与默认质量工具排除合同 | Active |
