@@ -55,6 +55,7 @@
 - [x] Ansible Windows Core apply 发现真实 source 叶子没有顶层 `Rollback`；根安装编排器改为兼容可选顶层字段并从稳定的 `Results[*].Rollback` 提取，避免严格模式把成功 source 误报为 JSON 解析失败。
 - [x] Windows Core 实机继续发现 Scoop 参数数组被 `@(...)` 合并为单参数，以及新版 Scoop list 返回对象导致 bucket/font 幂等检测失效；改为真正 splatting 并兼容对象/文本两种输出。
 - [x] Ansible runas 的 workstation user 属于 Administrators 时会获得管理员令牌；用户阶段仅在显式 bootstrap session 且绑定非 system profile 时放行，99 verify 同步复用 Scoop 对象识别。
+- [x] fnm 成功 warning 直接泄漏到 Profile Tools 返回 pipeline，导致严格模式读取 `.Status` 失败；native helper 改为捕获输出并只返回单个结构化 result。
 
 ## 风险与恢复点
 

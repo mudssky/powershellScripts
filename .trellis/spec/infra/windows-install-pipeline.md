@@ -34,6 +34,7 @@ pwsh windows/99verifyInstall.ps1 `
 - Scoop 新版 `bucket list`/`list` 返回带 `Name` 属性的对象，旧版可能返回文本行；幂等检查必须同时兼容两种形状，已存在 bucket 或字体不得重复 add/install。
 - Windows 用户阶段默认拒绝管理员令牌；Ansible/runas 只有在显式 bootstrap session 且 `USERPROFILE` 不是 system profile 时才可继续，确保 Profile、bin 和用户 PATH 仍写入目标 workstation user。
 - 99 verify 的 Scoop 状态必须复用安装阶段的对象/文本名称识别，不能维护第二套表格正则。
+- Profile Tools 原生命令 helper 必须捕获 stdout/stderr 并只返回单个结构化 result；fnm 等工具的 warning 只能进入 `Message`，不得污染 PowerShell pipeline 后触发严格模式属性错误。
 - 03 只读报告 winget Stage 0 状态；共享 source 引擎继续将 winget 标为 Unsupported。npm、pnpm、pip、go 使用根 transaction ID。
 - `.wslconfig` 仅由显式 IncludeWsl 写入；设置按 minimum build 过滤，变化时先 `.bak` 再同目录替换并返回 10。禁止自动执行 `wsl --shutdown`、terminate 或 unregister。
 - 99 只读，JSON stdout 单文档；Failed/1 > Blocked/10 > Succeeded/0，Skipped/Warn 不单独失败。
@@ -49,6 +50,7 @@ pwsh windows/99verifyInstall.ps1 `
 | Full 经 00 已执行提升但 09 仍缺 AHK | Blocked/10，不请求第二次 UAC |
 | Scoop bucket/font 已存在且 list 返回对象 | 读取 `Name` 后返回 AlreadyPresent，不执行重复 add/install |
 | Ansible runas 用户属于 Administrators | 正确 user profile + bootstrap session 可执行用户阶段；system profile 或普通提升终端仍 Blocked/10 |
+| fnm/native command 成功但输出 warning | helper 返回单个 Succeeded result，warning 收敛到 Message，不产生额外 pipeline 对象 |
 | `.wslconfig` 相同 | AlreadyPresent，不备份、不 shutdown |
 | `.wslconfig` 变化 | 创建时间戳备份、替换、返回 10，提示手工 shutdown |
 | 99 默认 Core 且 WSL 缺失 | WSL 不在默认检查，不影响 Core |
@@ -61,6 +63,7 @@ pwsh windows/99verifyInstall.ps1 `
 - Bad: 09 忽略 UAC 取消产生的顶层 Blocked、继续写 Startup；或让 plan 提供任意 helper 路径、winget ID、安装参数或脚本文本。
 - Bad: 用 `& executable @($argumentList)` 假装 splatting，或把 Scoop 对象输出拼成字符串后只匹配表格行。
 - Bad: 为通过远程执行直接删除用户阶段的管理员保护，或让 verify 独立复制旧 Scoop 输出解析逻辑。
+- Bad: Profile Tools helper 直接透传 native stdout/stderr，再把混合字符串和 result 数组当成单个对象读取 `.Status`。
 
 ### 6. Tests Required
 

@@ -77,11 +77,13 @@ function Invoke-ProfileToolNativeCommand {
     }
 
     try {
-        & $FilePath @ArgumentList
-        if ($LASTEXITCODE -ne 0) {
-            throw "命令退出码为 $LASTEXITCODE"
+        $output = @(& $FilePath @ArgumentList 2>&1 | ForEach-Object { [string]$_ })
+        $exitCode = if ($null -eq $LASTEXITCODE) { 0 } else { [int]$LASTEXITCODE }
+        $message = ($output | Select-Object -Last 20 | Out-String).Trim()
+        if ($exitCode -ne 0) {
+            throw "命令退出码为 $exitCode$(if ($message) { ": $message" } else { '' })"
         }
-        return New-ProfileToolResult -Name $Name -Status Succeeded
+        return New-ProfileToolResult -Name $Name -Status Succeeded -Message $message
     }
     catch {
         return New-ProfileToolResult -Name $Name -Status Failed -Message $_.Exception.Message

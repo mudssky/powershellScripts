@@ -2,6 +2,7 @@ BeforeAll {
     $script:RepoRoot = Split-Path -Parent $PSScriptRoot
     Import-Module (Join-Path $script:RepoRoot 'windows/pwsh/WindowsInstall.psm1') -Force
     Import-Module (Join-Path $script:RepoRoot 'windows/bootstrap/WindowsBootstrap.psm1') -Force
+    Import-Module (Join-Path $script:RepoRoot 'scripts/pwsh/install/ProfileTools.psm1') -Force
     Import-Module (Join-Path $script:RepoRoot 'psutils') -Force
 
     function Invoke-WindowsTestProcess {
@@ -142,6 +143,24 @@ Describe 'Windows 声明式 package catalog' {
             Should -BeFalse
         Test-WindowsUserStageContext -Administrator $true -AutomationSession $true -UserProfile 'C:\Windows\System32\config\systemprofile' |
             Should -BeFalse
+    }
+
+    It 'Profile Tools 原生命令输出不会污染结构化返回值' {
+        InModuleScope ProfileTools {
+            function Invoke-ProfileToolFixture {
+                Write-Output 'fixture-warning'
+                $global:LASTEXITCODE = 0
+            }
+
+            $result = @(Invoke-ProfileToolNativeCommand `
+                    -Name fixture `
+                    -FilePath Invoke-ProfileToolFixture `
+                    -ArgumentList @('install', '--lts'))
+
+            $result.Count | Should -Be 1
+            $result[0].Status | Should -Be 'Succeeded'
+            $result[0].Message | Should -Be 'fixture-warning'
+        }
     }
 }
 
