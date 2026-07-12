@@ -7,4 +7,4 @@
 - [x] 新增 Pester 测试和 Windows 安装文档。
 - [x] 运行窄测、`pnpm qa`、`pnpm test:pwsh:all`、`git diff --check`。
 - [x] 更新 Windows install code-spec。
-- [ ] 提交并推送 GitHub，确认 Windows CI。
+- [x] 提交并推送 GitHub，确认 Windows CI。

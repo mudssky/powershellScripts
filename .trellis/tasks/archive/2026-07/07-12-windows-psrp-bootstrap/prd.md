@@ -20,7 +20,7 @@ HTTPS listener 使用 PSRP 管理目标机。
 ## Acceptance Criteria
 
 - [x] Pester 覆盖 Tailscale IP 选择、listener 计划、证书复用、防火墙启用/关闭、幂等和 rollback 计划。
-- [ ] Windows PowerShell 5.1 parser 可加载脚本和模块。
+- [x] Windows PowerShell 5.1 parser 可加载脚本和模块。
 - [x] `-WhatIf -OutputFormat Json` 不产生系统写操作，并返回可解析单文档。
 - [x] 非管理员实际执行返回 Blocked/10，不请求 UAC。
 - [x] `pnpm qa`、`pnpm test:pwsh:all` 和 `git diff --check` 通过。
