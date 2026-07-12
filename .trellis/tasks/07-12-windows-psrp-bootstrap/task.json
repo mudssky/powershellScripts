@@ -1,7 +1,7 @@
 {
-  "id": "remote-provisioning-tool-selection",
-  "name": "remote-provisioning-tool-selection",
-  "title": "远程装机工具选型",
+  "id": "windows-psrp-bootstrap",
+  "name": "windows-psrp-bootstrap",
+  "title": "Windows PSRP 远程 bootstrap",
   "description": "",
   "status": "in_progress",
   "dev_type": null,
@@ -18,10 +18,8 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [
-    "07-12-windows-psrp-bootstrap"
-  ],
-  "parent": null,
+  "children": [],
+  "parent": "07-12-remote-provisioning-tool-selection",
   "relatedFiles": [],
   "notes": "",
   "meta": {}
