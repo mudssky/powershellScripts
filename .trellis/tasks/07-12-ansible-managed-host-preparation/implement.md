@@ -52,6 +52,7 @@
 - [x] 运行 `git diff --check` 和 `git status --short`。
 - [ ] 用户已在 `iminipro820` 完成真实 apply 并得到 Succeeded；macOS 已完成 SSH 握手，待配置认证后完成命令执行与 Ansible bootstrap 实机验收。
 - [x] 实机发现工作组 MicrosoftAccount 通过 SSH 成功但 PSRP 返回 Access Denied；按 Ansible 官方要求把 `LocalAccountTokenFilterPolicy=1` 纳入 PSRP bootstrap，并保存原值供受控 rollback。
+- [x] Ansible Windows Core apply 发现真实 source 叶子没有顶层 `Rollback`；根安装编排器改为兼容可选顶层字段并从稳定的 `Results[*].Rollback` 提取，避免严格模式把成功 source 误报为 JSON 解析失败。
 
 ## 风险与恢复点
 

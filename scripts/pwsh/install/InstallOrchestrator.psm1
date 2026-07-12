@@ -941,7 +941,22 @@ function Invoke-InstallOrchestrator {
                     $sourceDocument = $processResult.Stdout | ConvertFrom-Json -ErrorAction Stop
                     if (-not $Preview) {
                         $sourceTransactionId = [string]$sourceDocument.TransactionId
-                        $rollback = [string]$sourceDocument.Rollback
+                        $rollbackProperty = $sourceDocument.PSObject.Properties['Rollback']
+                        if ($null -ne $rollbackProperty) {
+                            $rollback = [string]$rollbackProperty.Value
+                        }
+                        elseif ($sourceDocument.PSObject.Properties['Results']) {
+                            $rollbackCandidates = @($sourceDocument.Results | ForEach-Object {
+                                    $resultRollbackProperty = $_.PSObject.Properties['Rollback']
+                                    if ($null -ne $resultRollbackProperty -and
+                                        -not [string]::IsNullOrWhiteSpace([string]$resultRollbackProperty.Value)) {
+                                        [string]$resultRollbackProperty.Value
+                                    }
+                                })
+                            if ($rollbackCandidates.Count -gt 0) {
+                                $rollback = [string]$rollbackCandidates[0]
+                            }
+                        }
                     }
                     if ($processResult.ExitCode -eq 0 -and [int]$sourceDocument.ExitCode -ne 0) {
                         $processResult.ExitCode = [int]$sourceDocument.ExitCode

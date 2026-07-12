@@ -65,6 +65,7 @@ powershell.exe -NoProfile -File ./scripts/pwsh/misc/Invoke-PackageSourceBootstra
 - 未实现 Linux 原生 Stage 0 系统源 adapter 时，PowerShell 7/chsrc 前的 China/Auto 必须返回 Blocked，不能静默回退 Direct。
 - 默认 QA 仅使用临时 HOME、伪命令和 fixture；真实 China/Auto Apply 必须获得单独明确批准。
 - PackageSources Pester 只保留参数、JSON/退出码、`-WhatIf` 和 legacy Docker 的少量 CLI 子进程合同；事务、drift、orphan、Auto 和 adapter 行为直接调用 `Invoke-PackageSourceAction`。
+- Stage 1 根安装编排器只能依赖稳定的 `Results[*].Rollback`；source 叶子可选提供顶层 `Rollback`，缺失时不得在严格模式下直接取属性或把成功步骤误报为 JSON 解析失败。
 - 进程内测试默认将 `PackageSources`/`DockerAdapter` 内的 `Invoke-WebRequest` Mock 为失败；需要探活的用例必须显式覆盖并断言调用。
 - Linux Pester 容器的 `/tmp` 为 `noexec`；Bash 伪命令必须放到仓库内 `tests/.tmp-executables/` 的唯一临时目录，并在 `AfterAll` 清理。状态、HOME 和配置 fixture 仍放在 `$TestDrive`。
 - 统一 Pester 配置只将 `Remove-Item:ProgressAction` 默认为 `SilentlyContinue`，避免 PowerShell 7.5 的 `Removed x of y files` TestDrive 清理进度干扰断言查看；不得全局禁用 `$ProgressPreference` 或丢弃 stdout。
@@ -86,6 +87,7 @@ powershell.exe -NoProfile -File ./scripts/pwsh/misc/Invoke-PackageSourceBootstra
 | `Apply -WhatIf` 或旧 Docker `-WhatIf` | 只返回计划，不创建状态目录 |
 | 参数组合缺少 Target/TransactionId | `InvalidArguments`，退出 2 |
 | Windows Stage 0 缺管理员或结构化 cmdlets | `Blocked`，退出 10，不解析表格文本 |
+| source document 没有顶层 `Rollback` | 根编排器从 `Results[*].Rollback` 提取；Direct 空值保持成功，China 保留恢复命令 |
 
 ### 5. Good/Base/Bad Cases
 
@@ -95,6 +97,7 @@ powershell.exe -NoProfile -File ./scripts/pwsh/misc/Invoke-PackageSourceBootstra
 - Bad: 在字体、CLI 或 Profile 脚本中硬编码镜像 URL。
 - Bad: 用 chsrc 直接修改真实 `~/.zshrc`、覆盖完整 Cargo/uv TOML，或用 `nix-channel` 冒充 flake substituter。
 - Bad: 只看 manifest 不校验当前文件 hash，或 Restore 时粗暴 reset 用户后来修改的配置。
+- Bad: 在 `Set-StrictMode -Version Latest` 下假设 source document 一定有顶层 `Rollback`，忽略稳定 result 字段。
 
 ### 6. Tests Required
 

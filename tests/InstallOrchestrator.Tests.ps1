@@ -110,8 +110,10 @@ $effectiveTransactionId = if ($NetworkMode -eq 'Direct') { '' } else { $Transact
 $document = [pscustomobject]@{
     ExitCode      = 0
     TransactionId = $effectiveTransactionId
-    Rollback      = if ($effectiveTransactionId) { "restore:$effectiveTransactionId" } else { '' }
-    Results       = @([pscustomobject]@{ Status = 'Applied' })
+    Results       = @([pscustomobject]@{
+        Status   = 'Applied'
+        Rollback = if ($effectiveTransactionId) { "restore:$effectiveTransactionId" } else { '' }
+    })
 }
 $document | ConvertTo-Json -Depth 5 -Compress
 '@
