@@ -4,6 +4,7 @@ Describe 'Windows Ansible 被控端准备合同' {
     BeforeAll {
         $script:ProjectRoot = Split-Path -Parent $PSScriptRoot
         $script:ModulePath = Join-Path $script:ProjectRoot 'windows/bootstrap/WindowsAnsibleHostPreparation.psm1'
+        $script:BootstrapModulePath = Join-Path $script:ProjectRoot 'windows/bootstrap/WindowsBootstrap.psm1'
         $script:EntryPath = Join-Path $script:ProjectRoot 'windows/bootstrap/Prepare-WindowsAnsibleHost.ps1'
         Import-Module $script:ModulePath -Force
     }
@@ -92,8 +93,8 @@ Describe 'Windows Ansible 被控端准备合同' {
         $document.Results.Count | Should -BeGreaterThan 0
     }
 
-    It 'Windows PowerShell 5.1 入口和模块使用 UTF-8 BOM 且 parser 无错误' {
-        foreach ($path in @($script:ModulePath, $script:EntryPath)) {
+    It 'Windows PowerShell 5.1 单文件入口及全部依赖使用 UTF-8 BOM 且 parser 无错误' {
+        foreach ($path in @($script:EntryPath, $script:ModulePath, $script:BootstrapModulePath)) {
             $bytes = [System.IO.File]::ReadAllBytes($path)
             @($bytes[0..2]) | Should -Be @(0xEF, 0xBB, 0xBF)
             $tokens = $null

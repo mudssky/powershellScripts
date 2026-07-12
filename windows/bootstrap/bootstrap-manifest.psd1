@@ -3,7 +3,7 @@
     Assets        = @(
         @{
             Path   = 'windows/bootstrap/WindowsBootstrap.psm1'
-            Sha256 = '820ca6a8bd1379e93639800f921163d7fc786c3b382d236f143bc92e8b5d6b0f'
+            Sha256 = '4034d1b26c5f1e259d19505fbb5954070c9e7304f25621619b8cda9c1fc0cc68'
         }
         @{
             Path   = 'windows/bootstrap/Invoke-WindowsElevatedPlan.ps1'
