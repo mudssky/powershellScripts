@@ -116,7 +116,7 @@ Ansible inventory 侧使用 `ansible_connection=psrp`、HTTPS、NTLM、`ansible_
 
 ### 3. Contracts
 
-- 入口与模块必须兼容 Windows PowerShell 5.1；真实执行要求当前进程已是管理员，禁止请求 UAC。
+- 入口与模块必须兼容 Windows PowerShell 5.1；含中文帮助或字符串的 `.ps1`/`.psm1` 必须使用 UTF-8 BOM，避免 5.1 按本地 ANSI 代码页误读；真实执行要求当前进程已是管理员，禁止请求 UAC。
 - 自动发现或显式参数必须解析为唯一的 `100.64.0.0/10` IPv4；拒绝 LAN、loopback、IPv6、wildcard 和多地址歧义。
 - 托管证书 subject 前缀为 `CN=powershellScripts-PSRP-`，位于 `Cert:\LocalMachine\My`，含私钥且剩余有效期超过 30 天时复用。
 - HTTPS listener 默认端口为 `5986`，`Address` 必须精确等于目标 Tailscale IPv4；同端口存在非托管 listener 时禁止覆盖。
@@ -148,7 +148,7 @@ Ansible inventory 侧使用 `ansible_connection=psrp`、HTTPS、NTLM、`ansible_
 - Pester：CGNAT 边界、唯一地址选择、多地址拒绝、证书复用和 WSMan provider 子项读取。
 - Pester：Missing/Matched/ManagedDrift/Conflict、Firewall 开关与精确 filter、幂等和 rollback action plan。
 - Pester：非管理员在状态读取前返回 `Blocked/10`；非 Windows 显式 IP WhatIf 输出可解析单文档 JSON。
-- Parser：模块与入口必须通过 parser；Windows CI 还要由 Windows PowerShell 5.1 加载。
+- Parser：模块与入口必须通过 parser、断言 UTF-8 BOM；Windows CI 还要由 Windows PowerShell 5.1 加载。
 - Gates：`pnpm qa`、`pnpm test:pwsh:all`、`git diff --check`。
 
 ### 7. Wrong vs Correct

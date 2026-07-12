@@ -1,4 +1,4 @@
-Set-StrictMode -Version Latest
+﻿Set-StrictMode -Version Latest
 
 Import-Module (Join-Path $PSScriptRoot 'WindowsBootstrap.psm1') -Force
 

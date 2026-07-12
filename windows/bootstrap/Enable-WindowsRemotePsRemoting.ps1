@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     配置或回滚仅绑定 Tailscale IPv4 的 Windows HTTPS PSRP listener。
 

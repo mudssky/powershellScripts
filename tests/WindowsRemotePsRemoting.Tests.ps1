@@ -202,7 +202,8 @@ Describe 'Windows PSRP 入口合同' {
         }
     }
 
-    It '非 Windows 也能用显式 IP 生成单文档 WhatIf JSON' {
+    It '非 Windows 也能用显式 IP 生成单文档 WhatIf JSON' `
+        -Skip:([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) {
         $result = Invoke-WindowsRemoteTestProcess -ArgumentList @(
             '-TailscaleIPv4', '100.70.1.2',
             '-WhatIf',
@@ -227,6 +228,15 @@ Describe 'Windows PSRP 入口合同' {
             }
         }
         $errors.Count | Should -Be 0
+    }
+
+    It 'Windows PowerShell 5.1 入口和模块使用 UTF-8 BOM' {
+        foreach ($file in @($script:ModulePath, $script:EntryPath)) {
+            $bytes = [System.IO.File]::ReadAllBytes($file)
+            $bytes[0] | Should -Be 0xEF
+            $bytes[1] | Should -Be 0xBB
+            $bytes[2] | Should -Be 0xBF
+        }
     }
 
     It 'Windows PowerShell 5.1 parser 可加载模块和入口' `
