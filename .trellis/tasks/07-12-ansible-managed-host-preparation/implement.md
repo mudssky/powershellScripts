@@ -51,6 +51,7 @@
 - [x] 运行 `pnpm test:pwsh:all`。
 - [x] 运行 `git diff --check` 和 `git status --short`。
 - [ ] 用户已在 `iminipro820` 完成真实 apply 并得到 Succeeded；macOS 已完成 SSH 握手，待配置认证后完成命令执行与 Ansible bootstrap 实机验收。
+- [x] 实机发现工作组 MicrosoftAccount 通过 SSH 成功但 PSRP 返回 Access Denied；按 Ansible 官方要求把 `LocalAccountTokenFilterPolicy=1` 纳入 PSRP bootstrap，并保存原值供受控 rollback。
 
 ## 风险与恢复点
 

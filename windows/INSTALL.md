@@ -46,11 +46,14 @@ powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass `
 ```
 
 脚本自动发现唯一的 `100.64.0.0/10` Tailscale IPv4，也可以用 `-TailscaleIPv4` 显式指定。
-HTTPS listener 固定使用 `5986` 并只绑定该 IP；`AllowUnencrypted` 保持 false。Windows Firewall
+HTTPS listener 固定使用 `5986` 并只绑定该 IP；`AllowUnencrypted` 保持 false。非域本机管理员还需要
+`LocalAccountTokenFilterPolicy=1` 才能通过 WinRM 获得完整远程令牌，bootstrap 会保存原值后幂等设置。
+Windows Firewall
 启用时创建同时限制 local Tailscale IP 和 remote CGNAT range 的 rule；所有 profile 已关闭时不
 启用防火墙，只验证 listener 配置。
 
-回滚只删除 `powershellScripts-PSRP-` subject 前缀证书、对应 HTTPS listener 和固定防火墙 rule：
+回滚只删除 `powershellScripts-PSRP-` subject 前缀证书、对应 HTTPS listener 和固定防火墙 rule，
+并仅在该策略由 bootstrap 写入时恢复原来的 `LocalAccountTokenFilterPolicy` 状态：
 
 ```powershell
 powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass `

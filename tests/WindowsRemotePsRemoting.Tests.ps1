@@ -156,6 +156,7 @@ Describe 'Windows PSRP 证书与 listener 计划' {
 
     It '缺失状态生成证书、listener 和 scoped firewall 创建计划' {
         $plan = New-WindowsRemotePsRemotingPlan -IPAddress '100.70.1.2' -FirewallEnabled
+        (Get-WindowsRemotePlanAction -Plan $plan -Name LocalAccountTokenFilterPolicy).Action | Should -Be 'Ensure'
         (Get-WindowsRemotePlanAction -Plan $plan -Name Certificate).Action | Should -Be 'Create'
         (Get-WindowsRemotePlanAction -Plan $plan -Name HttpsListener).Action | Should -Be 'Create'
         (Get-WindowsRemotePlanAction -Plan $plan -Name FirewallRule).Action | Should -Be 'Ensure'
@@ -165,7 +166,8 @@ Describe 'Windows PSRP 证书与 listener 计划' {
     It '已满足状态生成幂等计划' {
         $plan = New-WindowsRemotePsRemotingPlan -IPAddress '100.70.1.2' `
             -CertificateReusable -ManagedCertificateExists -ListenerState Matched `
-            -FirewallEnabled -FirewallRuleExists -FirewallRuleMatches
+            -FirewallEnabled -FirewallRuleExists -FirewallRuleMatches -TokenFilterPolicyEnabled
+        (Get-WindowsRemotePlanAction -Plan $plan -Name LocalAccountTokenFilterPolicy).Action | Should -Be 'AlreadyPresent'
         (Get-WindowsRemotePlanAction -Plan $plan -Name Certificate).Action | Should -Be 'Reuse'
         (Get-WindowsRemotePlanAction -Plan $plan -Name HttpsListener).Action | Should -Be 'AlreadyPresent'
         (Get-WindowsRemotePlanAction -Plan $plan -Name FirewallRule).Action | Should -Be 'AlreadyPresent'
@@ -186,12 +188,86 @@ Describe 'Windows PSRP 证书与 listener 计划' {
 
     It 'rollback 只删除托管 listener、rule 和证书' {
         $plan = New-WindowsRemotePsRemotingPlan -IPAddress '100.70.1.2' -Rollback `
-            -ListenerState Matched -ManagedCertificateExists -FirewallRuleExists
+            -ListenerState Matched -ManagedCertificateExists -FirewallRuleExists -TokenFilterPolicyManaged
         $plan.Operation | Should -Be 'Rollback'
         (Get-WindowsRemotePlanAction -Plan $plan -Name HttpsListener).Action | Should -Be 'Remove'
         (Get-WindowsRemotePlanAction -Plan $plan -Name FirewallRule).Action | Should -Be 'Remove'
         (Get-WindowsRemotePlanAction -Plan $plan -Name Certificate).Action | Should -Be 'Remove'
+        (Get-WindowsRemotePlanAction -Plan $plan -Name LocalAccountTokenFilterPolicy).Action | Should -Be 'Remove'
         ($plan.Actions.Message -join ' ') | Should -Match 'OpenSSH 未修改'
+    }
+
+    It 'rollback 不覆盖非托管的远程 UAC 策略' {
+        $plan = New-WindowsRemotePsRemotingPlan -IPAddress '100.70.1.2' -Rollback
+        (Get-WindowsRemotePlanAction -Plan $plan -Name LocalAccountTokenFilterPolicy).Action | Should -Be 'Skip'
+    }
+
+    It '读取并区分远程 UAC 策略当前值与托管原值' {
+        InModuleScope WindowsRemotePsRemoting {
+            Mock Get-ItemProperty {
+                if ($LiteralPath -eq $script:TokenFilterPolicyPath) {
+                    return [pscustomobject]@{ LocalAccountTokenFilterPolicy = 1 }
+                }
+                return [pscustomobject]@{
+                    TokenFilterPolicyManaged        = 1
+                    TokenFilterPolicyOriginalExists = 0
+                    TokenFilterPolicyOriginalValue  = 0
+                }
+            }
+
+            $state = Get-WindowsRemotePsRemotingTokenFilterState
+
+            $state.Enabled | Should -BeTrue
+            $state.Managed | Should -BeTrue
+            $state.OriginalExists | Should -BeFalse
+            $state.OriginalValue | Should -Be 0
+        }
+    }
+
+    It '首次启用远程 UAC 策略时保存原始缺失状态' {
+        InModuleScope WindowsRemotePsRemoting {
+            Mock New-Item
+            Mock New-ItemProperty
+
+            Enable-WindowsRemotePsRemotingTokenFilterPolicy -State ([pscustomobject]@{
+                    Exists  = $false
+                    Value   = 0
+                    Managed = $false
+                })
+
+            Should -Invoke New-Item -Times 2 -Exactly
+            Should -Invoke New-ItemProperty -Times 1 -Exactly -ParameterFilter {
+                $LiteralPath -eq $script:ManagedStatePath -and
+                $Name -eq 'TokenFilterPolicyOriginalExists' -and $Value -eq 0
+            }
+            Should -Invoke New-ItemProperty -Times 1 -Exactly -ParameterFilter {
+                $LiteralPath -eq $script:TokenFilterPolicyPath -and
+                $Name -eq $script:TokenFilterPolicyName -and $Value -eq 1
+            }
+        }
+    }
+
+    It '恢复远程 UAC 策略时只处理带托管标记的状态' {
+        InModuleScope WindowsRemotePsRemoting {
+            Mock New-ItemProperty
+            Mock Remove-ItemProperty
+            Mock Remove-Item
+
+            $changed = Restore-WindowsRemotePsRemotingTokenFilterPolicy -State ([pscustomobject]@{
+                    Managed        = $true
+                    OriginalExists = $false
+                    OriginalValue  = 0
+                })
+
+            $changed | Should -BeTrue
+            Should -Invoke Remove-ItemProperty -Times 1 -Exactly -ParameterFilter {
+                $LiteralPath -eq $script:TokenFilterPolicyPath -and $Name -eq $script:TokenFilterPolicyName
+            }
+            Should -Invoke Remove-Item -Times 1 -Exactly -ParameterFilter {
+                $LiteralPath -eq $script:ManagedStatePath
+            }
+            Should -Invoke New-ItemProperty -Times 0 -Exactly
+        }
     }
 
     It '防火墙过滤器只接受单一精确地址和端口' {

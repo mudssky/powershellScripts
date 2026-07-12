@@ -6,6 +6,10 @@ $script:ManagedCertificateSubjectPrefix = 'CN=powershellScripts-PSRP-'
 $script:ManagedFirewallRuleName = 'powershellScripts-PSRP-HTTPS'
 $script:TailscaleIPv4Range = '100.64.0.0/10'
 $script:TailscaleIPv4NetmaskRange = '100.64.0.0/255.192.0.0'
+$script:TokenFilterPolicyPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+$script:TokenFilterPolicyName = 'LocalAccountTokenFilterPolicy'
+$script:ManagedStateRoot = 'HKLM:\SOFTWARE\powershellScripts'
+$script:ManagedStatePath = 'HKLM:\SOFTWARE\powershellScripts\WindowsRemotePsRemoting'
 
 function New-WindowsRemotePsRemotingAction {
     <#
@@ -342,6 +346,12 @@ function New-WindowsRemotePsRemotingPlan {
     .PARAMETER FirewallRuleMatches
         托管 rule 的 local/remote address、端口和动作是否匹配。
 
+    .PARAMETER TokenFilterPolicyEnabled
+        本机管理员是否允许通过 WinRM 获得完整远程令牌。
+
+    .PARAMETER TokenFilterPolicyManaged
+        该策略是否由本模块写入并记录了原始状态。
+
     .PARAMETER Rollback
         生成仅删除托管资源的 rollback 计划。
 
@@ -369,6 +379,10 @@ function New-WindowsRemotePsRemotingPlan {
 
         [switch]$FirewallRuleMatches,
 
+        [switch]$TokenFilterPolicyEnabled,
+
+        [switch]$TokenFilterPolicyManaged,
+
         [switch]$Rollback
     )
 
@@ -386,6 +400,9 @@ function New-WindowsRemotePsRemotingPlan {
         $actions.Add((New-WindowsRemotePsRemotingAction -Name Certificate `
                     -Action $(if ($ManagedCertificateExists) { 'Remove' } else { 'Skip' }) `
                     -Message '只删除 powershellScripts-PSRP subject 前缀证书'))
+        $actions.Add((New-WindowsRemotePsRemotingAction -Name LocalAccountTokenFilterPolicy `
+                    -Action $(if ($TokenFilterPolicyManaged) { 'Remove' } else { 'Skip' }) `
+                    -Message '仅在本模块记录过原始状态时恢复远程 UAC 策略'))
         $actions.Add((New-WindowsRemotePsRemotingAction -Name Verification -Action Verify -Message '确认托管资源已移除且 OpenSSH 未修改'))
         return [pscustomobject][ordered]@{
             SchemaVersion = 1
@@ -414,6 +431,9 @@ function New-WindowsRemotePsRemotingPlan {
 
     $actions.Add((New-WindowsRemotePsRemotingAction -Name WinRMService -Action Ensure -Message '保持 WinRM 自动启动并运行'))
     $actions.Add((New-WindowsRemotePsRemotingAction -Name WinRMSecurity -Action Ensure -Message 'AllowUnencrypted=false，Negotiate=true'))
+    $actions.Add((New-WindowsRemotePsRemotingAction -Name LocalAccountTokenFilterPolicy `
+                -Action $(if ($TokenFilterPolicyEnabled) { 'AlreadyPresent' } else { 'Ensure' }) `
+                -Message '允许非域本机管理员通过 WinRM 获得完整远程令牌；回滚恢复执行前状态'))
     $actions.Add((New-WindowsRemotePsRemotingAction -Name Certificate `
                 -Action $(if ($CertificateReusable) { 'Reuse' } else { 'Create' }) `
                 -Message '使用 LocalMachine\My 中的非导出 SSL server 证书'))
@@ -530,6 +550,100 @@ function Test-WindowsRemotePsRemotingFirewallRule {
     )
 }
 
+function Get-WindowsRemotePsRemotingTokenFilterState {
+    <#
+    .SYNOPSIS
+        读取 WinRM 本机账户远程 UAC 策略及本模块保存的原始状态。
+
+    .OUTPUTS
+        PSCustomObject。包含当前值、是否已启用、是否由本模块管理和原始值。
+    #>
+    [CmdletBinding()]
+    param()
+
+    $policy = Get-ItemProperty -LiteralPath $script:TokenFilterPolicyPath -ErrorAction SilentlyContinue
+    $policyProperty = if ($null -ne $policy) { $policy.PSObject.Properties[$script:TokenFilterPolicyName] } else { $null }
+    $policyExists = $null -ne $policyProperty
+    $policyValue = if ($policyExists) { [int]$policyProperty.Value } else { 0 }
+
+    $managedState = Get-ItemProperty -LiteralPath $script:ManagedStatePath -ErrorAction SilentlyContinue
+    $managedProperty = if ($null -ne $managedState) { $managedState.PSObject.Properties['TokenFilterPolicyManaged'] } else { $null }
+    $originalExistsProperty = if ($null -ne $managedState) { $managedState.PSObject.Properties['TokenFilterPolicyOriginalExists'] } else { $null }
+    $originalValueProperty = if ($null -ne $managedState) { $managedState.PSObject.Properties['TokenFilterPolicyOriginalValue'] } else { $null }
+
+    return [pscustomobject][ordered]@{
+        Exists         = $policyExists
+        Value          = $policyValue
+        Enabled        = $policyExists -and $policyValue -eq 1
+        Managed        = $null -ne $managedProperty -and [int]$managedProperty.Value -eq 1
+        OriginalExists = $null -ne $originalExistsProperty -and [int]$originalExistsProperty.Value -eq 1
+        OriginalValue  = if ($null -ne $originalValueProperty) { [int]$originalValueProperty.Value } else { 0 }
+    }
+}
+
+function Enable-WindowsRemotePsRemotingTokenFilterPolicy {
+    <#
+    .SYNOPSIS
+        启用本机管理员 WinRM 完整令牌，并在首次写入时保存原始状态。
+
+    .PARAMETER State
+        Get-WindowsRemotePsRemotingTokenFilterState 返回的当前状态。
+
+    .OUTPUTS
+        无。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$State
+    )
+
+    if (-not [bool]$State.Managed) {
+        New-Item -Path $script:ManagedStateRoot -Force -ErrorAction Stop | Out-Null
+        New-Item -Path $script:ManagedStatePath -Force -ErrorAction Stop | Out-Null
+        New-ItemProperty -LiteralPath $script:ManagedStatePath -Name TokenFilterPolicyOriginalExists `
+            -Value $(if ([bool]$State.Exists) { 1 } else { 0 }) -PropertyType DWord -Force -ErrorAction Stop | Out-Null
+        New-ItemProperty -LiteralPath $script:ManagedStatePath -Name TokenFilterPolicyOriginalValue `
+            -Value ([int]$State.Value) -PropertyType DWord -Force -ErrorAction Stop | Out-Null
+        New-ItemProperty -LiteralPath $script:ManagedStatePath -Name TokenFilterPolicyManaged `
+            -Value 1 -PropertyType DWord -Force -ErrorAction Stop | Out-Null
+    }
+    New-ItemProperty -LiteralPath $script:TokenFilterPolicyPath -Name $script:TokenFilterPolicyName `
+        -Value 1 -PropertyType DWord -Force -ErrorAction Stop | Out-Null
+}
+
+function Restore-WindowsRemotePsRemotingTokenFilterPolicy {
+    <#
+    .SYNOPSIS
+        根据本模块保存的原始状态恢复 WinRM 本机账户远程 UAC 策略。
+
+    .PARAMETER State
+        Get-WindowsRemotePsRemotingTokenFilterState 返回的当前状态。
+
+    .OUTPUTS
+        System.Boolean。实际执行恢复时返回 true；没有托管状态时返回 false。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$State
+    )
+
+    if (-not [bool]$State.Managed) {
+        return $false
+    }
+    if ([bool]$State.OriginalExists) {
+        New-ItemProperty -LiteralPath $script:TokenFilterPolicyPath -Name $script:TokenFilterPolicyName `
+            -Value ([int]$State.OriginalValue) -PropertyType DWord -Force -ErrorAction Stop | Out-Null
+    }
+    else {
+        Remove-ItemProperty -LiteralPath $script:TokenFilterPolicyPath -Name $script:TokenFilterPolicyName `
+            -Force -ErrorAction SilentlyContinue
+    }
+    Remove-Item -LiteralPath $script:ManagedStatePath -Recurse -Force -ErrorAction Stop
+    return $true
+}
+
 function Get-WindowsRemotePsRemotingWsManState {
     <#
     .SYNOPSIS
@@ -635,6 +749,7 @@ function Get-WindowsRemotePsRemotingState {
                 -PortFilter $portFilter -AddressFilter $addressFilter -IPAddress $IPAddress -Port $Port
         }
     }
+    $tokenFilterState = Get-WindowsRemotePsRemotingTokenFilterState
     return [pscustomobject][ordered]@{
         ManagedCertificates       = @($certificates)
         SelectedCertificate       = $selectedCertificate
@@ -647,6 +762,9 @@ function Get-WindowsRemotePsRemotingState {
         FirewallRuleMatches       = $firewallRuleMatches
         AllowUnencrypted          = [bool]$wsManState.AllowUnencrypted
         Negotiate                 = [bool]$wsManState.Negotiate
+        TokenFilterPolicy         = $tokenFilterState
+        TokenFilterPolicyEnabled  = [bool]$tokenFilterState.Enabled
+        TokenFilterPolicyManaged  = [bool]$tokenFilterState.Managed
         ManagedFirewallRuleName   = $script:ManagedFirewallRuleName
         ManagedCertificatePrefix = $script:ManagedCertificateSubjectPrefix
     }
@@ -821,6 +939,16 @@ function Invoke-WindowsRemotePsRemoting {
             FirewallRuleMatches  = $false
             AllowUnencrypted     = $false
             Negotiate            = $true
+            TokenFilterPolicy        = [pscustomobject]@{
+                Exists               = $false
+                Value                = 0
+                Enabled              = $false
+                Managed              = $false
+                OriginalExists       = $false
+                OriginalValue        = 0
+            }
+            TokenFilterPolicyEnabled = $false
+            TokenFilterPolicyManaged = $false
         }
     }
     else {
@@ -843,6 +971,8 @@ function Invoke-WindowsRemotePsRemoting {
         FirewallEnabled          = [bool]$state.FirewallEnabled
         FirewallRuleExists       = [bool]$state.FirewallRuleExists
         FirewallRuleMatches      = [bool]$state.FirewallRuleMatches
+        TokenFilterPolicyEnabled = [bool]$state.TokenFilterPolicyEnabled
+        TokenFilterPolicyManaged = [bool]$state.TokenFilterPolicyManaged
         Rollback                 = [bool]$Rollback
     }
     $plan = New-WindowsRemotePsRemotingPlan @planArguments
@@ -884,8 +1014,13 @@ function Invoke-WindowsRemotePsRemoting {
                 Remove-Item -LiteralPath ("Cert:\LocalMachine\My\{0}" -f $certificate.Thumbprint) -Force -ErrorAction Stop
             }
             $results.Add((New-WindowsBootstrapResult -Name Certificate -Status Succeeded -Message '已删除托管证书'))
+            $tokenFilterRestored = Restore-WindowsRemotePsRemotingTokenFilterPolicy -State $state.TokenFilterPolicy
+            $results.Add((New-WindowsBootstrapResult -Name LocalAccountTokenFilterPolicy `
+                    -Status $(if ($tokenFilterRestored) { 'Succeeded' } else { 'AlreadyPresent' }) `
+                    -Message $(if ($tokenFilterRestored) { '已恢复 bootstrap 前的远程 UAC 策略' } else { '没有本模块托管的远程 UAC 策略' })))
             $finalState = Get-WindowsRemotePsRemotingState -IPAddress $resolvedIPAddress -Port $Port
-            $removed = @($finalState.ManagedListeners).Count -eq 0 -and @($finalState.ManagedCertificates).Count -eq 0 -and -not $finalState.FirewallRuleExists
+            $removed = @($finalState.ManagedListeners).Count -eq 0 -and @($finalState.ManagedCertificates).Count -eq 0 -and `
+            -not $finalState.FirewallRuleExists -and -not $finalState.TokenFilterPolicyManaged
             $results.Add((New-WindowsBootstrapResult -Name Verification `
                     -Status $(if ($removed) { 'Succeeded' } else { 'Failed' }) `
                     -Message $(if ($removed) { '托管 PSRP 资源已移除；OpenSSH 未修改' } else { '仍存在托管 PSRP 资源' }) `
@@ -900,6 +1035,15 @@ function Invoke-WindowsRemotePsRemoting {
             Set-Item WSMan:\localhost\Service\AllowUnencrypted -Value $false -Force -ErrorAction Stop
             Set-Item WSMan:\localhost\Service\Auth\Negotiate -Value $true -Force -ErrorAction Stop
             $results.Add((New-WindowsBootstrapResult -Name WinRMSecurity -Status Succeeded -Message 'AllowUnencrypted=false，Negotiate=true'))
+            if (-not $state.TokenFilterPolicyEnabled) {
+                Enable-WindowsRemotePsRemotingTokenFilterPolicy -State $state.TokenFilterPolicy
+                $results.Add((New-WindowsBootstrapResult -Name LocalAccountTokenFilterPolicy -Status Succeeded `
+                        -Message '已允许非域本机管理员通过 WinRM 获得完整远程令牌'))
+            }
+            else {
+                $results.Add((New-WindowsBootstrapResult -Name LocalAccountTokenFilterPolicy -Status AlreadyPresent `
+                        -Message '远程 UAC 策略已允许本机管理员完整令牌'))
+            }
 
             $certificate = $state.SelectedCertificate
             if ($null -eq $certificate) {
@@ -951,7 +1095,7 @@ function Invoke-WindowsRemotePsRemoting {
 
             $finalState = Get-WindowsRemotePsRemotingState -IPAddress $resolvedIPAddress -Port $Port
             $verified = $finalState.ListenerState -eq 'Matched' -and $finalState.ListenerBindingValid -and
-            -not $finalState.AllowUnencrypted -and $finalState.Negotiate -and
+            -not $finalState.AllowUnencrypted -and $finalState.Negotiate -and $finalState.TokenFilterPolicyEnabled -and
             (-not $finalState.FirewallEnabled -or $finalState.FirewallRuleMatches)
             $results.Add((New-WindowsBootstrapResult -Name Verification `
                     -Status $(if ($verified) { 'Succeeded' } else { 'Failed' }) `
