@@ -120,6 +120,20 @@ Describe 'Windows 声明式 package catalog' {
         $script:WindowsCatalog.SchemaVersion | Should -Be 1
         @($script:WindowsCatalog.Scoop.Fonts) | Should -Be @('JetBrainsMono-NF', 'FiraCode-NF')
     }
+
+    It '识别 Scoop 新版对象输出和旧版文本输出中的名称' {
+        InModuleScope WindowsInstall {
+            Test-WindowsScoopListContains `
+                -InputObject @([pscustomobject]@{ Name = 'nerd-fonts'; Source = 'fixture' }) `
+                -Name nerd-fonts | Should -BeTrue
+            Test-WindowsScoopListContains `
+                -InputObject @('main https://example.invalid/main', 'nerd-fonts https://example.invalid/fonts') `
+                -Name nerd-fonts | Should -BeTrue
+            Test-WindowsScoopListContains `
+                -InputObject @([pscustomobject]@{ Name = 'main' }) `
+                -Name nerd-fonts | Should -BeFalse
+        }
+    }
 }
 
 Describe 'Windows WSL 配置合同' {

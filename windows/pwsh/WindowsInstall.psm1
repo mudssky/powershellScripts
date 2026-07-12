@@ -465,6 +465,40 @@ function Invoke-WindowsScoopCatalogInstall {
             -WhatIf:$Preview)
 }
 
+function Test-WindowsScoopListContains {
+    <#
+    .SYNOPSIS
+        判断 Scoop list/bucket list 输出是否包含指定名称。
+
+    .PARAMETER InputObject
+        Scoop 输出的对象或旧版本文本行。
+
+    .PARAMETER Name
+        要匹配的应用或 bucket 名称。
+
+    .OUTPUTS
+        System.Boolean。输出中存在目标名称时返回 true。
+    #>
+    [CmdletBinding()]
+    param(
+        [object[]]$InputObject,
+
+        [Parameter(Mandatory)]
+        [string]$Name
+    )
+
+    foreach ($item in @($InputObject)) {
+        $nameProperty = $item.PSObject.Properties['Name']
+        if ($null -ne $nameProperty -and [string]$nameProperty.Value -ieq $Name) {
+            return $true
+        }
+        if ([string]$item -match ("(?i)^\s*{0}(?:\s|$)" -f [regex]::Escape($Name))) {
+            return $true
+        }
+    }
+    return $false
+}
+
 function Install-WindowsScoopFonts {
     <#
     .SYNOPSIS
@@ -503,15 +537,16 @@ function Install-WindowsScoopFonts {
     }
 
     $bucketOutput = @(& scoop bucket list 2>&1)
-    if ($LASTEXITCODE -ne 0 -or ($bucketOutput -join "`n") -notmatch "(?im)^\s*$([regex]::Escape($bucket))\b") {
+    $bucketExitCode = $LASTEXITCODE
+    if ($bucketExitCode -ne 0 -or -not (Test-WindowsScoopListContains -InputObject $bucketOutput -Name $bucket)) {
         $results.Add((Invoke-WindowsNativeCommand -Name "bucket:$bucket" -FilePath scoop -ArgumentList @('bucket', 'add', $bucket)))
     }
     else {
         $results.Add((New-WindowsInstallResult -Name "bucket:$bucket" -Status AlreadyPresent))
     }
-    $installedOutput = @(& scoop list 2>&1) -join "`n"
+    $installedOutput = @(& scoop list 2>&1)
     foreach ($font in $fonts) {
-        if ($installedOutput -match "(?im)^\s*$([regex]::Escape([string]$font))\b") {
+        if (Test-WindowsScoopListContains -InputObject $installedOutput -Name ([string]$font)) {
             $results.Add((New-WindowsInstallResult -Name ([string]$font) -Status AlreadyPresent))
         }
         else {

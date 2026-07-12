@@ -53,6 +53,7 @@
 - [ ] 用户已在 `iminipro820` 完成真实 apply 并得到 Succeeded；macOS 已完成 SSH 握手，待配置认证后完成命令执行与 Ansible bootstrap 实机验收。
 - [x] 实机发现工作组 MicrosoftAccount 通过 SSH 成功但 PSRP 返回 Access Denied；按 Ansible 官方要求把 `LocalAccountTokenFilterPolicy=1` 纳入 PSRP bootstrap，并保存原值供受控 rollback。
 - [x] Ansible Windows Core apply 发现真实 source 叶子没有顶层 `Rollback`；根安装编排器改为兼容可选顶层字段并从稳定的 `Results[*].Rollback` 提取，避免严格模式把成功 source 误报为 JSON 解析失败。
+- [x] Windows Core 实机继续发现 Scoop 参数数组被 `@(...)` 合并为单参数，以及新版 Scoop list 返回对象导致 bucket/font 幂等检测失效；改为真正 splatting 并兼容对象/文本两种输出。
 
 ## 风险与恢复点
 

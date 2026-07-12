@@ -522,7 +522,8 @@ function Invoke-PackageInstallCommand {
 
     $parsed = ConvertFrom-PackageInstallCommand -Command $Command
     $commandInfo = Get-Command $parsed.Executable -ErrorAction Stop
-    & $commandInfo.Source @($parsed.ArgumentList)
+    $arguments = @($parsed.ArgumentList)
+    & $commandInfo.Source @arguments
     $exitCode = [int]$LASTEXITCODE
     if ($exitCode -ne 0) {
         throw "安装命令退出码为 ${exitCode}: $Command"

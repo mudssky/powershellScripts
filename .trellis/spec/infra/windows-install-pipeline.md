@@ -30,6 +30,8 @@ pwsh windows/99verifyInstall.ps1 `
 - 提升 executor 只接受 `WingetInstall`、`MsiInstall`、`ExeInstaller`、`WslInstall`，参数由代码生成；禁止配置或 plan 注入任意脚本文本。
 - Scoop、Profile、用户 PATH、AHK Startup 和 `.wslconfig` 不得在提升进程中执行。提升后的 Stage 1 必须返回 Blocked/10。
 - Core Scoop 真源为 `Windows + core + cli`，当前精确 10 项。Full 只追加 `Windows + cli + terminal-extras` 和 AutoHotkey，不默认安装 GUI。
+- 共享应用安装器解析命令后必须把参数数组赋给变量并使用真正的 splatting；禁止写 `@($arguments)` 作为调用参数，否则 Windows Scoop 会把 `install eza` 合并为单个参数。
+- Scoop 新版 `bucket list`/`list` 返回带 `Name` 属性的对象，旧版可能返回文本行；幂等检查必须同时兼容两种形状，已存在 bucket 或字体不得重复 add/install。
 - 03 只读报告 winget Stage 0 状态；共享 source 引擎继续将 winget 标为 Unsupported。npm、pnpm、pip、go 使用根 transaction ID。
 - `.wslconfig` 仅由显式 IncludeWsl 写入；设置按 minimum build 过滤，变化时先 `.bak` 再同目录替换并返回 10。禁止自动执行 `wsl --shutdown`、terminate 或 unregister。
 - 99 只读，JSON stdout 单文档；Failed/1 > Blocked/10 > Succeeded/0，Skipped/Warn 不单独失败。
@@ -43,6 +45,7 @@ pwsh windows/99verifyInstall.ps1 `
 | China/Auto 缺结构化 winget source cmdlets | Blocked/10，不回退 Direct |
 | ARM64 或 Server 真实安装 | Blocked/10；WhatIf/fixture 可生成计划 |
 | Full 经 00 已执行提升但 09 仍缺 AHK | Blocked/10，不请求第二次 UAC |
+| Scoop bucket/font 已存在且 list 返回对象 | 读取 `Name` 后返回 AlreadyPresent，不执行重复 add/install |
 | `.wslconfig` 相同 | AlreadyPresent，不备份、不 shutdown |
 | `.wslconfig` 变化 | 创建时间戳备份、替换、返回 10，提示手工 shutdown |
 | 99 默认 Core 且 WSL 缺失 | WSL 不在默认检查，不影响 Core |
@@ -53,6 +56,7 @@ pwsh windows/99verifyInstall.ps1 `
 - Good: executor 从自身资产树推导 source helper/config，winget package ID 必须等于组件 allowlist，并在管理员进程内重新验证本地 MSI/EXE 签名。
 - Base: 机器组件已存在时 00 不请求 UAC，只刷新 PATH、复用或 shallow clone 仓库并进入 Stage 1。
 - Bad: 09 忽略 UAC 取消产生的顶层 Blocked、继续写 Startup；或让 plan 提供任意 helper 路径、winget ID、安装参数或脚本文本。
+- Bad: 用 `& executable @($argumentList)` 假装 splatting，或把 Scoop 对象输出拼成字符串后只匹配表格行。
 
 ### 6. Tests Required
 

@@ -418,6 +418,21 @@ Describe "受限安装命令解析测试" {
             { ConvertFrom-PackageInstallCommand -Command 'brew install jq; touch bad' } | Should -Throw '*不支持的语法*'
         }
     }
+
+    It "执行时保持每个原生命令参数的独立边界" {
+        InModuleScope install {
+            $script:CapturedInstallArguments = @()
+            function Invoke-PackageInstallFixture {
+                $script:CapturedInstallArguments = @($args)
+                $global:LASTEXITCODE = 0
+            }
+            Mock Get-Command { [pscustomobject]@{ Source = 'Invoke-PackageInstallFixture' } }
+
+            Invoke-PackageInstallCommand -Command 'scoop install eza' | Should -Be 0
+
+            $script:CapturedInstallArguments | Should -Be @('install', 'eza')
+        }
+    }
 }
 
 Describe "Install-RequiredModule 函数测试" {
