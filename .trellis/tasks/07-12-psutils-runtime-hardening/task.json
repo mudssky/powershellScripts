@@ -3,7 +3,7 @@
   "name": "psutils-runtime-hardening",
   "title": "加固 psutils 运行时安全与健壮性",
   "description": "审查敏感参数、动态执行、静默异常和跨平台边界，实施经验证的低风险加固。",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

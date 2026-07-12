@@ -16,6 +16,7 @@
 * Pester 运行方式复用 `scripts/pwsh/devops/Invoke-PesterMode.ps1`，包内脚本通过 `PWSH_TEST_PATH` 限定 `./tests`。
 * 覆盖率门槛仍由根目录 `PesterConfiguration.ps1` 统一管理；包级 `test:full` 只做断言回归，不单独改 coverage 策略。
 * 修改 WSL Docker wrapper 或 docker 参数路径转换时，先阅读 [WSL Docker Wrapper](./wsl-docker-wrapper.md)。
+* 修改 SSH、动态执行、native command、静默异常或跨平台端口/路径时，先阅读 [Runtime Safety](./runtime-safety.md)。
 * NestedModules 之间不共享彼此的私有 session state。模块调用另一个模块导出的函数时，必须在自身作用域按需导入直接依赖；不能只依赖调用方已经导入聚合 `psutils` manifest。
 * 修改 manifest、NestedModules、公共导出或兼容入口时，先阅读 [Module Entry Contract](./module-entry-contract.md)，并同步 `psutils/tests/moduleContract.Tests.ps1`。
 * 收紧公共 API、修改子模块 `Export-ModuleMember` 或模块级状态时，同时同步 `psutils/tests/apiBoundary.Tests.ps1`。
@@ -34,6 +35,7 @@
 * 修改 nested module 依赖时，至少用“单独导入消费模块后调用其公共函数”的测试覆盖，防止聚合 manifest 掩盖兄弟模块命令不可见问题。
 * 修改模块入口或公共导出时，至少运行 `psutils/tests/moduleContract.Tests.ps1`，并确认仓库生产脚本和示例不再导入 `index.psm1`。
 * 修改 API 分层、子模块导出或公共帮助时，运行 `psutils/tests/apiBoundary.Tests.ps1`，确认 Private 不可直导、Diagnostic 不进入聚合模块，且聚合公共函数具有参数和返回值说明。
+* 修改运行时安全边界时，运行 `psutils/tests/runtimeHardening.Tests.ps1` 和对应模块测试；外部命令必须 mock，不连接真实 SSH 或修改真实系统设置。
 * 修改 README、`docs`、`examples` 或活动 demo 时，运行 `psutils/tests/documentation.Tests.ps1`，确认 manifest 事实、脚本 AST、字面量导入路径和无副作用 smoke 示例一致。
 
 ## Guidelines
@@ -43,3 +45,4 @@
 | [Module Entry Contract](./module-entry-contract.md) | 规范 manifest、PowerShell 版本、兼容 shim、导出一致性与入口测试 | Active |
 | [Shared Config Resolver](./shared-config-resolver.md) | `psutils/src/config` 配置来源、合并优先级、导出函数与测试契约 | Active |
 | [WSL Docker Wrapper](./wsl-docker-wrapper.md) | `psutils/modules/docker.psm1` WSL Docker wrapper 的路径转换与跨平台测试契约 | Active |
+| [Runtime Safety](./runtime-safety.md) | 敏感原生命令参数、动态执行、异常诊断与跨平台运行边界 | Active |
