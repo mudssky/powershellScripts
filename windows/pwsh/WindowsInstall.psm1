@@ -499,6 +499,42 @@ function Test-WindowsScoopListContains {
     return $false
 }
 
+function Test-WindowsUserStageContext {
+    <#
+    .SYNOPSIS
+        判断当前令牌是否允许执行 Windows 用户阶段。
+
+    .PARAMETER Administrator
+        当前令牌是否具有管理员权限。
+
+    .PARAMETER AutomationSession
+        是否由受控 bootstrap/Ansible 用户阶段显式启动。
+
+    .PARAMETER UserProfile
+        当前进程的用户 profile 路径。
+
+    .OUTPUTS
+        System.Boolean。普通用户令牌，或绑定非 system profile 的受控自动化会话返回 true。
+    #>
+    [CmdletBinding()]
+    param(
+        [bool]$Administrator,
+
+        [bool]$AutomationSession,
+
+        [AllowEmptyString()]
+        [string]$UserProfile
+    )
+
+    if (-not $Administrator) {
+        return $true
+    }
+    if (-not $AutomationSession -or [string]::IsNullOrWhiteSpace($UserProfile)) {
+        return $false
+    }
+    return $UserProfile -notmatch '(?i)\\system32\\config\\systemprofile$'
+}
+
 function Install-WindowsScoopFonts {
     <#
     .SYNOPSIS
@@ -776,6 +812,8 @@ Export-ModuleMember -Function @(
     'Import-WindowsPackageCatalog',
     'Invoke-WindowsNativeCommand',
     'Invoke-WindowsScoopCatalogInstall',
+    'Test-WindowsScoopListContains',
+    'Test-WindowsUserStageContext',
     'Install-WindowsScoopFonts',
     'Merge-WindowsPathValue',
     'Update-WindowsProcessPath',

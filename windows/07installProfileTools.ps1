@@ -39,7 +39,11 @@ if (-not $WhatIfPreference -and $platform.SupportLevel -ne 'Full') {
     [Console]::Error.WriteLine("当前平台不支持完整 Profile Tools: $($platform.Edition)/$($platform.Architecture)")
     exit 10
 }
-if ($platform.IsAdministrator) {
+$automationSession = $env:POWERSHELL_SCRIPTS_BOOTSTRAP_SESSION -eq '1'
+if (-not (Test-WindowsUserStageContext `
+        -Administrator $platform.IsAdministrator `
+        -AutomationSession $automationSession `
+        -UserProfile ([string]$env:USERPROFILE))) {
     [Console]::Error.WriteLine('Profile、bin 和用户 PATH 必须由普通用户进程配置')
     exit 10
 }

@@ -153,8 +153,9 @@ foreach ($stepName in $Step) {
         }
         'core-cli' { Add-WindowsCatalogChecks -StepName core-cli -RequiredTag @('core', 'cli') }
         'fonts' {
+            $installedScoopItems = if ($platform.HasScoop) { @(& scoop list 2>$null) } else { @() }
             foreach ($font in @($packageCatalog.Scoop.Fonts)) {
-                $installed = if ($platform.HasScoop) { (@(& scoop list 2>$null) -join "`n") -match "(?im)^\s*$([regex]::Escape([string]$font))\b" } else { $false }
+                $installed = $platform.HasScoop -and (Test-WindowsScoopListContains -InputObject $installedScoopItems -Name ([string]$font))
                 Add-WindowsInstallCheck -StepName fonts -Name ([string]$font) -Status $(if ($installed) { 'Pass' } else { 'Fail' }) -Message 'Scoop font state'
             }
         }

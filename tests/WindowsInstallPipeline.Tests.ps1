@@ -122,17 +122,26 @@ Describe 'Windows 声明式 package catalog' {
     }
 
     It '识别 Scoop 新版对象输出和旧版文本输出中的名称' {
-        InModuleScope WindowsInstall {
-            Test-WindowsScoopListContains `
-                -InputObject @([pscustomobject]@{ Name = 'nerd-fonts'; Source = 'fixture' }) `
-                -Name nerd-fonts | Should -BeTrue
-            Test-WindowsScoopListContains `
-                -InputObject @('main https://example.invalid/main', 'nerd-fonts https://example.invalid/fonts') `
-                -Name nerd-fonts | Should -BeTrue
-            Test-WindowsScoopListContains `
-                -InputObject @([pscustomobject]@{ Name = 'main' }) `
-                -Name nerd-fonts | Should -BeFalse
-        }
+        Test-WindowsScoopListContains `
+            -InputObject @([pscustomobject]@{ Name = 'nerd-fonts'; Source = 'fixture' }) `
+            -Name nerd-fonts | Should -BeTrue
+        Test-WindowsScoopListContains `
+            -InputObject @('main https://example.invalid/main', 'nerd-fonts https://example.invalid/fonts') `
+            -Name nerd-fonts | Should -BeTrue
+        Test-WindowsScoopListContains `
+            -InputObject @([pscustomobject]@{ Name = 'main' }) `
+            -Name nerd-fonts | Should -BeFalse
+    }
+
+    It '只允许普通令牌或绑定真实用户 profile 的自动化用户阶段' {
+        Test-WindowsUserStageContext -Administrator $false -AutomationSession $false -UserProfile '' |
+            Should -BeTrue
+        Test-WindowsUserStageContext -Administrator $true -AutomationSession $true -UserProfile 'C:\Users\fixture' |
+            Should -BeTrue
+        Test-WindowsUserStageContext -Administrator $true -AutomationSession $false -UserProfile 'C:\Users\fixture' |
+            Should -BeFalse
+        Test-WindowsUserStageContext -Administrator $true -AutomationSession $true -UserProfile 'C:\Windows\System32\config\systemprofile' |
+            Should -BeFalse
     }
 }
 
