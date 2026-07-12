@@ -49,7 +49,7 @@ jobs:
         if: always() || failure()
         with:
           name: Pester Tests (${{ matrix.os }})
-          path: testResults.xml
+          path: tests/reports/testResults.xml
           reporter: dotnet-nunit
 
   # ==========================================
@@ -86,7 +86,7 @@ jobs:
           # 开启颜色输出，防止颜色测试代码报错
           FORCE_COLOR: 1
         run: |
-          pnpm exec vitest run --reporter=default --reporter=junit --outputFile.junit=vitest-report.xml
+          pnpm exec vitest run --reporter=default --reporter=junit --outputFile.junit=tests/reports/vitest-report.xml
 
       # 5. 上传 Vitest 报告
       - name: Report Vitest
@@ -94,6 +94,6 @@ jobs:
         if: success() || failure()
         with:
           name: Vitest Results
-          path: '**/vitest-report.xml'
+          path: tests/reports/vitest-report.xml
           reporter: java-junit # Vitest 的 JUnit 输出对应 java-junit 解析器
           fail-on-error: false

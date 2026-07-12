@@ -13,6 +13,7 @@
 | [Hermes Agent Layout](./hermes-agent-layout.md) | Hermes 官方安装目录、`HERMES_HOME`、gateway launchd 与本地状态提交边界 | Active |
 | [Agent Skill Development](./agent-skill-dev.md) | `ai/skills/dev` 本地 skill、TypeScript 脚本、scripts 分发产物和安装态运行契约 | Active |
 | [Node/Vitest Scripts](./node-vitest-scripts.md) | 根目录 Vitest 发现的 Node 脚本测试与 shebang 行尾约定 | Active |
+| [Test Report Artifacts](./test-report-artifacts.md) | Pester/Vitest 报告统一目录、CI reporter、环境变量覆盖与生成物忽略合同 | Active |
 | [PostgreSQL Toolkit](./postgresql-toolkit.md) | PostgreSQL / pgBackRest 命令边界、env 解析和备份范围约定 | Active |
 | [Self-Hosted Compose](./self-hosted-compose.md) | 根目录 self-hosted 应用 compose、外部基础设施复用、本机数据盘与 env 忽略契约 | Active |
 | [rclone Ops](./rclone-ops.md) | rclone JSON 主配置、WebUI/RC、自动挂载、VFS cache 与日志路径契约 | Active |

@@ -23,7 +23,7 @@
     "pwsh:install": "pwsh -File ./install.ps1",
     "pester:install": "pwsh -NoProfile -Command \"Install-Module -Name Pester -Scope CurrentUser -Force -SkipPublisherCheck -AllowClobber\"",
     "pester:update": "pwsh -NoProfile -Command \"Update-Module -Name Pester -Force -ErrorAction Stop\"",
-    "test:pwsh:full": "pwsh -NoProfile -Command \"$env:PWSH_TEST_MODE='full'; $env:PWSH_TEST_ENABLE_COVERAGE='true'; $c = ./PesterConfiguration.ps1; $c.Run.Exit = $true; Invoke-Pester -Configuration $c\"",
+    "test:pwsh:full": "pwsh -NoProfile -File ./scripts/pwsh/devops/Invoke-PesterMode.ps1 -Mode full -Coverage On",
     "test:pwsh:coverage": "pnpm test:pwsh:full",
     "test:pwsh:full:assertions": "pwsh -NoProfile -File ./scripts/pwsh/devops/Invoke-PesterMode.ps1 -Mode full -Coverage Off",
     "test:pwsh:fast": "pwsh -NoProfile -Command \"$env:PWSH_TEST_MODE='fast'; $c = ./PesterConfiguration.ps1; $c.Run.Exit = $true; Invoke-Pester -Configuration $c\"",

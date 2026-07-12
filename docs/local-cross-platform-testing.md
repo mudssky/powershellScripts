@@ -98,7 +98,7 @@ pnpm benchmark -- help-search
 
 Host 和容器测试的输出隔离策略：
 
-- **Host 测试**输出到项目根目录 `testResults.xml`
+- **Host 测试**输出到 `tests/reports/testResults.xml`，coverage 输出到 `tests/reports/coverage.xml`
 - **Linux 容器测试**输出到 Docker named volume `pester-results` 中的 `testResults-linux.xml`
 - 可通过环境变量 `PESTER_RESULT_PATH` 自定义 host 输出路径
 

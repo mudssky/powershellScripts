@@ -32,6 +32,13 @@ $ErrorActionPreference = 'Stop'
 # 保留其他命令的进度、warning、error 和测试输出。
 $global:PSDefaultParameterValues['Remove-Item:ProgressAction'] = 'SilentlyContinue'
 
+$reportDirectory = Join-Path $PSScriptRoot 'tests/reports'
+if (-not (Test-Path -LiteralPath $reportDirectory -PathType Container)) {
+    New-Item -ItemType Directory -Path $reportDirectory -Force | Out-Null
+}
+$defaultCoveragePath = Join-Path $reportDirectory 'coverage.xml'
+$defaultTestResultPath = Join-Path $reportDirectory 'testResults.xml'
+
 $excludeTags = @('Slow')
 if ($IsLinux -or $IsMacOS) {
     $excludeTags += 'windowsOnly'
@@ -124,7 +131,7 @@ $config = @{
         # 显式写回仓库当前采用的 50% 覆盖率门槛，避免继续沿用 Pester 默认 75%
         # 导致控制台输出与 OpenSpec 规范长期漂移。
         CoveragePercentTarget   = 50
-        # OutputPath   = "./coverge.xml"
+        OutputPath              = $defaultCoveragePath
         OutputFormat            = 'CoverageGutters'
         ExcludeFromCodeCoverage = @(
             './psutils/modules/error.psm1'
@@ -146,7 +153,7 @@ $config = @{
     TestResult   = @{
         Enabled       = $true
         # 支持环境变量覆盖输出路径，用于并发 host/container 运行时避免冲突
-        OutputPath    = if (-not [string]::IsNullOrWhiteSpace($env:PESTER_RESULT_PATH)) { $env:PESTER_RESULT_PATH } else { "testResults.xml" }
+        OutputPath    = if (-not [string]::IsNullOrWhiteSpace($env:PESTER_RESULT_PATH)) { $env:PESTER_RESULT_PATH } else { $defaultTestResultPath }
         OutputFormat  = 'NUnit3'
         TestSuiteName = "PsUtils.Tests"  ## 可选：给你的测试套件起个名字
     }

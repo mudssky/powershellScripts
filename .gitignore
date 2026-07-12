@@ -30,10 +30,7 @@ node_modules/
 *.pyc
 
 # 测试、覆盖率与报告产物
-coverage.xml
-testResults.xml
-testResults-linux.xml
-vitest-report.xml
+/tests/reports/*.xml
 
 # 编辑器、平台与历史本地文件
 .vs/
