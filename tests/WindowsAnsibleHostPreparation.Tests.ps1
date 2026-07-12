@@ -75,6 +75,31 @@ Describe 'Windows Ansible 被控端准备合同' {
         @($plan.ManualSteps.Name) | Should -Contain 'RunElevated'
     }
 
+    It '生成 self-hosted-compose 可直接消费的控制端配置' {
+        $config = New-WindowsAnsibleControllerConfig -InventoryHost iminipro820 -HostName IMINI820PRO `
+            -UserName mudssky -TailscaleIPv4 100.125.34.90 -SshPort 22 -SshReady $true
+
+        $config.Ready | Should -BeTrue
+        $config.InventoryHost | Should -Be 'iminipro820'
+        $config.Groups | Should -Be @('windows', 'powershell_scripts_targets')
+        $config.PublicHostVars.ansible_host | Should -Be '100.125.34.90'
+        $config.PublicHostVars.ansible_user | Should -Be 'mudssky'
+        $config.SshBootstrapVars.ansible_connection | Should -Be 'ssh'
+        $config.SshBootstrapVars.ansible_shell_type | Should -Be 'powershell'
+        $config.PrivateHostVarKeys | Should -Contain 'ansible_password'
+        @($config.ControllerCommands | Where-Object { $_ -match 'provision.*powershell_scripts_apply=true' }).Count | Should -Be 1
+        $config.ControllerCommands[-1] | Should -Match 'powershell-scripts-verify.yml'
+    }
+
+    It 'sshd 已满足时 Apply 不报告 Changed' {
+        $operation = Resolve-WindowsAnsibleSshdServiceOperation -SshdAutomatic $true -SshdRunning $true
+
+        $operation.SetAutomatic | Should -BeFalse
+        $operation.Start | Should -BeFalse
+        $operation.Status | Should -Be 'AlreadyPresent'
+        $operation.Changed | Should -BeFalse
+    }
+
     It '显式非 Tailscale 地址返回 Invalid 2 且不读取系统状态' {
         $document = Invoke-WindowsAnsibleHostPreparation -TailscaleIPv4 '192.168.1.20'
 
@@ -114,5 +139,16 @@ Describe 'Windows Ansible 被控端准备合同' {
         $content | Should -Match '\$cacheComplete'
         $content | Should -Match 'download-\{0\}'
         $content | Should -Match 'Move-Item.*-Force'
+    }
+
+    It '单文件入口和执行模块将可读进度写入 stderr' {
+        $entryContent = Get-Content -LiteralPath $script:EntryPath -Raw
+        $moduleContent = Get-Content -LiteralPath $script:ModulePath -Raw
+
+        $entryContent | Should -Match '\[Console\]::Error\.WriteLine'
+        $entryContent | Should -Match '下载依赖 \{0\}/\{1\}'
+        $moduleContent | Should -Match '\[阶段 \{2\}\]'
+        $moduleContent | Should -Match '标题为 Operation 的系统进度条属于此步骤'
+        $moduleContent | Should -Match '常见耗时 5-20 分钟'
     }
 }

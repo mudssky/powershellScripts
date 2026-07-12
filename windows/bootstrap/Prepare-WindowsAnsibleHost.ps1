@@ -22,6 +22,9 @@
 .PARAMETER SourceRevision
     单文件运行时从公开 GitHub 下载依赖模块使用的 branch、tag 或 commit，默认 master。
 
+.PARAMETER InventoryHost
+    控制端 inventory 使用的主机别名；省略时根据 Windows 计算机名生成。
+
 .OUTPUTS
     文本摘要或单个 JSON document。进程退出码为 0、1、2 或 10。
 #>
@@ -38,11 +41,34 @@ param(
     [string]$OutputFormat = 'Text',
 
     [ValidatePattern('^[0-9A-Za-z._/-]+$')]
-    [string]$SourceRevision = 'master'
+    [string]$SourceRevision = 'master',
+
+    [ValidatePattern('^(?:|[0-9A-Za-z][0-9A-Za-z_.-]*)$')]
+    [string]$InventoryHost = ''
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+function Write-WindowsAnsiblePreparationBootstrapProgress {
+    <#
+    .SYNOPSIS
+        输出单文件入口的依赖准备进度。
+
+    .PARAMETER Message
+        当前依赖准备阶段的说明。
+
+    .OUTPUTS
+        无。进度写入 stderr，避免污染 JSON stdout。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Message
+    )
+
+    [Console]::Error.WriteLine(('[prepare][{0:HH:mm:ss}][启动] {1}' -f [DateTime]::Now, $Message))
+}
 
 function Resolve-WindowsAnsiblePreparationModulePath {
     <#
@@ -79,13 +105,17 @@ function Resolve-WindowsAnsiblePreparationModulePath {
             (Test-Path -LiteralPath $cachedFile -PathType Leaf) -and (Get-Item -LiteralPath $cachedFile).Length -gt 0
         }).Count -eq $dependencyFiles.Count
     if ($revisionIsImmutable -and $cacheComplete) {
+        Write-WindowsAnsiblePreparationBootstrapProgress -Message "复用完整 commit $Revision 的本地依赖缓存"
         return Join-Path $cacheRoot 'WindowsAnsibleHostPreparation.psm1'
     }
 
+    Write-WindowsAnsiblePreparationBootstrapProgress -Message "正在刷新 $Revision 的运行依赖，共 $($dependencyFiles.Count) 个文件"
     $stagingRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("powershellScripts-ansible-host-preparation\download-{0}" -f ([guid]::NewGuid().ToString('N')))
     New-Item -ItemType Directory -Path $stagingRoot -Force | Out-Null
     try {
-        foreach ($fileName in $dependencyFiles) {
+        for ($index = 0; $index -lt $dependencyFiles.Count; $index++) {
+            $fileName = $dependencyFiles[$index]
+            Write-WindowsAnsiblePreparationBootstrapProgress -Message ("下载依赖 {0}/{1}: {2}" -f ($index + 1), $dependencyFiles.Count, $fileName)
             $stagedFile = Join-Path $stagingRoot $fileName
             Invoke-WebRequest -Uri "$baseUri/$fileName" -UseBasicParsing -OutFile $stagedFile
             if ((Get-Item -LiteralPath $stagedFile).Length -eq 0) {
@@ -97,6 +127,7 @@ function Resolve-WindowsAnsiblePreparationModulePath {
         foreach ($fileName in $dependencyFiles) {
             Move-Item -LiteralPath (Join-Path $stagingRoot $fileName) -Destination (Join-Path $cacheRoot $fileName) -Force
         }
+        Write-WindowsAnsiblePreparationBootstrapProgress -Message '运行依赖已下载并更新到本地缓存'
     }
     finally {
         if (Test-Path -LiteralPath $stagingRoot -PathType Container) {
@@ -107,6 +138,7 @@ function Resolve-WindowsAnsiblePreparationModulePath {
 }
 
 $modulePath = Resolve-WindowsAnsiblePreparationModulePath -Revision $SourceRevision
+Write-WindowsAnsiblePreparationBootstrapProgress -Message '正在加载 Windows Ansible 主机准备模块'
 Import-Module $modulePath -Force
 
 $rerunCommand = "powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -Apply -SshPort $SshPort -OutputFormat Json"
@@ -114,7 +146,11 @@ if ($TailscaleIPv4) {
     $rerunCommand += " -TailscaleIPv4 $TailscaleIPv4"
 }
 $rerunCommand += " -SourceRevision $SourceRevision"
-$document = Invoke-WindowsAnsibleHostPreparation -TailscaleIPv4 $TailscaleIPv4 -SshPort $SshPort -Apply:$Apply -RerunCommand $rerunCommand
+if ($InventoryHost) {
+    $rerunCommand += " -InventoryHost $InventoryHost"
+}
+$document = Invoke-WindowsAnsibleHostPreparation -TailscaleIPv4 $TailscaleIPv4 -SshPort $SshPort -Apply:$Apply `
+    -RerunCommand $rerunCommand -InventoryHost $InventoryHost
 
 if ($OutputFormat -eq 'Json') {
     [Console]::Out.WriteLine(($document | ConvertTo-Json -Depth 12 -Compress))
@@ -135,6 +171,13 @@ else {
     }
     foreach ($command in @($document.NextCommands)) {
         Write-Output "Next: $command"
+    }
+    if ($null -ne $document.AnsibleControllerConfig) {
+        $controllerConfig = $document.AnsibleControllerConfig
+        Write-Output "Controller: inventory=$($controllerConfig.InventoryHost) ready=$($controllerConfig.Ready) groups=$(@($controllerConfig.Groups) -join ',')"
+        foreach ($command in @($controllerConfig.ControllerCommands)) {
+            Write-Output "Controller next: $command"
+        }
     }
     Write-Output "Rerun: $($document.RerunCommand)"
 }

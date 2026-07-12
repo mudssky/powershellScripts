@@ -22,7 +22,8 @@
   - `windows/bootstrap/Prepare-WindowsAnsibleHost.ps1`
 - 三个平台默认只生成 Preview，不修改系统；真实变更必须显式使用 `--apply` 或 `-Apply`。
 - 支持 Text 和 Json 输出；JSON stdout 必须只有一个 document。
-- 统一输出至少包含 `SchemaVersion`、`Platform`、`Operation`、`Status`、`ExitCode`、`HostName`、`UserName`、`TailscaleIPv4`、`SshPort`、`PythonPath`、`Results` 和 `RerunCommand`。
+- 统一输出至少包含 `SchemaVersion`、`Platform`、`Operation`、`Status`、`ExitCode`、`HostName`、`UserName`、`TailscaleIPv4`、`SshPort`、`PythonPath`、`Results` 和 `RerunCommand`；Windows 额外输出可映射到控制端 inventory 的 `AnsibleControllerConfig`。
+- 长耗时安装必须在 stderr 输出带时间和阶段的可读进度；Windows capability 自带标题为 `Operation` 的进度条前必须明确说明其对应操作和常见耗时。
 - 退出码固定为：`0` 成功、已满足或 Preview；`1` 执行/验证失败；`2` 参数或平台输入错误；`10` 外部权限、交互登录或人工操作导致的 Blocked。
 - 重复 apply 必须幂等，已满足的 capability、package、service 和配置不得重复修改。
 
@@ -63,6 +64,7 @@
 - 不调用现有 OpenSSH 加固脚本的防火墙或 `sshd_config` 覆盖路径；不改变已有端口、listener 和认证配置。
 - 防火墙开启时只报告现有 OpenSSH rule 是否可能放行；防火墙关闭时保持关闭。脚本不得声称 TCP 22 只监听 Tailscale，因为 Windows OpenSSH 默认可能监听所有接口。
 - 成功结果给出 `ssh mudssky@100.125.34.90` 和后续 PSRP bootstrap 的建议命令。
+- 支持 `-InventoryHost` 指定控制端主机别名；控制端配置对象列出公开 host vars、SSH bootstrap vars、私有凭据键和 bootstrap/provision/verify 命令。
 
 ### R6 验证与文档
 
@@ -80,6 +82,7 @@
 - [x] 结构化结果包含 `ManualSteps`，每个外部 Blocked 都能按步骤操作并得到精确重跑命令。
 - [x] 准备流程不修改防火墙全局状态、SSH 认证配置、私钥或现有 `sshd_config`。
 - [ ] JSON stdout 可直接解析为一个 document，第二次 apply 不产生无意义变更。
+- [x] Windows 进度写入 stderr，JSON stdout 保持单文档；sshd 已满足时重复 apply 返回 `AlreadyPresent/Changed=false`。
 - [x] `pnpm qa`、`pnpm test:pwsh:all`、shell parser 和 `git diff --check` 通过。
 - [ ] 在 `iminipro820` 上先 Preview、再管理员 apply，最后从控制端成功执行 `ssh mudssky@100.125.34.90`。
 

@@ -8,6 +8,38 @@ $script:WindowsPowerShellPath = 'C:\Windows\System32\WindowsPowerShell\v1.0\powe
 $script:TailscaleFirewallRuleName = 'powershellScripts-Ansible-SSH-Tailscale'
 $script:TailscaleRange = '100.64.0.0/10'
 
+function Write-WindowsAnsiblePreparationProgress {
+    <#
+    .SYNOPSIS
+        输出 Windows Ansible 主机准备阶段进度。
+
+    .PARAMETER Stage
+        当前固定阶段，例如 2/5 安装依赖。
+
+    .PARAMETER Message
+        当前操作及预期等待信息。
+
+    .PARAMETER State
+        Start、Done、Info 或 Failed 状态标签。
+
+    .OUTPUTS
+        无。进度写入 stderr，避免污染 JSON stdout。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Stage,
+
+        [Parameter(Mandatory)]
+        [string]$Message,
+
+        [ValidateSet('Start', 'Done', 'Info', 'Failed')]
+        [string]$State = 'Info'
+    )
+
+    [Console]::Error.WriteLine(('[prepare][{0:HH:mm:ss}][{1}][阶段 {2}] {3}' -f [DateTime]::Now, $State, $Stage, $Message))
+}
+
 function New-WindowsAnsiblePreparationResult {
     <#
     .SYNOPSIS
@@ -129,6 +161,123 @@ function Get-WindowsAnsiblePreparationExitCode {
         return 10
     }
     return 0
+}
+
+function New-WindowsAnsibleControllerConfig {
+    <#
+    .SYNOPSIS
+        创建与 self-hosted-compose inventory 对齐的控制端配置数据。
+
+    .PARAMETER InventoryHost
+        inventory 主机别名；省略时根据 Windows 计算机名生成。
+
+    .PARAMETER HostName
+        Windows 计算机名。
+
+    .PARAMETER UserName
+        Windows 普通用户名称。
+
+    .PARAMETER TailscaleIPv4
+        已验证的 Tailscale IPv4；为空时配置标记为未就绪。
+
+    .PARAMETER SshPort
+        首次 SSH bootstrap 端口。
+
+    .PARAMETER SshReady
+        OpenSSH capability、sshd 服务和监听端口是否已满足首次连接。
+
+    .OUTPUTS
+        PSCustomObject。包含公开 inventory、SSH bootstrap、私有凭据键和控制端命令。
+    #>
+    [CmdletBinding()]
+    param(
+        [string]$InventoryHost = '',
+
+        [Parameter(Mandatory)]
+        [string]$HostName,
+
+        [Parameter(Mandatory)]
+        [string]$UserName,
+
+        [string]$TailscaleIPv4 = '',
+
+        [ValidateRange(1, 65535)]
+        [int]$SshPort = 22,
+
+        [bool]$SshReady = $false
+    )
+
+    $resolvedInventoryHost = $InventoryHost
+    if ([string]::IsNullOrWhiteSpace($resolvedInventoryHost)) {
+        $resolvedInventoryHost = ($HostName.ToLowerInvariant() -replace '[^0-9a-z_.-]', '-')
+    }
+    if ([string]::IsNullOrWhiteSpace($resolvedInventoryHost)) {
+        $resolvedInventoryHost = 'windows-host'
+    }
+
+    $controllerCommands = @()
+    $controllerReady = -not [string]::IsNullOrWhiteSpace($TailscaleIPv4) -and $SshReady
+    if ($controllerReady) {
+        $controllerCommands = @(
+            'cd deployments/ansible',
+            "./scripts/ansible-with-secrets ansible-inventory --host $resolvedInventoryHost --yaml",
+            "./scripts/ansible-with-secrets ansible-playbook playbooks/powershell-scripts-bootstrap.yml --limit $resolvedInventoryHost",
+            "./scripts/ansible-with-secrets ansible-playbook playbooks/powershell-scripts-bootstrap.yml --limit $resolvedInventoryHost -e powershell_scripts_apply=true",
+            "./scripts/ansible-with-secrets ansible-playbook playbooks/powershell-scripts-provision.yml --limit $resolvedInventoryHost",
+            "./scripts/ansible-with-secrets ansible-playbook playbooks/powershell-scripts-provision.yml --limit $resolvedInventoryHost -e powershell_scripts_apply=true",
+            "./scripts/ansible-with-secrets ansible-playbook playbooks/powershell-scripts-verify.yml --limit $resolvedInventoryHost"
+        )
+    }
+
+    return [pscustomobject][ordered]@{
+        Ready             = $controllerReady
+        InventoryHost     = $resolvedInventoryHost
+        Groups            = @('windows', 'powershell_scripts_targets')
+        PublicHostVars    = [pscustomobject][ordered]@{
+            ansible_host                        = $TailscaleIPv4
+            ansible_user                        = $UserName
+            powershell_scripts_tailscale_ipv4  = $TailscaleIPv4
+            workstation_user                    = $UserName
+        }
+        SshBootstrapVars  = [pscustomobject][ordered]@{
+            ansible_connection = 'ssh'
+            ansible_port       = $SshPort
+            ansible_shell_type = 'powershell'
+        }
+        PrivateHostVarKeys = @('ansible_password', 'workstation_user_password')
+        ControllerCommands = $controllerCommands
+    }
+}
+
+function Resolve-WindowsAnsibleSshdServiceOperation {
+    <#
+    .SYNOPSIS
+        解析 sshd 服务需要执行的幂等操作。
+
+    .PARAMETER SshdAutomatic
+        sshd 当前是否为 Automatic。
+
+    .PARAMETER SshdRunning
+        sshd 当前是否为 Running。
+
+    .OUTPUTS
+        PSCustomObject。包含 SetAutomatic、Start、Changed、Status 和 Message。
+    #>
+    [CmdletBinding()]
+    param(
+        [bool]$SshdAutomatic,
+
+        [bool]$SshdRunning
+    )
+
+    $changed = -not $SshdAutomatic -or -not $SshdRunning
+    return [pscustomobject][ordered]@{
+        SetAutomatic = -not $SshdAutomatic
+        Start        = -not $SshdRunning
+        Changed      = $changed
+        Status       = if ($changed) { 'Succeeded' } else { 'AlreadyPresent' }
+        Message      = if ($changed) { 'sshd 已设为 Automatic 并启动' } else { 'sshd 已为 Automatic 且 Running，无需修改' }
+    }
 }
 
 function Get-WindowsAnsibleTailscaleCommand {
@@ -404,6 +553,9 @@ function Invoke-WindowsAnsibleHostPreparation {
     .PARAMETER RerunCommand
         输出给用户的精确重跑命令。
 
+    .PARAMETER InventoryHost
+        控制端 inventory 使用的主机别名。
+
     .OUTPUTS
         PSCustomObject。统一准备结果 document。
     #>
@@ -416,7 +568,10 @@ function Invoke-WindowsAnsibleHostPreparation {
 
         [switch]$Apply,
 
-        [string]$RerunCommand = '.\windows\bootstrap\Prepare-WindowsAnsibleHost.ps1 -Apply -OutputFormat Json'
+        [string]$RerunCommand = '.\windows\bootstrap\Prepare-WindowsAnsibleHost.ps1 -Apply -OutputFormat Json',
+
+        [ValidatePattern('^(?:|[0-9A-Za-z][0-9A-Za-z_.-]*)$')]
+        [string]$InventoryHost = ''
     )
 
     $operation = if ($Apply) { 'Apply' } else { 'Preview' }
@@ -442,13 +597,17 @@ function Invoke-WindowsAnsibleHostPreparation {
                 ManualSteps    = @()
                 NextCommands   = @()
                 RerunCommand   = $RerunCommand
+                AnsibleControllerConfig = New-WindowsAnsibleControllerConfig -InventoryHost $InventoryHost `
+                    -HostName ([Environment]::MachineName) -UserName ([Environment]::UserName) -SshPort $SshPort
                 FirewallGlobalStateUnchanged = $true
                 SshAuthenticationUnchanged   = $true
             }
         }
     }
+    Write-WindowsAnsiblePreparationProgress -Stage '1/5 预检' -State Start -Message '正在检查管理员权限、Tailscale、OpenSSH、sshd、监听端口和防火墙状态'
     $state = Get-WindowsAnsibleHostPreparationState -TailscaleIPv4 $TailscaleIPv4 -SshPort $SshPort
     $plan = New-WindowsAnsibleHostPreparationPlan -State $state -Apply:$Apply -SshPort $SshPort
+    Write-WindowsAnsiblePreparationProgress -Stage '1/5 预检' -State Done -Message ("检查完成：Tailscale={0}，OpenSSH={1}，sshd={2}" -f $state.TailscaleInstalled, $state.OpenSshInstalled, $state.SshdRunning)
     $results = New-Object System.Collections.Generic.List[object]
     foreach ($result in @($plan.Results)) { $results.Add($result) }
     $manualSteps = New-Object System.Collections.Generic.List[object]
@@ -459,14 +618,22 @@ function Invoke-WindowsAnsibleHostPreparation {
         try {
             if (-not $state.TailscaleInstalled) {
                 if ($state.WingetAvailable) {
+                    Write-WindowsAnsiblePreparationProgress -Stage '2/5 安装依赖' -State Start -Message '正在通过 winget 安装 Tailscale，安装器可能需要几分钟'
+                    $tailscaleStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
                     & winget.exe install --id Tailscale.Tailscale --exact --accept-source-agreements --accept-package-agreements --silent
                     if ($LASTEXITCODE -ne 0) { throw "winget 安装 Tailscale 失败，exit=$LASTEXITCODE" }
+                    $tailscaleStopwatch.Stop()
+                    Write-WindowsAnsiblePreparationProgress -Stage '2/5 安装依赖' -State Done -Message ("Tailscale 安装完成，耗时 {0:n1} 秒" -f $tailscaleStopwatch.Elapsed.TotalSeconds)
                     $results.Add((New-WindowsAnsiblePreparationResult -Name TailscaleInstallApply -Status Succeeded -Changed $true -Message '已通过 winget 安装 Tailscale'))
                 }
             }
 
             if (-not $state.OpenSshInstalled) {
+                Write-WindowsAnsiblePreparationProgress -Stage '2/5 安装依赖' -State Start -Message '正在安装 Microsoft OpenSSH Server capability；下方标题为 Operation 的系统进度条属于此步骤，常见耗时 5-20 分钟'
+                $capabilityStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
                 $capabilityResult = Add-WindowsCapability -Online -Name $script:OpenSshCapabilityName -ErrorAction Stop
+                $capabilityStopwatch.Stop()
+                Write-WindowsAnsiblePreparationProgress -Stage '2/5 安装依赖' -State Done -Message ("OpenSSH Server capability 安装完成，耗时 {0:n1} 秒" -f $capabilityStopwatch.Elapsed.TotalSeconds)
                 $restartNeeded = [bool]$capabilityResult.RestartNeeded
                 $restartRequired = $restartNeeded
                 $results.Add((New-WindowsAnsiblePreparationResult -Name OpenSshServerApply `
@@ -482,13 +649,21 @@ function Invoke-WindowsAnsibleHostPreparation {
 
             $service = Get-Service -Name sshd -ErrorAction SilentlyContinue
             if ($null -ne $service) {
-                Set-Service -Name sshd -StartupType Automatic -ErrorAction Stop
-                if ([string]$service.Status -ne 'Running') {
+                Write-WindowsAnsiblePreparationProgress -Stage '3/5 配置服务' -State Start -Message '正在检查 sshd 的启动类型和运行状态'
+                $serviceOperation = Resolve-WindowsAnsibleSshdServiceOperation `
+                    -SshdAutomatic $state.SshdAutomatic -SshdRunning $state.SshdRunning
+                if ($serviceOperation.SetAutomatic) {
+                    Set-Service -Name sshd -StartupType Automatic -ErrorAction Stop
+                }
+                if ($serviceOperation.Start) {
                     Start-Service -Name sshd -ErrorAction Stop
                 }
-                $results.Add((New-WindowsAnsiblePreparationResult -Name SshdServiceApply -Status Succeeded -Changed $true -Message 'sshd 已设为 Automatic 并启动'))
+                Write-WindowsAnsiblePreparationProgress -Stage '3/5 配置服务' -State Done -Message $serviceOperation.Message
+                $results.Add((New-WindowsAnsiblePreparationResult -Name SshdServiceApply -Status $serviceOperation.Status `
+                        -Changed $serviceOperation.Changed -Message $serviceOperation.Message))
             }
 
+            Write-WindowsAnsiblePreparationProgress -Stage '4/5 配置访问' -State Start -Message '正在检查 OpenSSH DefaultShell 和 Tailscale SSH 防火墙例外'
             if (-not (Test-Path -LiteralPath 'HKLM:\SOFTWARE\OpenSSH')) {
                 New-Item -Path 'HKLM:\SOFTWARE\OpenSSH' -Force | Out-Null
             }
@@ -514,7 +689,9 @@ function Invoke-WindowsAnsibleHostPreparation {
             elseif (-not $refreshed.FirewallEnabled) {
                 $results.Add((New-WindowsAnsiblePreparationResult -Name FirewallRuleApply -Status Skipped -Message '防火墙全局关闭，保持关闭'))
             }
+            Write-WindowsAnsiblePreparationProgress -Stage '4/5 配置访问' -State Done -Message '访问配置检查完成，未改变防火墙全局开关或 SSH 认证策略'
 
+            Write-WindowsAnsiblePreparationProgress -Stage '5/5 验证' -State Start -Message "正在重新检查 Tailscale、sshd 和 TCP $SshPort listener"
             $state = Get-WindowsAnsibleHostPreparationState -TailscaleIPv4 $TailscaleIPv4 -SshPort $SshPort
             if (-not $state.TailscaleInstalled -or [string]::IsNullOrWhiteSpace([string]$state.TailscaleIPv4)) {
                 $results.Add((New-WindowsAnsiblePreparationResult -Name TailscaleFinal -Status Blocked -ExitCode 10 -Message 'Tailscale 已安装但尚未完成登录或设备批准'))
@@ -534,8 +711,10 @@ function Invoke-WindowsAnsibleHostPreparation {
             else {
                 $results.Add((New-WindowsAnsiblePreparationResult -Name Verification -Status Succeeded -Message "SSH 已就绪: ssh $($state.UserName)@$($state.TailscaleIPv4)"))
             }
+            Write-WindowsAnsiblePreparationProgress -Stage '5/5 验证' -State Done -Message ("验证完成：Tailscale={0}，sshd={1}，TCP {2}={3}" -f $state.TailscaleIPv4, $state.SshdRunning, $SshPort, $state.PortListening)
         }
         catch {
+            Write-WindowsAnsiblePreparationProgress -Stage '执行' -State Failed -Message $_.Exception.Message
             $results.Add((New-WindowsAnsiblePreparationResult -Name Runtime -Status Failed -ExitCode 1 -Message $_.Exception.Message))
         }
     }
@@ -571,6 +750,9 @@ function Invoke-WindowsAnsibleHostPreparation {
         ManualSteps    = $manualSteps.ToArray()
         NextCommands   = $nextCommands.ToArray()
         RerunCommand   = $RerunCommand
+        AnsibleControllerConfig = New-WindowsAnsibleControllerConfig -InventoryHost $InventoryHost `
+            -HostName $state.HostName -UserName $state.UserName -TailscaleIPv4 ([string]$state.TailscaleIPv4) `
+            -SshPort $SshPort -SshReady ($state.OpenSshInstalled -and $state.SshdRunning -and $state.SshdAutomatic -and $state.PortListening)
         FirewallGlobalStateUnchanged = $true
         SshAuthenticationUnchanged   = $true
     }
@@ -580,6 +762,8 @@ Export-ModuleMember -Function @(
     'New-WindowsAnsiblePreparationResult',
     'New-WindowsAnsibleManualStep',
     'Get-WindowsAnsiblePreparationExitCode',
+    'New-WindowsAnsibleControllerConfig',
+    'Resolve-WindowsAnsibleSshdServiceOperation',
     'Test-WindowsAnsibleLocalAdministratorsMember',
     'Get-WindowsAnsibleHostPreparationState',
     'New-WindowsAnsibleHostPreparationPlan',

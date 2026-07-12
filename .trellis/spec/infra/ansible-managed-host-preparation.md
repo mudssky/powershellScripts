@@ -24,7 +24,8 @@ zsh macos/bootstrap/prepare-ansible-host.zsh \
 powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass `
   -File windows/bootstrap/Prepare-WindowsAnsibleHost.ps1 `
   [-TailscaleIPv4 <100.64.0.0/10 address>] [-SshPort <1..65535>] `
-  [-Apply] [-OutputFormat Text|Json] [-SourceRevision <branch|tag|commit>]
+  [-Apply] [-OutputFormat Text|Json] [-SourceRevision <branch|tag|commit>] `
+  [-InventoryHost <ansible inventory alias>]
 ```
 
 - 默认 Operation 为 `Preview`；真实写入必须显式 `--apply` / `-Apply`。
@@ -38,6 +39,9 @@ powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass `
 - `Results[]` 字段为 `Name`、`Status`、`ExitCode`、`Changed`、`Message`。
 - `ManualSteps[]` 字段为 `Name`、`Location`、`Command`、`VerifyCommand`、`Reason`；Text 与 Json 必须来自同一数据源。
 - JSON stdout 只能有一个 document；进度或诊断不得污染 stdout。
+- Windows 入口和执行模块的进度写 stderr。执行模块固定输出 `1/5 预检`、`2/5 安装依赖`、`3/5 配置服务`、`4/5 配置访问`、`5/5 验证`；`Add-WindowsCapability` 前必须说明标题为 `Operation` 的系统进度条对应 OpenSSH 安装和常见耗时，完成后输出实际耗时。
+- Windows document 包含 `AnsibleControllerConfig`：`Ready`、`InventoryHost`、`Groups`、`PublicHostVars`、`SshBootstrapVars`、`PrivateHostVarKeys`、`ControllerCommands`。`Ready=true` 要求 Tailscale IPv4、OpenSSH capability、sshd Automatic/Running 和 SSH listener 全部满足。
+- `InventoryHost` 只接受字母、数字、点、下划线和连字符；省略时从 Windows 计算机名生成小写 alias。公开 host vars 使用 `ansible_host`、`ansible_user`、`powershell_scripts_tailscale_ipv4`、`workstation_user`；密码只列出私有变量键，不进入结果值。
 - 退出码固定为 `0` 成功/已满足/Preview，`1` 执行或验证失败，`2` 参数无效，`10` 外部 Blocked/RestartRequired。
 - 安装矩阵：
   - Debian/Ubuntu：`openssh-server python3 sudo curl`、Tailscale 官方安装脚本、`ssh`/`tailscaled` systemd service。
@@ -63,12 +67,16 @@ powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass `
 | Windows capability 返回 RestartNeeded | RestartRequired/10，不再以 listener 缺失覆盖成 Failed/1 |
 | 单文件下载依赖缺少 UTF-8 BOM | 自动化编码断言失败；不得发布给 Windows PowerShell 5.1，避免把错误解码误报为缺少引号或花括号 |
 | `SourceRevision=master` 且已有缓存 | 原子刷新全部依赖后再导入；下载失败保留上一次完整缓存，不导入半下载文件 |
+| Windows 长耗时 capability 安装 | stderr 先显示明确阶段和 5-20 分钟常见耗时；系统 `Operation` 进度保留；JSON stdout 不受影响 |
+| sshd 已为 Automatic/Running | 不调用 Set-Service/Start-Service，Apply 结果为 AlreadyPresent/Changed=false |
+| `AnsibleControllerConfig.Ready=true` | 控制端可按返回的 inventory/SSH 变量配置主机，并按 ControllerCommands 依次执行 bootstrap、provision、verify |
 | 防火墙全局关闭 | Skipped，保持关闭 |
 | Apply 后 SSH/Python/service 验证失败 | Failed/1，保留已经完成的 Results |
 
 ### 5. Good / Base / Bad Cases
 
 - Good: Windows 用户只下载入口 `.ps1`，指定 GitHub commit，脚本自动获取模块、安装 Tailscale/OpenSSH，并在 GUI 登录后重跑到 Succeeded。
+- Good: Windows 用户传入 `-InventoryHost iminipro820`，成功 JSON 可直接提供同名公开 host vars、首次 SSH 参数、私有凭据键和完整控制端命令。
 - Good: Linux 主机已满足 Python/SSH，仅缺 Tailscale；apply 只安装并启用 Tailscale，然后以 ManualSteps 等待浏览器授权。
 - Base: macOS 已安装 Homebrew/Tailscale，但 Remote Login 被系统权限阻止；脚本保留已满足项并返回完整 Full Disk Access 操作。
 - Bad: 缺 Tailscale 时只输出“请手工安装”，没有安装命令、操作位置、验证和重跑命令。
@@ -78,7 +86,7 @@ powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass `
 ### 6. Tests Required
 
 - Vitest：Linux Preview 单文档 JSON、WSL Blocked ManualSteps、macOS Tailscale 登录 ManualSteps。
-- Pester：退出码优先级、Windows 缺失项计划、非管理员 Apply、无效 Tailscale IP、非 Windows JSON、单文件入口及完整下载依赖的 UTF-8 BOM、PowerShell parser，以及可变 revision 原子刷新/完整 commit 缓存合同。
+- Pester：退出码优先级、Windows 缺失项计划、非管理员 Apply、无效 Tailscale IP、非 Windows JSON、控制端配置映射、sshd 幂等计划、stderr 进度声明、单文件入口及完整下载依赖的 UTF-8 BOM、PowerShell parser，以及可变 revision 原子刷新/完整 commit 缓存合同。
 - Parser：`bash -n`、`zsh -n`；Windows `.ps1`/`.psm1` 必须通过 parser，含中文文件必须保留 UTF-8 BOM。
 - Gates：`pnpm qa`、`pnpm test:bash`、`pnpm test:pwsh:all`、`git diff --check`。
 - 实机：至少一台 Windows 执行 Preview/Apply、验证 `sshd`/TCP 22，并从另一 tailnet 节点执行 SSH；其余平台按可用机器补充。
@@ -113,6 +121,13 @@ if [ "${#MANUAL_STEPS[@]}" -gt 0 ]; then
         ...
     done
 fi
+```
+
+```powershell
+Write-WindowsAnsiblePreparationProgress -Stage '2/5 安装依赖' `
+    -Message '正在安装 OpenSSH；标题为 Operation 的系统进度条属于此步骤'
+$operation = Resolve-WindowsAnsibleSshdServiceOperation `
+    -SshdAutomatic $state.SshdAutomatic -SshdRunning $state.SshdRunning
 ```
 
 理由：zsh 的 `path` 与 `PATH` 绑定，赋值会破坏命令查找；macOS Bash 3.2 在 `set -u` 下展开从未赋值的空数组会退出。显式避开特殊变量并守卫数组计数，测试和真实入口才能跨平台稳定运行。

@@ -26,6 +26,8 @@
 - [x] 实现管理员和 Administrators 组、Tailscale、capability、service、listener、DefaultShell、防火墙状态检查。
 - [x] apply 时通过 winget 自动补 Tailscale，并安装 Microsoft OpenSSH Server、设置 Automatic/Running 和 Windows PowerShell 5.1 DefaultShell。
 - [x] 输出 `iminipro820` 的 SSH 验证命令与下一阶段 PSRP bootstrap 命令。
+- [x] 增加五阶段 stderr 进度、`-InventoryHost` 和可直接映射控制端 inventory 的 `AnsibleControllerConfig`。
+- [x] 修正 sshd 已满足时重复 Apply 仍报告 `Changed=true` 的幂等问题。
 - [x] 确保文件为 UTF-8 BOM，不触碰 `sshd_config` 和防火墙全局状态。
 
 ## 5. 自动化测试
@@ -48,7 +50,7 @@
 - [x] 运行 `pnpm qa`。
 - [x] 运行 `pnpm test:pwsh:all`。
 - [x] 运行 `git diff --check` 和 `git status --short`。
-- [ ] 用户在 `iminipro820` 上完成 Preview；真实 apply 和跨机 SSH 作为实机验收，不在 macOS 控制端伪造。
+- [ ] 用户已在 `iminipro820` 完成真实 apply 并得到 Succeeded；macOS 已完成 SSH 握手，待配置认证后完成命令执行与 Ansible bootstrap 实机验收。
 
 ## 风险与恢复点
 
