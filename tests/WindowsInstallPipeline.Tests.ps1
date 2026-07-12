@@ -207,6 +207,33 @@ Describe 'Windows 声明式 package catalog' {
             $result.Message | Should -Match '不允许的环境变量: PATH'
         }
     }
+
+    It 'Windows 验证 JSON 不包含 Scoop Information stream' {
+        function global:scoop {
+            [CmdletBinding()]
+            param(
+                [Parameter(ValueFromRemainingArguments)]
+                [object[]]$RemainingArguments
+            )
+
+            Write-Host 'Installed apps:'
+            Write-Output ([pscustomobject]@{ Name = 'JetBrainsMono-NF' })
+            Write-Output ([pscustomobject]@{ Name = 'FiraCode-NF' })
+        }
+
+        try {
+            $output = @(& (Join-Path $script:RepoRoot 'windows/pwsh/Test-InstallState.ps1') `
+                    -Step fonts `
+                    -OutputFormat Json 6>&1)
+            $document = ($output -join [System.Environment]::NewLine) | ConvertFrom-Json
+
+            @($document).Count | Should -Be 2
+            @($document.Status | Select-Object -Unique) | Should -Be @('Pass')
+        }
+        finally {
+            Remove-Item Function:\global:scoop -ErrorAction SilentlyContinue
+        }
+    }
 }
 
 Describe 'Windows WSL 配置合同' {
