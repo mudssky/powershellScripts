@@ -5,6 +5,7 @@ Import-Module (Join-Path $PSScriptRoot 'WindowsBootstrap.psm1') -Force
 $script:ManagedCertificateSubjectPrefix = 'CN=powershellScripts-PSRP-'
 $script:ManagedFirewallRuleName = 'powershellScripts-PSRP-HTTPS'
 $script:TailscaleIPv4Range = '100.64.0.0/10'
+$script:TailscaleIPv4NetmaskRange = '100.64.0.0/255.192.0.0'
 
 function New-WindowsRemotePsRemotingAction {
     <#
@@ -523,7 +524,10 @@ function Test-WindowsRemotePsRemotingFirewallRule {
     ([string]$PortFilter.Protocol) -in @('TCP', '6') -and
     $localPorts.Count -eq 1 -and $localPorts[0] -eq [string]$Port -and
     $localAddresses.Count -eq 1 -and $localAddresses[0] -eq $IPAddress -and
-    $remoteAddresses.Count -eq 1 -and $remoteAddresses[0] -eq $script:TailscaleIPv4Range
+    $remoteAddresses.Count -eq 1 -and $remoteAddresses[0] -in @(
+        $script:TailscaleIPv4Range,
+        $script:TailscaleIPv4NetmaskRange
+    )
 }
 
 function Get-WindowsRemotePsRemotingWsManState {

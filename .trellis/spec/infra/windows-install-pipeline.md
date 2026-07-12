@@ -123,6 +123,7 @@ Ansible inventory 侧使用 `ansible_connection=psrp`、HTTPS、NTLM、`ansible_
 - WinRM 必须保持 `AllowUnencrypted=false`、`Negotiate=true`；禁止调用会创建 wildcard listener 的 `Enable-PSRemoting`。
 - 目标机尚未初始化 WinRM 时，`WSMan:\localhost\Listener` 和 `WSMan:\localhost\Service` 可以不存在；状态发现必须把它规约为无 listener、`AllowUnencrypted=false`、`Negotiate=true` 的 Missing 基线，使 WhatIf 能生成计划，不能误报 `StateDiscovery/1`。
 - Windows Firewall 至少一个 profile 启用时，固定 rule 必须同时限制 `LocalAddress=<tailscale-ip>`、`RemoteAddress=100.64.0.0/10`、`LocalPort=5986`、TCP/Inbound/Allow；所有 profile 关闭时不得启用全局防火墙。
+- NetSecurity provider 可能把 `RemoteAddress=100.64.0.0/10` 读回为等价的 `100.64.0.0/255.192.0.0`；精确验证允许这两个固定表示，禁止放宽为其他地址或范围。
 - rollback 只删除固定前缀证书、使用这些证书的 listener 和固定名称 rule；OpenSSH 服务、端口和授权文件始终不变。
 - JSON stdout 必须是单文档，字段至少包含 `SchemaVersion`、`Operation`、`Status`、`ExitCode`、`TailscaleIPv4`、`Port`、`FirewallEnabled`、`ListenerAddress`、`Results`、`RerunCommand`、`OpenSshUnchanged`。
 

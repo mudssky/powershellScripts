@@ -204,6 +204,9 @@ Describe 'Windows PSRP 证书与 listener 计划' {
             }
             Test-WindowsRemotePsRemotingFirewallRule -Rule $rule -PortFilter $portFilter `
                 -AddressFilter $addressFilter -IPAddress '100.70.1.2' | Should -BeTrue
+            $addressFilter.RemoteAddress = @('100.64.0.0/255.192.0.0')
+            Test-WindowsRemotePsRemotingFirewallRule -Rule $rule -PortFilter $portFilter `
+                -AddressFilter $addressFilter -IPAddress '100.70.1.2' | Should -BeTrue
             $addressFilter.LocalAddress = @('100.70.1.2', '192.168.1.10')
             Test-WindowsRemotePsRemotingFirewallRule -Rule $rule -PortFilter $portFilter `
                 -AddressFilter $addressFilter -IPAddress '100.70.1.2' | Should -BeFalse
