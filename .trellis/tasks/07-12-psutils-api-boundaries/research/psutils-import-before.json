@@ -1,0 +1,59 @@
+{
+  "GeneratedAt": "2026-07-12T14:39:07.0397720+08:00",
+  "Platform": "macos",
+  "PowerShellVersion": "7.5.4",
+  "Iterations": 5,
+  "DirectModule": "config",
+  "CoreModules": [
+    "os",
+    "cache",
+    "commandDiscovery",
+    "env",
+    "proxy",
+    "wrapper"
+  ],
+  "Aggregate": {
+    "AverageMs": 321.3,
+    "MedianMs": 320.906,
+    "MinMs": 317.108,
+    "MaxMs": 324.828,
+    "SamplesMs": [
+      317.108,
+      319.967,
+      320.906,
+      323.689,
+      324.828
+    ]
+  },
+  "ProfileCore": {
+    "AverageMs": 148.234,
+    "MedianMs": 147.681,
+    "MinMs": 146.78,
+    "MaxMs": 150.616,
+    "SamplesMs": [
+      146.78,
+      147.649,
+      147.681,
+      148.444,
+      150.616
+    ]
+  },
+  "Direct": {
+    "AverageMs": 137.523,
+    "MedianMs": 136.389,
+    "MinMs": 133.845,
+    "MaxMs": 145.776,
+    "SamplesMs": [
+      133.845,
+      134.474,
+      136.389,
+      137.129,
+      145.776
+    ]
+  },
+  "Notes": [
+    "每个样本使用新的 pwsh -NoProfile 子进程",
+    "统计值只包含子进程内部 Import-Module 调用，不包含进程创建时间",
+    "结果仅代表当前平台、当前磁盘缓存和当前机器"
+  ]
+}

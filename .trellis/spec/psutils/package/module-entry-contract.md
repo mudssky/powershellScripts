@@ -20,6 +20,10 @@
   - `Import-Module ./psutils/index.psm1 -Force`
 - Documentation validation：
   - `pwsh -NoProfile -File ./scripts/pwsh/devops/Invoke-PesterMode.ps1 -Mode qa -Path ./psutils/tests/documentation.Tests.ps1`
+- API boundary validation：
+  - `pwsh -NoProfile -File ./scripts/pwsh/devops/Invoke-PesterMode.ps1 -Mode qa -Path ./psutils/tests/apiBoundary.Tests.ps1`
+- Diagnostic direct import：
+  - `Import-Module ./psutils/modules/<diagnostic-module>.psm1 -Force`
 - Runtime metadata：
   - `PowerShellVersion = '7.4'`
   - `CompatiblePSEditions = @('Core')`
@@ -30,6 +34,10 @@
 - `index.psm1` 必须输出弃用 warning，并把 manifest 导入调用方可见作用域；shim 返回后公共命令仍可调用。
 - `FunctionsToExport` 中的名称必须唯一，且排序后与 `Get-Command -Module psutils -CommandType Function` 完全一致。
 - manifest 不得声明不存在的函数，也不得用同名 nested module 导出来静默覆盖不同参数契约。
+- 子模块必须使用显式 `Export-ModuleMember -Function <name...>`；禁止 wildcard 导出，避免新增 helper 时意外扩大公共面。
+- 聚合 manifest 只导出 Stable User、Shared Repository 和 Compatibility 命令。Diagnostic 仅保留对应子模块直导入口，Private 不得从聚合或子模块导出。
+- 模块导入不得创建无必要的 global 变量；只服务模块实现的默认值使用 script scope。
+- 聚合公共函数必须提供可由 `Get-Help -Full` 读取的 comment-based help：每个显式参数都有 `.PARAMETER` 说明，并声明 `.OUTPUTS`；无结构化返回时写 `None`。
 - 同一公共命令只有一个权威实现；旧参数名通过 parameter alias 或兼容 wrapper 保留。
 - 直接导入存在跨模块调用的 nested module 时，该模块必须自行导入直接依赖，不能依赖聚合 manifest 偶然提供兄弟命令。
 - 新的生产脚本、测试和示例不得导入 `index.psm1`。
@@ -46,6 +54,11 @@
 | PSEdition 为 Desktop | manifest 不声明兼容，不提供 5.1 fallback |
 | `FunctionsToExport` 含重复名称 | `moduleContract.Tests.ps1` 失败 |
 | manifest 声明的函数未实际导出 | 聚合命令集合对比失败 |
+| 子模块使用 wildcard 导出 | `apiBoundary.Tests.ps1` 失败；改为精确导出列表 |
+| Private helper 仍可从子模块获取 | API 边界测试失败；测试通过 `InModuleScope` 访问内部实现 |
+| Diagnostic 命令进入聚合 manifest | API 边界测试失败；仅允许直导对应子模块 |
+| 公共函数缺少参数或返回值说明 | API 边界测试失败；补齐可被 `Get-Help -Full` 解析的帮助块 |
+| 导入模块创建实现专用 global 变量 | API 边界测试失败；改为 script scope |
 | nested modules 导出同名但参数不同的函数 | 契约测试失败；合并为单一权威实现 |
 | 导入 `index.psm1` | 输出弃用 warning，随后公共命令在调用方会话可见 |
 | 生产脚本或示例继续导入 `index.psm1` | 可发现性检查失败，迁移到 manifest 或目录入口 |
@@ -58,9 +71,14 @@
 ### 5. Good/Base/Bad Cases
 
 - Good：生产脚本直接导入 `psutils.psd1`，契约测试同时校验 metadata、导出集合和关键参数 alias。
+- Good：聚合 manifest 导出稳定 API，benchmark 通过直导子模块使用 Diagnostic 命令，内部 helper 测试使用 `InModuleScope`。
+- Good：模块默认值保存在 `$script:` 作用域，公共函数的 `.PARAMETER` 和 `.OUTPUTS` 可由 `Get-Help -Full` 读取。
 - Good：`win.psm1` 独占 `New-Shortcut` 实现，并用 `Path`、`Destination` alias 兼容旧调用。
 - Good：README 从 manifest 同步 `ModuleVersion`、`PowerShellVersion` 和规范入口，示例由 `documentation.Tests.ps1` 做 AST 与子进程 smoke 检查。
 - Base：旧个人脚本暂时导入 `index.psm1`，收到弃用 warning 后仍能使用公共命令。
+- Base：诊断命令继续存在，但调用方必须明确直导所属子模块，不获得聚合兼容承诺。
+- Bad：子模块 wildcard 导出，或为了测试内部 helper 而把它重新加入公共导出。
+- Bad：导入模块时写入 `$Global:` 默认值，或公共帮助只存在于无法被 `Get-Help` 识别的位置。
 - Bad：在 `index.psm1` 复制一份 NestedModules 或导出列表，形成第二个会漂移的模块入口。
 - Bad：manifest 写入不存在的导出名，因为 `Test-ModuleManifest` 不一定能发现 nested module 的缺失函数。
 - Bad：两个 nested modules 导出同名函数，依赖加载顺序决定最终参数契约。
@@ -69,6 +87,9 @@
 ### 6. Tests Required
 
 - `psutils/tests/moduleContract.Tests.ps1` 必须校验 PowerShell 版本和 PSEdition。
+- `psutils/tests/apiBoundary.Tests.ps1` 必须校验聚合分类数量、Private/Diagnostic 边界、精确导出和无 global 导入副作用。
+- API 边界测试必须遍历聚合公共函数，通过 `Get-Help -Full` 断言全部显式参数具有说明且 `.OUTPUTS` 非空。
+- 私有 helper 的既有单元测试必须改用 `InModuleScope <module>`，不得以恢复导出换取测试可见性。
 - 测试必须比较 manifest 唯一导出名与实际聚合命令集合。
 - 使用独立 `pwsh -NoProfile` 子进程导入 `index.psm1`，断言 warning 和 shim 返回后的命令可见性。
 - 测试目录导入实际解析到 `psutils.psd1`。
@@ -103,6 +124,24 @@ Import-Module (Join-Path $PSScriptRoot 'psutils.psd1') -Force -Global
 ```
 
 理由：manifest 是模块结构和公共面的单一事实来源，shim 只承担迁移兼容，不复制实现。
+
+#### Wrong
+
+```powershell
+$Global:DefaultPrefix = '[custom] '
+Export-ModuleMember -Function *
+```
+
+问题：导入模块污染调用方全局状态，并让后续新增 helper 自动成为公共 API。
+
+#### Correct
+
+```powershell
+$script:DefaultPrefix = '[custom] '
+Export-ModuleMember -Function Get-CustomAlias, Set-CustomAlias
+```
+
+理由：模块实现状态留在 script scope，公共面由可审阅的精确列表控制；内部函数通过 `InModuleScope` 测试。
 
 #### Wrong
 

@@ -3,7 +3,7 @@
   "name": "psutils-api-boundaries",
   "title": "收敛 psutils 公共 API 与模块边界",
   "description": "分层公共 API，移除 wildcard 导出和全局状态，评估职责混杂模块并设计兼容弃用路径。",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

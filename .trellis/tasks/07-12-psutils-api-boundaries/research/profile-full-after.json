@@ -1,0 +1,145 @@
+{
+  "GeneratedAt": "2026-07-12T14:56:13.5013990+08:00",
+  "Platform": "macos",
+  "PowerShellVersion": "7.5.4",
+  "Mode": "Full",
+  "Iterations": 5,
+  "ProfileInternal": {
+    "AverageMs": 385.6,
+    "MedianMs": 381.0,
+    "MinMs": 371.0,
+    "MaxMs": 409.0,
+    "SamplesMs": [
+      371.0,
+      381.0,
+      381.0,
+      386.0,
+      409.0
+    ]
+  },
+  "ProcessElapsed": {
+    "AverageMs": 653.067,
+    "MedianMs": 651.944,
+    "MinMs": 632.77,
+    "MaxMs": 673.662,
+    "SamplesMs": [
+      632.77,
+      651.673,
+      651.944,
+      655.284,
+      673.662
+    ]
+  },
+  "Phases": {
+    "bootstrap-definitions": {
+      "AverageMs": 147.6,
+      "MedianMs": 146.0,
+      "MinMs": 145.0,
+      "MaxMs": 151.0,
+      "SamplesMs": [
+        145.0,
+        146.0,
+        146.0,
+        150.0,
+        151.0
+      ]
+    },
+    "mode-and-platform-decision": {
+      "AverageMs": 13.8,
+      "MedianMs": 14.0,
+      "MinMs": 13.0,
+      "MaxMs": 14.0,
+      "SamplesMs": [
+        13.0,
+        14.0,
+        14.0,
+        14.0,
+        14.0
+      ]
+    },
+    "public-api-definitions": {
+      "AverageMs": 0.2,
+      "MedianMs": 0.0,
+      "MinMs": 0.0,
+      "MaxMs": 1.0,
+      "SamplesMs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    "runtime-definitions": {
+      "AverageMs": 2.0,
+      "MedianMs": 2.0,
+      "MinMs": 2.0,
+      "MaxMs": 2.0,
+      "SamplesMs": [
+        2.0,
+        2.0,
+        2.0,
+        2.0,
+        2.0
+      ]
+    },
+    "core-loaders": {
+      "AverageMs": 44.2,
+      "MedianMs": 40.0,
+      "MinMs": 37.0,
+      "MaxMs": 61.0,
+      "SamplesMs": [
+        37.0,
+        39.0,
+        40.0,
+        44.0,
+        61.0
+      ]
+    },
+    "initialize-environment": {
+      "AverageMs": 177.8,
+      "MedianMs": 183.0,
+      "MinMs": 164.0,
+      "MaxMs": 186.0,
+      "SamplesMs": [
+        164.0,
+        171.0,
+        183.0,
+        185.0,
+        186.0
+      ]
+    }
+  },
+  "Samples": [
+    {
+      "Iteration": 1,
+      "ProfileInternalMs": 409.0,
+      "ProcessElapsedMs": 673.662
+    },
+    {
+      "Iteration": 2,
+      "ProfileInternalMs": 381.0,
+      "ProcessElapsedMs": 651.944
+    },
+    {
+      "Iteration": 3,
+      "ProfileInternalMs": 381.0,
+      "ProcessElapsedMs": 651.673
+    },
+    {
+      "Iteration": 4,
+      "ProfileInternalMs": 386.0,
+      "ProcessElapsedMs": 655.284
+    },
+    {
+      "Iteration": 5,
+      "ProfileInternalMs": 371.0,
+      "ProcessElapsedMs": 632.77
+    }
+  ],
+  "Notes": [
+    "每个样本使用新的 pwsh -NoProfile 子进程执行真实 profile.ps1",
+    "ProfileInternal 不包含 pwsh 进程创建成本，ProcessElapsed 包含完整子进程生命周期",
+    "结果仅代表当前平台、当前缓存状态与当前机器，不应外推为跨平台绝对基线"
+  ]
+}

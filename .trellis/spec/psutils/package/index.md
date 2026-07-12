@@ -18,6 +18,7 @@
 * 修改 WSL Docker wrapper 或 docker 参数路径转换时，先阅读 [WSL Docker Wrapper](./wsl-docker-wrapper.md)。
 * NestedModules 之间不共享彼此的私有 session state。模块调用另一个模块导出的函数时，必须在自身作用域按需导入直接依赖；不能只依赖调用方已经导入聚合 `psutils` manifest。
 * 修改 manifest、NestedModules、公共导出或兼容入口时，先阅读 [Module Entry Contract](./module-entry-contract.md)，并同步 `psutils/tests/moduleContract.Tests.ps1`。
+* 收紧公共 API、修改子模块 `Export-ModuleMember` 或模块级状态时，同时同步 `psutils/tests/apiBoundary.Tests.ps1`。
 
 ## Package Script Contract
 
@@ -32,6 +33,7 @@
 * 修改 coverage 规则、Pester 配置或跨平台测试策略时，回到根目录执行完整 PowerShell 测试规则。
 * 修改 nested module 依赖时，至少用“单独导入消费模块后调用其公共函数”的测试覆盖，防止聚合 manifest 掩盖兄弟模块命令不可见问题。
 * 修改模块入口或公共导出时，至少运行 `psutils/tests/moduleContract.Tests.ps1`，并确认仓库生产脚本和示例不再导入 `index.psm1`。
+* 修改 API 分层、子模块导出或公共帮助时，运行 `psutils/tests/apiBoundary.Tests.ps1`，确认 Private 不可直导、Diagnostic 不进入聚合模块，且聚合公共函数具有参数和返回值说明。
 * 修改 README、`docs`、`examples` 或活动 demo 时，运行 `psutils/tests/documentation.Tests.ps1`，确认 manifest 事实、脚本 AST、字面量导入路径和无副作用 smoke 示例一致。
 
 ## Guidelines
