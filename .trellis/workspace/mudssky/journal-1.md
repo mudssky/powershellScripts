@@ -1217,3 +1217,36 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 37: 统一测试报告输出目录
+
+**Date**: 2026-07-12
+**Task**: 统一测试报告输出目录
+**Branch**: `master`
+
+### Summary
+
+将 Pester coverage、NUnit 和 Vitest JUnit 报告统一到 tests/reports，修复 Pester 子目录路径漂移与 coverage 命令的跨 shell 执行问题，同步 CI、ignore、文档、回归测试和工程规范。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `6688b3e` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

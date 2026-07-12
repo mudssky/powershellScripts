@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 36
+- **Total Sessions**: 37
 - **Last Active**: 2026-07-12
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1219 | Active |
+| `journal-1.md` | ~1252 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 37 | 2026-07-12 | 统一测试报告输出目录 | `6688b3e` | `master` |
 | 36 | 2026-07-12 | 完成 psutils 核心入口与导出契约 | `0c90c4e`, `c4e1808` | `master` |
 | 35 | 2026-07-12 | 归档通用与历史文档 | `fc5b2cf` | `master` |
 | 34 | 2026-07-12 | 优化换源测试隔离与性能 | `a8a9988` | `master` |
