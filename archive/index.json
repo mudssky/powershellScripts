@@ -915,6 +915,17 @@
       }
     },
     {
+      "id": "batch-10-ai",
+      "batch": 10,
+      "source": "ai",
+      "archive": "archive/ai",
+      "reason": "AI 工具已迁往其他仓库，本仓库停止维护",
+      "replacement": {
+        "kind": "note",
+        "text": "相关能力已迁往其他仓库；本归档仅供历史参考"
+      }
+    },
+    {
       "id": "batch-10-projects-clis-json-diff-tool",
       "batch": 10,
       "source": "projects/clis/json-diff-tool",
