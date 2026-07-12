@@ -1385,3 +1385,37 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 42: 归档 AI 工具目录
+
+**Date**: 2026-07-12
+**Task**: 归档 AI 工具目录
+**Branch**: `master`
+
+### Summary
+
+将 ai 全部 Git 跟踪内容迁移到 archive/ai，退役 workspace、脚本、测试、IDE、文档和 Trellis 活动规范入口；本机私密与生成内容移至仓库外备份。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e1dbd2a` | (see git log) |
+| `d0e3db7` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
