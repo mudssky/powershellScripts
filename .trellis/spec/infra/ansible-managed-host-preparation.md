@@ -28,8 +28,9 @@ powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass `
 ```
 
 - 默认 Operation 为 `Preview`；真实写入必须显式 `--apply` / `-Apply`。
-- Windows 入口可单文件运行；同目录模块缺失时从公开 GitHub 的 `SourceRevision` 下载依赖到临时缓存。稳定自动化应传具体 commit，控制面继续使用父仓库固定的 submodule gitlink。
+- Windows 入口可单文件运行；同目录模块缺失时从公开 GitHub 的 `SourceRevision` 下载依赖到临时缓存。控制面可使用配置后的 clean checkout，并记录每次实际使用的 commit。
 - Windows PowerShell 5.1 单文件入口及其完整下载依赖闭包中，只要 `.ps1`/`.psm1` 含非 ASCII 文本就必须使用 UTF-8 BOM；不能只验证入口和第一层模块，否则间接 `Import-Module` 会在非 UTF-8 系统代码页上产生连锁 parser error。
+- `master`、branch、tag 和短 SHA 等可变 revision 每次运行必须先下载到唯一临时目录，全部成功后再替换缓存；只有完整 40 位 commit SHA 且缓存完整时允许直接复用，避免“最新分支”命令长期读取旧模块。
 
 ### 3. Contracts
 
@@ -61,6 +62,7 @@ powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass `
 | macOS systemsetup 被 Full Disk Access 阻止 | Blocked/10，列出系统设置路径、重开终端和命令 |
 | Windows capability 返回 RestartNeeded | RestartRequired/10，不再以 listener 缺失覆盖成 Failed/1 |
 | 单文件下载依赖缺少 UTF-8 BOM | 自动化编码断言失败；不得发布给 Windows PowerShell 5.1，避免把错误解码误报为缺少引号或花括号 |
+| `SourceRevision=master` 且已有缓存 | 原子刷新全部依赖后再导入；下载失败保留上一次完整缓存，不导入半下载文件 |
 | 防火墙全局关闭 | Skipped，保持关闭 |
 | Apply 后 SSH/Python/service 验证失败 | Failed/1，保留已经完成的 Results |
 
@@ -76,7 +78,7 @@ powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass `
 ### 6. Tests Required
 
 - Vitest：Linux Preview 单文档 JSON、WSL Blocked ManualSteps、macOS Tailscale 登录 ManualSteps。
-- Pester：退出码优先级、Windows 缺失项计划、非管理员 Apply、无效 Tailscale IP、非 Windows JSON、单文件入口及完整下载依赖的 UTF-8 BOM、PowerShell parser 和 revision 下载能力。
+- Pester：退出码优先级、Windows 缺失项计划、非管理员 Apply、无效 Tailscale IP、非 Windows JSON、单文件入口及完整下载依赖的 UTF-8 BOM、PowerShell parser，以及可变 revision 原子刷新/完整 commit 缓存合同。
 - Parser：`bash -n`、`zsh -n`；Windows `.ps1`/`.psm1` 必须通过 parser，含中文文件必须保留 UTF-8 BOM。
 - Gates：`pnpm qa`、`pnpm test:bash`、`pnpm test:pwsh:all`、`git diff --check`。
 - 实机：至少一台 Windows 执行 Preview/Apply、验证 `sshd`/TCP 22，并从另一 tailnet 节点执行 SSH；其余平台按可用机器补充。

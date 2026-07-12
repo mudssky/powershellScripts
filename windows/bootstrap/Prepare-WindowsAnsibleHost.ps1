@@ -67,21 +67,40 @@ function Resolve-WindowsAnsiblePreparationModulePath {
     }
 
     $cacheRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("powershellScripts-ansible-host-preparation\{0}" -f ($Revision -replace '[/\\]', '_'))
-    if (-not (Test-Path -LiteralPath $cacheRoot -PathType Container)) {
-        New-Item -ItemType Directory -Path $cacheRoot -Force | Out-Null
-    }
     $baseUri = "https://raw.githubusercontent.com/mudssky/powershellScripts/$Revision/windows/bootstrap"
-    foreach ($fileName in @(
-            'WindowsAnsibleHostPreparation.psm1',
-            'WindowsBootstrap.psm1',
-            'WindowsRemotePsRemoting.psm1'
-        )) {
-        $destination = Join-Path $cacheRoot $fileName
-        if (-not (Test-Path -LiteralPath $destination -PathType Leaf)) {
-            Invoke-WebRequest -Uri "$baseUri/$fileName" -UseBasicParsing -OutFile $destination
+    $dependencyFiles = @(
+        'WindowsAnsibleHostPreparation.psm1',
+        'WindowsBootstrap.psm1',
+        'WindowsRemotePsRemoting.psm1'
+    )
+    $revisionIsImmutable = $Revision -match '^[0-9a-fA-F]{40}$'
+    $cacheComplete = @($dependencyFiles | Where-Object {
+            $cachedFile = Join-Path $cacheRoot $_
+            (Test-Path -LiteralPath $cachedFile -PathType Leaf) -and (Get-Item -LiteralPath $cachedFile).Length -gt 0
+        }).Count -eq $dependencyFiles.Count
+    if ($revisionIsImmutable -and $cacheComplete) {
+        return Join-Path $cacheRoot 'WindowsAnsibleHostPreparation.psm1'
+    }
+
+    $stagingRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("powershellScripts-ansible-host-preparation\download-{0}" -f ([guid]::NewGuid().ToString('N')))
+    New-Item -ItemType Directory -Path $stagingRoot -Force | Out-Null
+    try {
+        foreach ($fileName in $dependencyFiles) {
+            $stagedFile = Join-Path $stagingRoot $fileName
+            Invoke-WebRequest -Uri "$baseUri/$fileName" -UseBasicParsing -OutFile $stagedFile
+            if ((Get-Item -LiteralPath $stagedFile).Length -eq 0) {
+                throw "下载的依赖模块为空: $fileName"
+            }
         }
-        if ((Get-Item -LiteralPath $destination).Length -eq 0) {
-            throw "下载的依赖模块为空: $fileName"
+
+        New-Item -ItemType Directory -Path $cacheRoot -Force | Out-Null
+        foreach ($fileName in $dependencyFiles) {
+            Move-Item -LiteralPath (Join-Path $stagingRoot $fileName) -Destination (Join-Path $cacheRoot $fileName) -Force
+        }
+    }
+    finally {
+        if (Test-Path -LiteralPath $stagingRoot -PathType Container) {
+            Remove-Item -LiteralPath $stagingRoot -Recurse -Force
         }
     }
     return Join-Path $cacheRoot 'WindowsAnsibleHostPreparation.psm1'

@@ -110,5 +110,9 @@ Describe 'Windows Ansible 被控端准备合同' {
         $content | Should -Match 'SourceRevision'
         $content | Should -Match 'raw\.githubusercontent\.com/mudssky/powershellScripts'
         $content | Should -Match 'WindowsAnsibleHostPreparation\.psm1'
+        $content | Should -Match '\$revisionIsImmutable'
+        $content | Should -Match '\$cacheComplete'
+        $content | Should -Match 'download-\{0\}'
+        $content | Should -Match 'Move-Item.*-Force'
     }
 }
