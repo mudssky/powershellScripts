@@ -97,7 +97,7 @@ Describe 'Windows PSRP 证书与 listener 计划' {
 
     It '把 WSMan keys 转换为精确 address、transport 和 port' {
         $listener = ConvertFrom-WindowsWsManListener -Listener ([pscustomobject]@{
-                Keys                  = @('Transport=HTTPS', 'Address=100.70.1.2', 'Port=5986')
+                Keys                  = @('Transport=HTTPS', 'Address=IP:100.70.1.2', 'Port=5986')
                 CertificateThumbprint = 'ABC'
                 PSPath                = 'WSMan:\localhost\Listener\Listener_1'
             })
@@ -105,6 +105,13 @@ Describe 'Windows PSRP 证书与 listener 计划' {
         $listener.Transport | Should -Be 'HTTPS'
         $listener.Port | Should -Be 5986
         $listener.CertificateThumbprint | Should -Be 'ABC'
+    }
+
+    It '把单 IPv4 转换为 WSMan 接受的 IP selector' {
+        InModuleScope WindowsRemotePsRemoting {
+            ConvertTo-WindowsWsManListenerSelector -IPAddress '100.70.1.2' |
+                Should -Be 'IP:100.70.1.2'
+        }
     }
 
     It '从 WSMan provider 子项读取 port 和证书指纹' {

@@ -119,7 +119,7 @@ Ansible inventory 侧使用 `ansible_connection=psrp`、HTTPS、NTLM、`ansible_
 - 入口与模块必须兼容 Windows PowerShell 5.1；含中文帮助或字符串的 `.ps1`/`.psm1` 必须使用 UTF-8 BOM，避免 5.1 按本地 ANSI 代码页误读；真实执行要求当前进程已是管理员，禁止请求 UAC。
 - 自动发现或显式参数必须解析为唯一的 `100.64.0.0/10` IPv4；拒绝 LAN、loopback、IPv6、wildcard 和多地址歧义。
 - 托管证书 subject 前缀为 `CN=powershellScripts-PSRP-`，位于 `Cert:\LocalMachine\My`，含私钥且剩余有效期超过 30 天时复用。
-- HTTPS listener 默认端口为 `5986`，`Address` 必须精确等于目标 Tailscale IPv4；同端口存在非托管 listener 时禁止覆盖。
+- HTTPS listener 默认端口为 `5986`；写入 WSMan provider 时 `Address` selector 必须使用 `IP:<tailscale-ip>`，读取后规范化为裸 IPv4 并精确等于目标 Tailscale 地址；同端口存在非托管 listener 时禁止覆盖。
 - WinRM 必须保持 `AllowUnencrypted=false`、`Negotiate=true`；禁止调用会创建 wildcard listener 的 `Enable-PSRemoting`。
 - 目标机尚未初始化 WinRM 时，`WSMan:\localhost\Listener` 和 `WSMan:\localhost\Service` 可以不存在；状态发现必须把它规约为无 listener、`AllowUnencrypted=false`、`Negotiate=true` 的 Missing 基线，使 WhatIf 能生成计划，不能误报 `StateDiscovery/1`。
 - Windows Firewall 至少一个 profile 启用时，固定 rule 必须同时限制 `LocalAddress=<tailscale-ip>`、`RemoteAddress=100.64.0.0/10`、`LocalPort=5986`、TCP/Inbound/Allow；所有 profile 关闭时不得启用全局防火墙。
@@ -148,6 +148,7 @@ Ansible inventory 侧使用 `ansible_connection=psrp`、HTTPS、NTLM、`ansible_
 ### 6. Tests Required
 
 - Pester：CGNAT 边界、唯一地址选择、多地址拒绝、证书复用和 WSMan provider 子项读取。
+- Pester：单 IPv4 转换为 `IP:<address>` selector，provider 返回的 `IP:` 前缀规范化后仍通过精确绑定检查。
 - Pester：WinRM 未初始化且 WSMan Listener/Service 子路径缺失时返回安全 Missing 基线，不调用缺失 provider 子项。
 - Pester：Missing/Matched/ManagedDrift/Conflict、Firewall 开关与精确 filter、幂等和 rollback action plan。
 - Pester：非管理员在状态读取前返回 `Blocked/10`；非 Windows 显式 IP WhatIf 输出可解析单文档 JSON。

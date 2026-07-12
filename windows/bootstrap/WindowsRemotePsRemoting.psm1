@@ -210,6 +210,26 @@ function Get-WindowsWsManListenerValue {
     return $null
 }
 
+function ConvertTo-WindowsWsManListenerSelector {
+    <#
+    .SYNOPSIS
+        把单个 IPv4 转换为 WSMan listener Address selector。
+
+    .PARAMETER IPAddress
+        要绑定的 IPv4 地址。
+
+    .OUTPUTS
+        System.String。格式为 IP:<address>。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$IPAddress
+    )
+
+    return "IP:$IPAddress"
+}
+
 function ConvertFrom-WindowsWsManListener {
     <#
     .SYNOPSIS
@@ -242,8 +262,12 @@ function ConvertFrom-WindowsWsManListener {
     elseif ($null -ne $portValue) {
         $port = [int]$portValue
     }
+    $address = [string]$values.Address
+    if ($address.StartsWith('IP:', [System.StringComparison]::OrdinalIgnoreCase)) {
+        $address = $address.Substring(3)
+    }
     return [pscustomobject][ordered]@{
-        Address               = [string]$values.Address
+        Address               = $address
         Transport             = [string]$values.Transport
         Port                  = $port
         CertificateThumbprint = [string](Get-WindowsWsManListenerValue -Listener $Listener -Name CertificateThumbprint)
@@ -889,7 +913,8 @@ function Invoke-WindowsRemotePsRemoting {
                 foreach ($listener in @($state.ManagedListeners)) {
                     Remove-Item -LiteralPath $listener.Path -Recurse -Force -ErrorAction Stop
                 }
-                New-Item -Path WSMan:\localhost\Listener -Transport HTTPS -Address $resolvedIPAddress -Port $Port `
+                $listenerSelector = ConvertTo-WindowsWsManListenerSelector -IPAddress $resolvedIPAddress
+                New-Item -Path WSMan:\localhost\Listener -Transport HTTPS -Address $listenerSelector -Port $Port `
                     -CertificateThumbPrint ([string]$certificate.Thumbprint) -Force -ErrorAction Stop | Out-Null
                 $results.Add((New-WindowsBootstrapResult -Name HttpsListener -Status Succeeded `
                         -Message "已创建 Address=$resolvedIPAddress Port=$Port HTTPS listener"))
