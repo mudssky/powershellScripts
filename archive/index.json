@@ -307,6 +307,28 @@
         "target": "windows/00quickstart.ps1",
         "text": "使用 Windows 统一快速安装入口"
       }
+    },
+    {
+      "id": "batch-6-self-hosted",
+      "batch": 6,
+      "source": "self-hosted",
+      "archive": "archive/self-hosted",
+      "reason": "自托管服务已迁移到独立 self-hosted-compose 仓库，本仓副本不再维护",
+      "replacement": {
+        "kind": "note",
+        "text": "活动入口位于 /Volumes/Data/projects/forgejo/self-hosted-compose/stacks/{forgejo,n8n}；本目录仅保留历史参考"
+      }
+    },
+    {
+      "id": "batch-6-templates",
+      "batch": 6,
+      "source": "templates",
+      "archive": "archive/templates",
+      "reason": "根脚本模板与 runScripts 当前查找路径不一致，且无活动调用",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；runScripts 当前按 scripts/pwsh/misc/templates 查找模板"
+      }
     }
   ]
 }
