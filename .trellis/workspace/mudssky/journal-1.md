@@ -1183,3 +1183,37 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 36: 完成 psutils 核心入口与导出契约
+
+**Date**: 2026-07-12
+**Task**: 完成 psutils 核心入口与导出契约
+**Branch**: `master`
+
+### Summary
+
+统一 PowerShell 7.4+ 模块入口、manifest 导出与兼容 shim，并补齐跨平台契约测试。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `0c90c4e` | (see git log) |
+| `c4e1808` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
