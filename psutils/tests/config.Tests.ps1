@@ -454,9 +454,13 @@ Match host *
         $blocks[0].RemoteCommand | Should -BeNullOrEmpty
     }
 
-    It 'exports the SSH config reader from the psutils manifest' {
+    It 'exports the shared config readers from both config module and psutils manifest' {
         $manifest = Import-PowerShellDataFile (Join-Path $PSScriptRoot '..' 'psutils.psd1')
 
+        Get-Command Read-ConfigEnvFile -Module config | Should -Not -BeNullOrEmpty
+        Get-Command Resolve-DefaultEnvFiles -Module config | Should -Not -BeNullOrEmpty
+        @($manifest.FunctionsToExport) | Should -Contain 'Read-ConfigEnvFile'
+        @($manifest.FunctionsToExport) | Should -Contain 'Resolve-DefaultEnvFiles'
         @($manifest.FunctionsToExport) | Should -Contain 'Read-ConfigSshClientConfig'
     }
 }

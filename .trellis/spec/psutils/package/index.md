@@ -7,6 +7,7 @@
 * 包路径：`psutils`
 * Workspace 包名：`psutils`
 * 主要入口：`psutils/package.json`
+* 规范模块入口：`psutils/psutils.psd1`；`psutils/index.psm1` 仅为弃用兼容 shim，新代码不得依赖它。
 
 ## Pre-Development Checklist
 
@@ -16,6 +17,7 @@
 * 覆盖率门槛仍由根目录 `PesterConfiguration.ps1` 统一管理；包级 `test:full` 只做断言回归，不单独改 coverage 策略。
 * 修改 WSL Docker wrapper 或 docker 参数路径转换时，先阅读 [WSL Docker Wrapper](./wsl-docker-wrapper.md)。
 * NestedModules 之间不共享彼此的私有 session state。模块调用另一个模块导出的函数时，必须在自身作用域按需导入直接依赖；不能只依赖调用方已经导入聚合 `psutils` manifest。
+* 修改 manifest、NestedModules、公共导出或兼容入口时，先阅读 [Module Entry Contract](./module-entry-contract.md)，并同步 `psutils/tests/moduleContract.Tests.ps1`。
 
 ## Package Script Contract
 
@@ -29,10 +31,12 @@
 * 修改 `psutils/modules`、`psutils/src` 或 `psutils/tests` 时至少运行根目录 PowerShell QA，或按需运行 `pnpm --filter psutils test:qa`。
 * 修改 coverage 规则、Pester 配置或跨平台测试策略时，回到根目录执行完整 PowerShell 测试规则。
 * 修改 nested module 依赖时，至少用“单独导入消费模块后调用其公共函数”的测试覆盖，防止聚合 manifest 掩盖兄弟模块命令不可见问题。
+* 修改模块入口或公共导出时，至少运行 `psutils/tests/moduleContract.Tests.ps1`，并确认仓库生产脚本和示例不再导入 `index.psm1`。
 
 ## Guidelines
 
 | Guide | Description | Status |
 |-------|-------------|--------|
+| [Module Entry Contract](./module-entry-contract.md) | 规范 manifest、PowerShell 版本、兼容 shim、导出一致性与入口测试 | Active |
 | [Shared Config Resolver](./shared-config-resolver.md) | `psutils/src/config` 配置来源、合并优先级、导出函数与测试契约 | Active |
 | [WSL Docker Wrapper](./wsl-docker-wrapper.md) | `psutils/modules/docker.psm1` WSL Docker wrapper 的路径转换与跨平台测试契约 | Active |

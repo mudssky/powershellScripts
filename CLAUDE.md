@@ -58,12 +58,12 @@ root/
 │   └── qa-benchmark.mjs          # QA benchmark sampling
 ├── psutils/                      # PowerShell utility module
 │   ├── psutils.psd1              # Module manifest (v1.0.0, author: mudssky)
-│   ├── index.psm1                # Root module (NestedModules in psd1 handle loading)
-│   ├── modules/                  # Sub-modules (18 .psm1 files)
+│   ├── index.psm1                # Deprecated compatibility shim to psutils.psd1
+│   ├── modules/                  # Capability-scoped nested modules
 │   │   ├── cache.psm1            # Caching (Invoke-WithCache, Invoke-WithFileCache)
 │   │   ├── env.psm1              # .env file handling, PATH manipulation
 │   │   ├── filesystem.psm1       # Get-Tree, gitignore-aware tree
-│   │   ├── functions.psm1        # General utilities (history, shortcuts, semver)
+│   │   ├── functions.psm1        # General utilities (history, semver, formatting)
 │   │   ├── git.psm1              # Git helpers
 │   │   ├── help.psm1             # Module help search
 │   │   ├── install.psm1          # Package manager app installation

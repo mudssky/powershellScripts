@@ -17,6 +17,8 @@
 - Config merge:
   - `Resolve-ConfigSources -Sources <hashtable[]> [-BasePath <string>] [-IncludeTrace] [-ErrorOnMissing]`
   - `Resolve-ConfigSources -ConfigFile <string[]> [-BasePath <string>] [-IncludeTrace] [-ErrorOnMissing]`
+- Default source discovery:
+  - `Resolve-DefaultEnvFiles -PrimaryBasePath <string> [-FallbackBasePath <string>]`
 - Source readers:
   - `Read-ConfigEnvFile -Path <string>`
   - `Read-ConfigPowerShellDataFile -Path <string>`

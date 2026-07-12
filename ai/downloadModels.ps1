@@ -67,8 +67,8 @@ param(
 )
 Set-StrictMode -Version Latest
 $DEFAULTS = @{ CpuMaxModelGB = $CpuMaxModelGB; MemoryMultiplier = $MemoryMultiplier; MinVramGB = $MinVramGB }
-# 导入硬件检测模块和操作系统检测模块
-Import-Module "$PSScriptRoot\..\psutils\index.psm1" -Force
+# 统一通过模块 manifest 加载硬件和操作系统能力，避免依赖弃用入口。
+Import-Module "$PSScriptRoot\..\psutils\psutils.psd1" -Force
 
 function Write-ProgressMessage {
     param(

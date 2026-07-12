@@ -191,20 +191,6 @@ Describe "Set-Script 函数测试" {
     }
 }
 
-Describe "New-Shortcut 函数测试" -Tag 'windowsOnly' {
-    BeforeAll {
-        $testTarget = "$TestDrive\target.txt"
-        "" | Out-File -FilePath $testTarget -Encoding utf8
-        $testShortcut = "$TestDrive\shortcut.lnk"
-    }
-
-    It "成功创建快捷方式" {
-        if (-not $IsWindows) { Set-ItResult -Skipped -Because 'Windows-only'; return }
-        { New-Shortcut -Path $testTarget -Destination $testShortcut } | Should -Not -Throw
-        Test-Path $testShortcut | Should -Be $true
-    }
-}
-
 Describe "Invoke-FzfHistorySmart 函数测试" {
     BeforeEach {
         # 缺依赖场景只验证降级行为，不需要把用户提示输出带进默认测试日志。

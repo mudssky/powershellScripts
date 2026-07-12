@@ -9,17 +9,14 @@
 
 @{
 
-    # 与此清单关联的脚本模块或二进制模块文件
-    # RootModule           = 'index.psm1'
-    # 不需要执行代码，通过psd1可以导入模块，所以不需要指定RootModule
-    # 如果指定，则会执行这个模块的代码
+    # 聚合模块通过 NestedModules 加载，psutils.psd1 是唯一规范入口。
     RootModule           = ''
 
     # 此模块的版本号
     ModuleVersion        = '1.0.0'
 
     # 支持的 PowerShell 版本
-    CompatiblePSEditions = @('Desktop', 'Core')
+    CompatiblePSEditions = @('Core')
 
     # 用于唯一标识此模块的 ID
     GUID                 = 'd1108e87-11b1-42f6-899b-2f1bfbb1d399'
@@ -37,7 +34,7 @@
     Description          = 'PowerShell 实用工具函数集合，包含环境管理、文件系统操作、网络工具、系统信息获取等功能模块'
 
     # 此模块所需的 PowerShell 引擎最低版本
-    PowerShellVersion    = '5.1'
+    PowerShellVersion    = '7.4'
 
     # 此模块所需的 PowerShell 主机名称
     # PowerShellHostName = ''
@@ -107,8 +104,8 @@
         # 命令探测模块 (commandDiscovery.psm1)
         'Find-ExecutableCommand',
         # 配置管理模块 (config.psm1)
-        'Resolve-ConfigSources', 'Invoke-WithScopedEnvironment', 'ConvertTo-ConfigHashtable', 'Get-ConfigValue', 'Resolve-ConfigEnvPlaceholder', 'Resolve-ConfigPath', 'ConvertTo-ConfigKeyName', 'ConvertFrom-ConfigCliParameters',
-        'Resolve-ConfigPlatformValue', 'Read-ConfigPowerShellDataFile', 'Read-ConfigMarkdownFrontMatter', 'Read-ConfigSshClientConfig',
+        'Resolve-ConfigSources', 'Resolve-DefaultEnvFiles', 'Invoke-WithScopedEnvironment', 'ConvertTo-ConfigHashtable', 'Get-ConfigValue', 'Resolve-ConfigEnvPlaceholder', 'Resolve-ConfigPath', 'ConvertTo-ConfigKeyName', 'ConvertFrom-ConfigCliParameters',
+        'Resolve-ConfigPlatformValue', 'Read-ConfigEnvFile', 'Read-ConfigPowerShellDataFile', 'Read-ConfigMarkdownFrontMatter', 'Read-ConfigSshClientConfig',
         # Docker 工具模块 (docker.psm1)
         'Test-DockerComposeAvailable', 'Assert-DockerComposeReady', 'Get-DockerComposeBaseArgs', 'Invoke-DockerComposeCommand',
         'Get-WslDockerCandidateDistro', 'Test-WindowsDockerDaemonAvailable', 'Test-DockerDesktopDaemonAvailable', 'Test-WslDockerEngineAvailable',
@@ -123,7 +120,7 @@
         # 字体管理模块 (font.psm1)
         'Test-Font', 'Install-Font', 'Uninstall-Font',
         # 通用函数模块 (functions.psm1)
-        'Get-HistoryCommandRank', 'Get-ScriptFolder', 'Start-Ipython', 'Start-PSReadline', 'Invoke-FzfHistorySmart', 'Register-FzfHistorySmartKeyBinding', 'New-Shortcut', 'Set-Script', 'Update-Semver', 'Get-FormatLength', 'Get-NeedBinaryDigit', 'Get-ReversedMap',
+        'Get-HistoryCommandRank', 'Get-ScriptFolder', 'Start-Ipython', 'Start-PSReadline', 'Invoke-FzfHistorySmart', 'Register-FzfHistorySmartKeyBinding', 'Set-Script', 'Update-Semver', 'Get-FormatLength', 'Get-NeedBinaryDigit', 'Get-ReversedMap',
         # 硬件信息模块 (hardware.psm1)
         'Get-GpuInfo', 'Get-SystemMemoryInfo',
         # Git 工具模块 (git.psm1)
@@ -154,7 +151,7 @@
         # 字符串处理模块 (string.psm1)
         'Get-LineBreak', 'Convert-JsoncToJson',
         # 测试工具模块 (test.psm1)
-        'Test-ModuleFunction', 'Test-EXEProgram', 'Test-ArrayNotNull', 'Test-PathHasExe', 'Test-MacOSCaskApp', 'Test-HomebrewFormula', 'Test-ApplicationInstalled', 'Test-MacOSApplicationInstalled', 'Clear-EXEProgramCache',
+        'Test-EXEProgram', 'Test-ArrayNotNull', 'Test-PathHasExe', 'Test-MacOSCaskApp', 'Test-HomebrewFormula', 'Test-ApplicationInstalled', 'Test-MacOSApplicationInstalled', 'Clear-EXEProgramCache',
         # Windows 系统模块 (win.psm1)
         'Add-Startup', 'New-Shortcut',
         # 包装器模块 (wrapper.psm1)
@@ -204,13 +201,13 @@
 - 完善模块清单配置文件
 - 采用中文注释提高可读性
 - 统一子模块导出：所有子模块都明确指定导出函数名
-- 增强主模块控制：在 index.psm1 中添加统一的导出控制
+- 以 psutils.psd1 作为规范入口，index.psm1 仅保留弃用兼容转发
 - 添加模块元数据：完善 Tags、ProjectUri、LicenseUri 等信息
 - 明确指定导出函数列表，移除通配符导出
 - 移除重复的 NestedModules 配置
 - 更新模块版本和元数据信息
 - 添加模块标签和分类
-- 支持 PowerShell 5.1+ 和 Core 版本
+- 支持 PowerShell 7.4+ Core
 '@
 
             # 此模块的预发布字符串

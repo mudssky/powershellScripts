@@ -63,10 +63,10 @@ function Add-Startup {
 function New-Shortcut {
     <#
     .SYNOPSIS
-        Creates a new Windows shortcut.
+        创建 Windows 快捷方式。
 
     .DESCRIPTION
-        The New-Shortcut cmdlet creates a new Windows shortcut with the specified properties.
+        通过 WScript.Shell 创建 `.lnk` 文件，支持目标参数、工作目录和图标设置。
 
     .EXAMPLE
         PS C:\> New-Shortcut -TargetPath 'C:\Program Files\MyProgram\MyProgram.exe' -ShortcutPath 'C:\Users\UserName\Desktop\MyProgram.lnk' -Arguments '-option1 -option2' -WorkingDirectory 'C:\Program Files\MyProgram' -IconLocation 'C:\Program Files\MyProgram\MyIcon.ico'
@@ -75,28 +75,33 @@ function New-Shortcut {
         PS C:\> New-Shortcut -TargetPath 'C:\Program Files\MyProgram\MyProgram.exe' -ShortcutPath 'C:\Users\UserName\Desktop\MyProgram.lnk'
 
     .PARAMETER TargetPath
-        The path to the program or file the shortcut should point to.
+        快捷方式指向的程序或文件路径。兼容旧参数名 `Path`。
 
     .PARAMETER ShortcutPath
-        The path to the shortcut file.
+        快捷方式文件路径。兼容旧参数名 `Destination`。
 
     .PARAMETER Arguments
-        The command-line arguments to pass to the target program.
+        启动目标程序时传入的命令行参数。
 
     .PARAMETER WorkingDirectory
-        The working directory for the target program.
+        目标程序的工作目录。
 
     .PARAMETER IconLocation
-        The path to the icon file to use for the shortcut.
+        快捷方式使用的图标路径。
+
+    .OUTPUTS
+        None。函数在指定位置创建快捷方式文件。
 
     .NOTES
-        This cmdlet requires administrator privileges to run.
+        仅支持 Windows；写入受保护目录时可能需要管理员权限。
     #>
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true, Position = 0)]
+        [Alias('Path')]
         [string] $TargetPath,
         [Parameter(Mandatory = $true, Position = 1)]
+        [Alias('Destination')]
         [string] $ShortcutPath,
         [Parameter()]
         [string] $Arguments,

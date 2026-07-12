@@ -10,8 +10,8 @@
     用途: 演示Get-Tree函数的功能
 #>
 
-# 导入functions模块
-Import-Module "$PSScriptRoot\..\index.psm1" -Force
+# 示例使用规范 manifest，确保与真实模块导出契约一致。
+Import-Module "$PSScriptRoot\..\psutils.psd1" -Force
 
 Write-Host "=== Get-Tree 函数使用示例 ===" -ForegroundColor Green
 Write-Host ""

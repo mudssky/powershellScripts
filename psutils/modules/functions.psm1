@@ -276,58 +276,6 @@ function Register-FzfHistorySmartKeyBinding {
 
 
 
-<#
-.SYNOPSIS
-    创建Windows快捷方式
-.DESCRIPTION
-    此函数用于在Windows系统中创建快捷方式（.lnk文件）。
-    它允许指定快捷方式的目标路径和快捷方式文件的保存路径。
-.PARAMETER Path
-    快捷方式的目标路径，即快捷方式指向的文件或文件夹的路径。
-.PARAMETER Destination
-    快捷方式文件（.lnk）的完整保存路径，包括文件名和扩展名。
-.OUTPUTS
-    无。在指定位置创建快捷方式文件。
-.EXAMPLE
-    New-Shortcut -Path "C:\Program Files\MyApp\MyApp.exe" -Destination "C:\Users\Public\Desktop\MyApp.lnk"
-    为MyApp.exe创建一个桌面快捷方式。
-.EXAMPLE
-    New-Shortcut -Path "C:\MyDocuments" -Destination "C:\Users\Public\Desktop\MyDocs.lnk"
-    为MyDocuments文件夹创建一个桌面快捷方式。
-.NOTES
-    作者: PowerShell Scripts
-    版本: 1.0.0
-    创建日期: 2025-01-07
-    用途: 方便自动化创建桌面、开始菜单或任何位置的快捷方式。
-    此函数仅适用于Windows操作系统。
-#>
-function New-Shortcut {
-    [CmdletBinding()]
-    param (
-        # 需要创建快捷方式的目标路径
-        [Parameter(Mandatory = $true, Position = 0)]
-        [string]$Path,
-        [Parameter(Mandatory = $true, Position = 1)]
-        [string]$Destination 
-    )
-	
-    begin {
-	
-    }
-	
-    process {
-        $shell = New-Object -ComObject "WScript.Shell"
-        $link = $shell.CreateShortcut($Destination)
-        $link.TargetPath = $Path
-        $link.Save()
-    }
-	
-    end {
-		
-    }
-}
-
-
 # 设置package.json的scripts字段
 <#
 .SYNOPSIS
@@ -568,4 +516,4 @@ function Get-ReversedMap($map) {
 }
 
 
-Export-ModuleMember -Function Get-HistoryCommandRank, Get-ScriptFolder, Start-Ipython, Start-PSReadline, Invoke-FzfHistorySmart, Register-FzfHistorySmartKeyBinding, New-Shortcut, Set-Script, Update-Semver, Get-FormatLength, Get-NeedBinaryDigit, Get-ReversedMap
+Export-ModuleMember -Function Get-HistoryCommandRank, Get-ScriptFolder, Start-Ipython, Start-PSReadline, Invoke-FzfHistorySmart, Register-FzfHistorySmartKeyBinding, Set-Script, Update-Semver, Get-FormatLength, Get-NeedBinaryDigit, Get-ReversedMap
