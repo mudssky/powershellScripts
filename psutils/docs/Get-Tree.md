@@ -2,7 +2,8 @@
 
 ## 概述
 
-`Get-Tree` 是一个PowerShell函数，用于以树状格式显示目录结构。它提供了类似于Unix `tree` 命令的功能，支持多种自定义选项。
+`Get-Tree` 是一个 PowerShell 函数，用于以树状格式显示目录结构。它提供类似 Unix
+`tree` 命令的功能，也可以返回适合继续处理的对象结构。
 
 ## 功能特性
 
@@ -17,7 +18,7 @@
 ## 语法
 
 ```powershell
-Get-Tree [[-Path] <String>] [-MaxDepth <Int32>] [-ShowFiles <Boolean>] [-ShowHidden <Boolean>] [-Exclude <String[]>] [-MaxItems <Int32>]
+Get-Tree [[-Path] <String>] [-MaxDepth <Int32>] [-ShowFiles <Boolean>] [-ShowHidden <Boolean>] [-Exclude <String[]>] [-MaxItems <Int32>] [-UseGitignore <Boolean>] [-AsObject <Boolean>]
 ```
 
 ## 参数说明
@@ -25,11 +26,13 @@ Get-Tree [[-Path] <String>] [-MaxDepth <Int32>] [-ShowFiles <Boolean>] [-ShowHid
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `Path` | String | "." | 要显示树状结构的目录路径 |
-| `MaxDepth` | Int32 | 3 | 最大显示深度，-1表示无限深度 |
+| `MaxDepth` | Int32 | 3 | 最大显示深度，0 表示无限深度 |
 | `ShowFiles` | Boolean | $true | 是否显示文件 |
 | `ShowHidden` | Boolean | $false | 是否显示隐藏文件和目录 |
 | `Exclude` | String[] | @() | 要排除的文件或目录名称模式（支持通配符） |
 | `MaxItems` | Int32 | 50 | 每个目录中显示的最大项目数 |
+| `UseGitignore` | Boolean | $true | 是否读取 `.gitignore` 并过滤匹配项 |
+| `AsObject` | Boolean | $false | 是否返回目录树对象而不是写入彩色控制台输出 |
 
 ## 使用示例
 
@@ -50,7 +53,7 @@ Get-Tree -Path "C:\Users"
 Get-Tree -MaxDepth 2
 
 # 显示所有层级（无限深度）
-Get-Tree -MaxDepth -1
+Get-Tree -MaxDepth 0
 ```
 
 ### 只显示目录结构
@@ -91,6 +94,17 @@ Get-Tree -MaxItems 10
 Get-Tree -Path "./src" -MaxDepth 4 -ShowFiles $true -Exclude @("*.min.js", "node_modules") -MaxItems 20
 ```
 
+### 返回对象
+
+```powershell
+# 返回可继续筛选或转换为 JSON 的目录树对象
+$tree = Get-Tree -Path './src' -MaxDepth 2 -AsObject $true
+$tree | ConvertTo-Json -Depth 20
+
+# 忽略当前目录的 .gitignore 规则
+Get-Tree -Path './src' -UseGitignore $false
+```
+
 ## 颜色说明
 
 - 🔵 **蓝色**: 目录
@@ -125,10 +139,10 @@ C:\MyProject
 
 ## 安装和使用
 
-1. 确保 `functions.psm1` 模块已加载：
+1. 从仓库根目录导入规范 manifest：
 
    ```powershell
-   Import-Module "path\to\functions.psm1"
+   Import-Module ./psutils/psutils.psd1 -Force
    ```
 
 2. 使用函数：

@@ -32,6 +32,7 @@
 * 修改 coverage 规则、Pester 配置或跨平台测试策略时，回到根目录执行完整 PowerShell 测试规则。
 * 修改 nested module 依赖时，至少用“单独导入消费模块后调用其公共函数”的测试覆盖，防止聚合 manifest 掩盖兄弟模块命令不可见问题。
 * 修改模块入口或公共导出时，至少运行 `psutils/tests/moduleContract.Tests.ps1`，并确认仓库生产脚本和示例不再导入 `index.psm1`。
+* 修改 README、`docs`、`examples` 或活动 demo 时，运行 `psutils/tests/documentation.Tests.ps1`，确认 manifest 事实、脚本 AST、字面量导入路径和无副作用 smoke 示例一致。
 
 ## Guidelines
 

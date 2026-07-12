@@ -18,10 +18,10 @@
 
 ## Acceptance Criteria
 
-- [ ] README 的版本、支持范围、入口、模块能力和测试命令与代码一致。
-- [ ] 所有保留 example/demo 的模块路径存在；可安全执行的示例通过 smoke 检查。
-- [ ] 文档不再把弃用 API 描述为推荐方案。
-- [ ] 文案之外的 PowerShell 改动通过包级与根级 QA。
+- [x] README 的版本、支持范围、入口、模块能力和测试命令与代码一致。
+- [x] 所有保留 example/demo 的模块路径存在；可安全执行的示例通过 smoke 检查。
+- [x] 文档不再把弃用 API 描述为推荐方案。
+- [x] 文案之外的 PowerShell 改动通过包级与根级 QA。
 
 ## Out of Scope
 

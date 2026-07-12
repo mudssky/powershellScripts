@@ -3,7 +3,7 @@
   "name": "psutils-docs-examples",
   "title": "修复 psutils 文档与示例可靠性",
   "description": "同步 README、帮助、docs、examples 和 demo，并增加无副作用的可执行性检查。",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

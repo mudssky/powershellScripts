@@ -3,15 +3,32 @@
     Get-Tree函数使用示例
 .DESCRIPTION
     此脚本演示了Get-Tree函数的各种使用方法和参数选项。
-.NOTES
-    作者: PowerShell Scripts
-    版本: 1.0.0
-    创建日期: 2025-01-10
-    用途: 演示Get-Tree函数的功能
+
+.PARAMETER SmokeTest
+    只显示 examples 目录的一层结构，用于自动 smoke 检查。
+
+.OUTPUTS
+    无。树结构直接写入控制台。
+
+.EXAMPLE
+    ./tree-examples.ps1
+    依次演示 Get-Tree 的常用参数。
+
+.EXAMPLE
+    ./tree-examples.ps1 -SmokeTest
+    执行无副作用的最小 smoke 检查。
 #>
+param(
+    [switch]$SmokeTest
+)
 
 # 示例使用规范 manifest，确保与真实模块导出契约一致。
 Import-Module "$PSScriptRoot\..\psutils.psd1" -Force
+
+if ($SmokeTest) {
+    Get-Tree -Path $PSScriptRoot -MaxDepth 1 -MaxItems 5
+    return
+}
 
 Write-Host "=== Get-Tree 函数使用示例 ===" -ForegroundColor Green
 Write-Host ""
