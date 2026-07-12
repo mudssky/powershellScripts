@@ -37,11 +37,21 @@ pwshfmt-rs <check|write> [--git-changed] [--path <path>] [--recurse]
 - lint-staged 的格式化 glob 使用 `{,!(archive)/**/}*.<ext>` 形态；全文件安全扫描 pattern 保持 `*`。
 - `pwshfmt-rs` 的 `exclude_paths` 同时作用于显式路径、递归遍历和 Git changed discovery；目录遍历必须在进入归档子树前剪枝。
 
+### Monorepo package 归档门禁
+
+- package 归档前必须确认用户可见功能已停用、已被替代或明确不再需要；“低频使用”、“长期未改动”不是充分条件。
+- 资格审计必须覆盖 workspace 配置与 lockfile importer、跨包依赖、构建/测试/QA、CLI 与发布入口、脚本包装器、CI/Dependabot、IDE workspace、活动文档和 package 级规范。
+- 仍有活动调用者、未迁移兼容入口、安装或发布路径时必须停止归档；先迁移或明确下线，再重新运行 `plan`。
+- package 移入 `archive/<原路径>` 后必须退出 workspace 发现、lockfile importer、根 QA/CI、依赖更新、IDE workspace 和活动 package 规范；仅历史任务记录可保留原引用。
+- package 专用包装器或规范若已失去活动价值，应作为独立索引项按各自原路径镜像归档，不并入 package 目录或直接删除。
+- 恢复 package 时除反向 `git mv` 和删除索引项外，还必须恢复 workspace/lockfile、调用入口、CI/QA、IDE 和活动规范，然后重跑 package 与根目录质量门禁。
+
 ## 4. Validation & Error Matrix
 
 | 条件 | 预期结果 |
 |---|---|
 | 候选仍有活动代码、测试或安装引用 | 不迁移，恢复为待确认状态 |
+| package 仍被 workspace、lockfile、CI、发布或 IDE 发现 | 先清理活动引用并重新 `plan` |
 | 目标不是 `archive/<原路径>` | 拒绝迁移，先修正镜像路径 |
 | `archive` 未显式传入 `--execute` | 拒绝修改，要求先审阅 `plan` 输出 |
 | 索引存在重复 ID、源路径或归档路径 | 校验失败，不执行移动 |
@@ -70,6 +80,7 @@ pwshfmt-rs <check|write> [--git-changed] [--path <path>] [--recurse]
 - Config：Biome、rumdl、Ruff、lint-staged 和 notebook cleanup 均有根 archive 排除证据；lint-staged 的安全扫描仍匹配归档路径。
 - Repository：`archive_project.py check` 通过；源路径消失、目标路径存在、未批准对象保持原位，`git check-ignore` 不命中归档文件。
 - Repository：批量 plan 的稳定 ID 无重复；目录候选的 ignored/untracked 清单为空，或每个对象都有仓库外备份记录。
+- Package：workspace 列表与 lockfile 不再包含归档 package；活动代码、CI、IDE、文档和 package 规范搜索无未处理引用。
 - Gate：`pnpm qa` 与 `pnpm test:pwsh:all` 通过；提交后抽查 `git log --follow -- archive/<file>`。
 
 ## 7. Wrong vs Correct

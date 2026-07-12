@@ -107,7 +107,6 @@ renameLegal.ps1 -reverse
 
 | 脚本名 | 描述 | 关键词 |
 |--------|------|--------|
-| Compare-JsonFiles.ps1 | JSON文件对比脚本 | json, compare, diff |
 | Invoke-PackageSourceBootstrap.ps1 | Windows PowerShell 5.1 的 winget Stage 0 source helper | bootstrap, winget, source, windows |
 | Switch-Mirrors.ps1 | 跨平台 package source 计划、事务、状态与恢复入口 | mirror, source, transaction, restore |
 | InstallOrchestrator.psm1 | Core/Full 步骤选择、依赖传播、source cleanup 与 Text/JSON 汇总模块 | install, orchestrator, preset, resume |

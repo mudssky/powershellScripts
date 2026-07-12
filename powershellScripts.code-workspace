@@ -31,10 +31,6 @@
     {
       "name": "ai",
       "path": "ai"
-    },
-    {
-      "name": "json-diff-tool",
-      "path": "projects/clis/json-diff-tool"
     }
   ],
   "settings": {

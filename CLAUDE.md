@@ -81,13 +81,10 @@ root/
 │   ├── config/aliases/           # User alias definitions
 │   └── installer/                # App/module/font installation scripts
 ├── projects/clis/                # Standalone CLI tools (pnpm workspace packages)
-│   ├── pwshfmt-rs/               # Rust-based PowerShell formatter
-│   │   ├── src/                  # Rust source (formatter, discovery, processor)
-│   │   ├── tests/                # Rust integration tests
-│   │   └── package.json          # npm wrapper for Turbo (cargo commands)
-│   └── json-diff-tool/           # TypeScript JSON/JSONC/JSON5 diff CLI
-│       ├── src/                  # TypeScript source
-│       └── tests/                # Vitest tests
+│   └── pwshfmt-rs/               # Rust-based PowerShell formatter
+│       ├── src/                  # Rust source (formatter, discovery, processor)
+│       ├── tests/                # Rust integration tests
+│       └── package.json          # npm wrapper for Turbo (cargo commands)
 ├── config/                       # Software configurations
 │   ├── software/mpv/             # MPV player config + TypeScript scripts
 │   ├── clash/                    # Proxy configs
@@ -241,7 +238,6 @@ For pwsh-related changes under `scripts/pwsh/**`, `profile/**`, `psutils/**`, `t
 Each workspace package defines its own `qa` script:
 
 - **scripts/node**: `typecheck:fast && check && test:fast`
-- **projects/clis/json-diff-tool**: `typecheck:fast && check && test:fast`
 - **projects/clis/pwshfmt-rs**: `cargo check && cargo clippy && cargo test`
 
 ### Node.js Build (scripts/node)

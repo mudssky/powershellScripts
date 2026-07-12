@@ -890,6 +890,39 @@
         "kind": "note",
         "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
       }
+    },
+    {
+      "id": "batch-10-trellis-spec-json-diff-tool",
+      "batch": 10,
+      "source": ".trellis/spec/json-diff-tool",
+      "archive": "archive/.trellis/spec/json-diff-tool",
+      "reason": "JSON 对比工具已停止使用且无活动依赖",
+      "replacement": {
+        "kind": "note",
+        "text": "功能已停用，仅供历史参考"
+      }
+    },
+    {
+      "id": "batch-10-projects-clis-json-diff-tool",
+      "batch": 10,
+      "source": "projects/clis/json-diff-tool",
+      "archive": "archive/projects/clis/json-diff-tool",
+      "reason": "JSON 对比工具已停止使用且无活动依赖",
+      "replacement": {
+        "kind": "note",
+        "text": "功能已停用，仅供历史参考"
+      }
+    },
+    {
+      "id": "batch-10-scripts-pwsh-misc-compare-jsonfiles-ps1",
+      "batch": 10,
+      "source": "scripts/pwsh/misc/Compare-JsonFiles.ps1",
+      "archive": "archive/scripts/pwsh/misc/Compare-JsonFiles.ps1",
+      "reason": "JSON 对比工具已停止使用且无活动依赖",
+      "replacement": {
+        "kind": "note",
+        "text": "功能已停用，仅供历史参考"
+      }
     }
   ]
 }
