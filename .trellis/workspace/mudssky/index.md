@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 34
+- **Total Sessions**: 35
 - **Last Active**: 2026-07-12
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1152 | Active |
+| `journal-1.md` | ~1185 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 35 | 2026-07-12 | 归档通用与历史文档 | `fc5b2cf` | `master` |
 | 34 | 2026-07-12 | 优化换源测试隔离与性能 | `a8a9988` | `master` |
 | 33 | 2026-07-12 | Arch Linux Core 支持与旧目录归档 | `e7683af`, `b0dba43` | `master` |
 | 32 | 2026-07-12 | 归档 PromptX Trae 与 OpenSpec | `bca88cb` | `master` |

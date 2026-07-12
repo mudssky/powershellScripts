@@ -1150,3 +1150,36 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 35: 归档通用与历史文档
+
+**Date**: 2026-07-12
+**Task**: 归档通用与历史文档
+**Branch**: `master`
+
+### Summary
+
+审计根 docs，保留 29 个仓库相关文档，将 133 个通用与历史文档迁入 archive/docs；修复活动链接，更新归档索引与中文路径、未跟踪文件归档规范，并通过完整 QA 与 PowerShell 跨平台测试。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `fc5b2cf` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
