@@ -121,7 +121,9 @@ function Get-GpuInfo {
                                     return @{ HasGpu = $true; VramGB = [math]::Round($regMaxBytes / 1GB, 1); GpuType = $gpuType; GpuModel = $regModel }
                                 }
                             }
-                            catch { }
+                            catch {
+                                Write-Verbose "读取 Windows GPU 注册表回退信息失败，继续其他探测: $($_.Exception.Message)"
+                            }
 
                         }
 

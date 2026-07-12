@@ -265,15 +265,22 @@ function Set-Proxy {
 
                 # 自动尝试连接默认端口，如果通了就开启
                 $endpoint = Get-ProxyEndpoint -InputTarget $null -InputPort $null
+                $client = $null
                 try {
                     $client = New-Object System.Net.Sockets.TcpClient
                     $connect = $client.BeginConnect($endpoint.Host, [int]$endpoint.Port, $null, $null)
                     if ($connect.AsyncWaitHandle.WaitOne(50)) {
                         Set-Proxy -Command "on"
                     }
-                    $client.Close()
                 }
-                catch {}
+                catch {
+                    Write-Verbose "自动代理探测失败，保持直连状态: $($_.Exception.Message)"
+                }
+                finally {
+                    if ($null -ne $client) {
+                        $client.Close()
+                    }
+                }
             }
 
             { $_ -in "status", "info", "show" } {

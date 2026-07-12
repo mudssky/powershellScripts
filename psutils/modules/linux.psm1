@@ -13,7 +13,10 @@
     远程Linux主机的地址或域名。
 
 .PARAMETER Passphrase
-    生成私钥时使用的口令；默认生成无口令密钥。
+    已弃用的兼容参数。为避免口令出现在原生进程参数中，仅允许空字符串；非空值会被拒绝。
+
+.PARAMETER PromptForPassphrase
+    让 ssh-keygen 在终端中交互式读取口令。启用后不会向原生进程参数传递 `-N`。
 
 .OUTPUTS
     System.Boolean
@@ -25,8 +28,20 @@
 
 .NOTES
     需要确保本地已安装SSH客户端，且远程主机可以通过SSH访问。
+    非空口令必须使用 PromptForPassphrase 交互输入，不能通过 Passphrase 参数传递。
 #>
 function Set-SSHKeyAuth {
+    [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+        'PSAvoidUsingUsernameAndPasswordParams',
+        '',
+        Justification = 'Passphrase 仅作为旧参数名兼容且拒绝非空值；远程用户不与认证密码组合使用。'
+    )]
+    [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+        'PSAvoidUsingPlainTextForPassword',
+        '',
+        Justification = 'Passphrase 仅允许空字符串，非空口令必须由 ssh-keygen 交互读取。'
+    )]
+    [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]
     param (
         [Parameter(Mandatory = $true)]
         [string]$RemoteUser,
@@ -35,13 +50,39 @@ function Set-SSHKeyAuth {
         [string]$RemoteHost,
 
         [Parameter(Mandatory = $false)]
-        [string]$Passphrase = '""'
+        [AllowEmptyString()]
+        [string]$Passphrase = '',
+
+        [Parameter(Mandatory = $false)]
+        [switch]$PromptForPassphrase
     )
 
     try {
+        if (-not [string]::IsNullOrEmpty($Passphrase)) {
+            throw '为避免口令暴露在进程参数中，不再支持非空 Passphrase。请改用 PromptForPassphrase 交互输入。'
+        }
+        if ($PromptForPassphrase -and $PSBoundParameters.ContainsKey('Passphrase')) {
+            throw 'PromptForPassphrase 与 Passphrase 不能同时使用。'
+        }
+        if ($RemoteUser.StartsWith('-') -or $RemoteUser -match '[@\s]') {
+            throw 'RemoteUser 不能以连字符开头，也不能包含空白或 @。'
+        }
+        if ($RemoteHost.StartsWith('-') -or $RemoteHost -match '[@\s]') {
+            throw 'RemoteHost 不能以连字符开头，也不能包含空白或 @。'
+        }
+
         # 检查SSH客户端是否安装
         if (-not (Get-Command ssh-keygen -ErrorAction SilentlyContinue)) {
             throw "未找到SSH客户端，请确保已安装SSH工具。"
+        }
+        if (-not (Get-Command ssh -ErrorAction SilentlyContinue)) {
+            throw "未找到ssh命令，请确保已安装SSH工具。"
+        }
+        if (-not $PSCmdlet.ShouldProcess(
+                "$RemoteUser@$RemoteHost",
+                '生成本地 SSH 密钥并追加远程 authorized_keys'
+            )) {
+            return $false
         }
 
         # 检查远程主机连接性
@@ -49,29 +90,38 @@ function Set-SSHKeyAuth {
             throw "无法连接到远程主机 $RemoteHost"
         }
 
-        # 检查并创建.ssh目录
-        $sshDir = "$env:USERPROFILE\.ssh"
-        if (-not (Test-Path $sshDir)) {
+        if ([string]::IsNullOrWhiteSpace($HOME)) {
+            throw '无法确定当前用户 HOME 目录。'
+        }
+
+        # PowerShell 的 HOME 在 Windows、Linux 和 macOS 上都指向当前用户主目录。
+        $sshDir = Join-Path $HOME '.ssh'
+        if (-not (Test-Path -LiteralPath $sshDir)) {
             New-Item -ItemType Directory -Path $sshDir -Force | Out-Null
         }
 
         # 生成 SSH 密钥
-        $keyPath = "$sshDir\id_rsa"
-        if (Test-Path $keyPath) {
+        $keyPath = Join-Path $sshDir 'id_rsa'
+        if (Test-Path -LiteralPath $keyPath) {
             $confirmation = Read-Host "SSH密钥已存在。是否要覆盖？(Y/N)"
             if ($confirmation -ne 'Y') {
                 throw "操作已取消"
             }
         }
         
-        $result = ssh-keygen -t rsa -b 4096 -f $keyPath -N $Passphrase -q
+        $keygenArgs = @('-t', 'rsa', '-b', '4096', '-f', $keyPath, '-q')
+        if (-not $PromptForPassphrase) {
+            $keygenArgs += @('-N', '')
+        }
+
+        $result = ssh-keygen @keygenArgs
         if ($LASTEXITCODE -ne 0) {
             throw "生成SSH密钥失败: $result"
         }
 
         # 复制公钥到远程主机
         try {
-            Get-Content "$keyPath.pub" | ssh $RemoteUser@$RemoteHost `
+            Get-Content -LiteralPath "$keyPath.pub" | ssh $RemoteUser@$RemoteHost `
                 "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
             if ($LASTEXITCODE -ne 0) {
                 throw "复制公钥到远程主机失败"

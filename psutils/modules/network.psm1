@@ -22,23 +22,34 @@ function Test-PortOccupation {
     检查端口 8080 是否被占用。
 
 .NOTES
-    此函数通过 `Get-NetTCPConnection` cmdlet 检查本地 TCP 连接来判断端口占用情况。
-    它会忽略状态为 "TimeWait" 的连接，以避免误报。
+    此函数通过 .NET `IPGlobalProperties` 检查 TCP 监听器和活动连接，兼容 Windows、Linux 和 macOS。
+    活动连接检查会忽略 TimeWait 状态，以避免误报。
 
 #>
 
     [CmdletBinding()]
     param (
+        [Parameter(Mandatory)]
+        [ValidateRange(1, 65535)]
         [int]$Port
     )
-    # 检查端口占用情况
-    # 获取使用指定端口的TCP连接
-    $tcpConnection = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue | Where-Object { $_.State -ne "TimeWait" }
 
-    if ($tcpConnection) {
-        return $true
+    try {
+        $properties = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties()
+        foreach ($listener in $properties.GetActiveTcpListeners()) {
+            if ($listener.Port -eq $Port) {
+                return $true
+            }
+        }
+        foreach ($connection in $properties.GetActiveTcpConnections()) {
+            if ($connection.State -ne [System.Net.NetworkInformation.TcpState]::TimeWait -and $connection.LocalEndPoint.Port -eq $Port) {
+                return $true
+            }
+        }
+        return $false
     }
-    else {
+    catch {
+        Write-Error "检查 TCP 端口 $Port 时失败: $($_.Exception.Message)"
         return $false
     }
 }
@@ -65,13 +76,21 @@ function Get-PortProcess {
 .NOTES
     此函数结合使用 `Get-NetTCPConnection` 和 `Get-Process` cmdlet 来获取完整的进程信息。
     它会忽略状态为 "TimeWait" 的连接。
+    当前仅支持提供 Get-NetTCPConnection 的 Windows 环境；其他平台会返回明确错误。
 
 #>
 
     [CmdletBinding()]
     param (
+        [Parameter(Mandatory)]
+        [ValidateRange(1, 65535)]
         [int]$Port
     )
+
+    if (-not (Get-Command Get-NetTCPConnection -ErrorAction SilentlyContinue)) {
+        Write-Error 'Get-PortProcess 当前需要 Windows Get-NetTCPConnection；非 Windows 平台请使用系统级端口诊断工具。'
+        return $null
+    }
 	
     # 获取使用指定端口的TCP连接
     $tcpConnection = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue | Where-Object { $_.State -ne "TimeWait" }
@@ -116,8 +135,8 @@ function Wait-ForURL {
 .PARAMETER Interval
     可选参数。检查 URL 可达性的时间间隔（秒）。默认为 2 秒。
 
-.PARAMETER Verbose
-    可选参数。是否输出详细信息。默认为 $false。
+.PARAMETER ShowOutput
+    是否向终端显示成功和超时状态，默认为 false。
 
 .OUTPUTS
     布尔值。如果 URL 在超时时间内可达，则返回 $true；否则返回 $false。
@@ -127,7 +146,7 @@ function Wait-ForURL {
     等待 `http://localhost:8080/health` 在 60 秒内变得可达，每 5 秒检查一次。
 
 .EXAMPLE
-    Wait-ForURL -DevToolsUrl "http://localhost:3000" -Verbose $true
+    Wait-ForURL -DevToolsUrl "http://localhost:3000" -Verbose
     等待 URL 可达并输出详细信息。
 
 .NOTES
@@ -140,8 +159,10 @@ function Wait-ForURL {
     [CmdletBinding()]
     param (
         [string]$DevToolsUrl = "http://localhost:9222/json", # DevTools 协议的 JSON 端点
-        [int]$Timeout = 30, # 超时时间（秒）
-        [int]$Interval = 2,    # 检查间隔（秒）
+        [ValidateRange(0.1, 3600)]
+        [double]$Timeout = 30, # 超时时间（秒）
+        [ValidateRange(0.1, 3600)]
+        [double]$Interval = 2,    # 检查间隔（秒）
         [bool]$ShowOutput = $false # 是否显示输出信息
     )
 
@@ -152,7 +173,8 @@ function Wait-ForURL {
 
     while ($true) {
         try {
-            $response = Invoke-RestMethod -Uri $DevToolsUrl -Method Get -TimeoutSec $Interval
+            $requestTimeout = [math]::Max(1, [math]::Ceiling($Interval))
+            $response = Invoke-RestMethod -Uri $DevToolsUrl -Method Get -TimeoutSec $requestTimeout
             if ($response) {
                 if ($ShowOutput) {
                     Write-Host "浏览器已启动并响应 $DevToolsUrl" -ForegroundColor Green
@@ -161,7 +183,7 @@ function Wait-ForURL {
             }
         }
         catch {
-            # 连接失败时不做任何处理
+            Write-Verbose "URL 检查失败，将继续重试: $($_.Exception.Message)"
         }
 
         $elapsedTime = (Get-Date) - $startTime

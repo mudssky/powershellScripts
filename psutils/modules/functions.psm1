@@ -5,8 +5,10 @@
     获取PowerShell历史命令的使用频率排名
 .DESCRIPTION
     此函数分析PowerShell历史命令文件，统计每个命令的执行次数，并按频率降序排列，显示前N个最常用的命令及其使用百分比。
-.PARAMETER top
+.PARAMETER Top
     要显示的历史命令数量，默认为10。
+.PARAMETER HistoryPath
+    可选的 PSReadLine 历史文件路径。省略时从 Get-PSReadLineOption 获取当前会话配置。
 .OUTPUTS
     System.Management.Automation.PSObject
     包含命令名称、执行次数和使用百分比的格式化表格。
@@ -21,12 +23,43 @@
     版本: 1.0.0
     创建日期: 2025-01-07
     用途: 帮助用户了解其PowerShell命令使用习惯。
-    历史命令文件路径: $env:USERPROFILE\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt
+    默认使用 PSReadLine 报告的 HistorySavePath，兼容 Windows、Linux 和 macOS。
 #>
-function Get-HistoryCommandRank([int]$top = 10) {
-    $count = 0; Get-Content  $env:USERPROFILE\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt | 
-        ForEach-Object { ($_ -split ' ')[0]; $count += 1 } | 
-        Group-Object | Sort-Object -Property Count  -Descending  -Top $top |
+function Get-HistoryCommandRank {
+    [CmdletBinding()]
+    param(
+        [ValidateRange(1, 1000)]
+        [int]$Top = 10,
+
+        [string]$HistoryPath
+    )
+
+    if ([string]::IsNullOrWhiteSpace($HistoryPath)) {
+        try {
+            $HistoryPath = (Get-PSReadLineOption -ErrorAction Stop).HistorySavePath
+        }
+        catch {
+            Write-Verbose "无法获取 PSReadLine 历史文件路径: $($_.Exception.Message)"
+            return
+        }
+    }
+    if ([string]::IsNullOrWhiteSpace($HistoryPath) -or -not (Test-Path -LiteralPath $HistoryPath -PathType Leaf)) {
+        Write-Verbose "历史文件不存在: $HistoryPath"
+        return
+    }
+
+    $commands = @(
+        Get-Content -LiteralPath $HistoryPath -ErrorAction Stop |
+            ForEach-Object { ($_ -split ' ')[0] } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+    )
+    if ($commands.Count -eq 0) {
+        return
+    }
+
+    $count = $commands.Count
+    $commands |
+        Group-Object | Sort-Object -Property Count -Descending -Top $Top |
         Format-Table -Property Name, Count, @{Label = "Percentage"; Expression = { '{0:p2}' -f ($_.Count / $count) } } -AutoSize
 }
 
@@ -113,10 +146,18 @@ function Start-PSReadline() {
     - Ctrl+E: 立即执行选中命令
     - Ctrl+Y: 复制选中命令到剪贴板
     默认会对历史去重，并优先保留最近一次出现的命令。
+.NOTES
+    Ctrl+E 分支会执行用户本地 PSReadLine 历史文件中经 fzf 明确选中的命令。
+    这是用户显式触发的动态执行边界，不接收网络结果或其他外部命令文本。
 .OUTPUTS
     无
 #>
 function Invoke-FzfHistorySmart {
+    [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+        'PSAvoidUsingInvokeExpression',
+        '',
+        Justification = '仅在用户按 Ctrl+E 后执行本地 PSReadLine 历史中明确选中的命令。'
+    )]
     [CmdletBinding()]
     param()
 
@@ -199,6 +240,7 @@ function Invoke-FzfHistorySmart {
         'ctrl-e' {
             Write-Host "`n[Running]: $selection" -ForegroundColor Cyan
             try {
+                # 动态文本仅来自本地历史文件，并且必须由用户通过 Ctrl+E 明确触发。
                 Invoke-Expression $selection
             }
             catch {

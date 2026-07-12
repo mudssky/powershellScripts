@@ -348,6 +348,16 @@ Describe "Set-Proxy 函数测试" -Tag 'Proxy' {
                 $TypeName -eq 'System.Net.Sockets.TcpClient'
             }
         }
+
+        It "auto 探测失败时通过 Verbose 提供诊断" {
+            Mock -ModuleName proxy New-Object {
+                throw "tcp unavailable"
+            } -ParameterFilter { $TypeName -eq 'System.Net.Sockets.TcpClient' }
+
+            $output = Set-Proxy -Command "auto" -Verbose 4>&1
+
+            ($output | Out-String) | Should -Match '自动代理探测失败'
+        }
     }
 
     Context "环境变量默认值" {

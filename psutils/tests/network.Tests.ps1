@@ -6,34 +6,36 @@
     使用Pester框架测试网络工具功能的各种场景
 #>
 
-Describe "Test-PortOccupation 函数测试" -Tag 'Network', 'Slow', 'windowsOnly' {
+Describe "Test-PortOccupation 函数测试" -Tag 'Network' {
     BeforeAll {
         Import-Module "$PSScriptRoot\..\modules\network.psm1" -Force
-        $script:occupiedPort = Get-NetTCPConnection | Where-Object { $_.State -eq "Listen" } | Select-Object -First 1 -ExpandProperty LocalPort
+        $script:listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+        $script:listener.Start()
+        $script:occupiedPort = ([System.Net.IPEndPoint]$script:listener.LocalEndpoint).Port
+    }
+
+    AfterAll {
+        $script:listener.Stop()
     }
 
     Context "端口占用检测" {
         It "应该能够检测到已占用的端口" {
-            if ($script:occupiedPort) {
-                $result = Test-PortOccupation -Port $script:occupiedPort
-                $result | Should -Be $true
-            }
-            else {
-                Set-ItResult -Skipped -Because "没有找到被占用的端口进行测试"
-            }
+            $result = Test-PortOccupation -Port $script:occupiedPort
+            $result | Should -Be $true
         }
         
         It "应该能够检测到未占用的端口" {
-            # 使用一个不太可能被占用的高端口号
-            $unusedPort = 65432
+            $temporaryListener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+            $temporaryListener.Start()
+            $unusedPort = ([System.Net.IPEndPoint]$temporaryListener.LocalEndpoint).Port
+            $temporaryListener.Stop()
             $result = Test-PortOccupation -Port $unusedPort
             $result | Should -Be $false
         }
         
         It "应该正确处理无效端口号" {
-            # 测试边界值
-            { Test-PortOccupation -Port 0 } | Should -Not -Throw
-            { Test-PortOccupation -Port 65535 } | Should -Not -Throw
+            { Test-PortOccupation -Port 0 } | Should -Throw
+            { Test-PortOccupation -Port 65536 } | Should -Throw
         }
     }
 }
@@ -83,12 +85,37 @@ Describe "Get-PortProcess 函数测试" -Tag 'Network', 'Slow', 'windowsOnly' {
     }
 }
 
+Describe "Get-PortProcess 平台边界" -Tag 'Network' {
+    BeforeAll {
+        Import-Module "$PSScriptRoot\..\modules\network.psm1" -Force
+    }
+
+    It "缺少 Get-NetTCPConnection 时返回明确错误" {
+        if (Get-Command Get-NetTCPConnection -ErrorAction SilentlyContinue) {
+            Set-ItResult -Skipped -Because "当前平台提供 Get-NetTCPConnection"
+            return
+        }
+
+        $errors = @()
+        $result = Get-PortProcess -Port 8080 -ErrorAction SilentlyContinue -ErrorVariable errors
+
+        $result | Should -BeNullOrEmpty
+        ($errors | Out-String) | Should -Match '当前需要 Windows Get-NetTCPConnection'
+    }
+}
+
 Describe "Wait-ForURL 函数测试" -Tag 'Network', 'Slow' {
     BeforeAll {
         Import-Module "$PSScriptRoot\..\modules\network.psm1" -Force
     }
 
     Context "URL 可达性测试" {
+        It "重试失败时通过 Verbose 提供诊断" {
+            $output = Wait-ForURL -DevToolsUrl "http://localhost:99997" -Timeout 1 -Interval 0.5 -Verbose 4>&1
+
+            ($output | Out-String) | Should -Match 'URL 检查失败'
+        }
+
         It "应该返回布尔值类型" {
             # 测试函数返回值类型，使用快速超时和短间隔避免长时间等待
             $result = Wait-ForURL -DevToolsUrl "http://localhost:99999" -Timeout 1 -Interval 0.5

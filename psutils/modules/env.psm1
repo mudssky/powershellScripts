@@ -522,7 +522,9 @@ function Sync-PathFromBash {
                     $source = [string]$cache.source + '-cache'
                 }
             }
-            catch { }
+            catch {
+                Write-Verbose "读取 Bash PATH 缓存失败，忽略缓存并重新探测: $($_.Exception.Message)"
+            }
         }
         if ([string]::IsNullOrWhiteSpace($bashPathOutput) -and $Login) {
             $bashPathOutput = bash -lc 'echo $PATH'
@@ -557,7 +559,9 @@ function Sync-PathFromBash {
                 if (-not (Test-Path -LiteralPath $cacheDir)) { New-Item -ItemType Directory -Path $cacheDir -Force | Out-Null }
                 @{ path = $bashPathOutput; source = $source; timestamp = [DateTime]::UtcNow } | ConvertTo-Json | Set-Content -LiteralPath $cacheFile -Encoding UTF8
             }
-            catch { }
+            catch {
+                Write-Verbose "写入 Bash PATH 缓存失败，本次同步结果仍然有效: $($_.Exception.Message)"
+            }
         }
         $separator = [System.IO.Path]::PathSeparator
 

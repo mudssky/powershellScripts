@@ -1,5 +1,16 @@
 BeforeAll {
     Import-Module (Join-Path $PSScriptRoot '..' 'modules' 'functions.psm1') -Force
+    $script:CreatedFzfPlaceholder = $false
+    if (-not (Get-Command fzf -ErrorAction SilentlyContinue)) {
+        Set-Item -Path Function:\global:fzf -Value { }
+        $script:CreatedFzfPlaceholder = $true
+    }
+}
+
+AfterAll {
+    if ($script:CreatedFzfPlaceholder) {
+        Remove-Item Function:\global:fzf -ErrorAction SilentlyContinue
+    }
 }
 
 Describe "Update-Semver 函数测试" {
@@ -154,9 +165,31 @@ Describe "Get-ReversedMap 函数测试" {
 }
 
 Describe "Get-HistoryCommandRank 函数测试" {
-    It "返回历史命令排名" -Skip {
-        $result = Get-HistoryCommandRank -top 5
-        $result | Should -Not -BeNullOrEmpty
+    It "使用显式历史文件返回命令排名" {
+        $historyPath = Join-Path $TestDrive 'history.txt'
+        @('git status', 'pnpm qa', 'git status') | Set-Content -LiteralPath $historyPath
+
+        $result = Get-HistoryCommandRank -Top 2 -HistoryPath $historyPath | Out-String
+
+        $result | Should -Match 'git'
+        $result | Should -Match '2'
+    }
+
+    It "默认从 PSReadLine 读取跨平台历史文件路径" {
+        $historyPath = Join-Path $TestDrive 'psreadline-history.txt'
+        @('git status', 'git status') | Set-Content -LiteralPath $historyPath
+        Mock -ModuleName functions Get-PSReadLineOption { [PSCustomObject]@{ HistorySavePath = $historyPath } }
+
+        $result = Get-HistoryCommandRank -Top 1 | Out-String
+
+        $result | Should -Match 'git'
+        Should -Invoke Get-PSReadLineOption -ModuleName functions -Times 1 -Exactly
+    }
+
+    It "历史文件不存在时写入 Verbose 并返回空结果" {
+        $output = Get-HistoryCommandRank -HistoryPath (Join-Path $TestDrive 'missing.txt') -Verbose 4>&1
+
+        ($output | Out-String) | Should -Match '历史文件不存在'
     }
 }
 
@@ -201,6 +234,35 @@ Describe "Invoke-FzfHistorySmart 函数测试" {
         It "应该在没有 fzf 时不抛出异常" {
             Mock -ModuleName functions Get-Command { return $null } -ParameterFilter { $Name -eq "fzf" }
             { Invoke-FzfHistorySmart } | Should -Not -Throw
+        }
+    }
+
+    Context "动态执行边界" {
+        BeforeEach {
+            $script:historyPath = Join-Path $TestDrive 'fzf-history.txt'
+            @('Get-Date', 'Get-Location') | Set-Content -LiteralPath $script:historyPath
+            Mock -ModuleName functions Get-Command { [PSCustomObject]@{ Name = 'fzf' } } -ParameterFilter { $Name -eq 'fzf' }
+            Mock -ModuleName functions Get-PSReadLineOption { [PSCustomObject]@{ HistorySavePath = $script:historyPath } }
+            Mock -ModuleName functions Invoke-Expression { }
+            Mock -ModuleName functions Write-Host { }
+        }
+
+        It "只有 Ctrl+E 会执行选中的本地历史命令" {
+            Mock -ModuleName functions fzf { @('ctrl-e', 'Get-Date') }
+
+            Invoke-FzfHistorySmart
+
+            Should -Invoke Invoke-Expression -ModuleName functions -Times 1 -Exactly -ParameterFilter {
+                $Command -eq 'Get-Date'
+            }
+        }
+
+        It "普通 Enter 不执行选中的历史命令" {
+            Mock -ModuleName functions fzf { 'Get-Date' }
+
+            Invoke-FzfHistorySmart | Out-Null
+
+            Should -Invoke Invoke-Expression -ModuleName functions -Times 0 -Exactly
         }
     }
 }
