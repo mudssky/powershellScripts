@@ -1,7 +1,7 @@
 {
-  "id": "remote-provisioning-tool-selection",
-  "name": "remote-provisioning-tool-selection",
-  "title": "远程装机工具选型",
+  "id": "ansible-managed-host-preparation",
+  "name": "ansible-managed-host-preparation",
+  "title": "三平台 Ansible 被控端准备脚本",
   "description": "",
   "status": "in_progress",
   "dev_type": null,
@@ -18,11 +18,8 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [
-    "07-12-windows-psrp-bootstrap",
-    "07-12-ansible-managed-host-preparation"
-  ],
-  "parent": null,
+  "children": [],
+  "parent": "07-12-remote-provisioning-tool-selection",
   "relatedFiles": [],
   "notes": "",
   "meta": {}
