@@ -1351,3 +1351,37 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 41: 加固 psutils 运行时安全与健壮性
+
+**Date**: 2026-07-12
+**Task**: 加固 psutils 运行时安全与健壮性
+**Branch**: `master`
+
+### Summary
+
+完成 SSH 敏感参数、历史动态执行、静默异常和跨平台路径/端口边界加固；补充运行时安全规范与跨平台 Pester 回归。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `bdab443` | (see git log) |
+| `4f20665` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

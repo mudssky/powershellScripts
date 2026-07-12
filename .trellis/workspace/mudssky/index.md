@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 40
+- **Total Sessions**: 41
 - **Last Active**: 2026-07-12
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1353 | Active |
+| `journal-1.md` | ~1387 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 41 | 2026-07-12 | 加固 psutils 运行时安全与健壮性 | `bdab443`, `4f20665` | `master` |
 | 40 | 2026-07-12 | 收敛 psutils 公共 API 与模块边界 | `dca6410`, `0b1f9e6` | `master` |
 | 39 | 2026-07-12 | 完成 psutils 文档与示例可靠性修复 | `655c585`, `91694f4` | `master` |
 | 38 | 2026-07-12 | 归档 JSON 对比工具 | `d31cc56` | `master` |
