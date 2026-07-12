@@ -1419,3 +1419,38 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 43: Windows PSRP 远程 bootstrap
+
+**Date**: 2026-07-12
+**Task**: Windows PSRP 远程 bootstrap
+**Branch**: `master`
+
+### Summary
+
+实现仅绑定 Tailscale IPv4 的 Windows PSRP HTTPS bootstrap，补齐幂等、回滚、WhatIf、Pester 和 Windows PowerShell 5.1 CI 验证。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `9b78cf4` | (see git log) |
+| `ec9364c` | (see git log) |
+| `24e5a7c` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
