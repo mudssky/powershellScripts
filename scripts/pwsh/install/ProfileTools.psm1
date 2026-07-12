@@ -90,6 +90,84 @@ function Invoke-ProfileToolNativeCommand {
     }
 }
 
+function Initialize-ProfileToolFnmEnvironment {
+    <#
+    .SYNOPSIS
+        从 fnm JSON 输出初始化当前进程的 Node 运行时环境。
+
+    .PARAMETER FilePath
+        fnm 可执行文件路径或命令名。
+
+    .PARAMETER Platform
+        Windows、macOS 或 Linux，用于确定 multishell 的 Node 可执行目录。
+
+    .OUTPUTS
+        PSCustomObject。fnm 环境初始化结果。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$FilePath,
+
+        [Parameter(Mandatory)]
+        [ValidateSet('Windows', 'macOS', 'Linux')]
+        [string]$Platform
+    )
+
+    try {
+        $output = @(& $FilePath env --json 2>&1 | ForEach-Object { [string]$_ })
+        $exitCode = if ($null -eq $LASTEXITCODE) { 0 } else { [int]$LASTEXITCODE }
+        $json = ($output -join [System.Environment]::NewLine).Trim()
+        if ($exitCode -ne 0) {
+            throw "fnm env 退出码为 $exitCode$(if ($json) { ": $json" } else { '' })"
+        }
+        if ([string]::IsNullOrWhiteSpace($json)) {
+            throw 'fnm env --json 未返回环境变量'
+        }
+
+        $environment = $json | ConvertFrom-Json -ErrorAction Stop
+        $properties = @($environment.PSObject.Properties)
+        if ($properties.Count -eq 0) {
+            throw 'fnm env --json 未返回环境变量'
+        }
+
+        $environmentVariables = @{}
+        foreach ($property in $properties) {
+            $name = [string]$property.Name
+            if ($name -notmatch '^FNM_[A-Z0-9_]+$') {
+                throw "fnm env --json 包含不允许的环境变量: $name"
+            }
+            $environmentVariables[$name] = [string]$property.Value
+        }
+
+        $multishellPath = [string]$environmentVariables['FNM_MULTISHELL_PATH']
+        if ([string]::IsNullOrWhiteSpace($multishellPath)) {
+            throw 'fnm env --json 缺少 FNM_MULTISHELL_PATH'
+        }
+
+        foreach ($entry in $environmentVariables.GetEnumerator()) {
+            [System.Environment]::SetEnvironmentVariable([string]$entry.Key, [string]$entry.Value, 'Process')
+        }
+
+        # fnm 在 Windows 直接链接版本目录，Unix 则链接到包含 bin 的版本目录。
+        $nodePath = if ($Platform -eq 'Windows') { $multishellPath } else { Join-Path $multishellPath 'bin' }
+        $currentPath = [System.Environment]::GetEnvironmentVariable('PATH', 'Process')
+        $pathEntries = [System.Collections.Generic.List[string]]::new()
+        $pathEntries.Add($nodePath)
+        foreach ($entry in @($currentPath -split [System.IO.Path]::PathSeparator)) {
+            if (-not [string]::IsNullOrWhiteSpace($entry) -and $entry -ne $nodePath) {
+                $pathEntries.Add($entry)
+            }
+        }
+        [System.Environment]::SetEnvironmentVariable('PATH', ($pathEntries -join [System.IO.Path]::PathSeparator), 'Process')
+
+        return New-ProfileToolResult -Name node-environment -Status Succeeded -Message $nodePath
+    }
+    catch {
+        return New-ProfileToolResult -Name node-environment -Status Failed -Message $_.Exception.Message
+    }
+}
+
 function Invoke-ProfileToolsInstall {
     <#
     .SYNOPSIS
@@ -153,7 +231,11 @@ function Invoke-ProfileToolsInstall {
         $nodeInstall = Invoke-ProfileToolNativeCommand -Name node-install -FilePath fnm -ArgumentList @('install', '--lts')
         $results.Add($nodeInstall)
         if ($nodeInstall.Status -ne 'Failed') {
-            $results.Add((Invoke-ProfileToolNativeCommand -Name node-use -FilePath fnm -ArgumentList @('use', 'lts-latest')))
+            $nodeEnvironment = Initialize-ProfileToolFnmEnvironment -FilePath fnm -Platform $Platform
+            $results.Add($nodeEnvironment)
+            if ($nodeEnvironment.Status -ne 'Failed') {
+                $results.Add((Invoke-ProfileToolNativeCommand -Name node-use -FilePath fnm -ArgumentList @('use', 'lts-latest')))
+            }
         }
     }
 

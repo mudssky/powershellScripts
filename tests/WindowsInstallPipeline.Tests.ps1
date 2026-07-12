@@ -162,6 +162,51 @@ Describe 'Windows 声明式 package catalog' {
             $result[0].Message | Should -Be 'fixture-warning'
         }
     }
+
+    It 'Profile Tools 使用 fnm JSON 初始化非交互 Node 环境' {
+        InModuleScope ProfileTools {
+            function Invoke-FnmEnvironmentFixture {
+                Write-Output '{"FNM_MULTISHELL_PATH":"fnm-multishell","FNM_DIR":"fnm-root"}'
+                $global:LASTEXITCODE = 0
+            }
+
+            $originalPath = [System.Environment]::GetEnvironmentVariable('PATH', 'Process')
+            $originalMultishellPath = [System.Environment]::GetEnvironmentVariable('FNM_MULTISHELL_PATH', 'Process')
+            $originalFnmDir = [System.Environment]::GetEnvironmentVariable('FNM_DIR', 'Process')
+            try {
+                $result = Initialize-ProfileToolFnmEnvironment `
+                    -FilePath Invoke-FnmEnvironmentFixture `
+                    -Platform Windows
+
+                $result.Status | Should -Be 'Succeeded'
+                [System.Environment]::GetEnvironmentVariable('FNM_MULTISHELL_PATH', 'Process') |
+                    Should -Be 'fnm-multishell'
+                ([System.Environment]::GetEnvironmentVariable('PATH', 'Process') -split [System.IO.Path]::PathSeparator)[0] |
+                    Should -Be 'fnm-multishell'
+            }
+            finally {
+                [System.Environment]::SetEnvironmentVariable('PATH', $originalPath, 'Process')
+                [System.Environment]::SetEnvironmentVariable('FNM_MULTISHELL_PATH', $originalMultishellPath, 'Process')
+                [System.Environment]::SetEnvironmentVariable('FNM_DIR', $originalFnmDir, 'Process')
+            }
+        }
+    }
+
+    It 'Profile Tools 拒绝 fnm JSON 写入非 FNM 环境变量' {
+        InModuleScope ProfileTools {
+            function Invoke-UnsafeFnmEnvironmentFixture {
+                Write-Output '{"FNM_MULTISHELL_PATH":"C:\\fnm\\multishell","PATH":"C:\\unsafe"}'
+                $global:LASTEXITCODE = 0
+            }
+
+            $result = Initialize-ProfileToolFnmEnvironment `
+                -FilePath Invoke-UnsafeFnmEnvironmentFixture `
+                -Platform Windows
+
+            $result.Status | Should -Be 'Failed'
+            $result.Message | Should -Match '不允许的环境变量: PATH'
+        }
+    }
 }
 
 Describe 'Windows WSL 配置合同' {
