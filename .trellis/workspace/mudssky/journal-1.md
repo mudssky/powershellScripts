@@ -1250,3 +1250,36 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 38: 归档 JSON 对比工具
+
+**Date**: 2026-07-12
+**Task**: 归档 JSON 对比工具
+**Branch**: `master`
+
+### Summary
+
+补充 monorepo package 归档门禁，将 json-diff-tool、失效 PowerShell 包装器和包级规范迁入 Batch 10 冷归档，清理 workspace、lockfile、IDE 与活动文档引用，并通过根 QA 和 host/Linux PowerShell 全量测试。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `d31cc56` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
