@@ -892,6 +892,18 @@
       }
     },
     {
+      "id": "batch-9-psutils-demo",
+      "batch": 9,
+      "source": "psutils/demo",
+      "archive": "archive/psutils/demo",
+      "reason": "缓存演示脚本路径失效、内容重复且会清理用户缓存，不再适合作为活动示例",
+      "replacement": {
+        "kind": "path",
+        "target": "psutils/examples",
+        "text": "使用无副作用且由 smoke 测试覆盖的 psutils 示例"
+      }
+    },
+    {
       "id": "batch-10-trellis-spec-json-diff-tool",
       "batch": 10,
       "source": ".trellis/spec/json-diff-tool",
