@@ -42,7 +42,6 @@ fstab
 
 # 生成目录与本地脚本映射
 bin/
-docs/superpowers/plans/
 
 # 第三方工具生成的规则文件
 .lingma/rules/project_rules.md

@@ -29,6 +29,8 @@ pwshfmt-rs <check|write> [--git-changed] [--path <path>] [--recurse]
 - 每个索引项必须使用稳定 ID，说明替代入口；没有替代入口时明确“仅供历史参考”，不得从归档路径建立新安装或运行入口。
 - 索引路径必须使用仓库相对 POSIX 形式，且归档路径严格等于 `archive/<原路径>`。
 - 新归档先运行 `plan`；只有获得明确批准后才能运行带 `--execute` 的 `archive`。执行入口必须使用 `git mv` 并同步更新 JSON 索引。
+- 批量归档前必须检查 `make_entry_id(batch, source)` 的结果是否唯一。稳定 ID 只保留 ASCII 字母和数字，多个中文文件可能折叠为同一父路径 slug；发生冲突时保持原路径不变，把冲突项分配到后续批次。
+- 目录归档前必须检查源目录内的 ignored/untracked 文件。`git mv` 会随目录移动这些文件，但它们不属于 Git 索引事实；应先移到仓库外的可追溯备份位置，不能让它们被动进入 `archive/`。
 - 根 `archive/` 默认退出 pnpm workspace、Turbo、Pester/Vitest、Biome、rumdl、Ruff、lint-staged、notebook cleanup 和 PowerShell formatter。
 - betterleaks 等 secret 安全扫描继续覆盖归档文件，因为内容仍会进入 Git 历史。
 - Biome 使用 `files.includes` force-ignore：`["**", "!!archive"]`；普通 `!` 只排除处理但仍可能被 scanner 索引，不满足冷归档合同。
@@ -43,6 +45,8 @@ pwshfmt-rs <check|write> [--git-changed] [--path <path>] [--recurse]
 | 目标不是 `archive/<原路径>` | 拒绝迁移，先修正镜像路径 |
 | `archive` 未显式传入 `--execute` | 拒绝修改，要求先审阅 `plan` 输出 |
 | 索引存在重复 ID、源路径或归档路径 | 校验失败，不执行移动 |
+| 同批中文路径生成相同稳定 ID | 拆到不同批次后重新 `plan`，不得改名规避冲突 |
+| 源目录包含 ignored/untracked 文件 | 执行前移出仓库并记录备份位置，只归档 Git 跟踪内容 |
 | `git check-ignore archive/...` 命中 | 配置错误；归档必须保持可跟踪 |
 | 显式执行 Biome 检查归档文件 | 报告文件被配置忽略；“No files were processed” 可作为排除证据 |
 | PowerShell formatter 显式传入 `archive` | 成功快速退出，不处理文件 |
@@ -56,6 +60,8 @@ pwshfmt-rs <check|write> [--git-changed] [--path <path>] [--recurse]
 - Bad：把 `archive/` 加入 `.gitignore`，导致新索引和后续批次无法正常跟踪。
 - Bad：使用 `!!**/archive` 无差别排除所有同名子目录；根冷归档合同只要求排除顶级 `archive/`。
 - Bad：移动同时格式化旧脚本正文，降低 Git rename 识别率并引入无意义维护。
+- Bad：直接归档包含 `.env`、本地备份或 ignored 文档的整个目录，导致未跟踪内容被 `git mv` 一并带入 `archive/`。
+- Good：先用 `git ls-files --others --ignored --exclude-standard <source>` 审计未跟踪内容，移到仓库外备份，再执行已批准的归档计划。
 
 ## 6. Tests Required
 
@@ -63,6 +69,7 @@ pwshfmt-rs <check|write> [--git-changed] [--path <path>] [--recurse]
 - Pester：PowerShell wrapper 的递归模式在无 Git 环境也验证归档排除；Git 可用时补充 changed 模式断言。
 - Config：Biome、rumdl、Ruff、lint-staged 和 notebook cleanup 均有根 archive 排除证据；lint-staged 的安全扫描仍匹配归档路径。
 - Repository：`archive_project.py check` 通过；源路径消失、目标路径存在、未批准对象保持原位，`git check-ignore` 不命中归档文件。
+- Repository：批量 plan 的稳定 ID 无重复；目录候选的 ignored/untracked 清单为空，或每个对象都有仓库外备份记录。
 - Gate：`pnpm qa` 与 `pnpm test:pwsh:all` 通过；提交后抽查 `git log --follow -- archive/<file>`。
 
 ## 7. Wrong vs Correct
@@ -98,3 +105,26 @@ exclude_paths = ["archive"]
 ```
 
 理由：归档仍是可跟踪源码的一部分，但维护工具通过各自的显式合同跳过它。
+
+### 中文路径与未跟踪文件
+
+#### Wrong
+
+```bash
+python3 archive_project.py archive docs/中文一.md docs/中文二.md \
+  --batch 7 --reason "历史资料" --replacement-note "仅供历史参考" --execute
+```
+
+问题：两个路径可能生成同一个 ASCII 稳定 ID；如果源目录还含 ignored 文件，目录移动也会把它们一起带入归档。
+
+#### Correct
+
+```bash
+git ls-files --others --ignored --exclude-standard docs
+python3 archive_project.py plan docs/中文一.md --batch 7 \
+  --reason "历史资料" --replacement-note "仅供历史参考"
+python3 archive_project.py plan docs/中文二.md --batch 8 \
+  --reason "历史资料" --replacement-note "仅供历史参考"
+```
+
+理由：先隔离未跟踪内容，再用不同批次保持稳定 ID 唯一，同时不改变原文件名和镜像路径。

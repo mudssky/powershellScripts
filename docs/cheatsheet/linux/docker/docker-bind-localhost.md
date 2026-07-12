@@ -470,4 +470,4 @@ rg -n "host\\.docker\\.internal" -S .
 
 ## 相关阅读
 
-- [容器端口暴露与防护速查](../../infra/server/container-port-exposure-hardening.md)
+- [容器端口暴露与防护速查](../../../../archive/docs/cheatsheet/infra/server/container-port-exposure-hardening.md)

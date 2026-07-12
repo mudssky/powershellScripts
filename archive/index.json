@@ -329,6 +329,567 @@
         "kind": "note",
         "text": "仅供历史参考；runScripts 当前按 scripts/pwsh/misc/templates 查找模板"
       }
+    },
+    {
+      "id": "batch-7-docs-brainstorms",
+      "batch": 7,
+      "source": "docs/brainstorms",
+      "archive": "archive/docs/brainstorms",
+      "reason": "旧规划、构思与待办体系已由 Trellis 任务和规范替代",
+      "replacement": {
+        "kind": "note",
+        "text": "活动规划与任务入口位于 .trellis/tasks 和 .trellis/spec；归档内容仅供历史参考"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-readme-md",
+      "batch": 7,
+      "source": "docs/cheatsheet/README.md",
+      "archive": "archive/docs/cheatsheet/README.md",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-api",
+      "batch": 7,
+      "source": "docs/cheatsheet/api",
+      "archive": "archive/docs/cheatsheet/api",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-backend",
+      "batch": 7,
+      "source": "docs/cheatsheet/backend",
+      "archive": "archive/docs/cheatsheet/backend",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-database-sql-md",
+      "batch": 7,
+      "source": "docs/cheatsheet/database/sql.md",
+      "archive": "archive/docs/cheatsheet/database/sql.md",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-deno",
+      "batch": 7,
+      "source": "docs/cheatsheet/deno",
+      "archive": "archive/docs/cheatsheet/deno",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-frontend",
+      "batch": 7,
+      "source": "docs/cheatsheet/frontend",
+      "archive": "archive/docs/cheatsheet/frontend",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-git",
+      "batch": 7,
+      "source": "docs/cheatsheet/git",
+      "archive": "archive/docs/cheatsheet/git",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-github-actions",
+      "batch": 7,
+      "source": "docs/cheatsheet/github/actions",
+      "archive": "archive/docs/cheatsheet/github/actions",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-infra",
+      "batch": 7,
+      "source": "docs/cheatsheet/infra",
+      "archive": "archive/docs/cheatsheet/infra",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-laptop",
+      "batch": 7,
+      "source": "docs/cheatsheet/laptop",
+      "archive": "archive/docs/cheatsheet/laptop",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-linux-apt-md",
+      "batch": 7,
+      "source": "docs/cheatsheet/linux/apt.md",
+      "archive": "archive/docs/cheatsheet/linux/apt.md",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-linux-env-md",
+      "batch": 7,
+      "source": "docs/cheatsheet/linux/env.md",
+      "archive": "archive/docs/cheatsheet/linux/env.md",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-linux-network",
+      "batch": 7,
+      "source": "docs/cheatsheet/linux/network",
+      "archive": "archive/docs/cheatsheet/linux/network",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-linux-nix",
+      "batch": 7,
+      "source": "docs/cheatsheet/linux/nix",
+      "archive": "archive/docs/cheatsheet/linux/nix",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-linux-permission",
+      "batch": 7,
+      "source": "docs/cheatsheet/linux/permission",
+      "archive": "archive/docs/cheatsheet/linux/permission",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-linux-services",
+      "batch": 7,
+      "source": "docs/cheatsheet/linux/services",
+      "archive": "archive/docs/cheatsheet/linux/services",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-linux-ubuntu-package-md",
+      "batch": 7,
+      "source": "docs/cheatsheet/linux/ubuntu_package.md",
+      "archive": "archive/docs/cheatsheet/linux/ubuntu_package.md",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-linux-user",
+      "batch": 7,
+      "source": "docs/cheatsheet/linux/user",
+      "archive": "archive/docs/cheatsheet/linux/user",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-lua",
+      "batch": 7,
+      "source": "docs/cheatsheet/lua",
+      "archive": "archive/docs/cheatsheet/lua",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-macos",
+      "batch": 7,
+      "source": "docs/cheatsheet/macos",
+      "archive": "archive/docs/cheatsheet/macos",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-neovim",
+      "batch": 7,
+      "source": "docs/cheatsheet/neovim",
+      "archive": "archive/docs/cheatsheet/neovim",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-network-network-troubleshooting-md",
+      "batch": 7,
+      "source": "docs/cheatsheet/network/network-troubleshooting.md",
+      "archive": "archive/docs/cheatsheet/network/network-troubleshooting.md",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-node",
+      "batch": 7,
+      "source": "docs/cheatsheet/node",
+      "archive": "archive/docs/cheatsheet/node",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-pwsh-psreadline-md",
+      "batch": 7,
+      "source": "docs/cheatsheet/pwsh/PSReadLine.md",
+      "archive": "archive/docs/cheatsheet/pwsh/PSReadLine.md",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-pwsh-pester-md",
+      "batch": 7,
+      "source": "docs/cheatsheet/pwsh/Pester.md",
+      "archive": "archive/docs/cheatsheet/pwsh/Pester.md",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-pwsh-md",
+      "batch": 7,
+      "source": "docs/cheatsheet/pwsh/交互性.md",
+      "archive": "archive/docs/cheatsheet/pwsh/交互性.md",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-python-jupyterlab-md",
+      "batch": 7,
+      "source": "docs/cheatsheet/python/jupyterlab最佳实践.md",
+      "archive": "archive/docs/cheatsheet/python/jupyterlab最佳实践.md",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-python-jupyter-git-md",
+      "batch": 7,
+      "source": "docs/cheatsheet/python/jupyter搭配git使用.md",
+      "archive": "archive/docs/cheatsheet/python/jupyter搭配git使用.md",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-python-test",
+      "batch": 7,
+      "source": "docs/cheatsheet/python/test",
+      "archive": "archive/docs/cheatsheet/python/test",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-python-md",
+      "batch": 7,
+      "source": "docs/cheatsheet/python/请求封装最佳实践.md",
+      "archive": "archive/docs/cheatsheet/python/请求封装最佳实践.md",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-rust-rust-md",
+      "batch": 7,
+      "source": "docs/cheatsheet/rust/Rust 语法速查手册.md",
+      "archive": "archive/docs/cheatsheet/rust/Rust 语法速查手册.md",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-rust-ecosystem",
+      "batch": 7,
+      "source": "docs/cheatsheet/rust/ecosystem",
+      "archive": "archive/docs/cheatsheet/rust/ecosystem",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-rust-md",
+      "batch": 7,
+      "source": "docs/cheatsheet/rust/编译速度优化.md",
+      "archive": "archive/docs/cheatsheet/rust/编译速度优化.md",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-sheet",
+      "batch": 7,
+      "source": "docs/cheatsheet/sheet",
+      "archive": "archive/docs/cheatsheet/sheet",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-stable-diffusion",
+      "batch": 7,
+      "source": "docs/cheatsheet/stable-diffusion",
+      "archive": "archive/docs/cheatsheet/stable-diffusion",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-terminal",
+      "batch": 7,
+      "source": "docs/cheatsheet/terminal",
+      "archive": "archive/docs/cheatsheet/terminal",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-vscode-extensions",
+      "batch": 7,
+      "source": "docs/cheatsheet/vscode/extensions",
+      "archive": "archive/docs/cheatsheet/vscode/extensions",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-vscode-remote-remote-guide-md",
+      "batch": 7,
+      "source": "docs/cheatsheet/vscode/remote/remote-guide.md",
+      "archive": "archive/docs/cheatsheet/vscode/remote/remote-guide.md",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-vscode-remote-ssh-nopasswd-md",
+      "batch": 7,
+      "source": "docs/cheatsheet/vscode/remote/ssh-nopasswd.md",
+      "archive": "archive/docs/cheatsheet/vscode/remote/ssh-nopasswd.md",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-vscode-vscode-cheatsheet-md",
+      "batch": 7,
+      "source": "docs/cheatsheet/vscode/vscode-cheatsheet.md",
+      "archive": "archive/docs/cheatsheet/vscode/vscode-cheatsheet.md",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-vscode-vscode-tasks-md",
+      "batch": 7,
+      "source": "docs/cheatsheet/vscode/vscode-tasks.md",
+      "archive": "archive/docs/cheatsheet/vscode/vscode-tasks.md",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-vscode-workspace-md",
+      "batch": 7,
+      "source": "docs/cheatsheet/vscode/workspace.md",
+      "archive": "archive/docs/cheatsheet/vscode/workspace.md",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-cheatsheet-win",
+      "batch": 7,
+      "source": "docs/cheatsheet/win",
+      "archive": "archive/docs/cheatsheet/win",
+      "reason": "通用知识速查不属于本仓库活动文档边界",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-7-docs-ideation",
+      "batch": 7,
+      "source": "docs/ideation",
+      "archive": "archive/docs/ideation",
+      "reason": "旧规划、构思与待办体系已由 Trellis 任务和规范替代",
+      "replacement": {
+        "kind": "note",
+        "text": "活动规划与任务入口位于 .trellis/tasks 和 .trellis/spec；归档内容仅供历史参考"
+      }
+    },
+    {
+      "id": "batch-7-docs-plans",
+      "batch": 7,
+      "source": "docs/plans",
+      "archive": "archive/docs/plans",
+      "reason": "旧规划、构思与待办体系已由 Trellis 任务和规范替代",
+      "replacement": {
+        "kind": "note",
+        "text": "活动规划与任务入口位于 .trellis/tasks 和 .trellis/spec；归档内容仅供历史参考"
+      }
+    },
+    {
+      "id": "batch-7-docs-superpowers",
+      "batch": 7,
+      "source": "docs/superpowers",
+      "archive": "archive/docs/superpowers",
+      "reason": "旧规划、构思与待办体系已由 Trellis 任务和规范替代",
+      "replacement": {
+        "kind": "note",
+        "text": "活动规划与任务入口位于 .trellis/tasks 和 .trellis/spec；归档内容仅供历史参考"
+      }
+    },
+    {
+      "id": "batch-7-docs-todos",
+      "batch": 7,
+      "source": "docs/todos",
+      "archive": "archive/docs/todos",
+      "reason": "旧规划、构思与待办体系已由 Trellis 任务和规范替代",
+      "replacement": {
+        "kind": "note",
+        "text": "活动规划与任务入口位于 .trellis/tasks 和 .trellis/spec；归档内容仅供历史参考"
+      }
+    },
+    {
+      "id": "batch-8-docs-cheatsheet-pwsh-md",
+      "batch": 8,
+      "source": "docs/cheatsheet/pwsh/模块使用指南.md",
+      "archive": "archive/docs/cheatsheet/pwsh/模块使用指南.md",
+      "reason": "通用知识速查不属于本仓库活动文档边界；使用独立批次避免中文路径稳定 ID 冲突",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-8-docs-cheatsheet-rust-rust-md",
+      "batch": 8,
+      "source": "docs/cheatsheet/rust/rust测试指南.md",
+      "archive": "archive/docs/cheatsheet/rust/rust测试指南.md",
+      "reason": "通用知识速查不属于本仓库活动文档边界；使用独立批次避免中文路径稳定 ID 冲突",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
+    },
+    {
+      "id": "batch-8-docs-cheatsheet-rust-md",
+      "batch": 8,
+      "source": "docs/cheatsheet/rust/错误处理.md",
+      "archive": "archive/docs/cheatsheet/rust/错误处理.md",
+      "reason": "通用知识速查不属于本仓库活动文档边界；使用独立批次避免中文路径稳定 ID 冲突",
+      "replacement": {
+        "kind": "note",
+        "text": "仅供历史参考；仓库活动文档只保留与代码、配置、测试和运维入口直接相关的内容"
+      }
     }
   ]
 }
