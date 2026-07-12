@@ -45,5 +45,3 @@ bin/
 .agent/rules
 
 # Hermes Agent 的 HERMES_HOME 位于数据盘，仓库内只保留兼容旧路径的符号链接。
-/ai/agents/hermes
-/ai/agents/hermes/

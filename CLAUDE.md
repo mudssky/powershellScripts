@@ -90,7 +90,6 @@ root/
 │   ├── clash/                    # Proxy configs
 │   ├── git/                      # Git utilities
 │   └── frontend/                 # Frontend project templates
-├── ai/                           # AI tooling (prompts, MCP configs, model downloads)
 ├── docs/cheatsheet/              # Technical cheatsheets by topic
 ├── linux/                        # Linux setup scripts (Ubuntu, Arch, WSL2)
 ├── macos/                        # macOS setup scripts + Hammerspoon

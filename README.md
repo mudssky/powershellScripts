@@ -660,7 +660,6 @@ powershellScripts/
 ├── config/                  # 配置文件
 ├── archive/                 # 冷归档索引与镜像历史内容
 ├── templates/               # 脚本模板
-├── ai/                      # AI 相关工具
 ├── linux/                   # Linux 特定脚本
 ├── macos/                   # macOS 特定脚本
 ├── .vscode/                 # VS Code 配置

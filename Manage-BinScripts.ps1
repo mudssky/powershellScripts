@@ -24,7 +24,7 @@
 
 .PARAMETER Patterns
     可选的 Glob 模式列表，用于筛选需要生成 shim 的脚本。
-    例如：`scripts/pwsh/*.ps1`、`ai/**/*.ps1`
+    例如：`scripts/pwsh/*.ps1`、`scripts/python/**/*.py`
 
     如果未指定，则使用脚本内置的默认模式。
 
@@ -54,7 +54,7 @@ param(
     [string]$Action = 'sync',
     
     [Parameter(Mandatory = $false)]
-    [string[]]$Patterns = @('scripts/pwsh/**/*.ps1', 'scripts/python/*.py', 'scripts/python/**/*.py', 'ai/coding/claude/*.ps1'),
+    [string[]]$Patterns = @('scripts/pwsh/**/*.ps1', 'scripts/python/*.py', 'scripts/python/**/*.py'),
 
     [Parameter(Mandatory = $false)]
     [ValidateSet('PrefixParent', 'Overwrite', 'Skip')]

@@ -946,6 +946,50 @@
         "kind": "note",
         "text": "功能已停用，仅供历史参考"
       }
+    },
+    {
+      "id": "batch-11-trellis-spec-infra-agent-skill-dev-md",
+      "batch": 11,
+      "source": ".trellis/spec/infra/agent-skill-dev.md",
+      "archive": "archive/.trellis/spec/infra/agent-skill-dev.md",
+      "reason": "AI 工具已迁往其他仓库，对应活动规范退出本仓库",
+      "replacement": {
+        "kind": "note",
+        "text": "相关能力已迁往其他仓库；本规范仅供历史参考"
+      }
+    },
+    {
+      "id": "batch-12-trellis-spec-infra-coding-plan-window-warmer-md",
+      "batch": 12,
+      "source": ".trellis/spec/infra/coding-plan-window-warmer.md",
+      "archive": "archive/.trellis/spec/infra/coding-plan-window-warmer.md",
+      "reason": "AI 工具已迁往其他仓库，对应活动规范退出本仓库",
+      "replacement": {
+        "kind": "note",
+        "text": "相关能力已迁往其他仓库；本规范仅供历史参考"
+      }
+    },
+    {
+      "id": "batch-13-trellis-spec-infra-hermes-agent-layout-md",
+      "batch": 13,
+      "source": ".trellis/spec/infra/hermes-agent-layout.md",
+      "archive": "archive/.trellis/spec/infra/hermes-agent-layout.md",
+      "reason": "AI 工具已迁往其他仓库，对应活动规范退出本仓库",
+      "replacement": {
+        "kind": "note",
+        "text": "相关能力已迁往其他仓库；本规范仅供历史参考"
+      }
+    },
+    {
+      "id": "batch-14-trellis-spec-infra-litellm-gateway-md",
+      "batch": 14,
+      "source": ".trellis/spec/infra/litellm-gateway.md",
+      "archive": "archive/.trellis/spec/infra/litellm-gateway.md",
+      "reason": "AI 工具已迁往其他仓库，对应活动规范退出本仓库",
+      "replacement": {
+        "kind": "note",
+        "text": "相关能力已迁往其他仓库；本规范仅供历史参考"
+      }
     }
   ]
 }
