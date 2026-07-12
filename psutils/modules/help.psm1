@@ -40,6 +40,10 @@
 .PARAMETER IncludeScripts
     是否包含.ps1脚本文件的搜索
 
+.OUTPUTS
+    System.Management.Automation.PSCustomObject[]
+    返回匹配函数或脚本的帮助信息对象。
+
 .PARAMETER IncludePrivate
     是否包含私有函数（未导出的函数）
 
@@ -864,6 +868,10 @@ function Convert-HelpBlock {
 .PARAMETER IncludeScripts
     是否包含脚本文件搜索
 
+.OUTPUTS
+    System.Management.Automation.PSCustomObject[]
+    返回匹配函数或脚本的帮助信息对象。
+
 .EXAMPLE
     Find-PSUtilsFunction "install"
     搜索包含"install"的函数
@@ -877,35 +885,6 @@ function Convert-HelpBlock {
     搜索包含"config"的函数和脚本
 #>
 function Find-PSUtilsFunction {
-    <#
-    .SYNOPSIS
-        简要描述 Find-PSUtilsFunction 函数的功能
-    
-    .DESCRIPTION
-        详细描述 Find-PSUtilsFunction 函数的用途、工作原理和使用场景
-    
-    .PARAMETER SearchTerm
-        描述参数 SearchTerm 的用途和要求
-
-    .PARAMETER ShowDetails
-        描述参数 ShowDetails 的用途和要求
-
-    .PARAMETER UseGetHelp
-        描述参数 UseGetHelp 的用途和要求
-
-    .PARAMETER IncludeScripts
-        描述参数 IncludeScripts 的用途和要求
-    
-    .EXAMPLE
-        Find-PSUtilsFunction
-        提供一个使用示例和说明
-    
-    .NOTES
-        作者: [作者名]
-        版本: 1.0.0
-        创建日期: 2025-07-09
-    #>
-
     [CmdletBinding()]
     param(
         [Parameter(Position = 0)]
@@ -943,6 +922,10 @@ function Find-PSUtilsFunction {
 
 .PARAMETER IncludeScripts
     是否包含脚本文件搜索
+
+.OUTPUTS
+    System.Management.Automation.PSCustomObject[]
+    返回指定函数或脚本的详细帮助信息对象。
 
 .EXAMPLE
     Get-FunctionHelp "Install-PackageManagerApps"
@@ -1074,10 +1057,7 @@ function Test-HelpSearchPerformance {
 }
 
 # 导出函数
-Export-ModuleMember -Function Search-ModuleHelp, Find-PSUtilsFunction, Get-FunctionHelp, Test-HelpSearchPerformance, Convert-HelpBlock
-
-
-
+Export-ModuleMember -Function Search-ModuleHelp, Find-PSUtilsFunction, Get-FunctionHelp, Test-HelpSearchPerformance
 
 
 

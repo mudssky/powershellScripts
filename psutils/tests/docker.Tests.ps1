@@ -232,7 +232,9 @@ Describe 'WSL Docker wrapper helper' {
             $global:LASTEXITCODE = 0
         }
 
-        $envArgs = Get-WslDockerEnvironmentArgument -Distro 'Ubuntu-24.04'
+        $envArgs = InModuleScope docker {
+            Get-WslDockerEnvironmentArgument -Distro 'Ubuntu-24.04'
+        }
         $expectedDataPath = ConvertTo-WslDockerPath -Path $dataDir -Distro 'Ubuntu-24.04'
 
         $envArgs | Should -Contain "DATA_PATH=$expectedDataPath"

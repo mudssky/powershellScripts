@@ -12,6 +12,13 @@
 .PARAMETER RemoteHost
     远程Linux主机的地址或域名。
 
+.PARAMETER Passphrase
+    生成私钥时使用的口令；默认生成无口令密钥。
+
+.OUTPUTS
+    System.Boolean
+    SSH 密钥认证设置成功时返回 true，失败时返回 false。
+
 .EXAMPLE
     Set-SSHKeyAuth -RemoteUser "ubuntu" -RemoteHost "192.168.1.100"
     为用户ubuntu在IP为192.168.1.100的远程主机设置SSH密钥认证。

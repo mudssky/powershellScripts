@@ -974,4 +974,4 @@ function Find-FileCandidate {
     return $matches[0].FullName
 }
 
-Export-ModuleMember -Function Get-Tree, Show-TreeItem, Get-ItemColor, Get-GitignoreRules, Test-GitignoreMatch, Build-TreeObject, Get-TreeObject, ConvertTo-TreeJson, Copy-FileSystemItemSafe, New-BackupSnapshot, Get-ArchiveKind, Expand-ArchiveFile, Find-FileCandidate
+Export-ModuleMember -Function Get-Tree, Get-TreeObject, ConvertTo-TreeJson, Copy-FileSystemItemSafe, New-BackupSnapshot, Get-ArchiveKind, Expand-ArchiveFile, Find-FileCandidate

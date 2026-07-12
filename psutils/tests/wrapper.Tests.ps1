@@ -26,7 +26,7 @@ Describe "Set-CustomAlias 函数测试" {
             Set-CustomAlias -Name $testName -Value "Get-ChildItem" -Description "测试描述" -Force -Scope "Global"
 
             $alias = Get-Alias -Name $testName
-            $alias.Description | Should -Be "$($Global:DefaultAliasDespPrefix)测试描述"
+            $alias.Description | Should -Be "[用户自定义] 测试描述"
         }
 
         It "应该支持自定义前缀" {

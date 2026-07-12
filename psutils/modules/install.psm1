@@ -878,5 +878,4 @@ Export-ModuleMember -Function @(
     'Test-PackageManagerAppCatalog'
     'Install-PackageManagerApps'
     'Install-ExecutableFile'
-    'Get-PackageInstallCommand'
 )

@@ -1,3 +1,14 @@
+<#
+.SYNOPSIS
+    读取 .gitignore 中的排除模式。
+.DESCRIPTION
+    忽略空行、注释和反向规则，规范化前导与尾随斜杠，并返回去重后的模式列表。
+.PARAMETER GitIgnorePath
+    要读取的 .gitignore 文件路径，默认为当前目录下的 .gitignore。
+.OUTPUTS
+    System.String[]
+    返回可用于归档排除规则的模式数组；文件不存在或读取失败时返回空数组。
+#>
 function Get-GitIgnorePatterns {
     [CmdletBinding()]
     param(
@@ -39,6 +50,19 @@ function Get-GitIgnorePatterns {
     return (@($patterns | Select-Object -Unique))
 }
 
+<#
+.SYNOPSIS
+    生成 7-Zip 递归排除参数。
+.DESCRIPTION
+    合并内置排除项、.gitignore 模式和调用方附加模式，并转换为 7-Zip 的 -xr! 参数。
+.PARAMETER GitIgnorePath
+    要读取的 .gitignore 文件路径，默认为当前目录下的 .gitignore。
+.PARAMETER AdditionalExcludes
+    需要额外排除的文件、目录或通配模式。
+.OUTPUTS
+    System.String[]
+    返回可直接传给 7-Zip 的排除参数数组。
+#>
 function New-7ZipExcludeArgs {
     [CmdletBinding()]
     param(

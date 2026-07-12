@@ -276,7 +276,6 @@ function Register-FzfHistorySmartKeyBinding {
 
 
 
-# 设置package.json的scripts字段
 <#
 .SYNOPSIS
     设置或更新package.json文件中的scripts字段
@@ -323,7 +322,6 @@ function Set-Script {
 
 }
 
-# 更新semver字符串
 <#
 .SYNOPSIS
     更新语义化版本号（SemVer）字符串

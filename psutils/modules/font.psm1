@@ -22,8 +22,6 @@
 	用途: 用于在脚本中判断特定字体是否已安装。
 	此函数目前仅支持 Windows 操作系统。
 #>
-
-
 function Test-Font {
     [CmdletBinding()]
 	

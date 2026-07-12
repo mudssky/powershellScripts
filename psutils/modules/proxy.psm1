@@ -8,6 +8,10 @@ $internetSettingPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet
 .DESCRIPTION
     此函数用于禁用Windows系统的Internet代理设置，将ProxyEnable注册表项设置为0。
 
+.OUTPUTS
+    None
+    此函数直接修改系统代理设置，不返回对象。
+
 .EXAMPLE
     Close-Proxy
     关闭当前系统的代理设置。
@@ -36,6 +40,10 @@ function Close-Proxy() {
 
 .PARAMETER password
     代理认证所需的密码（SecureString类型，如果代理需要认证）。
+
+.OUTPUTS
+    None
+    此函数直接修改系统代理设置，不返回对象。
 
 .EXAMPLE
     Start-Proxy -URL "http://127.0.0.1:8080"
@@ -93,6 +101,10 @@ function Set-Proxy {
     
     .PARAMETER Port
         代理端口，仅在 Target 为主机时使用。
+
+    .OUTPUTS
+        None
+        此函数直接更新代理环境或配置并输出状态信息，不返回结构化对象。
 
     .EXAMPLE
         Set-Proxy on 7890

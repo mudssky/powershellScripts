@@ -1,26 +1,18 @@
-
-
+<#
+.SYNOPSIS
+    将 dotenv 文件解析为键值哈希表。
+.DESCRIPTION
+    读取指定的 .env 文件，忽略空行和注释行，并解析 KEY=VALUE 格式的配置项。
+.PARAMETER Path
+    要读取的 .env 文件绝对路径或相对路径。
+.OUTPUTS
+    System.Collections.Hashtable
+    返回从 dotenv 文件解析出的键值对。
+.EXAMPLE
+    Get-Dotenv -Path ".\project\.env"
+    读取项目目录中的 .env 文件。
+#>
 function Get-Dotenv {
-    <#
-	.SYNOPSIS
-		解析dotenv内容为键值对保存到map中
-	.DESCRIPTION
-		此函数用于读取指定路径的 .env 文件，并将其内容解析为键值对的哈希表。每行格式为 KEY=VALUE 的内容将被解析，空行和注释行（以 # 开头）将被忽略。
-	.PARAMETER Path
-		.env 文件的绝对或相对路径。
-	.OUTPUTS
-		System.Collections.Hashtable
-		返回一个哈希表，其中包含 .env 文件中解析出的所有键值对。
-	.EXAMPLE
-		Get-Dotenv -Path ".\project\.env"
-		解析当前项目目录下的 .env 文件，并返回其内容。
-	.NOTES
-		作者: PowerShell Scripts
-		版本: 1.0.0
-		创建日期: 2025-01-07
-		用途: 用于从 .env 文件中读取配置。
-	#>
-	
     [CmdletBinding()]
     param (
         # dotenv文件路径
@@ -42,39 +34,23 @@ function Get-Dotenv {
 
 
 
-# 载入.env格式文件到环境变量
+<#
+.SYNOPSIS
+    将 dotenv 配置加载到环境变量。
+.DESCRIPTION
+    读取指定的 .env 文件并写入目标环境变量范围。未指定路径时，依次查找当前目录的 .env.local 和 .env。
+.PARAMETER Path
+    要加载的 .env 文件路径；省略时使用默认文件查找顺序。
+.PARAMETER EnvTarget
+    环境变量写入范围，支持 Machine、User 和 Process，默认为 User。
+.OUTPUTS
+    None
+    此函数直接更新环境变量，不返回对象。
+.EXAMPLE
+    Install-Dotenv -Path ".\project\.env" -EnvTarget User
+    将指定文件加载到当前用户环境变量。
+#>
 function Install-Dotenv {
-    <#
-	.SYNOPSIS
-		加载dotenv文件到环境变量
-	.DESCRIPTION
-		此函数用于读取指定路径的 .env 文件，并将其内容加载到系统的环境变量中。支持将环境变量设置到机器、用户或当前进程级别。
-		如果未指定 Path，函数将尝试在当前目录查找 .env.local 或 .env 文件。
-	.PARAMETER Path
-		.env 文件的绝对或相对路径。如果未提供，函数将尝试查找默认文件。
-	.PARAMETER EnvTarget
-		指定环境变量的目标级别：
-		- Machine: 系统级环境变量，对所有用户和进程可见，需要管理员权限。
-		- User: 用户级环境变量，对当前用户的所有进程可见。
-		- Process: 进程级环境变量，仅对当前 PowerShell 进程可见。
-		默认为 'User'。
-	.OUTPUTS
-		此函数没有直接输出。成功执行后，环境变量将被设置。
-	.EXAMPLE
-		Install-Dotenv -Path ".\project\.env" -EnvTarget User
-		将指定 .env 文件的内容加载到当前用户的环境变量中。
-	.EXAMPLE
-		Install-Dotenv
-		在当前目录查找 .env.local 或 .env 文件，并将其内容加载到当前用户的环境变量中。
-	.NOTES
-		作者: PowerShell Scripts
-		版本: 1.0.0
-		创建日期: 2025-01-07
-		用途: 用于在 PowerShell 会话或系统环境中设置环境变量。
-		默认情况下，如果未指定 Path，函数会按顺序查找 .env.local 和 .env 文件。
-	#>
-	
-	
     [CmdletBinding()]
     param (
         # dotenv文件路径
@@ -132,34 +108,21 @@ function Install-Dotenv {
 
 
 
+<#
+.SYNOPSIS
+    重新加载当前会话的 PATH。
+.DESCRIPTION
+    从 Machine、User 或 Process 范围读取 PATH；All 模式会按系统级优先的顺序合并并去重。
+.PARAMETER EnvTarget
+    要读取的 PATH 范围，支持 Machine、User、Process 和 All，默认为 All。
+.OUTPUTS
+    None
+    此函数直接更新当前进程 PATH，不返回对象。
+.EXAMPLE
+    Import-EnvPath -EnvTarget User
+    仅从用户级环境变量重新加载 PATH。
+#>
 function Import-EnvPath {
-    <#
-	.SYNOPSIS
-		重新加载环境变量中的PATH
-	.DESCRIPTION
-		重新加载环境变量中的PATH，支持三种模式：
-		- Machine: 仅加载系统级PATH
-		- User: 仅加载用户级PATH  
-		- All: 合并系统级和用户级PATH（默认）
-		这样你在对应目录中新增一个exe就可以不用重启终端就能直接在终端运行了。
-	.PARAMETER EnvTarget
-		指定要重新加载的PATH类型：
-		- Machine: 仅系统级PATH
-		- User: 仅用户级PATH
-		- All: 合并系统级和用户级PATH
-	.EXAMPLE
-		Import-EnvPath
-		重新加载合并的系统级和用户级PATH（默认行为）
-	.EXAMPLE
-		Import-EnvPath -EnvTarget User
-		仅重新加载用户级PATH
-	.EXAMPLE
-		Import-EnvPath -EnvTarget Machine
-		仅重新加载系统级PATH
-	.NOTES
-		合并模式下，系统级PATH优先于用户级PATH
-	#>
-
     [CmdletBinding()]
     param (
         [ValidateSet('Machine', 'User', 'All', "Process")]
@@ -254,16 +217,20 @@ function Import-EnvPath {
 }
 
 
+<#
+.SYNOPSIS
+    设置指定范围的 PATH 环境变量。
+.DESCRIPTION
+    Windows 的 User 和 Machine 范围使用可扩展字符串写入注册表；Linux 和 macOS 仅支持 Process 范围。
+.PARAMETER PathStr
+    要写入的完整 PATH 字符串。
+.PARAMETER EnvTarget
+    PATH 的目标范围，支持 Machine、User 和 Process，默认为 User。
+.OUTPUTS
+    None
+    此函数直接更新环境变量或注册表，不返回对象。
+#>
 function Set-EnvPath {
-    <#
-    .SYNOPSIS
-        设置环境变量 Path，支持变量自动展开（如 %USERPROFILE%）
-    .DESCRIPTION
-        设置环境变量 Path。
-        对于 User/Machine 级别，会强制以 REG_EXPAND_SZ (可扩展字符串) 格式写入注册表，
-        从而解决包含 %变量% 的路径无法生效的问题。
-        注意：Linux/macOS 仅支持 Process 级别，User/Machine 级别不支持持久化设置。
-    #>
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
@@ -356,21 +323,23 @@ function Set-EnvPath {
     }
 }
 
+<#
+.SYNOPSIS
+    向 PATH 环境变量追加目录。
+.DESCRIPTION
+    将目录解析为绝对路径后追加到当前 PATH，并写入指定的环境变量范围。
+.PARAMETER Path
+    要追加到 PATH 的目录路径。
+.PARAMETER EnvTarget
+    PATH 的目标范围，支持 Machine、User 和 Process，默认为 User。
+.OUTPUTS
+    None
+    此函数直接更新 PATH，不返回对象。
+.EXAMPLE
+    Add-EnvPath -Path ".\bin" -EnvTarget User
+    将当前目录下的 bin 目录追加到用户 PATH。
+#>
 function Add-EnvPath {
-    <#
-	.SYNOPSIS
-		设置环境变量path,增加一个新的path
-	.DESCRIPTION
-		设置环境变量path，支持user path和system path
-	.NOTES
-		Information or caveats about the function e.g. 'This function is not supported in Linux'
-	.LINK
-		Specify a URI to a help page, this will show when Get-Help -Online is used.
-	.EXAMPLE
-		Get-EnvParam -ParamName 'Path' -EnvTarget User
-		获取当前用户的Path环境变量值
-
-	#>
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
@@ -397,21 +366,23 @@ function Add-EnvPath {
     }
 }
 
+<#
+.SYNOPSIS
+    读取指定范围的环境变量。
+.DESCRIPTION
+    从 Machine、User 或 Process 范围读取环境变量；默认读取用户级 Path。
+.PARAMETER ParamName
+    要读取的环境变量名称，默认为 Path。
+.PARAMETER EnvTarget
+    环境变量范围，支持 Machine、User 和 Process，默认为 User。
+.OUTPUTS
+    System.String
+    返回环境变量值；变量不存在时返回空值并写入警告。
+.EXAMPLE
+    Get-EnvParam -ParamName 'Path' -EnvTarget User
+    获取当前用户的 Path 环境变量。
+#>
 function Get-EnvParam {
-    <#
-	.SYNOPSIS
-	获取环境变量中的参数，ParamName不指定时获取Path。可以指定EnvTarget 'Machine', 'User', 'Process
-	.DESCRIPTION
-		设置环境变量path，支持user path和system path
-	.NOTES
-		Information or caveats about the function e.g. 'This function is not supported in Linux'
-	.LINK
-		Specify a URI to a help page, this will show when Get-Help -Online is used.
-	.EXAMPLE
-		Test-MyTestFunction -Verbose
-		Explanation of the function or its result. You can include multiple examples with additional .EXAMPLE lines
-
-	#>
     [CmdletBinding()]
     param (
         [string]
@@ -439,21 +410,23 @@ function Get-EnvParam {
 	
 }
 
+<#
+.SYNOPSIS
+    从 PATH 环境变量移除目录。
+.DESCRIPTION
+    将目标目录解析为绝对路径，从当前 PATH 中移除匹配项，并写入指定的环境变量范围。
+.PARAMETER Path
+    要从 PATH 中移除的目录路径。
+.PARAMETER EnvTarget
+    PATH 的目标范围，支持 Machine、User 和 Process，默认为 User。
+.OUTPUTS
+    None
+    此函数直接更新 PATH，不返回对象。
+.EXAMPLE
+    Remove-FromEnvPath -Path ".\bin" -EnvTarget User
+    从用户 PATH 中移除当前目录下的 bin 目录。
+#>
 function Remove-FromEnvPath {
-    <#
-	.SYNOPSIS
-		从环境变量path移除一个path
-	.DESCRIPTION
-		设置环境变量path，支持user path和system path
-	.NOTES
-		Information or caveats about the function e.g. 'This function is not supported in Linux'
-	.LINK
-		Specify a URI to a help page, this will show when Get-Help -Online is used.
-	.EXAMPLE
-		Test-MyTestFunction -Verbose
-		Explanation of the function or its result. You can include multiple examples with additional .EXAMPLE lines
-
-	#>
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
@@ -490,29 +463,31 @@ function Remove-FromEnvPath {
 
 
 
+<#
+.SYNOPSIS
+    将 Bash 的 PATH 同步到当前 PowerShell 会话。
+.DESCRIPTION
+    默认通过非登录 Bash 读取 .bashrc 中的 PATH，并追加当前 PowerShell 缺少的目录；也支持登录模式、缓存和预览。
+.PARAMETER Login
+    使用登录 Bash 获取 PATH。
+.PARAMETER Prepend
+    将缺失目录前置到当前 PATH；默认追加到末尾。
+.PARAMETER IncludeNonexistent
+    保留 Bash PATH 中当前不存在的目录。
+.PARAMETER ReturnObject
+    是否返回同步统计对象，默认为 true。
+.PARAMETER CacheSeconds
+    Bash PATH 缓存的有效秒数；设置为 0 可禁用缓存读取和写入。
+.PARAMETER ThrowOnFailure
+    Bash PATH 获取失败时抛出终止错误；默认仅写入警告或错误。
+.OUTPUTS
+    System.Management.Automation.PSCustomObject
+    ReturnObject 为 true 时返回同步来源、增删目录、耗时和最终 PATH；否则不返回对象。
+.EXAMPLE
+    Sync-PathFromBash -WhatIf -Verbose
+    预览非登录模式下将要追加的目录。
+#>
 function Sync-PathFromBash {
-    <#
-    .SYNOPSIS
-        同步 Bash 的 PATH（默认非登录，从 .bashrc）到当前 PowerShell 会话。
-    .DESCRIPTION
-        默认采用非登录模式（不加载 /etc/profile），通过 `bash -ci` 读取由 `.bashrc` 配置的 PATH，
-        并与 PowerShell 的 PATH 对比追加缺失项。可通过 `-Login` 开启登录模式（`bash -lc`）。
-        支持前置/后置策略、目录有效性过滤、结构化返回对象与安全预览。
-    .PARAMETER Login
-        启用登录模式（`bash -lc`），获取完整登录环境 PATH。
-    .PARAMETER Prepend
-        将缺失路径前置到 PATH 开头，使 Bash 的路径优先生效。
-    .PARAMETER IncludeNonexistent
-        允许追加不存在的目录（默认不允许）。
-    .PARAMETER ReturnObject
-        返回包含统计与结果的 `PSCustomObject`（默认 true）。
-    .EXAMPLE
-        Sync-PathFromBash -WhatIf -Verbose
-        以非登录模式预览将要变更的 PATH，不实际更改，并显示详细日志。
-    .EXAMPLE
-        Sync-PathFromBash -Login -Prepend -Verbose
-        以登录模式将 Bash 中缺失的目录前置到 PATH，适合优先使用完整登录环境。
-    #>
     [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Low')]
     param(
         [switch]$Login,

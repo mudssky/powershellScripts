@@ -146,32 +146,32 @@ Describe "Get-PackageInstallCommand 函数测试" {
 
     Context "标准包管理器" {
         It "应该生成 choco 安装命令" {
-            $result = Get-PackageInstallCommand -PackageManager "choco" -AppName "git"
+            $result = InModuleScope install { Get-PackageInstallCommand -PackageManager "choco" -AppName "git" }
             $result | Should -Be "choco install git -y"
         }
 
         It "应该生成 scoop 安装命令" {
-            $result = Get-PackageInstallCommand -PackageManager "scoop" -AppName "git"
+            $result = InModuleScope install { Get-PackageInstallCommand -PackageManager "scoop" -AppName "git" }
             $result | Should -Be "scoop install git"
         }
 
         It "应该生成 winget 安装命令" {
-            $result = Get-PackageInstallCommand -PackageManager "winget" -AppName "git"
+            $result = InModuleScope install { Get-PackageInstallCommand -PackageManager "winget" -AppName "git" }
             $result | Should -Be "winget install git"
         }
 
         It "应该生成 cargo 安装命令" {
-            $result = Get-PackageInstallCommand -PackageManager "cargo" -AppName "ripgrep"
+            $result = InModuleScope install { Get-PackageInstallCommand -PackageManager "cargo" -AppName "ripgrep" }
             $result | Should -Be "cargo install ripgrep"
         }
 
         It "应该生成 homebrew 安装命令" {
-            $result = Get-PackageInstallCommand -PackageManager "homebrew" -AppName "git"
+            $result = InModuleScope install { Get-PackageInstallCommand -PackageManager "homebrew" -AppName "git" }
             $result | Should -Be "brew install git"
         }
 
         It "应该生成 apt 安装命令" {
-            $result = Get-PackageInstallCommand -PackageManager "apt" -AppName "curl"
+            $result = InModuleScope install { Get-PackageInstallCommand -PackageManager "apt" -AppName "curl" }
             $result | Should -Be "apt install curl"
         }
     }
@@ -179,21 +179,24 @@ Describe "Get-PackageInstallCommand 函数测试" {
     Context "自定义命令" {
         It "应该优先使用自定义命令" {
             $custom = "choco install nodejs.install -y"
-            $result = Get-PackageInstallCommand -PackageManager "choco" -AppName "nodejs" -CustomCommand $custom
+            $result = InModuleScope install -Parameters @{ CustomCommand = $custom } {
+                param($CustomCommand)
+                Get-PackageInstallCommand -PackageManager "choco" -AppName "nodejs" -CustomCommand $CustomCommand
+            }
             $result | Should -Be $custom
         }
     }
 
     Context "不支持的包管理器" {
         It "应该返回 null" {
-            $result = Get-PackageInstallCommand -PackageManager "unknown_pm" -AppName "test"
+            $result = InModuleScope install { Get-PackageInstallCommand -PackageManager "unknown_pm" -AppName "test" }
             $result | Should -BeNullOrEmpty
         }
     }
 
     Context "大小写不敏感" {
         It "应该忽略包管理器名称大小写" {
-            $result = Get-PackageInstallCommand -PackageManager "SCOOP" -AppName "git"
+            $result = InModuleScope install { Get-PackageInstallCommand -PackageManager "SCOOP" -AppName "git" }
             $result | Should -Be "scoop install git"
         }
     }

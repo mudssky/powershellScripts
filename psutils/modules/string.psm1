@@ -139,4 +139,4 @@ function Convert-JsoncToJson {
 }
 
 
-Export-ModuleMember -Function *
+Export-ModuleMember -Function Get-LineBreak, Convert-JsoncToJson

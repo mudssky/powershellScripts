@@ -155,7 +155,10 @@ Describe "Convert-HelpBlock 函数测试" {
     测试示例
 "@
 
-            $result = Convert-HelpBlock -HelpBlock $helpBlock -Name "Test-Function" -FilePath "/tmp/test.psm1" -Type "Function"
+            $result = InModuleScope help -Parameters @{ HelpBlock = $helpBlock } {
+                param($HelpBlock)
+                Convert-HelpBlock -HelpBlock $HelpBlock -Name "Test-Function" -FilePath "/tmp/test.psm1" -Type "Function"
+            }
 
             $result.Name | Should -Be "Test-Function"
             $result.Synopsis | Should -Be "测试函数"
@@ -166,7 +169,9 @@ Describe "Convert-HelpBlock 函数测试" {
         }
 
         It "应该能够处理空的帮助块" {
-            $result = Convert-HelpBlock -HelpBlock "" -Name "Test-Function" -FilePath "/tmp/test.psm1" -Type "Function"
+            $result = InModuleScope help {
+                Convert-HelpBlock -HelpBlock "" -Name "Test-Function" -FilePath "/tmp/test.psm1" -Type "Function"
+            }
 
             $result.Name | Should -Be "Test-Function"
             $result.Synopsis | Should -Be "无帮助信息"
@@ -178,7 +183,10 @@ Describe "Convert-HelpBlock 函数测试" {
 .SYNOPSIS
     仅有概要信息
 "@
-            $result = Convert-HelpBlock -HelpBlock $helpBlock -Name "Test-SynopsisOnly" -FilePath "/tmp/test.psm1" -Type "Function"
+            $result = InModuleScope help -Parameters @{ HelpBlock = $helpBlock } {
+                param($HelpBlock)
+                Convert-HelpBlock -HelpBlock $HelpBlock -Name "Test-SynopsisOnly" -FilePath "/tmp/test.psm1" -Type "Function"
+            }
             $result.Synopsis | Should -Be "仅有概要信息"
             # Description应该回退到Synopsis
             $result.Description | Should -Be "仅有概要信息"
@@ -198,7 +206,10 @@ Describe "Convert-HelpBlock 函数测试" {
 .PARAMETER Param3
     第三个参数
 "@
-            $result = Convert-HelpBlock -HelpBlock $helpBlock -Name "Test-MultiParam" -FilePath "/tmp/test.psm1" -Type "Function"
+            $result = InModuleScope help -Parameters @{ HelpBlock = $helpBlock } {
+                param($HelpBlock)
+                Convert-HelpBlock -HelpBlock $HelpBlock -Name "Test-MultiParam" -FilePath "/tmp/test.psm1" -Type "Function"
+            }
             $result.Parameters.Count | Should -Be 3
             $result.Parameters[0].Name | Should -Be "Param1"
             $result.Parameters[1].Name | Should -Be "Param2"
@@ -218,18 +229,25 @@ Describe "Convert-HelpBlock 函数测试" {
     Get-Thing -Name "bar" -Verbose
     获取bar并显示详细信息
 "@
-            $result = Convert-HelpBlock -HelpBlock $helpBlock -Name "Test-MultiExample" -FilePath "/tmp/test.psm1" -Type "Function"
+            $result = InModuleScope help -Parameters @{ HelpBlock = $helpBlock } {
+                param($HelpBlock)
+                Convert-HelpBlock -HelpBlock $HelpBlock -Name "Test-MultiExample" -FilePath "/tmp/test.psm1" -Type "Function"
+            }
             $result.Examples.Count | Should -Be 2
         }
 
         It "应该正确设置FilePath和ModuleName" {
-            $result = Convert-HelpBlock -HelpBlock ".SYNOPSIS`n    test" -Name "Test-Path" -FilePath "/tmp/mymod.psm1" -Type "Function"
+            $result = InModuleScope help {
+                Convert-HelpBlock -HelpBlock ".SYNOPSIS`n    test" -Name "Test-Path" -FilePath "/tmp/mymod.psm1" -Type "Function"
+            }
             $result.FilePath | Should -Be "/tmp/mymod.psm1"
             $result.ModuleName | Should -Be "mymod"
         }
 
         It "应该正确设置Type属性" {
-            $result = Convert-HelpBlock -HelpBlock ".SYNOPSIS`n    test" -Name "Test-Type" -FilePath "/tmp/test.psm1" -Type "Script"
+            $result = InModuleScope help {
+                Convert-HelpBlock -HelpBlock ".SYNOPSIS`n    test" -Name "Test-Type" -FilePath "/tmp/test.psm1" -Type "Script"
+            }
             $result.Type | Should -Be "Script"
         }
     }

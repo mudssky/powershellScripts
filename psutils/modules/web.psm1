@@ -276,6 +276,10 @@ namespace PSUtils.Web {
 .PARAMETER SaveDir
     保存快捷方式的目录。默认为桌面。
 
+.OUTPUTS
+    None
+    此函数在目标目录创建快捷方式或 HTML 文件，不返回对象。
+
 .EXAMPLE
     New-WebShortcut -Url "https://www.bilibili.com"
     在桌面上为 Bilibili 创建一个 Chrome 快捷方式。

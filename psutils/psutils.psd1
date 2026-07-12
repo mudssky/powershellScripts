@@ -73,7 +73,6 @@
         'modules\config.psm1',
         'modules\docker.psm1',
         'modules\env.psm1',
-        'modules\error.psm1',
         'modules\filesystem.psm1',
         'modules\font.psm1',
         'modules\functions.psm1',
@@ -87,7 +86,6 @@
         'modules\os.psm1',
         'modules\process.psm1',
         'modules\proxy.psm1',
-        'modules\pwsh.psm1',
         'modules\git.psm1',
         'modules\selection.psm1',
         'modules\string.psm1',
@@ -108,15 +106,12 @@
         'Resolve-ConfigPlatformValue', 'Read-ConfigEnvFile', 'Read-ConfigPowerShellDataFile', 'Read-ConfigMarkdownFrontMatter', 'Read-ConfigSshClientConfig',
         # Docker 工具模块 (docker.psm1)
         'Test-DockerComposeAvailable', 'Assert-DockerComposeReady', 'Get-DockerComposeBaseArgs', 'Invoke-DockerComposeCommand',
-        'Get-WslDockerCandidateDistro', 'Test-WindowsDockerDaemonAvailable', 'Test-DockerDesktopDaemonAvailable', 'Test-WslDockerEngineAvailable',
-        'Resolve-WslDockerDistro', 'ConvertTo-WslDockerPath', 'ConvertTo-WslDockerVolumeSpec', 'ConvertTo-WslDockerMountSpec',
-        'Get-WslDockerEnvironmentArgument', 'ConvertTo-WslDockerArgument', 'Invoke-WslDocker', 'Enable-WslDockerWrapper',
+        'ConvertTo-WslDockerPath', 'ConvertTo-WslDockerVolumeSpec', 'ConvertTo-WslDockerMountSpec',
+        'ConvertTo-WslDockerArgument', 'Invoke-WslDocker', 'Enable-WslDockerWrapper',
         # 环境管理模块 (env.psm1)
         'Get-Dotenv', 'Install-Dotenv', 'Import-EnvPath', 'Set-EnvPath', 'Add-EnvPath', 'Get-EnvParam', 'Remove-FromEnvPath', 'Sync-PathFromBash', 'Test-DirectoryInPath', 'Get-PathAddHint',
-        # 错误处理模块 (error.psm1)
-        'Debug-CommandExecution',
         # 文件系统模块 (filesystem.psm1)
-        'Get-Tree', 'Show-TreeItem', 'Get-ItemColor', 'Get-GitignoreRules', 'Test-GitignoreMatch', 'Build-TreeObject', 'Get-TreeObject', 'ConvertTo-TreeJson', 'Copy-FileSystemItemSafe', 'New-BackupSnapshot', 'Get-ArchiveKind', 'Expand-ArchiveFile', 'Find-FileCandidate',
+        'Get-Tree', 'Get-TreeObject', 'ConvertTo-TreeJson', 'Copy-FileSystemItemSafe', 'New-BackupSnapshot', 'Get-ArchiveKind', 'Expand-ArchiveFile', 'Find-FileCandidate',
         # 字体管理模块 (font.psm1)
         'Test-Font', 'Install-Font', 'Uninstall-Font',
         # 通用函数模块 (functions.psm1)
@@ -126,10 +121,10 @@
         # Git 工具模块 (git.psm1)
         'Get-GitIgnorePatterns', 'New-7ZipExcludeArgs',
         # 帮助搜索模块 (help.psm1)
-        'Search-ModuleHelp', 'Find-PSUtilsFunction', 'Get-FunctionHelp', 'Test-HelpSearchPerformance', 'Convert-HelpBlock',
+        'Search-ModuleHelp', 'Find-PSUtilsFunction', 'Get-FunctionHelp',
         # 安装管理模块 (install.psm1)
         'Test-ModuleInstalled', 'Install-RequiredModule', 'Select-PackageManagerApps', 'Test-PackageManagerAppCatalog',
-        'Install-PackageManagerApps', 'Install-ExecutableFile', 'Get-PackageInstallCommand',
+        'Install-PackageManagerApps', 'Install-ExecutableFile',
         # JSON 工具模块 (json.psm1)
         'Read-JsonHashtableFile', 'Write-JsonFileAtomic', 'Get-StableJsonKey',
         # Linux 系统模块 (linux.psm1)
@@ -144,14 +139,12 @@
         'Format-NativeCommandLine', 'Resolve-NativeExecutablePath', 'New-CommandLogFile', 'Write-CommandLogLine', 'Invoke-NativeCommand',
         # 代理管理模块 (proxy.psm1)
         'Close-Proxy', 'Start-Proxy', 'Set-Proxy',
-        # PowerShell 工具模块 (pwsh.psm1)
-        'Out-ModuleToFile',
         # 交互选择模块 (selection.psm1)
         'Select-InteractiveItem',
         # 字符串处理模块 (string.psm1)
         'Get-LineBreak', 'Convert-JsoncToJson',
         # 测试工具模块 (test.psm1)
-        'Test-EXEProgram', 'Test-ArrayNotNull', 'Test-PathHasExe', 'Test-MacOSCaskApp', 'Test-HomebrewFormula', 'Test-ApplicationInstalled', 'Test-MacOSApplicationInstalled', 'Clear-EXEProgramCache',
+        'Test-EXEProgram', 'Test-PathHasExe', 'Test-ApplicationInstalled',
         # Windows 系统模块 (win.psm1)
         'Add-Startup', 'New-Shortcut',
         # 包装器模块 (wrapper.psm1)

@@ -579,4 +579,4 @@ function Test-MacOSApplicationInstalled {
     }
 }
 
-Export-ModuleMember -Function Test-EXEProgram, Test-ArrayNotNull, Test-PathHasExe, Test-MacOSCaskApp, Test-HomebrewFormula, Test-ApplicationInstalled, Test-MacOSApplicationInstalled, Clear-EXEProgramCache
+Export-ModuleMember -Function Test-EXEProgram, Test-PathHasExe, Test-ApplicationInstalled, Clear-EXEProgramCache

@@ -211,40 +211,40 @@ Describe "Clear-EXEProgramCache 函数测试" {
 
 Describe "Test-ArrayNotNull 函数测试" {
     It "非空数组返回true" {
-        Test-ArrayNotNull -array @(1, 2, 3) | Should -Be $true
+        InModuleScope test { Test-ArrayNotNull -array @(1, 2, 3) } | Should -Be $true
     }
 
     It "空数组返回false" {
-        Test-ArrayNotNull -array @() | Should -Be $false
+        InModuleScope test { Test-ArrayNotNull -array @() } | Should -Be $false
     }
 
     It "null值返回false" {
-        Test-ArrayNotNull -array $null | Should -Be $false
+        InModuleScope test { Test-ArrayNotNull -array $null } | Should -Be $false
     }
 
     Context "更多边缘情况" {
         It "单元素数组返回true" {
-            Test-ArrayNotNull -array @("single") | Should -Be $true
+            InModuleScope test { Test-ArrayNotNull -array @("single") } | Should -Be $true
         }
 
         It "包含null元素的数组返回true" {
-            Test-ArrayNotNull -array @($null) | Should -Be $true
+            InModuleScope test { Test-ArrayNotNull -array @($null) } | Should -Be $true
         }
 
         It "字符串值返回true" {
-            Test-ArrayNotNull -array "hello" | Should -Be $true
+            InModuleScope test { Test-ArrayNotNull -array "hello" } | Should -Be $true
         }
 
         It "数字值返回true" {
-            Test-ArrayNotNull -array 42 | Should -Be $true
+            InModuleScope test { Test-ArrayNotNull -array 42 } | Should -Be $true
         }
 
         It "布尔值返回true" {
-            Test-ArrayNotNull -array $true | Should -Be $true
+            InModuleScope test { Test-ArrayNotNull -array $true } | Should -Be $true
         }
 
         It "包含多种类型的数组返回true" {
-            Test-ArrayNotNull -array @(1, "two", $null, $true) | Should -Be $true
+            InModuleScope test { Test-ArrayNotNull -array @(1, "two", $null, $true) } | Should -Be $true
         }
     }
 }
@@ -386,7 +386,9 @@ Describe "Test-MacOSCaskApp 函数测试" {
 
         It "UseBrew为false时应该检查文件路径" {
             # /Applications 在 Linux 上不存在
-            $result = Test-MacOSCaskApp -AppName "nonexistent-app-xyz" -UseBrew $false
+            $result = InModuleScope test {
+                Test-MacOSCaskApp -AppName "nonexistent-app-xyz" -UseBrew $false
+            }
             $result | Should -Be $false
         }
     }

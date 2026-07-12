@@ -236,7 +236,10 @@ temp*
     }
 
     It "读取gitignore规则" {
-        $rules = Get-GitignoreRules -Path $testRoot
+        $rules = InModuleScope filesystem -Parameters @{ TestRoot = $testRoot } {
+            param($TestRoot)
+            Get-GitignoreRules -Path $TestRoot
+        }
         $rules | Should -Not -BeNullOrEmpty
         $rules | Should -Contain "*.log"
         $rules | Should -Contain "node_modules/"
@@ -249,7 +252,10 @@ temp*
     It "没有gitignore文件时返回空数组" {
         $emptyTestRoot = "$TestDrive\EmptyTest"
         New-Item -Path $emptyTestRoot -ItemType Directory -Force
-        $rules = Get-GitignoreRules -Path $emptyTestRoot
+        $rules = InModuleScope filesystem -Parameters @{ EmptyTestRoot = $emptyTestRoot } {
+            param($EmptyTestRoot)
+            Get-GitignoreRules -Path $EmptyTestRoot
+        }
         # 检查返回值不为null
         # ($rules) | Should -Not -Be $null
         ( $null -ne $rules) | Should -Be $true
@@ -273,31 +279,46 @@ Describe "Test-GitignoreMatch 函数测试" {
 
     It "匹配文件扩展名规则" {
         $logFile = Get-Item "$testRoot\test.log"
-        $result = Test-GitignoreMatch -Item $logFile -GitignoreRules $gitignoreRules -BasePath $testRoot
+        $result = InModuleScope filesystem -Parameters @{ Item = $logFile; Rules = $gitignoreRules; TestRoot = $testRoot } {
+            param($Item, $Rules, $TestRoot)
+            Test-GitignoreMatch -Item $Item -GitignoreRules $Rules -BasePath $TestRoot
+        }
         $result | Should -Be $true
     }
 
     It "不匹配的文件" {
         $txtFile = Get-Item "$testRoot\test.txt"
-        $result = Test-GitignoreMatch -Item $txtFile -GitignoreRules $gitignoreRules -BasePath $testRoot
+        $result = InModuleScope filesystem -Parameters @{ Item = $txtFile; Rules = $gitignoreRules; TestRoot = $testRoot } {
+            param($Item, $Rules, $TestRoot)
+            Test-GitignoreMatch -Item $Item -GitignoreRules $Rules -BasePath $TestRoot
+        }
         $result | Should -Be $false
     }
 
     It "匹配目录规则" {
         $nodeModules = Get-Item "$testRoot\node_modules"
-        $result = Test-GitignoreMatch -Item $nodeModules -GitignoreRules $gitignoreRules -BasePath $testRoot
+        $result = InModuleScope filesystem -Parameters @{ Item = $nodeModules; Rules = $gitignoreRules; TestRoot = $testRoot } {
+            param($Item, $Rules, $TestRoot)
+            Test-GitignoreMatch -Item $Item -GitignoreRules $Rules -BasePath $TestRoot
+        }
         $result | Should -Be $true
     }
 
     It "不匹配的目录" {
         $srcDir = Get-Item "$testRoot\src"
-        $result = Test-GitignoreMatch -Item $srcDir -GitignoreRules $gitignoreRules -BasePath $testRoot
+        $result = InModuleScope filesystem -Parameters @{ Item = $srcDir; Rules = $gitignoreRules; TestRoot = $testRoot } {
+            param($Item, $Rules, $TestRoot)
+            Test-GitignoreMatch -Item $Item -GitignoreRules $Rules -BasePath $TestRoot
+        }
         $result | Should -Be $false
     }
 
     It "空规则数组" {
         $txtFile = Get-Item "$testRoot\test.txt"
-        $result = Test-GitignoreMatch -Item $txtFile -GitignoreRules @() -BasePath $testRoot
+        $result = InModuleScope filesystem -Parameters @{ Item = $txtFile; TestRoot = $testRoot } {
+            param($Item, $TestRoot)
+            Test-GitignoreMatch -Item $Item -GitignoreRules @() -BasePath $TestRoot
+        }
         $result | Should -Be $false
     }
 }
@@ -313,7 +334,10 @@ Describe "Build-TreeObject 函数测试" {
     }
 
     It "构建基本树对象" {
-        $result = Build-TreeObject -Path $testRoot -CurrentDepth 0 -MaxDepth 2 -ShowFiles $true -ShowHidden $false -Exclude @() -MaxItems 50
+        $result = InModuleScope filesystem -Parameters @{ TestRoot = $testRoot } {
+            param($TestRoot)
+            Build-TreeObject -Path $TestRoot -CurrentDepth 0 -MaxDepth 2 -ShowFiles $true -ShowHidden $false -Exclude @() -MaxItems 50
+        }
         $result | Should -Not -BeNullOrEmpty
         $result.Name | Should -Be "BuildTest"
         $result.IsDirectory | Should -Be $true
@@ -321,13 +345,19 @@ Describe "Build-TreeObject 函数测试" {
     }
 
     It "限制深度" {
-        $result = Build-TreeObject -Path $testRoot -CurrentDepth 0 -MaxDepth 1 -ShowFiles $true -ShowHidden $false -Exclude @() -MaxItems 50
+        $result = InModuleScope filesystem -Parameters @{ TestRoot = $testRoot } {
+            param($TestRoot)
+            Build-TreeObject -Path $TestRoot -CurrentDepth 0 -MaxDepth 1 -ShowFiles $true -ShowHidden $false -Exclude @() -MaxItems 50
+        }
         $folder1 = $result.Children | Where-Object { $_.Name -eq "folder1" }
         $folder1.Children.Count | Should -Be 0
     }
 
     It "排除文件" {
-        $result = Build-TreeObject -Path $testRoot -CurrentDepth 0 -MaxDepth 2 -ShowFiles $false -ShowHidden $false -Exclude @() -MaxItems 50
+        $result = InModuleScope filesystem -Parameters @{ TestRoot = $testRoot } {
+            param($TestRoot)
+            Build-TreeObject -Path $TestRoot -CurrentDepth 0 -MaxDepth 2 -ShowFiles $false -ShowHidden $false -Exclude @() -MaxItems 50
+        }
         $files = $result.Children | Where-Object { -not $_.IsDirectory }
         $files | Should -BeNullOrEmpty
     }

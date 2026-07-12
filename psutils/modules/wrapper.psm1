@@ -1,6 +1,6 @@
 # 这个文件放置对powershell内置命令包装增强的方法
 
-$Global:DefaultAliasDespPrefix = '[用户自定义] '
+$script:DefaultAliasDespPrefix = '[用户自定义] '
 function Set-CustomAlias {
     <#
     .SYNOPSIS
@@ -28,8 +28,18 @@ function Set-CustomAlias {
     .PARAMETER Force
         强制创建别名，即使已存在同名别名也会覆盖。此参数与 Set-Alias 中的 -Force 完全相同。
 
+    .PARAMETER PassThru
+        创建别名后返回对应的 AliasInfo 对象。
+
+    .PARAMETER Scope
+        指定创建别名的 PowerShell 作用域。
+
     .PARAMETER Option
         设置别名的选项，如 ReadOnly 或 AllScope。此参数与 Set-Alias 中的 -Option 完全相同。
+
+    .OUTPUTS
+        System.Management.Automation.AliasInfo
+        指定 PassThru 时返回创建的别名；否则不返回对象。
 
     .EXAMPLE
         PS C:\> Set-CustomAlias -Name lg -Value "lazygit.exe" -Description "启动 lazygit 终端UI"
@@ -72,7 +82,7 @@ function Set-CustomAlias {
         [string]$Description,
 
         [Parameter(Mandatory = $false)]
-        [string]$AliasDespPrefix = $Global:DefaultAliasDespPrefix, # 定义我们新的参数，并给予默认值
+        [string]$AliasDespPrefix = $script:DefaultAliasDespPrefix, # 默认值属于模块实现，不污染调用方全局作用域
 
         [Parameter(Mandatory = $false)]
         [System.Management.Automation.ScopedItemOptions]$Option,
@@ -154,6 +164,10 @@ function Get-CustomAlias {
     .PARAMETER Scope
         指定此别名所在的范围。
 
+    .OUTPUTS
+        System.Management.Automation.AliasInfo
+        返回满足名称、排除项和描述前缀筛选条件的别名。
+
     .EXAMPLE
         PS C:\> Get-CustomAlias
 
@@ -190,7 +204,7 @@ function Get-CustomAlias {
         [string[]]$Name,
 
         [Parameter(Mandatory = $false)]
-        [string]$AliasDespPrefix = $Global:DefaultAliasDespPrefix, 
+        [string]$AliasDespPrefix = $script:DefaultAliasDespPrefix,
 
         [Parameter(ParameterSetName = 'ByName')]
         [string[]]$Exclude,
@@ -239,7 +253,7 @@ function Get-CustomAlias {
                 Write-Verbose "[Get-CustomAlias] 筛选完成。"
             }
             else {
-                Write-Verbose "[Get-CustomAlias] 未提供 AliasDespPrefix 参数，使用默认值 '$Global:DefaultAliasDespPrefix' 进行筛选。"
+                Write-Verbose "[Get-CustomAlias] 未提供 AliasDespPrefix 参数，使用默认值 '$script:DefaultAliasDespPrefix' 进行筛选。"
                 # 用户没提供，用默认值筛选
                 $aliases = $aliases | Where-Object {
                     $aliasToTest = $_
@@ -267,4 +281,4 @@ function Get-CustomAlias {
 }
 
 
-Export-ModuleMember -Function *
+Export-ModuleMember -Function Set-CustomAlias, Get-CustomAlias
