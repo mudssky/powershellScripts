@@ -1317,3 +1317,37 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 40: 收敛 psutils 公共 API 与模块边界
+
+**Date**: 2026-07-12
+**Task**: 收敛 psutils 公共 API 与模块边界
+**Branch**: `master`
+
+### Summary
+
+完成 130 个导出命令分层审计，将聚合 API 收敛到 109 个；私有化 17 个 helper，将 4 个诊断命令移出聚合入口，移除 wildcard 导出和全局状态，并补齐公共帮助契约、边界测试及导入性能基线。包级 QA、根 QA、主机与 Linux 全量 PowerShell 回归均通过。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `dca6410` | (see git log) |
+| `0b1f9e6` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
