@@ -115,6 +115,12 @@ pwsh linux/06installFonts.ps1 -Environment Desktop
 
 流水线自身不会修改 Windows 用户目录或执行宿主重启。
 
+### WSL SSH 客体配置
+
+`linux/wsl/prepare-ssh-access.sh` 是 WSL guest 的固定内部入口，由 Windows orchestrator 调用。它只支持 Ubuntu/Debian WSL，负责安装 `openssh-server`、写入 key-only sshd drop-in、维护带 `powershellScripts-wsl-ssh` marker 的单个公钥，并启用 `ssh.service`。
+
+脚本提供 `plan|apply|verify|rollback` 和单文档 JSON。不要直接把私钥或密码传入脚本；公钥由 Windows 入口读取并以 base64 argv 传递。rollback 保留软件包、host keys 和用户自行维护的其他 authorized keys。
+
 ## 验证
 
 ```powershell

@@ -133,6 +133,44 @@ powershell.exe -NoProfile -File .\windows\00quickstart.ps1 `
 
 Windows 10 只生成满足 build/capability 门槛的设置；Windows 11 22H2+ 使用完整模板。WSL 客体内的 `/etc/wsl.conf`、Docker 和 Linux Core 继续由 `linux/` 流水线负责。
 
+### WSL 独立 SSH 入口
+
+`-IncludeWsl` 不会自动开放 WSL SSH。需要把现有 Ubuntu/Debian WSL2 作为长期 Linux 服务宿主时，使用独立入口；Windows OpenSSH `22/tcp` 继续作为 Windows 管理和恢复通道，WSL 使用另一个端口，例如 `2222/tcp`：
+
+```powershell
+# Preview，不创建 task、portproxy 或 firewall rule
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass `
+  -File .\windows\wsl\Initialize-WslSshAccess.ps1 `
+  -Distribution Ubuntu-22.04 `
+  -WindowsUser mudssky `
+  -LinuxUser mudssky `
+  -AuthorizedKeyPath C:\path\to\controller.pub `
+  -OutputFormat Json
+
+# Apply；必须在管理员会话执行
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass `
+  -File .\windows\wsl\Initialize-WslSshAccess.ps1 `
+  -Distribution Ubuntu-22.04 `
+  -WindowsUser mudssky `
+  -LinuxUser mudssky `
+  -AuthorizedKeyPath C:\path\to\controller.pub `
+  -Apply `
+  -OutputFormat Json
+```
+
+默认配置 key-only sshd、`0.0.0.0:2222 -> <current-wsl-ip>:22`、S4U/Highest 的 AtStartup 刷新任务，以及仅允许 `LocalSubnet` 与 `100.64.0.0/10` 的 Windows Firewall rule。脚本不改变任何 firewall profile 的启停状态，也不修改 Windows OpenSSH、PSRP 或 Tailscale。
+
+只读验证和精确回滚：
+
+```powershell
+powershell.exe -File .\windows\wsl\Initialize-WslSshAccess.ps1 <相同参数> -Verify -OutputFormat Json
+powershell.exe -File .\windows\wsl\Initialize-WslSshAccess.ps1 `
+  -Distribution Ubuntu-22.04 -WindowsUser mudssky -LinuxUser mudssky `
+  -Rollback -OutputFormat Json
+```
+
+rollback 只删除本功能命名的 task、portproxy、firewall rule、runtime 文件、sshd drop-in 和受管 authorized key；不会卸载 `openssh-server` 或删除其他 key。长期运行前必须实测一次 Windows 无登录重启，确认该用户的 WSL distribution 能在 S4U 会话中启动。
+
 ## 验证
 
 ```powershell
