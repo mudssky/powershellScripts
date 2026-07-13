@@ -191,12 +191,18 @@ case "$OPERATION" in
             emit_document "Blocked" 10 false "apply requires root" "$PACKAGE_INSTALLED" "$SERVICE_ENABLED" "$SERVICE_ACTIVE" "$LISTENER_READY" "$KEY_FINGERPRINT"
             exit 10
         }
-    [[ -n "$AUTHORIZED_KEY" ]] || fail_invalid "apply requires an authorized key"
+        [[ -n "$AUTHORIZED_KEY" ]] || fail_invalid "apply requires an authorized key"
         read -r KEY_TYPE KEY_BODY _ <<<"$AUTHORIZED_KEY"
         CHANGED=false
         if [[ "$PACKAGE_INSTALLED" != true ]]; then
-            apt-get update
-            DEBIAN_FRONTEND=noninteractive apt-get install -y openssh-server
+            if ! apt-get -o DPkg::Lock::Timeout=300 update >&2; then
+                emit_document "Failed" 1 false "apt update failed" false "$SERVICE_ENABLED" "$SERVICE_ACTIVE" "$LISTENER_READY" "$KEY_FINGERPRINT"
+                exit 1
+            fi
+            if ! DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y openssh-server >&2; then
+                emit_document "Failed" 1 false "openssh-server installation failed" false "$SERVICE_ENABLED" "$SERVICE_ACTIVE" "$LISTENER_READY" "$KEY_FINGERPRINT"
+                exit 1
+            fi
             CHANGED=true
         fi
         install -d -m 0755 "$(dirname "$MANAGED_CONFIG")"

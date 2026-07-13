@@ -118,6 +118,14 @@ Describe 'WSL SSH 宿主与客体入口合同' {
         }
     }
 
+    It 'guest apt 安装等待 dpkg lock 且不污染 JSON stdout' {
+        $content = Get-Content -LiteralPath $script:GuestPath -Raw
+
+        $content | Should -Match 'DPkg::Lock::Timeout=300'
+        $content | Should -Match 'apt-get.+update >&2'
+        $content | Should -Match 'apt-get.+install -y openssh-server >&2'
+    }
+
     It 'Windows PowerShell 文件 parser 通过且不包含凭据或 wildcard rollback' {
         foreach ($path in @($script:ModulePath, $script:EntryPath, $script:RuntimePath)) {
             [Convert]::ToHexString([IO.File]::ReadAllBytes($path)[0..2]) | Should -Be 'EFBBBF'
