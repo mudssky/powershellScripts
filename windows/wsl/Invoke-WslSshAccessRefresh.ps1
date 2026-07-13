@@ -56,7 +56,13 @@ try {
         throw 'runtime config contract is invalid'
     }
 
-    # Relay 和 wslrelay 必须留在同一个 S4U 登录会话；task 因此保持长驻。
+    # wslrelay 依赖活跃的 wsl.exe 会话；keepalive 与 TCP relay 由同一个长驻 task 承载。
+    $keepalive = Start-Process -FilePath wsl.exe -ArgumentList @(
+        '-d', [string]$config.distribution, '--', 'sleep', 'infinity'
+    ) -WindowStyle Hidden -PassThru
+    if ($keepalive.HasExited) {
+        throw 'cannot start persistent WSL keepalive process'
+    }
     & wsl.exe -d ([string]$config.distribution) -u root -- systemctl restart ssh 2>$null | Out-Null
     if ($LASTEXITCODE -ne 0) {
         throw 'cannot restart WSL ssh.service'

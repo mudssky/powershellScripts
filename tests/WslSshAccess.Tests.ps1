@@ -141,5 +141,6 @@ Describe 'WSL SSH 宿主与客体入口合同' {
         }
         (Get-Content -LiteralPath $script:RuntimePath -Raw) | Should -Match 'persistent WSL SSH TCP relay is running'
         (Get-Content -LiteralPath $script:RuntimePath -Raw) | Should -Match 'systemctl restart ssh'
+        (Get-Content -LiteralPath $script:RuntimePath -Raw) | Should -Match "sleep', 'infinity'"
     }
 }
