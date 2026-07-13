@@ -111,6 +111,31 @@ function ConvertTo-WslSshAccessRemoteAddress {
     return $Address
 }
 
+function ConvertTo-WslSshAccessRemoteAddresses {
+    <#
+    .SYNOPSIS
+        规范化 CLI 或模块传入的 firewall remote address 列表。
+    .PARAMETER Address
+        数组或逗号分隔的 LocalSubnet、IPv4、IPv4 CIDR。
+    .OUTPUTS
+        System.String[]。去重后的 remote address。
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string[]]$Address)
+
+    $normalized = @($Address | ForEach-Object { ([string]$_) -split ',' } | ForEach-Object { $_.Trim() } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique)
+    if ($normalized.Count -eq 0) {
+        throw 'remote address allowlist cannot be empty'
+    }
+    foreach ($entry in $normalized) {
+        if ($entry -ne 'LocalSubnet' -and $entry -notmatch '^\d{1,3}(?:\.\d{1,3}){3}(?:/(?:[0-9]|[12][0-9]|3[0-2]))?$') {
+            throw "invalid remote address: $entry"
+        }
+    }
+    return $normalized
+}
+
 function New-WslSshAccessPlan {
     <#
     .SYNOPSIS
@@ -565,6 +590,13 @@ function Invoke-WslSshAccess {
         $base.Errors = @('invalid or missing SSH public key')
         return [pscustomobject]$base
     }
+    try {
+        $RemoteAddress = @(ConvertTo-WslSshAccessRemoteAddresses -Address $RemoteAddress)
+    }
+    catch {
+        $base.Errors = @($_.Exception.Message)
+        return [pscustomobject]$base
+    }
     if ($env:OS -ne 'Windows_NT') {
         $base.Status = 'Blocked'
         $base.ExitCode = 10
@@ -663,6 +695,7 @@ Export-ModuleMember -Function @(
     'Test-WslSshAccessPublicKey',
     'Test-WslSshAccessPort',
     'ConvertTo-WslSshAccessRemoteAddress',
+    'ConvertTo-WslSshAccessRemoteAddresses',
     'New-WslSshAccessPlan',
     'Invoke-WslSshAccess'
 )

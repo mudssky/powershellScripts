@@ -39,6 +39,13 @@ Describe 'WSL SSH 宿主与客体入口合同' {
         ConvertTo-WslSshAccessRemoteAddress -Address LocalSubnet | Should -Be LocalSubnet
     }
 
+    It '兼容数组和逗号分隔的 firewall remote allowlist' {
+        $addresses = @(ConvertTo-WslSshAccessRemoteAddresses -Address @('LocalSubnet,100.64.0.0/10'))
+
+        $addresses | Should -Be @('100.64.0.0/10', 'LocalSubnet')
+        { ConvertTo-WslSshAccessRemoteAddresses -Address @('Internet') } | Should -Throw
+    }
+
     It '缺失资源生成 Ensure 计划' {
         $state = [pscustomobject]@{
             RuntimeFilesMatch   = $false
