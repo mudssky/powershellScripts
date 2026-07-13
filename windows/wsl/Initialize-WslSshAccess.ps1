@@ -12,7 +12,7 @@
 .PARAMETER ListenPort
     Windows portproxy 监听端口，默认 2222。
 .PARAMETER GuestPort
-    WSL sshd 端口，默认 22。
+    WSL sshd 端口，默认 2223，以避开 Windows OpenSSH 22。
 .PARAMETER RemoteAddress
     Windows firewall remote allowlist。
 .PARAMETER AuthorizedKeyPath
@@ -35,7 +35,7 @@ param(
     [string]$LinuxUser = $env:USERNAME,
     [string]$ListenAddress = '0.0.0.0',
     [int]$ListenPort = 2222,
-    [int]$GuestPort = 22,
+    [int]$GuestPort = 2223,
     [string[]]$RemoteAddress = @('LocalSubnet', '100.64.0.0/10'),
     [string]$AuthorizedKeyPath,
     [switch]$Apply,

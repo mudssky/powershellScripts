@@ -13,7 +13,7 @@
 ```powershell
 powershell.exe -File windows/wsl/Initialize-WslSshAccess.ps1 `
   -Distribution <name> -WindowsUser <user> -LinuxUser <user> `
-  [-ListenAddress 0.0.0.0] [-ListenPort 2222] [-GuestPort 22] `
+  [-ListenAddress 0.0.0.0] [-ListenPort 2222] [-GuestPort 2223] `
   [-RemoteAddress LocalSubnet,100.64.0.0/10] `
   [-AuthorizedKeyPath <public-key>] [-Apply|-Verify|-Rollback] `
   [-OutputFormat Text|Json]
@@ -33,7 +33,8 @@ bash linux/wsl/prepare-ssh-access.sh \
 - authorized key 只管理固定 marker 行；不接受私钥，不删除其他 key。状态只输出 fingerprint，不输出公钥正文。
 - 每个 distribution 使用独立 config、runtime helper、task 和 firewall rule 名称，避免 rollback 影响其他 distribution。
 - AtStartup task 固定 S4U、Highest、单个 boot trigger 和固定 PowerShell action。不得保存 Windows 密码/PIN，也不得降级为依赖自动登录的 AtLogOn。
-- runtime helper 启动指定 distribution/`ssh.service`，读取当前 WSL IPv4，并只刷新精确 listen address/port 的 v4tov4 portproxy。
+- guest 默认使用 `2223/tcp`，避开 Windows OpenSSH `22/tcp` 与 WSL localhost relay 的端口冲突。
+- runtime helper 启动指定 distribution/`ssh.service`，等待 Windows `127.0.0.1:<guest-port>` 的 WSL NAT localhost relay，再只刷新精确 listen address/port 到该 relay 的 v4tov4 portproxy；WSL IPv4 只作为诊断字段，不作为转发目标。
 - firewall rule 只允许显式 remote allowlist；不改变 profile 启停状态。全部 profile 已关闭时不创建 rule，host verify 将该项视为 skipped/satisfied。
 - rollback 只删除本功能命名资源和精确 portproxy；保留 Windows OpenSSH、PSRP、Tailscale、`openssh-server`、host keys 和其他 firewall/task/portproxy。
 - JSON stdout 只有一个 schema v1 document；退出码为成功/Preview 0、执行失败 1、参数无效 2、Blocked 10。
@@ -45,7 +46,7 @@ bash linux/wsl/prepare-ssh-access.sh \
 | Windows 路径传给 `wsl.exe` | native argv 必须保留反斜杠，`wslpath` 返回有效 guest 路径 |
 | Preview | 不创建 task、portproxy、firewall rule 或 guest 配置 |
 | 第二次 Apply | host 与 guest 均 `Changed=false` |
-| WSL IPv4 变化 | runtime 只替换相同 listen address/port 的 portproxy |
+| WSL IPv4 变化 | portproxy 继续指向稳定 localhost relay，不依赖 NAT IPv4 |
 | firewall profiles 全关闭 | 不启用 profile、不创建 rule，verify 不因此失败 |
 | 非 WSL / 非 Ubuntu-Debian | Blocked/10 |
 | Apply 无管理员/root | Blocked/10 |

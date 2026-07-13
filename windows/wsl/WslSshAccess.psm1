@@ -258,6 +258,8 @@ function Get-WslSshAccessPortProxyState {
         Windows 监听端口。
     .PARAMETER GuestPort
         WSL sshd 端口。
+    .PARAMETER ConnectAddress
+        Windows 侧转发目标；NAT 模式使用 WSL localhost relay。
     .OUTPUTS
         PSCustomObject。包含 Exists、Matches 和 ConnectAddress。
     #>
@@ -265,14 +267,15 @@ function Get-WslSshAccessPortProxyState {
     param(
         [Parameter(Mandatory)][string]$ListenAddress,
         [Parameter(Mandatory)][int]$ListenPort,
-        [Parameter(Mandatory)][int]$GuestPort
+        [Parameter(Mandatory)][int]$GuestPort,
+        [string]$ConnectAddress = '127.0.0.1'
     )
 
     $result = Invoke-WslSshAccessProcess -FilePath 'netsh.exe' -ArgumentList @('interface', 'portproxy', 'show', 'v4tov4')
     $match = [regex]::Match($result.Stdout, "(?m)^\s*$([regex]::Escape($ListenAddress))\s+$ListenPort\s+(\S+)\s+(\d+)\s*$")
     return [pscustomobject]@{
         Exists        = $match.Success
-        Matches       = $match.Success -and [int]$match.Groups[2].Value -eq $GuestPort
+        Matches       = $match.Success -and $match.Groups[1].Value -eq $ConnectAddress -and [int]$match.Groups[2].Value -eq $GuestPort
         ConnectAddress = if ($match.Success) { $match.Groups[1].Value } else { '' }
     }
 }
@@ -311,11 +314,12 @@ function Get-WslSshAccessHostState {
 
     $names = Get-WslSshAccessResourceNames -Distribution $Distribution
     $runtimeConfig = [ordered]@{
-        schemaVersion = 1
-        distribution  = $Distribution
-        listenAddress = $ListenAddress
-        listenPort    = $ListenPort
-        guestPort     = $GuestPort
+        schemaVersion  = 1
+        distribution   = $Distribution
+        listenAddress  = $ListenAddress
+        listenPort     = $ListenPort
+        connectAddress = '127.0.0.1'
+        guestPort      = $GuestPort
     }
     $runtimeConfigJson = $runtimeConfig | ConvertTo-Json -Compress
     $configMatches = Test-Path -LiteralPath $names.ConfigPath -PathType Leaf
@@ -351,7 +355,8 @@ function Get-WslSshAccessHostState {
             [string]$portFilter.Protocol -in @('TCP', '6') -and
             ($actualRemote -join ',') -eq ($expectedRemote -join ',')
     }
-    $portProxy = Get-WslSshAccessPortProxyState -ListenAddress $ListenAddress -ListenPort $ListenPort -GuestPort $GuestPort
+    $portProxy = Get-WslSshAccessPortProxyState -ListenAddress $ListenAddress -ListenPort $ListenPort `
+        -GuestPort $GuestPort -ConnectAddress '127.0.0.1'
     return [pscustomobject]@{
         Names                = $names
         ListenAddress        = $ListenAddress
@@ -553,7 +558,7 @@ function Invoke-WslSshAccess {
         [Parameter(Mandatory)][string]$LinuxUser,
         [string]$ListenAddress = '0.0.0.0',
         [int]$ListenPort = 2222,
-        [int]$GuestPort = 22,
+        [int]$GuestPort = 2223,
         [string[]]$RemoteAddress = @('LocalSubnet', '100.64.0.0/10'),
         [string]$PublicKey,
         [Parameter(Mandatory)][string]$GuestScriptPath,

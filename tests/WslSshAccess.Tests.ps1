@@ -138,5 +138,6 @@ Describe 'WSL SSH 宿主与客体入口合同' {
             $content | Should -Not -Match 'Unregister-ScheduledTask.+\*'
             $content | Should -Not -Match 'Remove-NetFirewallRule.+\*'
         }
+        (Get-Content -LiteralPath $script:RuntimePath -Raw) | Should -Match 'WSL localhost relay is not ready'
     }
 }

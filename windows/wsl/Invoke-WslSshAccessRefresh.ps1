@@ -35,6 +35,7 @@ try {
     $config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
     if ([int]$config.schemaVersion -ne 1 -or [string]$config.distribution -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]+$' -or
         [string]$config.listenAddress -notmatch '^\d{1,3}(?:\.\d{1,3}){3}$' -or
+        [string]$config.connectAddress -ne '127.0.0.1' -or
         [int]$config.listenPort -lt 1 -or [int]$config.listenPort -gt 65535 -or
         [int]$config.guestPort -lt 1 -or [int]$config.guestPort -gt 65535) {
         throw 'runtime config contract is invalid'
@@ -50,11 +51,29 @@ try {
     if ([string]::IsNullOrWhiteSpace($wslIPv4)) {
         throw 'cannot resolve WSL IPv4'
     }
+    $relayReady = $false
+    $deadline = [DateTime]::UtcNow.AddSeconds(30)
+    do {
+        $client = New-Object Net.Sockets.TcpClient
+        try {
+            $client.Connect([string]$config.connectAddress, [int]$config.guestPort)
+            $relayReady = $true
+        }
+        catch {
+            Start-Sleep -Seconds 1
+        }
+        finally {
+            $client.Dispose()
+        }
+    } while (-not $relayReady -and [DateTime]::UtcNow -lt $deadline)
+    if (-not $relayReady) {
+        throw 'WSL localhost relay is not ready'
+    }
     $show = [string]((& netsh.exe interface portproxy show v4tov4) -join "`n")
-    $pattern = "(?m)^\s*$([regex]::Escape([string]$config.listenAddress))\s+$([int]$config.listenPort)\s+$([regex]::Escape($wslIPv4))\s+$([int]$config.guestPort)\s*$"
+    $pattern = "(?m)^\s*$([regex]::Escape([string]$config.listenAddress))\s+$([int]$config.listenPort)\s+$([regex]::Escape([string]$config.connectAddress))\s+$([int]$config.guestPort)\s*$"
     if ($show -notmatch $pattern) {
         & netsh.exe interface portproxy delete v4tov4 "listenaddress=$([string]$config.listenAddress)" "listenport=$([int]$config.listenPort)" 2>$null | Out-Null
-        & netsh.exe interface portproxy add v4tov4 "listenaddress=$([string]$config.listenAddress)" "listenport=$([int]$config.listenPort)" "connectaddress=$wslIPv4" "connectport=$([int]$config.guestPort)" | Out-Null
+        & netsh.exe interface portproxy add v4tov4 "listenaddress=$([string]$config.listenAddress)" "listenport=$([int]$config.listenPort)" "connectaddress=$([string]$config.connectAddress)" "connectport=$([int]$config.guestPort)" | Out-Null
         if ($LASTEXITCODE -ne 0) {
             throw 'cannot update WSL SSH portproxy'
         }

@@ -158,7 +158,7 @@ powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass `
   -OutputFormat Json
 ```
 
-默认配置 key-only sshd、`0.0.0.0:2222 -> <current-wsl-ip>:22`、S4U/Highest 的 AtStartup 刷新任务，以及仅允许 `LocalSubnet` 与 `100.64.0.0/10` 的 Windows Firewall rule。脚本不改变任何 firewall profile 的启停状态，也不修改 Windows OpenSSH、PSRP 或 Tailscale。
+默认配置 key-only sshd、WSL guest `2223/tcp`、`0.0.0.0:2222 -> 127.0.0.1:2223`、S4U/Highest 的 AtStartup 刷新任务，以及仅允许 `LocalSubnet` 与 `100.64.0.0/10` 的 Windows Firewall rule。`127.0.0.1:2223` 由 WSL NAT 模式自带的 localhost relay 转发到 guest，避免依赖动态 WSL IPv4；脚本不改变任何 firewall profile 的启停状态，也不修改 Windows OpenSSH、PSRP 或 Tailscale。
 
 只读验证和精确回滚：
 

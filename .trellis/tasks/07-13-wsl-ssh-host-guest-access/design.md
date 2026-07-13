@@ -27,7 +27,7 @@ tests/
 - 参数：distribution、Windows user、Linux user、listen address/port、guest port、remote addresses、authorized key path、Apply/Rollback/OutputFormat。
 - runtime config 位于 `%ProgramData%\powershellScripts\wsl-ssh\<safe-id>.json`，不含 key 正文。
 - scheduled task `powershellScripts-WSL-SSH-<safe-id>` 使用 AtStartup、S4U、Highest；action 只调用稳定 refresh helper。
-- refresh helper 启动 distro、等待 guest ssh、解析首个有效 WSL NAT IPv4，并只替换 exact listen address/port 的 portproxy。
+- guest sshd 默认使用 2223，Windows NAT localhost relay 暴露 `127.0.0.1:2223`；refresh helper 启动 distro、等待 relay，并只替换 exact listen address/port 到 localhost relay 的 portproxy。WSL IPv4 仅用于诊断。
 - firewall rule 使用固定 name，允许配置的 remote addresses；所有 profile 已关闭时保持关闭并报告 Skipped。
 
 ## Result
