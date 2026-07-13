@@ -51,7 +51,7 @@ Describe 'WSL SSH 宿主与客体入口合同' {
             RuntimeFilesMatch   = $false
             TaskMatches         = $false
             FirewallRuleMatches = $false
-            PortProxyMatches    = $false
+            RelayMatches        = $false
         }
         $plan = New-WslSshAccessPlan -Operation Plan -State $state
 
@@ -65,7 +65,7 @@ Describe 'WSL SSH 宿主与客体入口合同' {
             RuntimeFilesMatch   = $true
             TaskMatches         = $true
             FirewallRuleMatches = $true
-            PortProxyMatches    = $true
+            RelayMatches        = $true
         }
         $plan = New-WslSshAccessPlan -Operation Apply -State $state
 
@@ -77,13 +77,14 @@ Describe 'WSL SSH 宿主与客体入口合同' {
         $state = [pscustomobject]@{
             TaskExists         = $true
             PortProxyExists    = $false
+            RelayListening     = $false
             FirewallRuleExists = $true
             RuntimeFilesExist  = $true
         }
         $plan = New-WslSshAccessPlan -Operation Rollback -State $state
 
         @($plan.Actions | Where-Object Action -eq Remove).Name | Should -Be @('ScheduledTask', 'FirewallRule', 'RuntimeFiles')
-        @($plan.Actions | Where-Object Action -eq AlreadyAbsent).Name | Should -Be @('PortProxy')
+        @($plan.Actions | Where-Object Action -eq AlreadyAbsent).Name | Should -Be @('TcpRelay')
     }
 
     It '非 Windows 入口输出单个 Blocked JSON document' -Skip:$IsWindows {
@@ -138,7 +139,7 @@ Describe 'WSL SSH 宿主与客体入口合同' {
             $content | Should -Not -Match 'Unregister-ScheduledTask.+\*'
             $content | Should -Not -Match 'Remove-NetFirewallRule.+\*'
         }
-        (Get-Content -LiteralPath $script:RuntimePath -Raw) | Should -Match 'WSL localhost relay is not ready'
+        (Get-Content -LiteralPath $script:RuntimePath -Raw) | Should -Match 'persistent WSL SSH TCP relay is running'
         (Get-Content -LiteralPath $script:RuntimePath -Raw) | Should -Match 'systemctl restart ssh'
     }
 }

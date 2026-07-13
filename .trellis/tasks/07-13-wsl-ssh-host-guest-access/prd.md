@@ -13,7 +13,7 @@
 ## Requirements
 
 - `linux/wsl/` 提供 guest plan/apply/verify/rollback：Ubuntu/Debian、openssh-server、sshd drop-in、authorized key marker、systemd enable/start。
-- `windows/wsl/` 提供 host plan/apply/verify/rollback：固定 distribution/user/ports、runtime helper、S4U Highest AtStartup task、WSL NAT localhost relay、portproxy 和 firewall rule。
+- `windows/wsl/` 提供 host plan/apply/verify/rollback：固定 distribution/user/ports、runtime helper、S4U Highest 长驻 AtStartup task、WSL NAT localhost relay、Windows TCP relay 和 firewall rule。
 - Windows orchestrator 只调用仓库内固定 guest helper，不接受任意 shell；参数只允许合法 distribution/user/port/public key。
 - 默认 SSH 策略为 `PasswordAuthentication no`、`PermitRootLogin no`、`PubkeyAuthentication yes`。
 - Windows listener 可以是 `0.0.0.0:2222`，firewall remote allowlist 支持 `LocalSubnet` 与 `100.64.0.0/10`；不改变 profile 启停状态。
@@ -24,7 +24,7 @@
 
 - [ ] Preview 零写入并输出完整 host/guest 计划。
 - [ ] guest apply 第二次 unchanged，sshd key-only、systemd active/enabled，authorized key marker 不删除其他 key。
-- [ ] host apply 第二次 unchanged，scheduled task/portproxy/firewall 只管理本功能命名资源。
+- [ ] host apply 第二次 unchanged，scheduled task/TCP relay/firewall 只管理本功能命名资源。
 - [ ] WSL IP 变化后仍通过稳定 localhost relay 提供入口，不依赖 NAT IPv4。
 - [ ] rollback 不卸载 openssh-server，不删除其他 key/task/rule/portproxy，也不修改 Windows OpenSSH/PSRP/Tailscale/firewall profile。
 - [ ] Pester/Bash tests、`pnpm qa`、`pnpm test:pwsh:all` 和 `git diff --check` 通过。

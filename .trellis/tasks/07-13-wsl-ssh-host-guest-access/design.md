@@ -12,7 +12,7 @@ tests/
   WslSshAccess.Tests.ps1
 ```
 
-`prepare-ssh-access.sh` 是唯一 guest package/sshd/authorized_keys owner。Windows orchestrator 负责验证参数、调用 guest helper、安装稳定 runtime helper/config、注册 task、配置 portproxy/firewall 和汇总 JSON。
+`prepare-ssh-access.sh` 是唯一 guest package/sshd/authorized_keys owner。Windows orchestrator 负责验证参数、调用 guest helper、安装稳定 runtime helper/config、注册长驻 task、配置 TCP relay/firewall 和汇总 JSON。
 
 ## Guest Contract
 
@@ -27,7 +27,7 @@ tests/
 - 参数：distribution、Windows user、Linux user、listen address/port、guest port、remote addresses、authorized key path、Apply/Rollback/OutputFormat。
 - runtime config 位于 `%ProgramData%\powershellScripts\wsl-ssh\<safe-id>.json`，不含 key 正文。
 - scheduled task `powershellScripts-WSL-SSH-<safe-id>` 使用 AtStartup、S4U、Highest；action 只调用稳定 refresh helper。
-- guest sshd 默认使用 2223，Windows NAT localhost relay 暴露 `127.0.0.1:2223`；refresh helper 启动 distro、等待 relay，并只替换 exact listen address/port 到 localhost relay 的 portproxy。WSL IPv4 仅用于诊断。
+- guest sshd 默认使用 2223，Windows NAT localhost relay 在 S4U 会话内暴露 `127.0.0.1:2223`；runtime helper 保持长驻，用内置 .NET TCP relay 暴露外部端口。WSL IPv4 仅用于诊断，legacy portproxy 只在迁移/rollback 时精确删除。
 - firewall rule 使用固定 name，允许配置的 remote addresses；所有 profile 已关闭时保持关闭并报告 Skipped。
 
 ## Result

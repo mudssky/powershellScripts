@@ -57,6 +57,7 @@ function Get-WslSshAccessResourceNames {
         TaskName         = "powershellScripts-WSL-SSH-$safeId"
         FirewallRuleName = "powershellScripts-WSL-SSH-$safeId"
         ConfigPath       = Join-Path $script:RuntimeRoot "$safeId.json"
+        StatusPath       = Join-Path $script:RuntimeRoot "$safeId.status.json"
         HelperPath       = Join-Path $script:RuntimeRoot "$safeId.refresh.ps1"
     }
 }
@@ -157,7 +158,7 @@ function New-WslSshAccessPlan {
     if ($Operation -eq 'Rollback') {
         foreach ($entry in @(
                 @{ Name = 'ScheduledTask'; Exists = $State.TaskExists },
-                @{ Name = 'PortProxy'; Exists = $State.PortProxyExists },
+                @{ Name = 'TcpRelay'; Exists = $State.RelayListening -or $State.PortProxyExists },
                 @{ Name = 'FirewallRule'; Exists = $State.FirewallRuleExists },
                 @{ Name = 'RuntimeFiles'; Exists = $State.RuntimeFilesExist }
             )) {
@@ -173,7 +174,7 @@ function New-WslSshAccessPlan {
                 @{ Name = 'RuntimeFiles'; Ready = $State.RuntimeFilesMatch },
                 @{ Name = 'ScheduledTask'; Ready = $State.TaskMatches },
                 @{ Name = 'FirewallRule'; Ready = $State.FirewallRuleMatches },
-                @{ Name = 'PortProxy'; Ready = $State.PortProxyMatches }
+                @{ Name = 'TcpRelay'; Ready = $State.RelayMatches }
             )) {
             $actions.Add([pscustomobject]@{
                     Name    = $entry.Name
@@ -318,7 +319,6 @@ function Get-WslSshAccessHostState {
         distribution   = $Distribution
         listenAddress  = $ListenAddress
         listenPort     = $ListenPort
-        connectAddress = '127.0.0.1'
         guestPort      = $GuestPort
     }
     $runtimeConfigJson = $runtimeConfig | ConvertTo-Json -Compress
@@ -337,6 +337,7 @@ function Get-WslSshAccessHostState {
         [string]$task.Principal.UserId -match [regex]::Escape($WindowsUser) -and
         [string]$task.Principal.LogonType -eq 'S4U' -and
         [string]$task.Principal.RunLevel -eq 'Highest' -and
+        [string]$task.Settings.ExecutionTimeLimit -eq 'PT0S' -and
         @($task.Triggers).Count -eq 1 -and
         [string]$task.Triggers[0].CimClass.CimClassName -eq 'MSFT_TaskBootTrigger' -and
         @($task.Actions).Count -eq 1 -and
@@ -357,6 +358,8 @@ function Get-WslSshAccessHostState {
     }
     $portProxy = Get-WslSshAccessPortProxyState -ListenAddress $ListenAddress -ListenPort $ListenPort `
         -GuestPort $GuestPort -ConnectAddress '127.0.0.1'
+    $relayListening = $null -ne (Get-NetTCPConnection -LocalPort $ListenPort -State Listen -ErrorAction SilentlyContinue |
+            Where-Object { $_.LocalAddress -in @($ListenAddress, '0.0.0.0') } | Select-Object -First 1)
     return [pscustomobject]@{
         Names                = $names
         ListenAddress        = $ListenAddress
@@ -370,7 +373,8 @@ function Get-WslSshAccessHostState {
         FirewallRequired     = $firewallEnabled
         FirewallRuleMatches  = if ($firewallEnabled) { $firewallMatches } else { $true }
         PortProxyExists      = $portProxy.Exists
-        PortProxyMatches     = $portProxy.Matches
+        RelayListening       = $relayListening
+        RelayMatches         = $relayListening -and -not $portProxy.Exists
         PortProxyAddress     = $portProxy.ConnectAddress
         ExpectedTaskArguments = $expectedArguments
     }
@@ -472,7 +476,7 @@ function Set-WslSshAccessHostResources {
         $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $State.ExpectedTaskArguments
         $trigger = New-ScheduledTaskTrigger -AtStartup
         $principal = New-ScheduledTaskPrincipal -UserId $WindowsUser -LogonType S4U -RunLevel Highest
-        $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 5) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
+        $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Seconds 0) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
         Register-ScheduledTask -TaskName $State.Names.TaskName -Action $action -Trigger $trigger `
             -Principal $principal -Settings $settings -Force | Out-Null
         $changed = $true
@@ -482,6 +486,10 @@ function Set-WslSshAccessHostResources {
         New-NetFirewallRule -Name $State.Names.FirewallRuleName -DisplayName $State.Names.FirewallRuleName `
             -Enabled True -Profile Any -Direction Inbound -Action Allow -Protocol TCP `
             -LocalPort $ListenPort -RemoteAddress $RemoteAddress | Out-Null
+        $changed = $true
+    }
+    if ($State.PortProxyExists) {
+        & netsh.exe interface portproxy delete v4tov4 "listenaddress=$($State.ListenAddress)" "listenport=$($State.ListenPort)" 2>$null | Out-Null
         $changed = $true
     }
     return $changed
@@ -501,6 +509,7 @@ function Remove-WslSshAccessHostResources {
 
     $changed = $false
     if ($State.TaskExists) {
+        Stop-ScheduledTask -TaskName $State.Names.TaskName -ErrorAction SilentlyContinue
         Unregister-ScheduledTask -TaskName $State.Names.TaskName -Confirm:$false
         $changed = $true
     }
@@ -512,7 +521,7 @@ function Remove-WslSshAccessHostResources {
         Remove-NetFirewallRule -Name $State.Names.FirewallRuleName
         $changed = $true
     }
-    foreach ($path in @($State.Names.ConfigPath, $State.Names.HelperPath)) {
+    foreach ($path in @($State.Names.ConfigPath, $State.Names.StatusPath, $State.Names.HelperPath)) {
         if (Test-Path -LiteralPath $path) {
             Remove-Item -LiteralPath $path -Force
             $changed = $true
@@ -659,15 +668,26 @@ function Invoke-WslSshAccess {
             $hostChanged = Set-WslSshAccessHostResources -State $state -Distribution $Distribution `
                 -WindowsUser $WindowsUser -ListenPort $ListenPort -RemoteAddress $RemoteAddress `
                 -RuntimeHelperSource $RuntimeHelperSource
-            $runtime = Invoke-WslSshAccessProcess -FilePath 'powershell.exe' -ArgumentList @(
-                '-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $state.Names.HelperPath,
-                '-ConfigPath', $state.Names.ConfigPath, '-OutputFormat', 'Json')
-            if ($runtime.ExitCode -ne 0) {
-                throw "runtime refresh failed: $($runtime.Stderr.Trim())"
+            if ($hostChanged -or [bool]$base.Guest.changed -or -not $state.RelayMatches) {
+                Stop-ScheduledTask -TaskName $state.Names.TaskName -ErrorAction SilentlyContinue
+                Start-ScheduledTask -TaskName $state.Names.TaskName
             }
-            $runtimeDocument = $runtime.Stdout | ConvertFrom-Json
-            $base.WslIPv4 = [string]$runtimeDocument.wslIPv4
-            $base.Changed = [bool]$base.Guest.changed -or $hostChanged -or [bool]$runtimeDocument.changed
+            $deadline = [DateTime]::UtcNow.AddSeconds(60)
+            do {
+                Start-Sleep -Seconds 1
+                $relayReady = $null -ne (Get-NetTCPConnection -LocalPort $ListenPort -State Listen -ErrorAction SilentlyContinue |
+                        Where-Object { $_.LocalAddress -in @($ListenAddress, '0.0.0.0') } | Select-Object -First 1)
+                $task = Get-ScheduledTask -TaskName $state.Names.TaskName
+            } while (-not $relayReady -and $task.State -eq 'Running' -and [DateTime]::UtcNow -lt $deadline)
+            if (-not $relayReady -or $task.State -ne 'Running') {
+                $taskInfo = Get-ScheduledTaskInfo -TaskName $state.Names.TaskName
+                throw "persistent TCP relay failed; state=$($task.State); result=$($taskInfo.LastTaskResult)"
+            }
+            if (Test-Path -LiteralPath $state.Names.StatusPath -PathType Leaf) {
+                $runtimeDocument = Get-Content -LiteralPath $state.Names.StatusPath -Raw | ConvertFrom-Json
+                $base.WslIPv4 = [string]$runtimeDocument.wslIPv4
+            }
+            $base.Changed = [bool]$base.Guest.changed -or $hostChanged
         }
         $base.Guest = Invoke-WslSshAccessGuest -Distribution $Distribution -Operation verify `
             -LinuxUser $LinuxUser -GuestPort $GuestPort -PublicKey $PublicKey -GuestScriptPath $GuestScriptPath
@@ -675,7 +695,7 @@ function Invoke-WslSshAccess {
             -ListenAddress $ListenAddress -ListenPort $ListenPort -GuestPort $GuestPort `
             -RemoteAddress $RemoteAddress -RuntimeHelperSource $RuntimeHelperSource
         if ([int]$base.Guest.exitCode -eq 0 -and $verifiedState.RuntimeFilesMatch -and
-            $verifiedState.TaskMatches -and $verifiedState.FirewallRuleMatches -and $verifiedState.PortProxyMatches) {
+            $verifiedState.TaskMatches -and $verifiedState.FirewallRuleMatches -and $verifiedState.RelayMatches) {
             $base.Status = 'Succeeded'
             $base.ExitCode = 0
         }
