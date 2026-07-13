@@ -34,7 +34,7 @@ bash linux/wsl/prepare-ssh-access.sh \
 - 每个 distribution 使用独立 config、runtime helper、task 和 firewall rule 名称，避免 rollback 影响其他 distribution。
 - AtStartup task 固定 S4U、Highest、单个 boot trigger 和固定 PowerShell action。不得保存 Windows 密码/PIN，也不得降级为依赖自动登录的 AtLogOn。
 - guest 默认使用 `2223/tcp`，避开 Windows OpenSSH `22/tcp` 与 WSL localhost relay 的端口冲突。
-- runtime helper 启动指定 distribution/`ssh.service`，等待 Windows `127.0.0.1:<guest-port>` 的 WSL NAT localhost relay，再只刷新精确 listen address/port 到该 relay 的 v4tov4 portproxy；WSL IPv4 只作为诊断字段，不作为转发目标。
+- runtime helper 启动指定 distribution 后必须 restart `ssh.service` 触发 guest listener 重新 bind，等待 Windows `127.0.0.1:<guest-port>` 的 WSL NAT localhost relay，再只刷新精确 listen address/port 到该 relay 的 v4tov4 portproxy；WSL IPv4 只作为诊断字段，不作为转发目标。
 - firewall rule 只允许显式 remote allowlist；不改变 profile 启停状态。全部 profile 已关闭时不创建 rule，host verify 将该项视为 skipped/satisfied。
 - rollback 只删除本功能命名资源和精确 portproxy；保留 Windows OpenSSH、PSRP、Tailscale、`openssh-server`、host keys 和其他 firewall/task/portproxy。
 - JSON stdout 只有一个 schema v1 document；退出码为成功/Preview 0、执行失败 1、参数无效 2、Blocked 10。

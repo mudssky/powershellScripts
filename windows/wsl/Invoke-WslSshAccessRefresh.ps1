@@ -41,7 +41,8 @@ try {
         throw 'runtime config contract is invalid'
     }
     $configValidated = $true
-    & wsl.exe -d ([string]$config.distribution) -u root -- systemctl start ssh 2>$null | Out-Null
+    # WSL NAT localhost relay 只在 guest listener 重新 bind 时可靠刷新。
+    & wsl.exe -d ([string]$config.distribution) -u root -- systemctl restart ssh 2>$null | Out-Null
     if ($LASTEXITCODE -ne 0) {
         throw 'cannot start WSL ssh.service'
     }
