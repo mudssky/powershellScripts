@@ -34,7 +34,7 @@ bash linux/wsl/prepare-ssh-access.sh \
 - 每个 distribution 使用独立 config、status、runtime helper、task 和 firewall rule 名称，避免 rollback 影响其他 distribution。
 - AtStartup task 固定 S4U、Highest、单个 boot trigger、固定 PowerShell action和无限执行时长。task 必须保持 Running 来承载受管 TCP relay；不得保存 Windows 密码/PIN，也不得降级为依赖自动登录的 AtLogOn。
 - guest 默认使用 `2223/tcp`，避开 Windows OpenSSH `22/tcp` 与 WSL localhost relay 的端口冲突。
-- runtime helper 在同一 S4U task 内保持一个 `wsl.exe ... sleep infinity` 会话，再 restart `ssh.service` 触发 guest listener 重新 bind，等待该会话的 WSL NAT localhost relay，最后用内置 .NET TCP relay 长驻监听 Windows 端口。WSL IPv4 只作为诊断字段，不作为转发目标。
+- runtime helper 在同一 S4U task 内保持一个 `wsl.exe ... sleep infinity` 会话，再 restart `ssh.service` 触发 guest listener 重新 bind，等待该会话的 WSL NAT localhost relay，最后用内置 .NET TCP relay 长驻监听 Windows 端口。relay 监测 keepalive PID；WSL 被终止时 task 失败退出，由 Scheduled Task restart policy 重建整条链路。WSL IPv4 只作为诊断字段，不作为转发目标。
 - firewall rule 只允许显式 remote allowlist；不改变 profile 启停状态。全部 profile 已关闭时不创建 rule，host verify 将该项视为 skipped/satisfied。
 - apply 迁移时精确删除相同 listen address/port 的 legacy portproxy，避免与长驻 relay 争用端口。
 - rollback 先停止 task，再只删除本功能命名资源和精确 legacy portproxy；保留 Windows OpenSSH、PSRP、Tailscale、`openssh-server`、host keys 和其他 firewall/task/portproxy。

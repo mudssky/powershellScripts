@@ -97,18 +97,31 @@ try {
 using System;
 using System.Net;
 using System.Net.Sockets;
+using System.Diagnostics;
+using System.Threading;
 using System.Threading.Tasks;
 
 public static class WslSshTcpRelay
 {
-    public static void Run(string listenAddress, int listenPort, string targetAddress, int targetPort)
+    public static void Run(string listenAddress, int listenPort, string targetAddress, int targetPort, int keepaliveProcessId)
     {
         var listener = new TcpListener(IPAddress.Parse(listenAddress), listenPort);
         listener.Start();
         while (true)
         {
-            var client = listener.AcceptTcpClient();
-            Task.Run(() => Handle(client, targetAddress, targetPort));
+            Process keepalive;
+            try { keepalive = Process.GetProcessById(keepaliveProcessId); }
+            catch { throw new InvalidOperationException("WSL keepalive process exited"); }
+            if (keepalive.HasExited) throw new InvalidOperationException("WSL keepalive process exited");
+            if (listener.Pending())
+            {
+                var client = listener.AcceptTcpClient();
+                Task.Run(() => Handle(client, targetAddress, targetPort));
+            }
+            else
+            {
+                Thread.Sleep(500);
+            }
         }
     }
 
@@ -151,7 +164,7 @@ public static class WslSshTcpRelay
     $document.wslIPv4 = $wslIPv4
     $document.message = 'persistent WSL SSH TCP relay is running'
     Write-WslSshRelayStatus -Document $document
-    [WslSshTcpRelay]::Run([string]$config.listenAddress, [int]$config.listenPort, '127.0.0.1', [int]$config.guestPort)
+    [WslSshTcpRelay]::Run([string]$config.listenAddress, [int]$config.listenPort, '127.0.0.1', [int]$config.guestPort, [int]$keepalive.Id)
 }
 catch {
     $document.status = 'Failed'
