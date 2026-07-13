@@ -56,8 +56,11 @@ try {
         throw 'runtime config contract is invalid'
     }
 
-    # wslrelay 依赖活跃的 wsl.exe 会话；keepalive 与 TCP relay 由同一个长驻 task 承载。
-    $keepalive = Start-Process -FilePath wsl.exe -ArgumentList @(
+    while ($true) {
+        $keepalive = $null
+        try {
+            # wslrelay 依赖活跃的 wsl.exe 会话；keepalive 与 TCP relay 由同一个长驻 task 承载。
+            $keepalive = Start-Process -FilePath wsl.exe -ArgumentList @(
         '-d', [string]$config.distribution, '--', 'sleep', 'infinity'
     ) -WindowStyle Hidden -PassThru
     if ($keepalive.HasExited) {
@@ -107,22 +110,26 @@ public static class WslSshTcpRelay
     {
         var listener = new TcpListener(IPAddress.Parse(listenAddress), listenPort);
         listener.Start();
-        while (true)
+        try
         {
-            Process keepalive;
-            try { keepalive = Process.GetProcessById(keepaliveProcessId); }
-            catch { throw new InvalidOperationException("WSL keepalive process exited"); }
-            if (keepalive.HasExited) throw new InvalidOperationException("WSL keepalive process exited");
-            if (listener.Pending())
+            while (true)
             {
-                var client = listener.AcceptTcpClient();
-                Task.Run(() => Handle(client, targetAddress, targetPort));
-            }
-            else
-            {
-                Thread.Sleep(500);
+                Process keepalive;
+                try { keepalive = Process.GetProcessById(keepaliveProcessId); }
+                catch { throw new InvalidOperationException("WSL keepalive process exited"); }
+                if (keepalive.HasExited) throw new InvalidOperationException("WSL keepalive process exited");
+                if (listener.Pending())
+                {
+                    var client = listener.AcceptTcpClient();
+                    Task.Run(() => Handle(client, targetAddress, targetPort));
+                }
+                else
+                {
+                    Thread.Sleep(500);
+                }
             }
         }
+        finally { listener.Stop(); }
     }
 
     private static async Task Handle(TcpClient client, string targetAddress, int targetPort)
@@ -157,14 +164,28 @@ public static class WslSshTcpRelay
     }
 }
 '@
-    Add-Type -TypeDefinition $relaySource -Language CSharp
+            if (-not ('WslSshTcpRelay' -as [type])) {
+                Add-Type -TypeDefinition $relaySource -Language CSharp
+            }
 
-    $document.status = 'Running'
-    $document.exitCode = 0
-    $document.wslIPv4 = $wslIPv4
-    $document.message = 'persistent WSL SSH TCP relay is running'
-    Write-WslSshRelayStatus -Document $document
-    [WslSshTcpRelay]::Run([string]$config.listenAddress, [int]$config.listenPort, '127.0.0.1', [int]$config.guestPort, [int]$keepalive.Id)
+            $document.status = 'Running'
+            $document.exitCode = 0
+            $document.wslIPv4 = $wslIPv4
+            $document.message = 'persistent WSL SSH TCP relay is running'
+            Write-WslSshRelayStatus -Document $document
+            [WslSshTcpRelay]::Run([string]$config.listenAddress, [int]$config.listenPort, '127.0.0.1', [int]$config.guestPort, [int]$keepalive.Id)
+        }
+        catch {
+            $document.status = 'Recovering'
+            $document.exitCode = 1
+            $document.message = $_.Exception.Message
+            Write-WslSshRelayStatus -Document $document
+            if ($null -ne $keepalive -and -not $keepalive.HasExited) {
+                Stop-Process -Id $keepalive.Id -Force -ErrorAction SilentlyContinue
+            }
+            Start-Sleep -Seconds 5
+        }
+    }
 }
 catch {
     $document.status = 'Failed'
