@@ -144,4 +144,13 @@ Describe 'WSL SSH 宿主与客体入口合同' {
         (Get-Content -LiteralPath $script:RuntimePath -Raw) | Should -Match "sleep', 'infinity'"
         (Get-Content -LiteralPath $script:RuntimePath -Raw) | Should -Match 'WSL keepalive process exited'
     }
+
+    It 'runtime relay 使用每轮解析的 WSL IPv4 连接 guest sshd' {
+        $content = Get-Content -LiteralPath $script:RuntimePath -Raw
+
+        $content | Should -Match '\$client\.Connect\(\$wslIPv4, \[int\]\$config\.guestPort\)'
+        $content | Should -Match '\[WslSshTcpRelay\]::Run\(.+\$wslIPv4, \[int\]\$config\.guestPort'
+        $content | Should -Not -Match '\$client\.Connect\(''127\.0\.0\.1'''
+        $content | Should -Not -Match '\[WslSshTcpRelay\]::Run\(.+''127\.0\.0\.1'''
+    }
 }

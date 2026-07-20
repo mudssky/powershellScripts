@@ -82,7 +82,7 @@ try {
     do {
         $client = New-Object Net.Sockets.TcpClient
         try {
-            $client.Connect('127.0.0.1', [int]$config.guestPort)
+            $client.Connect($wslIPv4, [int]$config.guestPort)
             $relayReady = $true
         }
         catch {
@@ -93,7 +93,7 @@ try {
         }
     } while (-not $relayReady -and [DateTime]::UtcNow -lt $deadline)
     if (-not $relayReady) {
-        throw 'WSL localhost relay is not ready'
+        throw 'WSL SSH endpoint is not ready'
     }
 
     $relaySource = @'
@@ -164,7 +164,7 @@ public static class WslSshTcpRelay
     }
 }
 '@
-            if (-not ('WslSshTcpRelay' -as [type])) {
+            if (-not ('WslSshTcpRelay' -As [type])) {
                 Add-Type -TypeDefinition $relaySource -Language CSharp
             }
 
@@ -173,7 +173,7 @@ public static class WslSshTcpRelay
             $document.wslIPv4 = $wslIPv4
             $document.message = 'persistent WSL SSH TCP relay is running'
             Write-WslSshRelayStatus -Document $document
-            [WslSshTcpRelay]::Run([string]$config.listenAddress, [int]$config.listenPort, '127.0.0.1', [int]$config.guestPort, [int]$keepalive.Id)
+            [WslSshTcpRelay]::Run([string]$config.listenAddress, [int]$config.listenPort, $wslIPv4, [int]$config.guestPort, [int]$keepalive.Id)
         }
         catch {
             $document.status = 'Recovering'
