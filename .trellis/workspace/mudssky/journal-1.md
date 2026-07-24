@@ -1454,3 +1454,36 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 44: VS Code Remote code-host
+
+**Date**: 2026-07-24
+**Task**: VS Code Remote code-host
+**Branch**: `master`
+
+### Summary
+
+在 shell/shared.d 新增 code-host：探测 vscode-server remote-cli 与存活 IPC，使 plain SSH/tmux 会话可直接在客户端 VS Code 打开路径；不覆盖 code、无 shell 副作用。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e45e9f11` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
