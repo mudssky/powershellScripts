@@ -51,23 +51,31 @@ function createWorkspace(): Workspace {
  * @returns execa 执行结果。
  */
 async function runProfile(workspace: Workspace, body: string) {
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    HOME: workspace.home,
+    PATH: `${workspace.mockBin}:${process.env.PATH ?? ''}`,
+  }
+  // 宿主可能设置 VISUAL=true 等非编辑器值；open_editor 优先读 VISUAL。
+  delete env.VISUAL
+  delete env.EDITOR
+
   return execa(
     'bash',
     [
-      '-lc',
+      '-c',
       [
         'set -euo pipefail',
+        // 显式清掉 login profile 可能带回的编辑器变量（配合 env 删除双保险）
+        'unset VISUAL EDITOR',
         `source "${workspace.scriptPath}"`,
         body,
       ].join('\n'),
     ],
     {
       cwd: workspace.root,
-      env: {
-        ...process.env,
-        HOME: workspace.home,
-        PATH: `${workspace.mockBin}:${process.env.PATH ?? ''}`,
-      },
+      env,
+      extendEnv: false,
       reject: false,
     },
   )

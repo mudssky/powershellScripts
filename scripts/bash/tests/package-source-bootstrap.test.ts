@@ -41,6 +41,34 @@ function createWorkspace(): Workspace {
 }
 
 /**
+ * 构造 Stage 0 bootstrap 测试环境，剥离宿主 Homebrew 镜像变量。
+ *
+ * @param workspace 隔离工作区。
+ * @param probeOverride Auto 测试探测覆盖。
+ * @returns 传给 execa 的 env。
+ */
+function buildTestEnv(
+  workspace: Workspace,
+  probeOverride?: 'healthy' | 'unhealthy',
+): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    CAPTURE_PATH: workspace.capturePath,
+  }
+  if (probeOverride !== undefined) {
+    env.POWERSHELL_SCRIPTS_BOOTSTRAP_PROBE_RESULT = probeOverride
+  } else {
+    delete env.POWERSHELL_SCRIPTS_BOOTSTRAP_PROBE_RESULT
+  }
+  // Direct/Auto-official 断言「未注入镜像」时，不能继承宿主已有 HOMEBREW_*。
+  delete env.HOMEBREW_BOTTLE_DOMAIN
+  delete env.HOMEBREW_API_DOMAIN
+  delete env.HOMEBREW_BREW_GIT_REMOTE
+  delete env.HOMEBREW_CORE_GIT_REMOTE
+  return env
+}
+
+/**
  * 执行 Stage 0 helper，并用子命令记录 Homebrew 环境变量。
  *
  * @param workspace 隔离工作区。
@@ -70,11 +98,8 @@ async function runBootstrap(
     ],
     {
       cwd: workspace.root,
-      env: {
-        ...process.env,
-        CAPTURE_PATH: workspace.capturePath,
-        POWERSHELL_SCRIPTS_BOOTSTRAP_PROBE_RESULT: probeOverride,
-      },
+      env: buildTestEnv(workspace, probeOverride),
+      extendEnv: false,
       reject: false,
     },
   )

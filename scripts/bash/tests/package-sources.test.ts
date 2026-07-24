@@ -42,6 +42,28 @@ function getAvailableShells(): string[] {
 }
 
 /**
+ * 构造 package source 测试用环境，剥离宿主镜像变量以免污染断言。
+ *
+ * @param workspace 隔离工作区。
+ * @returns 传给 execa 的 env。
+ */
+function buildTestEnv(workspace: Workspace): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    HOME: workspace.home,
+    XDG_CONFIG_HOME: workspace.configRoot,
+  }
+  // 宿主 shell 可能已 export Homebrew/rustup 镜像；Direct/缺省路径应看到「未设置」。
+  delete env.HOMEBREW_BOTTLE_DOMAIN
+  delete env.HOMEBREW_API_DOMAIN
+  delete env.HOMEBREW_BREW_GIT_REMOTE
+  delete env.HOMEBREW_CORE_GIT_REMOTE
+  delete env.RUSTUP_DIST_SERVER
+  delete env.RUSTUP_UPDATE_ROOT
+  return env
+}
+
+/**
  * 在指定 shell 中 source package source snippet。
  *
  * @param shell shell 可执行文件。
@@ -55,11 +77,8 @@ async function runShell(shell: string, workspace: Workspace, body: string) {
     ['-c', ['set -eu', `source "${workspace.scriptPath}"`, body].join('\n')],
     {
       cwd: workspace.root,
-      env: {
-        ...process.env,
-        HOME: workspace.home,
-        XDG_CONFIG_HOME: workspace.configRoot,
-      },
+      env: buildTestEnv(workspace),
+      extendEnv: false,
       reject: false,
     },
   )
