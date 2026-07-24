@@ -31,6 +31,7 @@ function Import-PackageSourceDependencies {
             (Join-Path $script:PackageSourceRoot 'adapters/ChsrcCommandAdapter.psm1')
             (Join-Path $script:PackageSourceRoot 'adapters/DockerAdapter.psm1')
             (Join-Path $script:PackageSourceRoot 'adapters/ChsrcSystemAdapter.psm1')
+            (Join-Path $script:PackageSourceRoot 'adapters/NixAdapter.psm1')
         )) {
         if (-not (Test-Path -LiteralPath $modulePath -PathType Leaf)) {
             throw "未找到 package source 依赖模块: $modulePath"
@@ -879,6 +880,9 @@ function Get-PackageSourceAdapterResourcePath {
         'chsrc-system' {
             return @(Get-ChsrcSystemPackageSourceResourcePath -TargetConfig $TargetConfig)
         }
+        'nix' {
+            return @(Get-NixPackageSourceResourcePath -TargetConfig $TargetConfig)
+        }
         default {
             throw "package source adapter 尚未实现: $($TargetConfig.adapter)"
         }
@@ -953,6 +957,15 @@ function Invoke-PackageSourceAdapterApply {
         'chsrc-system' {
             Invoke-ChsrcSystemPackageSourceApply -Target $Target -TargetConfig $TargetConfig -MinimumChsrcVersion $MinimumChsrcVersion -Selection $Selection
         }
+        'nix' {
+            $nixMirrorUrls = if ($MirrorUrl.Count -gt 0) {
+                @($MirrorUrl)
+            }
+            else {
+                @($TargetConfig.mirror_urls | ForEach-Object { [string]$_ })
+            }
+            Invoke-NixPackageSourceApply -TargetConfig $TargetConfig -MirrorUrl $nixMirrorUrls -TimeoutSeconds $TimeoutSeconds -Retry $Retry
+        }
         default {
             throw "package source adapter 尚未实现: $($TargetConfig.adapter)"
         }
@@ -962,6 +975,7 @@ function Invoke-PackageSourceAdapterApply {
         'chsrc' { 'source 已通过 chsrc 应用，并由原生命令验证' }
         'docker' { $result.Message }
         'chsrc-system' { '系统 package source 已通过 chsrc 应用，并纳入文件事务' }
+        'nix' { $result.Message }
     }
     $result | Add-Member -NotePropertyName Message -NotePropertyValue $message -Force
     return $result
@@ -996,6 +1010,9 @@ function Get-PackageSourceCurrentState {
         }
         'managed-env' {
             return Get-ManagedEnvPackageSourceState -TargetConfig $TargetConfig
+        }
+        'nix' {
+            return Get-NixPackageSourceState -TargetConfig $TargetConfig
         }
         default {
             return $null
@@ -1211,7 +1228,7 @@ function Invoke-PackageSourceAction {
         $Mode = [string]$ensureTransaction.Manifest.Mode
     }
 
-    $implementedAdapters = @('managed-env', 'chsrc', 'docker', 'chsrc-system')
+    $implementedAdapters = @('managed-env', 'chsrc', 'docker', 'chsrc-system', 'nix')
     $unsupportedTargets = @($resolvedTargets | Where-Object { [string]$_.Config.adapter -notin $implementedAdapters })
     $results = [System.Collections.Generic.List[object]]::new()
     if ($Action -eq 'Plan' -or ($Mode -eq 'Direct' -and $Action -ne 'Ensure')) {

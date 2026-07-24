@@ -3,7 +3,7 @@
   "name": "nix-devshell-pilot",
   "title": "Nix 开发环境试点",
   "description": "为 macOS 与 WSL/Linux 验证可回退的 Nix flake 开发环境，不接管用户配置。",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

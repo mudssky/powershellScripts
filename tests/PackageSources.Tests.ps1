@@ -1026,9 +1026,26 @@ Describe 'Package source Auto policy' {
     }
 
     It '官方端点健康时保持官方源且不创建事务' {
+        $homePath = Join-Path $TestDrive 'auto-healthy-home'
         $statePath = Join-Path $TestDrive 'auto-healthy-state'
-        $originalStateRoot = [Environment]::GetEnvironmentVariable('POWERSHELL_SCRIPTS_PACKAGE_SOURCE_STATE_ROOT', 'Process')
+        New-Item -ItemType Directory -Path $homePath -Force | Out-Null
+        $brewEnvNames = @(
+            'HOMEBREW_BREW_GIT_REMOTE'
+            'HOMEBREW_CORE_GIT_REMOTE'
+            'HOMEBREW_API_DOMAIN'
+            'HOMEBREW_BOTTLE_DOMAIN'
+        )
+        $variableNames = @('HOME', 'XDG_CONFIG_HOME', 'POWERSHELL_SCRIPTS_PACKAGE_SOURCE_STATE_ROOT') + $brewEnvNames
+        $originalValues = @{}
+        foreach ($name in $variableNames) {
+            $originalValues[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
+        }
+        [Environment]::SetEnvironmentVariable('HOME', $homePath, 'Process')
+        [Environment]::SetEnvironmentVariable('XDG_CONFIG_HOME', (Join-Path $homePath '.config'), 'Process')
         [Environment]::SetEnvironmentVariable('POWERSHELL_SCRIPTS_PACKAGE_SOURCE_STATE_ROOT', $statePath, 'Process')
+        foreach ($name in $brewEnvNames) {
+            [Environment]::SetEnvironmentVariable($name, $null, 'Process')
+        }
         Mock -CommandName Invoke-WebRequest -ModuleName PackageSources -MockWith {
             [PSCustomObject]@{ StatusCode = 200 }
         }
@@ -1037,7 +1054,9 @@ Describe 'Package source Auto policy' {
             $document = Invoke-PackageSourceAction -Action Apply -Mode Auto -Target brew
         }
         finally {
-            [Environment]::SetEnvironmentVariable('POWERSHELL_SCRIPTS_PACKAGE_SOURCE_STATE_ROOT', $originalStateRoot, 'Process')
+            foreach ($name in $variableNames) {
+                [Environment]::SetEnvironmentVariable($name, $originalValues[$name], 'Process')
+            }
         }
 
         $document.ExitCode | Should -Be 0
@@ -1149,13 +1168,19 @@ Describe 'Package source Auto policy' {
         $statePath = Join-Path $TestDrive 'auto-fallback-state'
         New-Item -ItemType Directory -Path $homePath -Force | Out-Null
         $fakeChsrcPath = New-FakeChsrcScript -Root $TestDrive
+        $brewEnvNames = @(
+            'HOMEBREW_BREW_GIT_REMOTE'
+            'HOMEBREW_CORE_GIT_REMOTE'
+            'HOMEBREW_API_DOMAIN'
+            'HOMEBREW_BOTTLE_DOMAIN'
+        )
         $variableNames = @(
             'HOME',
             'XDG_CONFIG_HOME',
             'XDG_STATE_HOME',
             'POWERSHELL_SCRIPTS_PACKAGE_SOURCE_STATE_ROOT',
             'POWERSHELL_SCRIPTS_CHSRC_PATH'
-        )
+        ) + $brewEnvNames
         $originalValues = @{}
         foreach ($name in $variableNames) {
             $originalValues[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
@@ -1165,6 +1190,9 @@ Describe 'Package source Auto policy' {
         [Environment]::SetEnvironmentVariable('XDG_STATE_HOME', $statePath, 'Process')
         [Environment]::SetEnvironmentVariable('POWERSHELL_SCRIPTS_PACKAGE_SOURCE_STATE_ROOT', $statePath, 'Process')
         [Environment]::SetEnvironmentVariable('POWERSHELL_SCRIPTS_CHSRC_PATH', $fakeChsrcPath, 'Process')
+        foreach ($name in $brewEnvNames) {
+            [Environment]::SetEnvironmentVariable($name, $null, 'Process')
+        }
         Mock -CommandName Invoke-WebRequest -ModuleName PackageSources -MockWith {
             throw 'mock official endpoint unavailable'
         }
@@ -1192,13 +1220,19 @@ Describe 'Package source Auto policy' {
         $statePath = Join-Path $TestDrive 'auto-orphan-state'
         New-Item -ItemType Directory -Path $homePath -Force | Out-Null
         $fakeChsrcPath = New-FakeChsrcScript -Root $TestDrive
+        $brewEnvNames = @(
+            'HOMEBREW_BREW_GIT_REMOTE'
+            'HOMEBREW_CORE_GIT_REMOTE'
+            'HOMEBREW_API_DOMAIN'
+            'HOMEBREW_BOTTLE_DOMAIN'
+        )
         $variableNames = @(
             'HOME',
             'XDG_CONFIG_HOME',
             'XDG_STATE_HOME',
             'POWERSHELL_SCRIPTS_PACKAGE_SOURCE_STATE_ROOT',
             'POWERSHELL_SCRIPTS_CHSRC_PATH'
-        )
+        ) + $brewEnvNames
         $originalValues = @{}
         foreach ($name in $variableNames) {
             $originalValues[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
@@ -1208,6 +1242,9 @@ Describe 'Package source Auto policy' {
         [Environment]::SetEnvironmentVariable('XDG_STATE_HOME', $statePath, 'Process')
         [Environment]::SetEnvironmentVariable('POWERSHELL_SCRIPTS_PACKAGE_SOURCE_STATE_ROOT', $statePath, 'Process')
         [Environment]::SetEnvironmentVariable('POWERSHELL_SCRIPTS_CHSRC_PATH', $fakeChsrcPath, 'Process')
+        foreach ($name in $brewEnvNames) {
+            [Environment]::SetEnvironmentVariable($name, $null, 'Process')
+        }
         Mock -CommandName Invoke-WebRequest -ModuleName PackageSources -MockWith {
             throw 'mock official endpoint unavailable'
         }

@@ -73,3 +73,7 @@ pwsh ./install.ps1 -installApp
 - **前置条件**: 步骤 1 完成
 - **可跳过**: 是
 - **说明**: 安装 Pester 等 PowerShell 模块
+
+## 可选：Nix 开发环境
+
+仓库提供可选 `nix develop` 工具链（不接入 Core/Full）。见 [nix-devshell.md](./nix-devshell.md)。

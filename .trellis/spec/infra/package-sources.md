@@ -58,7 +58,7 @@ powershell.exe -NoProfile -File ./scripts/pwsh/misc/Invoke-PackageSourceBootstra
 - chsrc 的最低版本来自 catalog，当前为 `0.2.5`；版本、target capability、scope 和 option 顺序必须在 adapter 外层校验。
 - macOS/Linux 的 `brew` 与跨平台 `rustup` 使用 managed-env adapter：chsrc 只写隔离 HOME，adapter 只提取 catalog 白名单 HTTPS 变量，禁止修改真实 shell rc。
 - `npm`、`pnpm`、`pip`、`go` 使用 chsrc command adapter；`debian`、`ubuntu`、`arch` 使用系统文件 snapshot；Docker 使用仓库自有 JSON adapter。
-- `winget` Stage 1、`uv`、Cargo、Nix 在可靠结构化恢复实现前返回 Unsupported；不得写猜测性配置。
+- `nix` 使用 system adapter（`NixAdapter.psm1`）事务化修改 `/etc/nix/nix.conf` 的 `substituters`/`trusted-public-keys`（USTC → cache.nixos.org），并重启 nix-daemon；测试根用 `POWERSHELL_SCRIPTS_SYSTEM_SOURCE_ROOT`。`winget` Stage 1、`uv`、Cargo 在可靠结构化恢复实现前仍返回 Unsupported。
 - Windows Stage 0 只使用 `Microsoft.WinGet.Client` 结构化 cmdlets，首次 snapshot 不得被 China 重跑覆盖，成功 Restore 后删除 snapshot。
 - `shell/shared.d/package-sources.sh` 只允许 Homebrew/rustup 已知变量和 HTTPS 值，不能 `eval`、`source` 或导出任意变量名。
 - 新机顺序固定为：package manager -> PowerShell 7/chsrc bootstrap -> Stage 1 sources -> CLI/fonts/profile。macOS 物理编号为 `02 pwsh`、`03 sources`，避免 source 引擎依赖自身尚未安装的运行时。

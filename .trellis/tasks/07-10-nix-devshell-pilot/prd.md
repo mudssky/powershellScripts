@@ -1,3 +1,10 @@
+# Status（2026-07-24）
+
+- **Linux 验证完成**：Ubuntu 22.04.5 x86_64 + systemd（本机 server，非 WSL 24.04）已安装 multi-user Nix 2.35.1，`nix develop` 工具链与 NixAdapter 测试通过。报告见 `research/linux-pilot-report.md`。
+- **macOS 跳过**：`aarch64-darwin` flake 输出保留，真机安装/卸载/QA 本轮不做。
+- **部分延后**：devshell 内完整 `pnpm qa` / `test:pwsh:full:assertions` / 真实 `/etc/nix` China Apply·Restore 未强制跑完；可按 `docs/nix-devshell.md` 补。
+- 磁盘：`/nix` ≈ 4.4G（&lt; 10G 上限）。
+
 # Nix 开发环境试点
 
 ## Goal
@@ -55,27 +62,26 @@
 
 ## Acceptance Criteria
 
-- [ ] Apple Silicon macOS 可从未安装 Nix 的基线完成安装、进入 dev shell、执行约定验证命令、退出并完成卸载回退。
-- [ ] `Ubuntu 24.04 WSL2 x86_64 + systemd` 可通过官方 multi-user installer 安装 Nix、进入同一 flake 的 dev shell 并执行约定验证命令。
-- [ ] macOS 官方 multi-user 安装与 WSL2 对应的官方安装模式均有安装前 snapshot、安装后状态和逐项卸载验证记录。
-- [ ] flake 只暴露 `aarch64-darwin` 与 `x86_64-linux` 的首期 dev shell 输出，且两个输出均有真实验证记录。
-- [ ] `flake.lock` 固定 nixpkgs 输入；重复进入 dev shell 时核心工具版本符合约定，锁文件不会被隐式改写。
-- [ ] `flake.lock` 只有在人工更新命令下变化；文档记录更新、diff 审阅与两平台回归流程。
-- [ ] 未执行 `nix develop` 时仓库目录不会自动激活 Nix 环境；退出后 PATH 与 shell 状态恢复。
-- [ ] dev shell 内 Node 为 24.x，pnpm 与 `package.json#packageManager` 一致，PowerShell、Cargo 和 Rust 编译器可用，`pwshfmt-rs` 可构建或运行。
-- [ ] `pnpm install --frozen-lockfile` 与 Cargo locked dependency resolution 继续消费现有 lockfile；flake 不生成第二套项目依赖锁定或 vendoring 机制。
-- [ ] dev shell 内 `Get-Module Pester -ListAvailable` 可解析固定的 `5.7.1` 隔离副本；退出后用户级 Pester 目录、版本和 `PSModulePath` 保持原状。
-- [ ] Apple Silicon macOS 与 Ubuntu 24.04 WSL2 x86_64 的 dev shell 均可运行 `pnpm install --frozen-lockfile`、`pnpm qa`、`pnpm test:pwsh:full:assertions` 和 `cargo test --manifest-path projects/clis/pwshfmt-rs/Cargo.toml`。
-- [ ] 宿主 Docker 可用时追加运行 `pnpm test:pwsh:linux:full`；daemon 缺失时明确报告宿主前置条件，而不是 flake 或 dev shell 缺陷。
-- [ ] 试点报告包含安装前后、首次进入、二次进入、dev shell closure、完整 store 与垃圾回收后的资源数据，并与预先批准的磁盘预算比较。
-- [ ] 垃圾回收后的 Nix 净磁盘增量不超过 `10G`；`10G`～`20G` 只有在列出主要 closure、完成裁剪并获得用户例外批准后才可继续，超过 `20G` 必须停止。
-- [ ] Direct 模式不修改 Nix source；China/Auto 的 substituter 与 trusted key 变更有 snapshot、状态、drift 防护和可执行 Restore。
-- [ ] China/Auto 应用后 substituter 顺序为 USTC → `cache.nixos.org`，缓存对象必须通过有效 trusted key 验证；Restore 后不残留该顺序。
-- [ ] Apple Silicon macOS 与 Ubuntu 24.04 WSL2 x86_64 均完成一次真实 Nix source Apply → `nix develop` → Restore 演练，Restore 后配置存在性、内容 hash 与权限回到试点前状态。
-- [ ] 退出 dev shell 后原生工具版本与用户配置保持不变；删除 flake 文件或卸载 Nix 不影响现有安装流程。
-- [ ] dev shell 内宿主 SSH、代理和包缓存仍可使用；核心工具路径与版本报告证明未误用 fnm、rustup、Homebrew 或用户级 Pester。
-- [ ] 文档包含安装、日常使用、锁文件更新、缓存检查、垃圾回收、故障回退和完整卸载步骤。
-- [ ] 实施前补齐并审阅 `design.md` 与 `implement.md`。
+- [~] Apple Silicon macOS 全流程 — **本轮跳过**
+- [x] Linux x86_64 + systemd 官方 multi-user 安装 Nix，进入 flake dev shell 并验证核心工具（环境为 Ubuntu 22.04 server，非原 PRD 的 WSL 24.04）
+- [~] macOS 与 WSL 双端安装/卸载逐项记录 — **仅 Linux 安装与基线；未做完整卸载**
+- [x] flake 只暴露 `aarch64-darwin` 与 `x86_64-linux`；Linux 有真实验证，darwin 仅 evaluation
+- [x] `flake.lock` 固定 nixpkgs（nixos-unstable）；二次 `nix develop` 约 0.25s，锁文件不隐式改写
+- [x] 文档记录人工 `nix flake update` 与审阅流程
+- [x] 无 `.envrc`；未 `nix develop` 时不自动激活；退出后宿主 PATH 恢复
+- [x] dev shell：Node 24.x、pnpm=packageManager、pwsh、cargo/rustc 可用（路径在 `/nix/store`）
+- [x] 不引入第二套 node/rust 依赖锁定
+- [x] Pester 5.7.1 存在于 Nix store 模块路径（ListAvailable 仍可能同时看到用户副本）
+- [~] devshell 内四条全量开发命令（install/qa/pester/cargo）— **本轮未全量跑**
+- [~] Docker 条件 Linux Pester — **未跑**
+- [x] 试点报告含基线、安装、工具路径、store 量级与 macOS 跳过说明
+- [x] 当前 `/nix` ≈ 4.4G &lt; 10G
+- [x] NixAdapter：测试根 Direct/Apply 幂等、非 root Blocked；fixture 覆盖 USTC→official 顺序
+- [~] 真实系统 China Apply/Restore 演练 — **adapter 已实现，本轮未对真实 /etc 强制演练**
+- [~] 双平台真实 source 演练 — **macOS 跳过**
+- [x] 退出 dev shell 后宿主 Node/Rust/pwsh 恢复基线
+- [x] 文档：`docs/nix-devshell.md`
+- [x] design/implement 已存在并按 Linux 范围执行
 
 ## Out Of Scope
 

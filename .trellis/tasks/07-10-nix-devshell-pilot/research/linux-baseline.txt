@@ -1,0 +1,15 @@
+date=2026-07-24T07:32:11+00:00
+host=server
+uname=Linux server 5.15.0-173-generic #183-Ubuntu SMP Fri Mar 6 13:29:34 UTC 2026 x86_64 GNU/Linux
+os=Ubuntu 22.04.5 LTS
+systemd=running
+arch=x86_64
+node=/run/user/1000/fnm_multishells/2082235_1784876584502/bin/node v24.11.0
+pnpm=/run/user/1000/fnm_multishells/2082235_1784876584502/bin/pnpm 10.33.0
+pwsh=/usr/bin/pwsh; 7.5.3
+rustc=/home/administrator/.cargo/bin/rustc rustc 1.92.0 (ded5c06cf 2025-12-08)
+cargo=/home/administrator/.cargo/bin/cargo cargo 1.92.0 (344c4567c 2025-10-21)
+nix=
+nix_store=absent
+disk_root=/dev/mapper/ubuntu--vg-ubuntu--lv  421G  320G   80G  81% /
+pester_module=

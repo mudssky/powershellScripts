@@ -146,11 +146,19 @@
     "nix": {
       "platforms": ["macos", "linux"],
       "phases": ["Optional"],
-      "adapter": "nix-extension",
-      "chsrc_target": "nix",
-      "scope": "user",
-      "reason": "由 Nix 试点按 flake/substituter 机制接入",
-      "official_probe_urls": ["https://cache.nixos.org/nix-cache-info"]
+      "adapter": "nix",
+      "scope": "system",
+      "resource": "/etc/nix/nix.conf",
+      "mirror_urls": [
+        "https://mirrors.ustc.edu.cn/nix-channels/store"
+      ],
+      "official_sources": [
+        "https://cache.nixos.org"
+      ],
+      "official_probe_urls": ["https://cache.nixos.org/nix-cache-info"],
+      "trusted_public_keys": [
+        "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
+      ]
     }
   }
 }
