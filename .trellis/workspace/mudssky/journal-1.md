@@ -1487,3 +1487,34 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 45: 归档已完成任务清理
+
+**Date**: 2026-07-24
+**Task**: 归档已完成任务清理
+**Branch**: `master`
+
+### Summary
+
+审阅 8 个 active 任务完成度；归档 psutils 优化审计父任务、Windows OpenSSH 入库、WSL SSH 宿主客体入口 3 项。其余 bootstrap/pgBackRest/Nix/Ansible 装机链路仍有未完成 AC。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+(No commits - planning session)
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
