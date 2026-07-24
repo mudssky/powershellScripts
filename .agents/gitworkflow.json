@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "guidance": [
+    "与 AGENTS.md Git 规则对齐：Conventional Commits，subject 用中文",
+    "创建 git worktree 时统一落在 ~/.worktrees"
+  ],
+  "commit": {
+    "preset": "conventional",
+    "language": "zh",
+    "types": [
+      "feat",
+      "fix",
+      "refactor",
+      "docs",
+      "test",
+      "chore",
+      "style",
+      "perf",
+      "ci",
+      "build",
+      "revert"
+    ],
+    "scopes": [],
+    "subjectMaxLength": 72,
+    "guidance": [
+      "格式：<type>(<scope>): <subject>；scope 可选但推荐（如 test、wsl、nix）",
+      "subject 简洁说明变更意图，用中文；不写句号",
+      "逻辑无关改动拆成多次提交，不混 unrelated 文件"
+    ]
+  },
+  "branch": {
+    "strategy": "trunk",
+    "mainBranch": "master",
+    "naming": "{type}/{slug}",
+    "mergeMethod": "squash",
+    "deleteAfterMerge": true,
+    "longLivedBranches": [],
+    "guidance": [
+      "允许在 master 直接开发小改动；多任务并行或风险实验时再开短生命周期分支",
+      "开分支时用 {type}/{slug}，例如 fix/nixadapter-ci-mock"
+    ]
+  },
+  "pullRequest": {
+    "template": [
+      "summary",
+      "changes",
+      "test-plan"
+    ],
+    "ciFixMaxRetries": 3,
+    "guidance": [
+      "PR 描述写清动机、主要改动和验证方式；CI 失败优先本地复现再修",
+      "CI 修复循环最多 3 次；仍红则停下来说明阻塞"
+    ]
+  },
+  "worktree": {
+    "root": "~/.worktrees",
+    "setup": [
+      {
+        "copy": [
+          ".env",
+          ".env.local",
+          "*.local.json",
+          "*.local.yaml",
+          "*.local.yml"
+        ]
+      },
+      {
+        "run": [
+          "pnpm install --prefer-offline"
+        ]
+      },
+      {
+        "note": "勿复制 node_modules 或构建产物；本地 secret 仅从主工作区 copy 缺失项"
+      }
+    ],
+    "guidance": [
+      "目录名建议 <repo>-<branch-slug>；任务结束后 git worktree remove 并 prune"
+    ]
+  },
+  "repositories": {
+    "defaults": {},
+    "relativePath": {}
+  }
+}
