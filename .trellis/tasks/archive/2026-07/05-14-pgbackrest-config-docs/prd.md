@@ -1,3 +1,11 @@
+# Status
+
+**2026-07-24 取消后续范围并归档。**
+
+- MVP 已交付：`config/database/backup/pgBackRest/` 配置与中文 README、`Postgres-Toolkit.ps1 pgbackrest`（含 dry-run）、表级 `pg_dump` 示例与测试（`e6346147`）。
+- 未做且**暂不继续**：PM2 / Node / Go 定时调度服务、Windows 通知后端、`bin/` 打包专项调整。
+- 若以后重启调度/通知能力，另开任务；可复用本任务 `research/`。
+
 # pgBackRest 配置示例与维护脚本
 
 ## Goal
@@ -50,18 +58,18 @@
 
 ## Acceptance Criteria (evolving)
 
-- [ ] `config/database/backup/pgBackRest/` 包含可读的中文 README，能解释 pgBackRest 与 pg_dump 的职责边界。
-- [ ] 示例配置包含 `macmini`、`lobechat` 场景所需字段，并避免提交真实密码。
-- [ ] 示例配置体现 Tailscale 网络访问场景，允许将 `macmini` 替换为 Tailscale IP。
-- [ ] `Postgres-Toolkit.ps1` 支持 pgBackRest dry-run 或等价的命令预览能力，降低误操作风险。
-- [ ] 表级备份示例能指定 schema/table，并默认指向 `lobechat`。
-- [ ] README 明确说明 pg_dump 无通用增量备份，避免用户误以为单表可通过 pg_dump 做增量。
-- [ ] 文档包含首次初始化、执行备份、查看备份、恢复注意事项的步骤。
-- [ ] 若选择 PM2 路线，文档或脚本必须解释 `cron_restart` 对一次性备份任务的语义，并避免成功退出后被 PM2 自动循环重启。
-- [ ] 若选择 Node scheduler 服务，必须限制 PM2 为 fork/单实例运行，任务执行需要 no-overlap 或等价互斥，失败退出码需进入日志并影响健康判断。
-- [ ] 若选择 Go scheduler 服务，必须提供 go module、构建命令、测试命令、PM2 `interpreter: none` 配置，以及 Windows 通知后端抽象。
-- [ ] Windows 通知后端至少能区分 `backup_started`、`backup_succeeded`、`backup_failed` 三类事件，并允许在非 Windows 或无交互桌面环境下禁用或降级为日志/webhook。
-- [ ] 若调整 `bin/` 打包，`Manage-BinScripts.ps1` 测试覆盖 toolkit 入口只暴露公开脚本、不暴露内部模块。
+- [x] `config/database/backup/pgBackRest/` 包含可读的中文 README，能解释 pgBackRest 与 pg_dump 的职责边界。
+- [x] 示例配置包含 `macmini`、`lobechat` 场景所需字段，并避免提交真实密码。
+- [x] 示例配置体现 Tailscale 网络访问场景，允许将 `macmini` 替换为 Tailscale IP。
+- [x] `Postgres-Toolkit.ps1` 支持 pgBackRest dry-run 或等价的命令预览能力，降低误操作风险。
+- [x] 表级备份示例能指定 schema/table，并默认指向 `lobechat`。
+- [x] README 明确说明 pg_dump 无通用增量备份，避免用户误以为单表可通过 pg_dump 做增量。
+- [x] 文档包含首次初始化、执行备份、查看备份、恢复注意事项的步骤。
+- [~] ~~若选择 PM2 路线…~~ — **取消，暂不做**
+- [~] ~~若选择 Node scheduler 服务…~~ — **取消，暂不做**
+- [~] ~~若选择 Go scheduler 服务…~~ — **取消，暂不做**
+- [~] ~~Windows 通知后端…~~ — **取消，暂不做**
+- [~] ~~若调整 `bin/` 打包…~~ — **取消，暂不做**
 
 ## Definition of Done
 
@@ -76,6 +84,7 @@
 - 不自动修改远程 PostgreSQL `postgresql.conf` / `pg_hba.conf`。
 - 不提交真实生产密码或真实 `.local` secret 文件。
 - 不实现完整 PITR 自动恢复流程；先提供恢复说明和必要命令入口。
+- PM2 / Node / Go 调度服务与 Windows 通知后端（2026-07-24 取消）。
 
 ## Research References
 

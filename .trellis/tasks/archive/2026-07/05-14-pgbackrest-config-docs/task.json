@@ -3,7 +3,7 @@
   "name": "pgbackrest-config-docs",
   "title": "brainstorm: pgBackRest 配置示例与维护脚本",
   "description": "",
-  "status": "in_progress",
+  "status": "completed",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -11,7 +11,7 @@
   "creator": "mudssky",
   "assignee": "mudssky",
   "createdAt": "2026-05-14",
-  "completedAt": null,
+  "completedAt": "2026-07-24",
   "branch": null,
   "base_branch": "master",
   "worktree_path": null,
@@ -21,6 +21,6 @@
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "",
+  "notes": "2026-07-24: MVP 已交付；调度服务与 Windows 通知暂不做，取消后续范围并归档。",
   "meta": {}
 }
