@@ -66,6 +66,14 @@ Describe 'NixAdapter' {
         [Environment]::SetEnvironmentVariable('POWERSHELL_SCRIPTS_SYSTEM_SOURCE_ROOT', $root, 'Process')
         [Environment]::SetEnvironmentVariable('POWERSHELL_SCRIPTS_SKIP_NIX_RESTART', '1', 'Process')
 
+        # Apply 的 .bak / 幂等合同不依赖真实镜像可达；Mock 探活避免 CI 网络抖动
+        Mock -CommandName Invoke-WebRequest -ModuleName NixAdapter -MockWith {
+            [PSCustomObject]@{
+                StatusCode = 200
+                Content    = "StoreDir: /nix/store`nWantMassQuery: 1`nPriority: 40`n"
+            }
+        }
+
         $cfg = @{
             adapter             = 'nix'
             scope               = 'system'
