@@ -251,6 +251,97 @@ function Get-ProfileMissingToolInstallHint {
     }
 }
 
+function Test-IsProfileLocalEnvPathFilesystemRoot {
+    <#
+    .SYNOPSIS
+        判断路径探测点是否为裸文件系统/盘符根。
+
+    .DESCRIPTION
+        仅根路径存在（/、\、C:\、\\server\share）不能证明外接盘或目标目录可用。
+        Windows 上 Unix 风格绝对路径的祖先会落到 \，必须排除，否则会误导入坏路径。
+
+    .PARAMETER Path
+        待判断的路径字符串。
+
+    .OUTPUTS
+        System.Boolean
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$Path
+    )
+
+    process {
+        if ([string]::IsNullOrWhiteSpace($Path)) {
+            return $true
+        }
+
+        $trimmed = $Path.TrimEnd([char[]]@('\', '/'))
+        if ([string]::IsNullOrWhiteSpace($trimmed)) {
+            return $true
+        }
+
+        # Windows 盘符根：C: / C:\ / C:/
+        if ($Path -match '^[A-Za-z]:[\\/]*$') {
+            return $true
+        }
+
+        # UNC 共享根：\\server\share
+        if ($Path -match '^\\\\[^\\\/]+[\\/][^\\\/]+[\\/]*$') {
+            return $true
+        }
+
+        return $false
+    }
+}
+
+function Test-ProfileLocalEnvPathReachable {
+    <#
+    .SYNOPSIS
+        判断路径敏感环境变量的目标路径链是否可达。
+
+    .DESCRIPTION
+        目标路径或其任一非根祖先存在时视为可达（允许稍后 mkdir 子路径）。
+        裸根存在不计入可达，避免未挂载外接盘或 Windows 盘符根误放行。
+
+    .PARAMETER Path
+        环境变量中的路径值。
+
+    .OUTPUTS
+        System.Boolean
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$Path
+    )
+
+    process {
+        if ([string]::IsNullOrWhiteSpace($Path)) {
+            return $false
+        }
+
+        $probe = $Path
+        while (-not [string]::IsNullOrWhiteSpace($probe)) {
+            if (Test-Path -LiteralPath $probe) {
+                # 根存在不等于目标可用
+                return -not (Test-IsProfileLocalEnvPathFilesystemRoot -Path $probe)
+            }
+
+            $parentProbe = Split-Path -Parent $probe
+            if ([string]::IsNullOrWhiteSpace($parentProbe) -or $parentProbe -eq $probe) {
+                break
+            }
+            $probe = $parentProbe
+        }
+
+        return $false
+    }
+}
+
 function Import-ProfileLocalShellEnvFile {
     <#
     .SYNOPSIS
@@ -322,25 +413,12 @@ function Import-ProfileLocalShellEnvFile {
                     continue
                 }
 
-                # 目标、任一祖先目录存在即可（外接盘子路径可稍后 mkdir）
-                $pathReachable = $false
-                $probe = $value
-                while (-not [string]::IsNullOrWhiteSpace($probe)) {
-                    if (Test-Path -LiteralPath $probe) {
-                        $pathReachable = $true
-                        break
-                    }
-                    $parentProbe = Split-Path -Parent $probe
-                    if ([string]::IsNullOrWhiteSpace($parentProbe) -or $parentProbe -eq $probe) {
-                        break
-                    }
-                    $probe = $parentProbe
-                }
-
-                if (-not $pathReachable) {
+                # 目标、任一非根祖先存在即可（外接盘子路径可稍后 mkdir）
+                if (-not (Test-ProfileLocalEnvPathReachable -Path $value)) {
                     Write-Verbose "跳过路径变量 $name=$value（路径链均不可达，可能外接盘未挂载）"
                     continue
                 }
+
             }
 
             Set-Item -Path "Env:$name" -Value $value

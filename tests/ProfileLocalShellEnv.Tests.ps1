@@ -82,4 +82,19 @@ Describe 'Import-ProfileLocalShellEnvFile' {
         $env:RUSTC_WRAPPER | Should -Be 'sccache'
         $env:CARGO_HOME | Should -BeNullOrEmpty
     }
+
+    It 'imports path-sensitive vars when a non-root ancestor exists' {
+        $missingLeaf = Join-Path $script:DataRoot 'cache/not-created-yet/cargo'
+
+        @(
+            "export CARGO_HOME=`"$missingLeaf`""
+            'export RUSTC_WRAPPER=sccache'
+        ) | Set-Content -LiteralPath $script:EnvFile -Encoding utf8
+
+        $count = Import-ProfileLocalShellEnvFile -Path $script:EnvFile
+
+        $count | Should -Be 2
+        $env:CARGO_HOME | Should -Be $missingLeaf
+        $env:RUSTC_WRAPPER | Should -Be 'sccache'
+    }
 }
