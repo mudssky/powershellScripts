@@ -81,10 +81,10 @@
 - [x] 所有平台验证唯一 Tailscale IPv4；缺失时自动安装 Tailscale，无法自动登录时给出完整人工步骤。
 - [x] 结构化结果包含 `ManualSteps`，每个外部 Blocked 都能按步骤操作并得到精确重跑命令。
 - [x] 准备流程不修改防火墙全局状态、SSH 认证配置、私钥或现有 `sshd_config`。
-- [ ] JSON stdout 可直接解析为一个 document，第二次 apply 不产生无意义变更。
+- [x] JSON stdout 可直接解析为一个 document，第二次 apply 不产生无意义变更。
 - [x] Windows 进度写入 stderr，JSON stdout 保持单文档；sshd 已满足时重复 apply 返回 `AlreadyPresent/Changed=false`。
 - [x] `pnpm qa`、`pnpm test:pwsh:all`、shell parser 和 `git diff --check` 通过。
-- [ ] 在 `iminipro820` 上先 Preview、再管理员 apply，最后从控制端成功执行 `ssh mudssky@100.125.34.90`。
+- [x] 在 `iminipro820` 上先 Preview、再管理员 apply，最后从控制端成功执行 `ssh mudssky@100.125.34.90`。
 
 ## Out of Scope
 

@@ -202,3 +202,30 @@ cd deployments/ansible
 ```
 
 先做连接检查和 WhatIf，真实 apply 始终显式指定单台主机 `--limit`。inventory、secrets 路径和 playbook 命令以 `self-hosted-compose/deployments/ansible` 的包装入口为准。
+
+## 6. 验收证据（2026-07-25）
+
+控制端：`macmini`（Tailscale 节点）。目标：`iminipro820` / `100.125.34.90` / 用户 `mudssky`。
+
+### 6.1 自动化门
+
+- `pnpm exec vitest run scripts/bash/tests/ansible-host-preparation.test.ts`：3/3 通过（Linux 单文档 JSON Preview、WSL Blocked ManualSteps、macOS Tailscale 登录 ManualSteps）。
+- `Invoke-Pester tests/WindowsAnsibleHostPreparation.Tests.ps1`：10/10 通过（含 JSON 单文档、sshd AlreadyPresent 幂等计划、stderr 进度、UTF-8 BOM）。
+- `bash -n linux/bootstrap/prepare-ansible-host.sh` 与 `zsh -n macos/bootstrap/prepare-ansible-host.zsh` 通过。
+- 本机 macOS Preview JSON 可 `json.load`，`SchemaVersion=1`，进度不污染 stdout。
+
+### 6.2 iminipro820 实机
+
+- TCP 22 banner：`SSH-2.0-OpenSSH_for_Windows_9.5`。
+- 状态：`sshd=Running`、`StartMode=Auto`、`OpenSSH.Server~~~~0.0.1.0=Installed`、`DefaultShell=C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`、listener `::,0.0.0.0`。
+- 控制端密码 SSH（`sshpass` + 私有 inventory `ansible_password`，BatchMode 公钥未部署时）：`ssh mudssky@100.125.34.90` 返回 `SSH_OK`。
+- 远程连续两次 `Prepare-WindowsAnsibleHost.ps1 -Apply -OutputFormat Json -InventoryHost iminipro820 -TailscaleIPv4 100.125.34.90`：
+  - 两次 exit `0`，stdout 各 1 个 JSON document。
+  - `Status=Succeeded`，`AnsibleControllerConfig.Ready=true`。
+  - 全部结果 `AlreadyPresent` 或 `Verification/Succeeded`，`Changed=false`（无无意义变更）。
+  - 进度在 stderr（五阶段 Start/Done），stdout 保持纯 JSON。
+
+### 6.3 边界说明
+
+- 准备脚本不写 SSH 私钥、不改 `sshd_config`/认证策略；本机默认公钥未安装时需要私有 inventory 密码或手工 `ssh-copy-id`。
+- 父任务 `07-12-ansible-remote-provisioning` 档案已记录后续 PSRP/Core apply；本任务 AC 仅覆盖被控端准备到首次 SSH 成功。

@@ -90,6 +90,8 @@ powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass `
 - Parser：`bash -n`、`zsh -n`；Windows `.ps1`/`.psm1` 必须通过 parser，含中文文件必须保留 UTF-8 BOM。
 - Gates：`pnpm qa`、`pnpm test:bash`、`pnpm test:pwsh:all`、`git diff --check`。
 - 实机：至少一台 Windows 执行 Preview/Apply、验证 `sshd`/TCP 22，并从另一 tailnet 节点执行 SSH；其余平台按可用机器补充。
+- 实机验收：Windows 目标至少验证 Preview/Apply、`sshd`/TCP 22、控制端 `ssh user@tailscale-ip`；无公钥时使用私有 inventory 密码 + 控制端 `sshpass`，不得依赖 GUI `SSH_ASKPASS`。
+
 
 ### 7. Wrong vs Correct
 
