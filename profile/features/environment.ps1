@@ -251,6 +251,106 @@ function Get-ProfileMissingToolInstallHint {
     }
 }
 
+function Import-ProfileLocalShellEnvFile {
+    <#
+    .SYNOPSIS
+        从 shell env.local.sh 导入 export 行到当前进程环境变量。
+
+    .DESCRIPTION
+        只解析 `export NAME=VALUE` 行，忽略注释、空行与 alias。
+        用于让 pwsh 与 bash/zsh 共享同一份本机私有环境清单。
+        路径类变量（如 CARGO_HOME、SCCACHE_DIR）仅在目标路径已存在，
+        或其父级数据盘根目录可访问时才写入，避免外接盘未挂载时写死坏路径。
+
+    .PARAMETER Path
+        env.local.sh 文件路径。
+
+    .PARAMETER PathSensitiveNames
+        需要做存在性检查的变量名列表。
+
+    .OUTPUTS
+        System.Int32
+        成功写入的环境变量个数。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path,
+
+        [string[]]$PathSensitiveNames = @(
+            'CARGO_HOME',
+            'SCCACHE_DIR',
+            'RUSTUP_HOME',
+            'HERMES_HOME'
+        )
+    )
+
+    process {
+        if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+            return 0
+        }
+
+        $pathSensitive = [System.Collections.Generic.HashSet[string]]::new(
+            [string[]]$PathSensitiveNames,
+            [System.StringComparer]::OrdinalIgnoreCase
+        )
+        $applied = 0
+
+        foreach ($rawLine in Get-Content -LiteralPath $Path -ErrorAction Stop) {
+            $line = $rawLine.Trim()
+            if ([string]::IsNullOrWhiteSpace($line) -or $line.StartsWith('#')) {
+                continue
+            }
+
+            # 仅接受 export NAME=VALUE；不执行任意 shell 语句
+            if ($line -notmatch '^\s*export\s+([A-Za-z_][A-Za-z0-9_]*)=(.*)$') {
+                continue
+            }
+
+            $name = $Matches[1]
+            $value = $Matches[2].Trim()
+
+            if (
+                ($value.StartsWith("'") -and $value.EndsWith("'") -and $value.Length -ge 2) -or
+                ($value.StartsWith('"') -and $value.EndsWith('"') -and $value.Length -ge 2)
+            ) {
+                $value = $value.Substring(1, $value.Length - 2)
+            }
+
+            if ($pathSensitive.Contains($name)) {
+                if ([string]::IsNullOrWhiteSpace($value)) {
+                    continue
+                }
+
+                # 目标、任一祖先目录存在即可（外接盘子路径可稍后 mkdir）
+                $pathReachable = $false
+                $probe = $value
+                while (-not [string]::IsNullOrWhiteSpace($probe)) {
+                    if (Test-Path -LiteralPath $probe) {
+                        $pathReachable = $true
+                        break
+                    }
+                    $parentProbe = Split-Path -Parent $probe
+                    if ([string]::IsNullOrWhiteSpace($parentProbe) -or $parentProbe -eq $probe) {
+                        break
+                    }
+                    $probe = $parentProbe
+                }
+
+                if (-not $pathReachable) {
+                    Write-Verbose "跳过路径变量 $name=$value（路径链均不可达，可能外接盘未挂载）"
+                    continue
+                }
+            }
+
+            Set-Item -Path "Env:$name" -Value $value
+            $applied++
+        }
+
+        return $applied
+    }
+}
+
 function Initialize-Environment {
     <#
     .SYNOPSIS
@@ -398,7 +498,28 @@ function Initialize-Environment {
         }
     }
 
-    # 加载自定义环境变量脚本 (用于存放机密或个人配置)
+    # 加载 shell 本机私有 export（与 bash/zsh 的 env.local.sh 共享）
+    $localShellEnvCandidates = @(
+        (Join-Path -Path $env:POWERSHELL_SCRIPTS_ROOT -ChildPath 'shell/shared.d/env.local.sh')
+        (Join-Path -Path $HOME -ChildPath '.bashrc.d/env.local.sh')
+    ) | Select-Object -Unique
+
+    foreach ($localShellEnvPath in $localShellEnvCandidates) {
+        if (-not (Test-Path -LiteralPath $localShellEnvPath -PathType Leaf)) {
+            continue
+        }
+
+        try {
+            $importedCount = Import-ProfileLocalShellEnvFile -Path $localShellEnvPath
+            Write-Verbose "已从 $localShellEnvPath 导入 $importedCount 个本机环境变量"
+            break
+        }
+        catch {
+            Write-Warning "加载 shell 本机环境变量失败 ($localShellEnvPath): $($_.Exception.Message)"
+        }
+    }
+
+    # 加载自定义环境变量脚本 (用于存放机密或个人配置；可覆盖上面的 shell local)
     $envScriptPath = Join-Path -Path $profileRoot -ChildPath 'env.ps1'
     if (Test-Path -Path $envScriptPath) {
         Write-Verbose "加载自定义环境变量脚本: $envScriptPath"
@@ -523,10 +644,12 @@ function Initialize-Environment {
             $Global:__ZoxideInitialized = $true
         }
         sccache  = {
-            # Rust 编译缓存（跨平台）
+            # Rust 编译缓存（跨平台）；若 env.local 已设置则保留
             if ($SkipTools) { return }
             Write-Verbose "设置 sccache 用于 Rust 编译缓存"
-            $env:RUSTC_WRAPPER = 'sccache'
+            if ([string]::IsNullOrWhiteSpace($env:RUSTC_WRAPPER)) {
+                $env:RUSTC_WRAPPER = 'sccache'
+            }
         }
         fnm      = {
             # 仅 Unix：Node.js 版本管理器
