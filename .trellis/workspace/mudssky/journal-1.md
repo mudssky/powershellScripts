@@ -1518,3 +1518,24 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
+
+
+## Session 46: 验收 ansible 被控端准备
+
+**Date**: 2026-07-25
+**Task**: 验收 ansible 被控端准备
+**Branch**: `master`
+
+### Summary
+
+完成 07-12-ansible-managed-host-preparation 验收：iminipro820 二次 Apply JSON 单文档 Succeeded/Changed=false，控制端密码 SSH 成功；勾选 PRD AC 并归档任务。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1a40962` | (see git log) |
+
+### Status
+
+[OK] **Completed**
