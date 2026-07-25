@@ -71,11 +71,16 @@
 - [x] 用户审核并批准最终 PRD、design 和 implement。
 - [x] GitHub 中存在父仓库要固定的 `powershellScripts` commit。
 - [x] `self-hosted-compose/reference/powershellScripts` 以 GitHub URL 初始化为 submodule，父仓库 QA 不递归修改子仓库。
-- [ ] Forgejo `powershellScripts-secrets` 已创建、初始化并验证为 Private，且不包含 SSH 私钥。
-- [ ] Ansible inventory、syntax-check 和连接基线通过。
-- [ ] Windows 可从管理员 OpenSSH 完成 PSRP bootstrap、`win_ping`、重启恢复和监听地址验证。
-- [ ] Linux、macOS、Windows 均完成 `Core` 计划/`WhatIf` 和结构化验证；真实 apply 仅在用户批准的主机上执行。
-- [ ] `powershellScripts` 的 `pnpm qa` 与 `pnpm test:pwsh:all` 通过；`self-hosted-compose` 的 `pnpm check` 通过。
+- [x] Forgejo `powershellScripts-secrets` 已创建、初始化并验证为 Private，且不包含 SSH 私钥。
+  - 证据：本地 `/Volumes/Data/projects/forgejo/powershellScripts-secrets`，远端 `ssh://git@macmini:32222/mudssky/powershellScripts-secrets.git`；未认证 HTTP API/页面 404；`git ls-files` 仅含 README、inventory 结构、`public_keys/*.pub` 与凭据脚本/测试；`git grep` 无 `PRIVATE KEY`。
+- [x] Ansible inventory、syntax-check 和连接基线通过。
+  - 证据：`self-hosted-compose/deployments/ansible` 下 `ansible-inventory -i inventories/homelab --list` 含 linux/darwin/windows；`powershell-scripts-{bootstrap,provision,verify}.yml` syntax-check 通过；`ansible -i inventories/homelab macmini -m ping` → pong。详细 AC 见 compose 归档任务 `07-12-ansible-remote-provisioning`。
+- [x] Windows 可从管理员 OpenSSH 完成 PSRP bootstrap、`win_ping`、重启恢复和监听地址验证。
+  - 证据：本仓归档 `07-12-windows-psrp-bootstrap` + compose 归档 `07-12-ansible-remote-provisioning`（SSH bootstrap apply → PSRP `win_ping` → 重启恢复）；`status/powershell-scripts.iminipro820.json` 为 Windows Core `verify` `Succeeded/0`。
+- [x] Linux、macOS、Windows 均完成 `Core` 计划/`WhatIf` 和结构化验证；真实 apply 仅在用户批准的主机上执行。
+  - 证据：`iminipro820-wsl`/`macmini` Core WhatIf status 可解析且 play failed=0，exit 10 = WhatIf 预览 verify Blocked（合同预期，2026-07-25）；Windows `iminipro820` Core verify Succeeded；默认 `powershell_scripts_apply=false`，apply 需显式 `--limit` + apply 开关。
+- [x] `powershellScripts` 的 `pnpm qa` 与 `pnpm test:pwsh:all` 通过；`self-hosted-compose` 的 `pnpm check` 通过。
+  - 证据：子任务 `07-12-windows-psrp-bootstrap`、`07-12-ansible-managed-host-preparation` 归档时已过本仓 QA/Pester；compose 归档 `07-12-ansible-remote-provisioning` 记录 inventory/YAML/syntax-check 与 `pnpm check` 通过。
 
 ## Out of Scope
 
@@ -88,4 +93,4 @@
 
 ## Open Questions
 
-无。等待用户审核最终规划产物。
+无。规划与跨仓实施均已完成；实现细节以本仓子任务归档与 `self-hosted-compose` 的 `07-12-ansible-remote-provisioning` 为准。
