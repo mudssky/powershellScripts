@@ -1,7 +1,15 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { createHash, randomBytes } from "node:crypto";
-import { delimiter, dirname, isAbsolute, join, resolve } from "node:path";
+import {
+  delimiter,
+  dirname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+} from "node:path";
 import { spawn, spawnSync } from "node:child_process";
+import { isUtf8 } from "node:buffer";
 
 // ── Types ──────────────────────────────────────────────────────────────
 type JsonObject = Record<string, unknown>;
@@ -722,6 +730,222 @@ class BBC {
   }
 }
 
+// ── Context Injection Limits (issue #441) ───────────────────────────────
+//
+// Notice text and behavior mirrored byte-for-byte from the shared-hooks
+// Python sub-agent context injection hook. Changing wording there requires
+// changing it here too.
+interface ContextInjectionLimits {
+  max_file_bytes: number;
+  max_artifact_bytes: number;
+  max_total_bytes: number;
+}
+const DEFAULT_CONTEXT_INJECTION_LIMITS: ContextInjectionLimits = {
+  max_file_bytes: 32768,
+  max_artifact_bytes: 65536,
+  max_total_bytes: 131072,
+};
+
+function truncateUtf8(buf: Buffer, cap: number): Buffer {
+  if (cap <= 0 || buf.length <= cap) return buf;
+  let i = cap;
+  // Back off over continuation bytes (10xxxxxx) to find the lead byte.
+  while (i > 0 && (buf[i - 1]! & 0xc0) === 0x80) i--;
+  if (i === 0) return Buffer.alloc(0);
+  const lead = buf[i - 1]!;
+  if (lead & 0x80) {
+    let seqLen = 1;
+    if ((lead & 0xe0) === 0xc0) seqLen = 2;
+    else if ((lead & 0xf0) === 0xe0) seqLen = 3;
+    else if ((lead & 0xf8) === 0xf0) seqLen = 4;
+    // Drop the lead byte too if its full sequence didn't fit.
+    if (i - 1 + seqLen > cap) i--;
+  }
+  return buf.subarray(0, i);
+}
+
+function stripInlineComment(value: string): string {
+  let inQuote: string | null = null;
+  for (let idx = 0; idx < value.length; idx++) {
+    const ch = value[idx]!;
+    if (inQuote) {
+      if (ch === inQuote) inQuote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      inQuote = ch;
+      continue;
+    }
+    if (ch === "#" && (idx === 0 || /\s/.test(value[idx - 1]!)))
+      return value.slice(0, idx);
+  }
+  return value;
+}
+function unquoteYaml(s: string): string {
+  if (s.length >= 2 && s[0] === s[s.length - 1] && (s[0] === '"' || s[0] === "'"))
+    return s.slice(1, -1);
+  return s;
+}
+
+/** Line-based parser for ONLY the `context_injection:` block of
+ * `.trellis/config.yaml`. Not a general YAML parser — mirrors
+ * `common.config.get_context_injection_limits()` semantics for this
+ * section only (missing keys keep the default; invalid/negative values
+ * fall back to the default for that key). */
+function readContextInjectionLimits(repoRoot: string): ContextInjectionLimits {
+  const limits: ContextInjectionLimits = { ...DEFAULT_CONTEXT_INJECTION_LIMITS };
+  const text = readText(join(repoRoot, ".trellis", "config.yaml"));
+  if (!text) return limits;
+
+  let inSection = false;
+  let sectionIndent = -1;
+  for (const rawLine of text.split(/\r?\n/)) {
+    const trimmed = rawLine.trim();
+    if (!inSection) {
+      if (/^context_injection\s*:\s*(#.*)?$/.test(trimmed)) {
+        inSection = true;
+        sectionIndent = rawLine.length - rawLine.trimStart().length;
+      }
+      continue;
+    }
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const indent = rawLine.length - rawLine.trimStart().length;
+    if (indent <= sectionIndent) break;
+    const m = trimmed.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.*)$/);
+    if (!m) continue;
+    const key = m[1]!;
+    if (!(key in limits)) continue;
+    const raw = unquoteYaml(stripInlineComment(m[2]!).trim()).trim();
+    if (!/^-?\d+$/.test(raw)) continue; // invalid -> keep default
+    const value = parseInt(raw, 10);
+    if (value < 0) continue; // negative -> keep default
+    (limits as unknown as Record<string, number>)[key] = value;
+  }
+  return limits;
+}
+
+class ContextBudget {
+  used = 0;
+  constructor(private maxTotalBytes: number) {}
+  hasRoom(size: number): boolean {
+    if (this.maxTotalBytes <= 0) return true;
+    return this.used + size <= this.maxTotalBytes;
+  }
+  add(size: number): void {
+    this.used += size;
+  }
+}
+
+function truncateNotice(path: string, cap: number): string {
+  return `\n[Trellis: truncated at ${cap} bytes — read ${path} for the full content]`;
+}
+function isBinaryContent(data: Buffer): boolean {
+  return data.includes(0) || !isUtf8(data);
+}
+function binaryNotice(path: string, size: number, reason: string): string {
+  return `[Trellis: not inlined (binary file) — ${path} (${size} bytes): ${reason}]`;
+}
+function indexNotice(path: string, size: number, reason: string): string {
+  return `[Trellis: not inlined (total context limit reached) — ${path} (${size} bytes): ${reason}]`;
+}
+function budgetedBlock(
+  budget: ContextBudget,
+  header: string,
+  plainPath: string,
+  content: string,
+  reason: string,
+  sizeForIndex: number,
+): string {
+  const block = `=== ${header} ===\n${content}`;
+  const blockBytes = Buffer.byteLength(block, "utf-8");
+  if (!budget.hasRoom(blockBytes)) {
+    const notice = indexNotice(plainPath, sizeForIndex, reason);
+    budget.add(Buffer.byteLength(notice, "utf-8"));
+    return notice;
+  }
+  budget.add(blockBytes);
+  return block;
+}
+function readFileBytes(basePath: string, filePath: string): Buffer | null {
+  const full = join(basePath, filePath);
+  try {
+    if (!statSync(full).isFile()) return null;
+  } catch {
+    return null;
+  }
+  try {
+    return readFileSync(full);
+  } catch {
+    return null;
+  }
+}
+function materializeFile(
+  basePath: string,
+  filePath: string,
+  reason: string,
+  limits: ContextInjectionLimits,
+  budget: ContextBudget,
+): string | null {
+  const data = readFileBytes(basePath, filePath);
+  if (data === null) return null;
+  const size = data.length;
+  if (isBinaryContent(data)) {
+    const notice = binaryNotice(filePath, size, reason);
+    budget.add(Buffer.byteLength(notice, "utf-8"));
+    return notice;
+  }
+  const cap = limits.max_file_bytes;
+  const truncated = truncateUtf8(data, cap);
+  let content = truncated.toString("utf-8");
+  if (truncated.length < size) content += truncateNotice(filePath, cap);
+  return budgetedBlock(budget, filePath, filePath, content, reason, size);
+}
+function materializeArtifact(
+  basePath: string,
+  filePath: string,
+  headerLabel: string,
+  reason: string,
+  limits: ContextInjectionLimits,
+  budget: ContextBudget,
+): string | null {
+  const data = readFileBytes(basePath, filePath);
+  if (data === null) return null;
+  const size = data.length;
+  const cap = limits.max_artifact_bytes;
+  const truncated = truncateUtf8(data, cap);
+  let content = truncated.toString("utf-8");
+  if (truncated.length < size) content += truncateNotice(filePath, cap);
+  return budgetedBlock(budget, headerLabel, filePath, content, reason, size);
+}
+interface JsonlEntry {
+  file: string;
+  type: string;
+  reason: string;
+}
+function readJsonlEntries(basePath: string, jsonlPath: string): JsonlEntry[] {
+  const text = readText(join(basePath, jsonlPath));
+  if (!text) return [];
+  const entries: JsonlEntry[] = [];
+  for (const line of text.split(/\r?\n/)) {
+    const t = line.trim();
+    if (!t) continue;
+    try {
+      const item = JSON.parse(t) as JsonObject;
+      const filePath =
+        (typeof item.file === "string" && item.file) ||
+        (typeof item.path === "string" && item.path) ||
+        "";
+      if (!filePath) continue;
+      entries.push({
+        file: filePath,
+        type: typeof item.type === "string" ? item.type : "file",
+        reason: (typeof item.reason === "string" && item.reason) || "-",
+      });
+    } catch {}
+  }
+  return entries;
+}
+
 // ── Trellis Context ────────────────────────────────────────────────────
 function findRoot(start: string): string {
   let c = resolve(start);
@@ -942,35 +1166,59 @@ function buildContext(root: string, agent: string, key: string | null): string {
   const dir = readTaskDir(root, key);
   if (!dir)
     return "No active Trellis task found. Read .trellis/ before proceeding.";
-  const prd = readText(join(dir, "prd.md"));
-  const design = readText(join(dir, "design.md"));
-  const impl = readText(join(dir, "implement.md"));
+  const relTaskDir = relative(root, dir).replace(/\\/g, "/");
+  const limits = readContextInjectionLimits(root);
+  const budget = new ContextBudget(limits.max_total_bytes);
+
+  // 1. Curated spec/research files from {agent}.jsonl (same order, budget
+  //    processed first, matching Python's get_agent_context()).
   const jsonlName = TRELLIS_AGENT_JSONL[agent] ?? "";
-  let spec = "";
+  const specBlocks: string[] = [];
   if (jsonlName) {
-    const chunks: string[] = [];
-    for (const line of readText(join(dir, jsonlName)).split(/\r?\n/)) {
-      const t = line.trim();
-      if (!t) continue;
-      try {
-        const r = JSON.parse(t) as JsonObject;
-        const f = typeof r.file === "string" ? r.file : "";
-        if (f) {
-          const c = readText(join(root, f));
-          if (c) chunks.push(`## ${f}\n\n${c}`);
-        }
-      } catch {}
+    for (const entry of readJsonlEntries(dir, jsonlName)) {
+      if (entry.type === "directory") continue;
+      const block = materializeFile(root, entry.file, entry.reason, limits, budget);
+      if (block) specBlocks.push(block);
     }
-    spec = chunks.join("\n\n---\n\n");
   }
+  const spec = specBlocks.join("\n\n");
+
+  // 2-4. Task artifacts, in order: prd.md -> design.md -> implement.md.
+  const prd = materializeArtifact(
+    root,
+    `${relTaskDir}/prd.md`,
+    `${relTaskDir}/prd.md (Requirements)`,
+    "Requirements document",
+    limits,
+    budget,
+  );
+  const design = materializeArtifact(
+    root,
+    `${relTaskDir}/design.md`,
+    `${relTaskDir}/design.md (Technical Design)`,
+    "Technical design document",
+    limits,
+    budget,
+  );
+  const impl = materializeArtifact(
+    root,
+    `${relTaskDir}/implement.md`,
+    `${relTaskDir}/implement.md (Execution Plan)`,
+    "Execution plan document",
+    limits,
+    budget,
+  );
+
+  // prd/design/impl already carry their own "=== path (label) ===" header
+  // (from materializeArtifact) — no extra "### x.md" wrapper needed, that
+  // would just double the header.
   return [
     `## Trellis Task Context`,
     `Task directory: ${dir}`,
     "",
-    "### prd.md",
-    prd || "(missing)",
-    design ? "\n### design.md\n" + design : "",
-    impl ? "\n### implement.md\n" + impl : "",
+    prd ?? `(missing) ${relTaskDir}/prd.md`,
+    design ? "\n" + design : "",
+    impl ? "\n" + impl : "",
     spec ? "\n### Curated Spec / Research Context\n" + spec : "",
   ].join("\n");
 }
