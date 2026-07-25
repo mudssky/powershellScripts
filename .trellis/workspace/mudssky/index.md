@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 46
+- **Total Sessions**: 47
 - **Last Active**: 2026-07-25
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1541 | Active |
+| `journal-1.md` | ~1563 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 47 | 2026-07-25 | Mac Mini Rust 缓存迁外接盘 | `64342cf`, `666526f` | `master` |
 | 46 | 2026-07-25 | 验收 ansible 被控端准备 | `1a40962` | `master` |
 | 45 | 2026-07-24 | 归档已完成任务清理 | - | `master` |
 | 44 | 2026-07-24 | VS Code Remote code-host | `e45e9f11` | `master` |

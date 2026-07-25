@@ -1539,3 +1539,25 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Status
 
 [OK] **Completed**
+
+
+## Session 47: Mac Mini Rust 缓存迁外接盘
+
+**Date**: 2026-07-25
+**Task**: Mac Mini Rust 缓存迁外接盘
+**Branch**: `master`
+
+### Summary
+
+本机 sccache/CARGO_HOME 迁到 /Volumes/Data/cache；增加 env.local.example 与 pwsh 导入 export；path.sh 支持 CARGO_HOME；incremental 双模式注释；单测与 pnpm qa 通过后提交并归档任务。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `64342cf` | (see git log) |
+| `666526f` | (see git log) |
+
+### Status
+
+[OK] **Completed**
