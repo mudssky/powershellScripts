@@ -1561,3 +1561,24 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Status
 
 [OK] **Completed**
+
+
+## Session 48: 远程装机选型剩余验收归档
+
+**Date**: 2026-07-25
+**Task**: 远程装机选型剩余验收归档
+**Branch**: `master`
+
+### Summary
+
+核对并勾选 07-12-remote-provisioning-tool-selection 剩余 AC：secrets Private、Ansible inventory/syntax/ping、Windows PSRP/win_ping、三平台 Core WhatIf 与 QA 证据；写入 research 注记后归档。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `12e8543` | (see git log) |
+
+### Status
+
+[OK] **Completed**
