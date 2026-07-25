@@ -5,3 +5,10 @@ packages:
   - 'scripts/node'
   - 'scripts/pwsh'
   - 'psutils'
+
+allowBuilds:
+  esbuild: true
+
+# pnpm 11 默认 minimumReleaseAge=1440（24h），会拦下刚发布的 latest。
+# 本仓偏好依赖尽快跟上最新；关闭该冷却以允许 update --latest / 锁文件安装。
+minimumReleaseAge: 0
