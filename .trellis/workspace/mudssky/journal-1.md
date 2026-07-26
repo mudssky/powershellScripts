@@ -1582,3 +1582,24 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Status
 
 [OK] **Completed**
+
+
+## Session 49: WSL 配置与 22.04 原地升级
+
+**Date**: 2026-07-26
+**Task**: WSL 配置与 22.04 原地升级
+**Branch**: `master`
+
+### Summary
+
+部署宿主 .wslconfig 与客体 wsl.conf；修复 wsl --list NUL 解析；Ubuntu-22.04 发行版原地 do-release-upgrade 至 24.04.4（注册名未改）；Docker Desktop 集成需重开；经验写入 task research。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `729c34bf` | (see git log) |
+
+### Status
+
+[OK] **Completed**
