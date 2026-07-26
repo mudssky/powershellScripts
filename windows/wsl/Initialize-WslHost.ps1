@@ -51,7 +51,7 @@ function Test-WslHostDistribution {
     if (-not (Get-Command wsl.exe -ErrorAction SilentlyContinue)) {
         return $false
     }
-    $installed = @(& wsl.exe --list --quiet 2>$null | ForEach-Object { ([string]$_).Replace([char]0, '').Trim() })
+    $installed = @(& wsl.exe --list --quiet 2>$null | ForEach-Object { (([string]$_) -replace [char]0, '').Trim() } | Where-Object { $_ })
     return @($installed | Where-Object { $_ -eq $Name }).Count -gt 0
 }
 

@@ -229,7 +229,7 @@ function Test-WindowsWslDistributionInstalled {
     if (-not (Get-Command wsl.exe -ErrorAction SilentlyContinue)) {
         return $false
     }
-    $distributions = @(& wsl.exe --list --quiet 2>$null | ForEach-Object { ([string]$_).Replace([char]0, '').Trim() })
+    $distributions = @(& wsl.exe --list --quiet 2>$null | ForEach-Object { (([string]$_) -replace [char]0, '').Trim() } | Where-Object { $_ })
     return @($distributions | Where-Object { $_ -eq $Distribution }).Count -gt 0
 }
 

@@ -70,6 +70,7 @@ pwsh windows/99verifyInstall.ps1 `
 - Pester：Windows 11/10/ARM64/Server 平台矩阵、Core 精确集合、Full/GUI 边界、退出优先级。
 - Pester：manifest hash、PS5 parser、03 单文档 JSON、05/06/08/09/WSL WhatIf 零写入、99 JSON。
 - Pester：WSL build 过滤、相同内容幂等、变化备份、禁止自动 shutdown。
+- 实机/回归：`wsl --list --quiet` 输出含 NUL 时，发行版名解析不得使用 `.Replace([char]0, '')`；`Initialize-WslHost -WhatIf` 对已注册发行版应 AlreadyPresent/exit 0。
 - Windows CI：fake winget/MSI/EXE/WSL 与一次提升 plan；不得执行真实 UAC、安装、字体、COM、Startup 或重启。
 - Gates：`pnpm qa`、`pnpm test:pwsh:all`、`git diff --check`。
 
@@ -104,6 +105,26 @@ if ((Get-WindowsInstallExitCode -Result $results) -eq 0) {
 ```
 
 理由：UAC 取消和 result file 缺失可能只存在于提升 document 顶层；调用方必须先规约顶层状态，再决定是否执行用户态副作用。
+
+#### Wrong
+
+```powershell
+# wsl.exe --list 输出常含 UTF-16 NUL；char 重载的第二参数不能是空串。
+$names = @(& wsl.exe --list --quiet 2>$null | ForEach-Object {
+    ([string]$_).Replace([char]0, '').Trim()
+})
+```
+
+#### Correct
+
+```powershell
+# 使用 -replace（字符串替换），并丢掉空行；与 WslSshAccess ConvertFrom-WslSshText 一致。
+$names = @(& wsl.exe --list --quiet 2>$null | ForEach-Object {
+    (([string]$_) -replace [char]0, '').Trim()
+} | Where-Object { $_ })
+```
+
+理由：`.Replace([char]0, '')` 在 pwsh/StrictMode 下会抛 `Cannot convert value "" to type System.Char`，导致 `Initialize-WslHost` / `00quickstart -IncludeWsl` 在发行版已存在时仍失败。
 
 ## Scenario: OpenSSH 到 PSRP HTTPS 远程 Bootstrap
 
