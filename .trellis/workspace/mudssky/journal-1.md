@@ -1650,3 +1650,24 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Status
 
 [OK] **Completed**
+
+
+## Session 52: 统一三系统根目录安装入口
+
+**Date**: 2026-08-10
+**Task**: 统一三系统根目录安装入口
+**Branch**: `master`
+
+### Summary
+
+新增 provision:* 跨平台 Stage 1 快捷入口，修复安装 Text 汇总格式化并补回归测试与安装文档；pnpm qa、PowerShell coverage 和 preview smoke 通过。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b851d924` | (see git log) |
+
+### Status
+
+[OK] **Completed**
