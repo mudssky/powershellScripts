@@ -69,6 +69,14 @@
         "command": "scoop install tealdeer"
       },
       {
+        "name": "delta",
+        "cliName": "delta",
+        "description": "Git 与 diff 语法高亮分页器",
+        "command": "scoop install delta",
+        "supportOs": ["Windows"],
+        "tag": ["core", "cli"]
+      },
+      {
         "name": "grex",
         "cliName": "grex",
         "description": "根据用户输入生成正则表达式",
@@ -1028,8 +1036,15 @@
         "name": "dust",
         "cliName": "dust",
         "description": "查看磁盘占用情况",
-        "command": "brew install du-dust",
-        "skipInstall": true
+        "command": "brew install dust",
+        "supportOs": [
+          "macOS"
+        ],
+        "tag": [
+          "macbook",
+          "core",
+          "cli"
+        ]
       },
       {
         "name": "duf",
@@ -1300,6 +1315,62 @@
         ]
       },
       {
+        "name": "zsh-autosuggestions",
+        "description": "Zsh 行内历史建议",
+        "command": "brew install zsh-autosuggestions",
+        "supportOs": [
+          "macOS"
+        ],
+        "tag": [
+          "macbook",
+          "core",
+          "cli"
+        ]
+      },
+      {
+        "name": "zsh-syntax-highlighting",
+        "description": "Zsh 命令行语法高亮",
+        "command": "brew install zsh-syntax-highlighting",
+        "supportOs": [
+          "macOS"
+        ],
+        "tag": [
+          "macbook",
+          "core",
+          "cli"
+        ]
+      },
+      {
+        "name": "git-delta",
+        "cliName": "delta",
+        "filterCli": true,
+        "description": "Git 与 diff 语法高亮分页器",
+        "command": "brew install git-delta",
+        "supportOs": [
+          "macOS"
+        ],
+        "tag": [
+          "macbook",
+          "core",
+          "cli"
+        ]
+      },
+      {
+        "name": "tealdeer",
+        "cliName": "tldr",
+        "filterCli": true,
+        "description": "快速的 TLDR 命令帮助客户端",
+        "command": "brew install tealdeer",
+        "supportOs": [
+          "macOS"
+        ],
+        "tag": [
+          "macbook",
+          "core",
+          "cli"
+        ]
+      },
+      {
         "name": "carapace",
         "cliName": "carapace",
         "description": "跨 Shell 参数补全引擎",
@@ -1318,6 +1389,36 @@
         "cliName": "atuin",
         "description": "跨 Shell 历史记录工具",
         "command": "brew install atuin",
+        "supportOs": [
+          "linux"
+        ],
+        "tag": [
+          "linuxserver",
+          "cli",
+          "terminal-extras"
+        ]
+      },
+      {
+        "name": "git-delta",
+        "cliName": "delta",
+        "filterCli": true,
+        "description": "Git 与 diff 语法高亮分页器",
+        "command": "brew install git-delta",
+        "supportOs": [
+          "linux"
+        ],
+        "tag": [
+          "linuxserver",
+          "cli",
+          "terminal-extras"
+        ]
+      },
+      {
+        "name": "tealdeer",
+        "cliName": "tldr",
+        "filterCli": true,
+        "description": "快速的 TLDR 命令帮助客户端",
+        "command": "brew install tealdeer",
         "supportOs": [
           "linux"
         ],
