@@ -22,11 +22,20 @@
   [-Unattended | -NonInteractive] [-WhatIf]
 ```
 
+```bash
+pnpm provision:list
+pnpm provision:core:preview
+pnpm provision:full:preview
+pnpm provision:core [-NetworkMode China | -Step <id> | -FromStep <id>]
+pnpm provision:full [-NetworkMode China | -Step <id> | -FromStep <id>]
+```
+
 - 无参数调用保持仓库工具准备行为；不得隐式转为装机。
 - `-installApp` 仅为弃用兼容入口，不等价于 Full，也不能与编排参数组合；Linux 分支只转发到新的 Core CLI 叶子。
 - Stage 0 获得 Git、平台包管理器和 PowerShell 7；根 Stage 1 从 `03 sources` 开始。
 - `Core` 选择 `03`～`07` 与 `99`；`Full` 追加 `08`～`11`。
 - `-Step` 精准执行且不展开依赖；`-FromStep` 假定前序已完成；`-SkipStep` 排除依赖时阻断下游。
+- 根 package scripts 只提供 `provision:*` 薄别名；不得使用与 pnpm 内置 `install` 命令冲突的 `install:*`。脚本依赖 Node.js、pnpm 与 PowerShell 7，只属于 Stage 1，参数直接写在脚本名后，不增加会原样传给 PowerShell 的 `--`。
 
 ### 3. Contracts
 
@@ -44,6 +53,7 @@
 - `-WhatIf` 不创建事务或执行 Restore 写操作。
 - JSON stdout 必须只有一个 document；叶子 stdout/stderr 由编排器捕获，稳定结果只保存截断且脱敏的摘要。
 - 失败汇总必须提供包含 Preset、步骤、NetworkMode 和交互模式的 `-Step` 重跑命令，以及 `-FromStep` 继续命令。
+- Text 汇总通过 `[Console]::Out.WriteLine` 输出时，包含多个 `-f` 参数的完整格式表达式必须用括号规约为单个方法参数；不得依赖 PowerShell 在方法调用逗号与格式参数逗号之间猜测绑定。
 
 ### 4. Validation & Error Matrix
 
@@ -62,6 +72,8 @@
 | Auto 已获得事务 ID | 无论后续成功、失败或异常，都在 finally 尝试 Restore |
 | Auto Restore 失败且安装步骤已 Failed | 整体仍为 Failed/1，SourceRestore 单独为 Blocked |
 | JSON 模式叶子输出日志 | 日志被捕获到结果摘要，stdout 仍只有一个 JSON document |
+| `pnpm provision:* -- -NetworkMode China` | 字面量 `--` 会传给 PowerShell 并触发参数错误；必须直接追加 `-NetworkMode China` |
+| Text 汇总把多参数 `-f` 表达式直接写进 `WriteLine(...)` | PowerShell 把逗号解释为方法参数边界并抛格式化异常 |
 
 ### 5. Good/Base/Bad Cases
 
@@ -70,6 +82,9 @@
 - Base: Direct 模式仍执行 `03 sources` 的结构化 no-op，以便汇总保持相同步骤模型，但不创建事务。
 - Bad: 叶子缺失时调用旧编号脚本并把运行标为成功。
 - Bad: JSON 模式让叶子日志直通 stdout，或 cleanup 失败覆盖更早的安装 Failed。
+- Good: `pnpm provision:core -NetworkMode China` 只转发根编排器，当前平台仍由 `Resolve-InstallPlatform` 决定。
+- Bad: 新增 `install:core` 等脚本名，或在 pnpm 参数前添加 `--`。
+- Bad: `[Console]::Out.WriteLine("{0} {1}" -f $first, $second)`；方法调用必须接收已完成格式化的单个字符串。
 
 ### 6. Tests Required
 
@@ -78,11 +93,13 @@
 - source：Direct 零事务、China rollback、Auto 成功/失败/异常 cleanup、Restore 失败优先级。
 - CLI：无参数和 `-installApp` 兼容、非法参数退出 2、ListSteps 与单文档 JSON。
 - 默认测试不得执行真实安装或 China/Auto Apply；使用临时仓库、fixture 叶子和隔离状态。
+- package scripts：`provision:list`、Core/Full preview smoke、参数透传，且不得触发 pnpm 依赖安装流程。
+- Text 输出：标题、步骤、source restore 与最终状态的多占位符格式必须完整输出，不抛 `FormatException`。
 - 代码完成后运行 `pnpm qa` 与 `pnpm test:pwsh:all`。
 
 ### 7. Wrong vs Correct
 
-#### Wrong
+#### Wrong：命令拼接与条件清理
 
 ```powershell
 # 拼接命令会破坏参数边界，且 source cleanup 不覆盖异常路径。
@@ -92,7 +109,7 @@ if ($runSucceeded) {
 }
 ```
 
-#### Correct
+#### Correct：参数数组与 finally 清理
 
 ```powershell
 $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
@@ -112,4 +129,18 @@ finally {
 }
 ```
 
-理由：参数数组保持命令边界，finally 保证 Auto 事务不依赖成功路径才恢复。
+理由：参数数组保持命令边界，`finally` 保证 Auto 事务不依赖成功路径才恢复。
+
+#### Wrong：方法调用内直接展开多参数格式表达式
+
+```powershell
+[Console]::Out.WriteLine("[{0}] {1}" -f $status, $name)
+```
+
+#### Correct：先规约为单个字符串参数
+
+```powershell
+[Console]::Out.WriteLine(("[{0}] {1}" -f $status, $name))
+```
+
+理由：外层括号先完成 `-f` 运算，再向 `WriteLine` 传递单个字符串；否则逗号可能被解析为方法参数分隔符。

@@ -400,4 +400,46 @@ exit $exitCode
         $document.ContinueCommand |
             Should -Be './install.ps1 -Preset Core -FromStep core-cli -NetworkMode China -NonInteractive'
     }
+
+    It 'writes a complete human-readable run summary' {
+        $document = [pscustomobject]@{
+            Platform       = 'macos'
+            Preset         = 'Core'
+            NetworkMode    = 'Direct'
+            Results        = @([pscustomobject]@{
+                    Status      = 'Preview'
+                    Number      = '03'
+                    Id          = 'sources'
+                    DurationMs  = 12
+                    Message     = 'source preview'
+                    RerunCommand = ''
+                })
+            Rollback       = ''
+            SourceRestore  = [pscustomobject]@{
+                Attempted  = $true
+                Status     = 'Succeeded'
+                DurationMs = 3
+                Message    = 'restored'
+            }
+            ContinueCommand = './install.ps1 -Preset Core -FromStep sources'
+            Status          = 'Succeeded'
+            ExitCode        = 0
+        }
+        $originalOut = [Console]::Out
+        $writer = [System.IO.StringWriter]::new()
+        try {
+            [Console]::SetOut($writer)
+            Write-InstallRunText -Document $document
+            $text = $writer.ToString()
+        }
+        finally {
+            [Console]::SetOut($originalOut)
+            $writer.Dispose()
+        }
+
+        $text | Should -Match 'Stage 1: platform=macos preset=Core network=Direct'
+        $text | Should -Match '\[Preview\] 03 sources \(12ms\)'
+        $text | Should -Match '\[Succeeded\] source-restore \(3ms\)'
+        $text | Should -Match 'Result: status=Succeeded exitCode=0'
+    }
 }

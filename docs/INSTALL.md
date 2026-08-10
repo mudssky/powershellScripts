@@ -43,6 +43,32 @@ pwsh ./install.ps1 -Preset Core -FromStep core-cli
 pwsh ./install.ps1 -Preset Full -SkipStep full-apps
 ```
 
+### 根目录 pnpm 快捷入口
+
+以下命令适用于 Stage 0 已完成，且当前环境已经可以使用 Node.js、pnpm 与 PowerShell 7 的情况。它们不会替代三个平台的 Stage 0；Windows、macOS 与 Linux/WSL 均使用相同命令，由根 `install.ps1` 自动识别当前系统。
+
+```bash
+# 列出当前平台步骤
+pnpm provision:list
+
+# 只读预览
+pnpm provision:core:preview
+pnpm provision:full:preview
+
+# 执行当前平台安装
+pnpm provision:core
+pnpm provision:full
+```
+
+需要覆盖默认网络模式、交互模式或步骤范围时，直接在脚本名后继续传入 `install.ps1` 参数：
+
+```bash
+pnpm provision:core -NetworkMode China
+pnpm provision:full -FromStep full-apps -NonInteractive
+```
+
+`provision:*` 表示按仓库清单配置当前系统，避免与 pnpm 内置的 `install` 命令重名。无参数的 `pnpm pwsh:install` 与 `pnpm scripts:install` 仍仅用于仓库开发工具准备，不等价于 Core 或 Full 装机。
+
 Stage 1 固定顺序为 `03 sources`、`04 shell`、`05 core-cli`、`06 fonts`、`07 profile-tools`、`08 full-apps`、`09 platform-automation`、`10 login-items`、`11 desktop-integration`、`99 verify`。Core 选择 `03`～`07` 与 `99`；Full 追加 `08`～`11`。
 
 步骤串行执行。失败只阻断依赖步骤，独立步骤和可执行的 `verify` 继续。平台不支持的步骤为 `Skipped`；声明支持但真实叶子尚未接入时为 `Blocked`。退出码为：成功/预览 0、执行失败 1、参数错误 2、仅 Blocked 10。

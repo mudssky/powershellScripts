@@ -1112,9 +1112,9 @@ function Write-InstallRunText {
         [pscustomobject]$Document
     )
 
-    [Console]::Out.WriteLine("Stage 1: platform={0} preset={1} network={2}" -f $Document.Platform, $Document.Preset, $Document.NetworkMode)
+    [Console]::Out.WriteLine(("Stage 1: platform={0} preset={1} network={2}" -f $Document.Platform, $Document.Preset, $Document.NetworkMode))
     foreach ($result in @($Document.Results)) {
-        [Console]::Out.WriteLine("[{0}] {1} {2} ({3}ms)" -f $result.Status, $result.Number, $result.Id, $result.DurationMs)
+        [Console]::Out.WriteLine(("[{0}] {1} {2} ({3}ms)" -f $result.Status, $result.Number, $result.Id, $result.DurationMs))
         if (-not [string]::IsNullOrWhiteSpace([string]$result.Message)) {
             [Console]::Out.WriteLine("  {0}" -f $result.Message)
         }
@@ -1126,7 +1126,7 @@ function Write-InstallRunText {
         [Console]::Out.WriteLine("rollback: {0}" -f $Document.Rollback)
     }
     if ([bool]$Document.SourceRestore.Attempted) {
-        [Console]::Out.WriteLine("[{0}] source-restore ({1}ms)" -f $Document.SourceRestore.Status, $Document.SourceRestore.DurationMs)
+        [Console]::Out.WriteLine(("[{0}] source-restore ({1}ms)" -f $Document.SourceRestore.Status, $Document.SourceRestore.DurationMs))
         if (-not [string]::IsNullOrWhiteSpace([string]$Document.SourceRestore.Message)) {
             [Console]::Out.WriteLine("  {0}" -f $Document.SourceRestore.Message)
         }
@@ -1134,7 +1134,7 @@ function Write-InstallRunText {
     if (-not [string]::IsNullOrWhiteSpace([string]$Document.ContinueCommand)) {
         [Console]::Out.WriteLine("continue: {0}" -f $Document.ContinueCommand)
     }
-    [Console]::Out.WriteLine("Result: status={0} exitCode={1}" -f $Document.Status, $Document.ExitCode)
+    [Console]::Out.WriteLine(("Result: status={0} exitCode={1}" -f $Document.Status, $Document.ExitCode))
 }
 
 Export-ModuleMember -Function @(
