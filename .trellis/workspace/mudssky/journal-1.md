@@ -1603,3 +1603,26 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Status
 
 [OK] **Completed**
+
+
+## Session 50: 配置 Carapace 与 Atuin 多 Shell Profile
+
+**Date**: 2026-08-10
+**Task**: 配置 Carapace 与 Atuin 多 Shell Profile
+**Branch**: `master`
+
+### Summary
+
+为 Zsh、Bash 与 PowerShell 接入 Carapace 和 Atuin，纳入跨平台安装清单，补齐行为测试、规范与文档；macOS 已安装并验证 Zsh 本地历史记录。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b70de5a` | (see git log) |
+| `4c122cc` | (see git log) |
+| `b0d69e2` | (see git log) |
+
+### Status
+
+[OK] **Completed**

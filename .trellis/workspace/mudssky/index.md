@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 49
-- **Last Active**: 2026-07-26
+- **Total Sessions**: 50
+- **Last Active**: 2026-08-10
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1605 | Active |
+| `journal-1.md` | ~1628 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 50 | 2026-08-10 | 配置 Carapace 与 Atuin 多 Shell Profile | `b70de5a`, `4c122cc`, `b0d69e2` | `master` |
 | 49 | 2026-07-26 | WSL 配置与 22.04 原地升级 | `729c34bf` | `master` |
 | 48 | 2026-07-25 | 远程装机选型剩余验收归档 | `12e8543` | `master` |
 | 47 | 2026-07-25 | Mac Mini Rust 缓存迁外接盘 | `64342cf`, `666526f` | `master` |
