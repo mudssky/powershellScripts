@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { createHash, randomBytes } from "node:crypto";
 import {
   delimiter,
@@ -20,6 +20,10 @@ interface PiToolResult {
 }
 interface PiExtensionContext {
   hasUI?: boolean;
+  model?: {
+    provider?: string;
+    id?: string;
+  };
   sessionManager?: {
     getSessionId?: () => string;
     getSessionFile?: () => string | undefined;
@@ -293,7 +297,7 @@ function summaryText(text: string) {
   return `${text.trim().replace(/[。.!?…]+$/u, "")}...`;
 }
 function splitModelThinking(model?: string, fallbackThinking?: string) {
-  const m = model?.match(/^(.*):(off|minimal|low|medium|high|xhigh)$/i);
+  const m = model?.match(/^(.*):(off|minimal|low|medium|high|xhigh|max)$/i);
   return {
     model: m ? m[1] : model,
     thinking: (m?.[2] ?? fallbackThinking)?.toLowerCase(),
@@ -428,10 +432,13 @@ function exists(p: string) {
 function shellQuote(v: string) {
   return `'${v.replace(/'/g, `'\\''`)}'`;
 }
-function callStr(cb: (() => string | undefined) | undefined): string | null {
+function callStr(
+  cb: (() => string | undefined) | undefined,
+  receiver?: unknown,
+): string | null {
   if (!cb) return null;
   try {
-    return str(cb());
+    return str(cb.call(receiver));
   } catch {
     return null;
   }
@@ -654,16 +661,17 @@ function resolveRunCfg(
   input: SubagentInput,
   agentCfg: AgentConfig,
   inheritedThinking?: string,
+  inheritedModel?: string,
 ): PiRunConfig {
-  const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"];
+  const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
   const normalize = (v: unknown): string | undefined => {
     const s = typeof v === "string" && v.trim() ? v.trim().toLowerCase() : "";
     return THINKING_LEVELS.includes(s) ? s : undefined;
   };
-  const suffixRe = /:(off|minimal|low|medium|high|xhigh)$/i;
+  const suffixRe = /:(off|minimal|low|medium|high|xhigh|max)$/i;
   const inputModel = str(input.model);
   const agentModel = agentCfg.model;
-  const rawModel = inputModel ?? agentModel;
+  const rawModel = inputModel ?? agentModel ?? str(inheritedModel);
   const inputSuffixThinking = normalize(inputModel?.match(suffixRe)?.[1]);
   const agentSuffixThinking = normalize(agentModel?.match(suffixRe)?.[1]);
   const baseModel = rawModel?.replace(suffixRe, "");
@@ -676,6 +684,12 @@ function resolveRunCfg(
   if (baseModel && thinking && thinking !== "off")
     return { model: `${baseModel}:${thinking}`, thinking, tools: agentCfg.tools };
   return { model: baseModel || rawModel, thinking, tools: agentCfg.tools };
+}
+
+function contextModelRef(ctx?: PiExtensionContext): string | undefined {
+  const provider = str(ctx?.model?.provider);
+  const modelId = str(ctx?.model?.id);
+  return provider && modelId ? `${provider}/${modelId}` : undefined;
 }
 
 function buildPiArgs(cfg: PiRunConfig): string[] {
@@ -1016,17 +1030,18 @@ function parseAgentFM(c: string): AgentConfig {
 }
 
 function contextKey(input?: unknown, ctx?: PiExtensionContext): string | null {
-  const ov = str(process.env.TRELLIS_CONTEXT_ID);
-  if (ov) return ov.replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 160) || hash(ov);
   const sessionId =
-    callStr(ctx?.sessionManager?.getSessionId) ??
+    callStr(ctx?.sessionManager?.getSessionId, ctx?.sessionManager) ??
     str(process.env.PI_SESSION_ID) ??
     str(process.env.PI_SESSIONID) ??
     lookupStr(input, ["session_id", "sessionId", "sessionID"]);
-  if (sessionId)
-    return `pi_${sessionId.replace(/[^A-Za-z0-9._-]+/g, "_") || hash(sessionId)}`;
+  if (sessionId) {
+    const normalized = sessionId.replace(/[^A-Za-z0-9._-]+/g, "_");
+    if (!normalized) return `pi_${hash(sessionId)}`;
+    return `pi_${normalized}${normalized === sessionId ? "" : `_${hash(sessionId)}`}`;
+  }
   const transcriptPath =
-    callStr(ctx?.sessionManager?.getSessionFile) ??
+    callStr(ctx?.sessionManager?.getSessionFile, ctx?.sessionManager) ??
     lookupStr(input, ["transcript_path", "transcriptPath", "transcript"]);
   if (transcriptPath) return `pi_transcript_${hash(transcriptPath)}`;
   return null;
@@ -1050,32 +1065,6 @@ function readTaskDir(root: string, key: string | null): string | null {
         : join(root, ".trellis", "tasks", ref);
   } catch {
     return null;
-  }
-}
-function sessionHasTask(root: string, key: string): boolean {
-  try {
-    const ctx = JSON.parse(
-      readText(join(root, ".trellis", ".runtime", "sessions", `${key}.json`)),
-    ) as JsonObject;
-    return !!str(ctx.current_task);
-  } catch {
-    return false;
-  }
-}
-function adoptKey(root: string, key: string): string {
-  if (sessionHasTask(root, key)) return key;
-  try {
-    const dir = join(root, ".trellis", ".runtime", "sessions");
-    const keys = readdirSync(dir)
-      .filter(
-        (f) => f.endsWith(".json") && sessionHasTask(root, f.slice(0, -5)),
-      )
-      .map((f) => f.slice(0, -5));
-    const proc = keys.filter((k) => k.startsWith("pi_process_"));
-    const cands = proc.length ? proc : keys;
-    return cands.length === 1 ? cands[0]! : key;
-  } catch {
-    return key;
   }
 }
 
@@ -1502,11 +1491,17 @@ async function runSubagent(
   signal?: AbortSignal,
   onUpdate?: (r: PiToolResult) => void,
   inheritedThinking?: string,
+  inheritedModel?: string,
 ): Promise<{ output: string; details: ProgressDetails; failed: boolean }> {
   const agentName = normalizeAgent(input.agent);
   const agentRaw = readText(join(root, ".pi", "agents", `${agentName}.md`));
   const agentCfg = parseAgentFM(agentRaw);
-  const runCfg = resolveRunCfg(input, agentCfg, inheritedThinking);
+  const runCfg = resolveRunCfg(
+    input,
+    agentCfg,
+    inheritedThinking,
+    inheritedModel,
+  );
   const mode = input.mode ?? "single";
   const startedAt = Date.now();
   const details: ProgressDetails = {
@@ -1652,7 +1647,7 @@ export default function trellisExtension(pi: {
   let curKey: string | null = null;
 
   const getKey = (input?: unknown, ctx?: PiExtensionContext) => {
-    const k = adoptKey(root, contextKey(input, ctx) ?? curKey ?? procKey);
+    const k = contextKey(input, ctx) ?? curKey ?? procKey;
     curKey = k;
     return k;
   };
@@ -1751,7 +1746,7 @@ export default function trellisExtension(pi: {
           type: "string",
           description:
             "Optional Pi thinking level override for the child sub-agent process.",
-          enum: ["off", "minimal", "low", "medium", "high", "xhigh"],
+          enum: ["off", "minimal", "low", "medium", "high", "xhigh", "max"],
         },
       },
     },
@@ -1811,6 +1806,7 @@ export default function trellisExtension(pi: {
       };
       const key = getKey(cleanInput, ctx);
       const inheritedThinking = pi.getThinkingLevel?.();
+      const inheritedModel = contextModelRef(ctx);
       const result = await runSubagent(
         root,
         cleanInput,
@@ -1818,6 +1814,7 @@ export default function trellisExtension(pi: {
         signal,
         onUpdate,
         inheritedThinking,
+        inheritedModel,
       );
       return {
         content: [{ type: "text", text: result.output }],
