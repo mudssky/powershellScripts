@@ -253,8 +253,12 @@ Describe 'Linux PowerShell install leaves' -Tag 'Leaves' {
         $coreText | Should -Match '\] ripgrep:'
         $coreText | Should -Match '\] uv:'
         $coreText | Should -Not -Match '\] lazygit:'
+        $coreText | Should -Not -Match '\] carapace:'
+        $coreText | Should -Not -Match '\] atuin:'
         $fullText | Should -Match '\] lazygit:'
         $fullText | Should -Match '\] neovim:'
+        $fullText | Should -Match '\] carapace:'
+        $fullText | Should -Match '\] atuin:'
         $fullText | Should -Not -Match '\] ripgrep:'
         $fullText | Should -Not -Match 'hammerspoon'
     }

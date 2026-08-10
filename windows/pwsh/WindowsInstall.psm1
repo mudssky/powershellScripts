@@ -456,13 +456,32 @@ function Invoke-WindowsScoopCatalogInstall {
     if (-not $Preview -and -not (Get-Command scoop -ErrorAction SilentlyContinue)) {
         return @(New-WindowsInstallResult -Name scoop -Status Blocked -Message '缺少 Scoop，请先完成 01 package-manager' -ExitCode 10)
     }
-    return @(Install-PackageManagerApps `
-            -PackageManager scoop `
-            -ConfigObject $config `
-            -TargetOS Windows `
-            -RequiredTag $RequiredTag `
-            -Required `
-            -WhatIf:$Preview)
+
+    $results = [System.Collections.Generic.List[object]]::new()
+    $buckets = @($selected | ForEach-Object {
+            $appValues = ConvertTo-ConfigHashtable -InputObject $_
+            if ($appValues.ContainsKey('bucket')) {
+                ([string]$appValues.bucket).Trim()
+            }
+        } | Where-Object { $_ } | Select-Object -Unique)
+    foreach ($bucket in $buckets) {
+        $bucketResult = Initialize-WindowsScoopBucket -Bucket $bucket -Preview:$Preview
+        $results.Add($bucketResult)
+        if ([int]$bucketResult.ExitCode -ne 0) {
+            return $results.ToArray()
+        }
+    }
+
+    foreach ($appResult in @(Install-PackageManagerApps `
+                -PackageManager scoop `
+                -ConfigObject $config `
+                -TargetOS Windows `
+                -RequiredTag $RequiredTag `
+                -Required `
+                -WhatIf:$Preview)) {
+        $results.Add($appResult)
+    }
+    return $results.ToArray()
 }
 
 function Test-WindowsScoopListContains {
@@ -497,6 +516,42 @@ function Test-WindowsScoopListContains {
         }
     }
     return $false
+}
+
+function Initialize-WindowsScoopBucket {
+    <#
+    .SYNOPSIS
+        幂等确保 Scoop bucket 可用。
+
+    .PARAMETER Bucket
+        要检查和添加的 bucket 名称。
+
+    .PARAMETER Preview
+        只返回 bucket 添加计划，不执行 Scoop。
+
+    .OUTPUTS
+        PSCustomObject。返回 Preview、AlreadyPresent、Succeeded 或 Failed 结果。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9._-]*$')]
+        [string]$Bucket,
+
+        [switch]$Preview
+    )
+
+    if ($Preview) {
+        return New-WindowsInstallResult -Name "bucket:$Bucket" -Status Preview -Message "scoop bucket add $Bucket"
+    }
+
+    $bucketOutput = @(& scoop bucket list 2>&1)
+    $bucketExitCode = $LASTEXITCODE
+    if ($bucketExitCode -eq 0 -and (Test-WindowsScoopListContains -InputObject $bucketOutput -Name $Bucket)) {
+        return New-WindowsInstallResult -Name "bucket:$Bucket" -Status AlreadyPresent
+    }
+
+    return Invoke-WindowsNativeCommand -Name "bucket:$Bucket" -FilePath scoop -ArgumentList @('bucket', 'add', $Bucket)
 }
 
 function Test-WindowsUserStageContext {
@@ -564,22 +619,19 @@ function Install-WindowsScoopFonts {
     }
 
     $results = [System.Collections.Generic.List[object]]::new()
+    $bucketResult = Initialize-WindowsScoopBucket -Bucket $bucket -Preview:$Preview
+    $results.Add($bucketResult)
+    if ([int]$bucketResult.ExitCode -ne 0) {
+        return $results.ToArray()
+    }
+
     if ($Preview) {
-        $results.Add((New-WindowsInstallResult -Name "bucket:$bucket" -Status Preview -Message "scoop bucket add $bucket"))
         foreach ($font in $fonts) {
             $results.Add((New-WindowsInstallResult -Name $font -Status Preview -Message "scoop install $font"))
         }
         return $results.ToArray()
     }
 
-    $bucketOutput = @(& scoop bucket list 2>&1)
-    $bucketExitCode = $LASTEXITCODE
-    if ($bucketExitCode -ne 0 -or -not (Test-WindowsScoopListContains -InputObject $bucketOutput -Name $bucket)) {
-        $results.Add((Invoke-WindowsNativeCommand -Name "bucket:$bucket" -FilePath scoop -ArgumentList @('bucket', 'add', $bucket)))
-    }
-    else {
-        $results.Add((New-WindowsInstallResult -Name "bucket:$bucket" -Status AlreadyPresent))
-    }
     $installedOutput = @(& scoop list 2>&1)
     foreach ($font in $fonts) {
         if (Test-WindowsScoopListContains -InputObject $installedOutput -Name ([string]$font)) {
@@ -813,6 +865,7 @@ Export-ModuleMember -Function @(
     'Invoke-WindowsNativeCommand',
     'Invoke-WindowsScoopCatalogInstall',
     'Test-WindowsScoopListContains',
+    'Initialize-WindowsScoopBucket',
     'Test-WindowsUserStageContext',
     'Install-WindowsScoopFonts',
     'Merge-WindowsPathValue',

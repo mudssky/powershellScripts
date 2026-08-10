@@ -22,6 +22,8 @@ Describe 'macOS PowerShell 安装叶子' {
         $fullExitCode | Should -Be 0
         $coreText | Should -Match '\] ripgrep:'
         $coreText | Should -Match '\] uv:'
+        $coreText | Should -Match '\] carapace:'
+        $coreText | Should -Match '\] atuin:'
         $coreText | Should -Not -Match '\] hammerspoon:'
         $fontText | Should -Match '\] font-jetbrains-mono-nerd-font:'
         $fontText | Should -Not -Match '\] ripgrep:'
@@ -82,6 +84,8 @@ Describe 'macOS PowerShell 安装叶子' {
 
         @($core.Name) | Should -Contain 'ripgrep'
         @($core.Name) | Should -Contain 'uv'
+        @($core.Name) | Should -Contain 'carapace'
+        @($core.Name) | Should -Contain 'atuin'
         @($fonts.Name) | Should -Contain 'font-jetbrains-mono-nerd-font'
         @($full.Name) | Should -Contain 'hammerspoon'
         @($full.Name) | Should -Contain 'blueutil'

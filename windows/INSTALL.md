@@ -109,7 +109,7 @@ China/Auto 的 winget 修改要求管理员子进程可使用 `Microsoft.WinGet.
 | 01 | `windows/01installScoop.ps1` | 当前用户 Scoop |
 | 02 | `windows/02installPowerShell.ps1` | PowerShell 7 winget/MSI 安装与验证 |
 | 03 | `windows/03configureSources.ps1` | winget 只读状态与语言生态 source 事务 |
-| 05 | `windows/05installCoreCli.ps1` | 10 个 Core Scoop CLI |
+| 05 | `windows/05installCoreCli.ps1` | 12 个 Core Scoop CLI；Carapace 自动确保 Extras bucket |
 | 06 | `windows/06installFonts.ps1` | JetBrains Mono/Fira Code Nerd Font |
 | 07 | `windows/07installProfileTools.ps1` | Profile、Node/pnpm、bin、构建与用户 PATH |
 | 08 | `windows/08installFullApps.ps1` | Full terminal extras |

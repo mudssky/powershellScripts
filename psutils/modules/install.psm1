@@ -434,12 +434,23 @@ function Test-PackageManagerAppCatalog {
     $categoryTags = @('cli', 'font', 'gui', 'platform')
     foreach ($packageManager in @($packageManagers.Keys)) {
         foreach ($app in @($packageManagers[$packageManager])) {
-            $appName = [string]$app.name
+            $appValues = ConvertTo-ConfigHashtable -InputObject $app
+            $appName = [string]$appValues.name
             if ([string]::IsNullOrWhiteSpace($appName)) {
                 throw "包管理器 $packageManager 包含缺少 name 的应用配置"
             }
 
-            $tags = @(Get-PackageManagerAppTags -AppInfo $app)
+            if ($appValues.ContainsKey('bucket')) {
+                $bucket = [string]$appValues.bucket
+                if ($packageManager -ne 'scoop') {
+                    throw "应用 $packageManager/$appName 仅 Scoop 条目允许声明 bucket"
+                }
+                if ([string]::IsNullOrWhiteSpace($bucket) -or $bucket -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') {
+                    throw "应用 $packageManager/$appName 的 bucket 无效: $bucket"
+                }
+            }
+
+            $tags = @(Get-PackageManagerAppTags -AppInfo $appValues)
             if (@($tags | Select-Object -Unique).Count -ne $tags.Count) {
                 throw "应用 $packageManager/$appName 包含重复标签"
             }

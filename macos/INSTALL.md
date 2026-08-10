@@ -34,7 +34,7 @@ zsh 00bootstrap.zsh \
 | Core | `01` Homebrew、`02` PowerShell、`03` sources、`04` shell、`05` Core CLI、`06` fonts、`07` Profile/tools、`99` verify |
 | Full | Core 加 `08` GUI/platform apps、`09` Hammerspoon、`10` login items、`11` Finder Quick Actions |
 
-软件名称只来自 `profile/installer/apps-config.json`。Core CLI 使用 `core + cli`，字体使用 `core + font`，Full 应用使用 `full + gui/platform`；`skipInstall: true` 始终优先。
+软件名称只来自 `profile/installer/apps-config.json`。Core CLI 使用 `core + cli`，包含 Carapace 与 Atuin；字体使用 `core + font`，Full 应用使用 `full + gui/platform`；`skipInstall: true` 始终优先。
 
 ## 网络模式
 

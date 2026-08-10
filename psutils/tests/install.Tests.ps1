@@ -392,7 +392,7 @@ Describe "Test-PackageManagerAppCatalog 函数测试" {
 
         Test-PackageManagerAppCatalog -ConfigObject $config | Should -BeTrue
         @((Select-PackageManagerApps -Apps $homebrew -TargetOS macOS -RequiredTag @('core', 'cli')).name) |
-            Should -Be @('fnm', 'jq', 'fd', 'eza', 'ripgrep', 'fzf', 'zoxide', 'starship', 'bat', 'uv')
+            Should -Be @('fnm', 'jq', 'fd', 'eza', 'ripgrep', 'fzf', 'zoxide', 'starship', 'bat', 'uv', 'carapace', 'atuin')
         @((Select-PackageManagerApps -Apps $homebrew -TargetOS macOS -RequiredTag @('core', 'font')).name) |
             Should -Be @('font-symbols-only-nerd-font', 'font-fira-code-nerd-font', 'font-jetbrains-mono-nerd-font')
         @((Select-PackageManagerApps -Apps $homebrew -TargetOS macOS -RequiredTag full -AnyTag @('gui', 'platform')).name) |

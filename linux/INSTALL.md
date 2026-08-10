@@ -65,7 +65,7 @@ Core 执行 `03`～`07` 与 `99`：
 - PowerShell Profile、模块、Node/pnpm、仓库工具与 Docker
 - 只读验证
 
-Full 在 Core 上增加 `08` 的 `terminal-extras` 高级 CLI。Linux 首期不安装 GUI 应用，`09`～`11` 由注册表标记为 `Skipped`。
+Full 在 Core 上增加 `08` 的 `terminal-extras` 高级 CLI，其中包含 Carapace 与 Atuin；Linux Core 保持精简，不自动安装这两项工具。Linux 首期不安装 GUI 应用，`09`～`11` 由注册表标记为 `Skipped`。
 
 ```powershell
 pwsh ./install.ps1 -Preset Core -WhatIf

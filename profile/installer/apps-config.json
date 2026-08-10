@@ -381,6 +381,23 @@
         "tag": ["core", "cli"]
       },
       {
+        "name": "carapace-bin",
+        "cliName": "carapace",
+        "description": "跨 Shell 参数补全引擎",
+        "command": "scoop install carapace-bin",
+        "bucket": "extras",
+        "supportOs": ["Windows"],
+        "tag": ["core", "cli"]
+      },
+      {
+        "name": "atuin",
+        "cliName": "atuin",
+        "description": "跨 Shell 历史记录工具",
+        "command": "scoop install atuin",
+        "supportOs": ["Windows"],
+        "tag": ["core", "cli"]
+      },
+      {
         "name": "hyperfine",
         "cliName": "hyperfine",
         "description": "命令行跑分工具",
@@ -1250,6 +1267,62 @@
           "linux"
         ],
         "tag": [
+          "cli",
+          "terminal-extras"
+        ]
+      },
+      {
+        "name": "carapace",
+        "cliName": "carapace",
+        "description": "跨 Shell 参数补全引擎",
+        "command": "brew install carapace",
+        "supportOs": [
+          "macOS"
+        ],
+        "tag": [
+          "macbook",
+          "core",
+          "cli"
+        ]
+      },
+      {
+        "name": "atuin",
+        "cliName": "atuin",
+        "description": "跨 Shell 历史记录工具",
+        "command": "brew install atuin",
+        "supportOs": [
+          "macOS"
+        ],
+        "tag": [
+          "macbook",
+          "core",
+          "cli"
+        ]
+      },
+      {
+        "name": "carapace",
+        "cliName": "carapace",
+        "description": "跨 Shell 参数补全引擎",
+        "command": "brew install carapace",
+        "supportOs": [
+          "linux"
+        ],
+        "tag": [
+          "linuxserver",
+          "cli",
+          "terminal-extras"
+        ]
+      },
+      {
+        "name": "atuin",
+        "cliName": "atuin",
+        "description": "跨 Shell 历史记录工具",
+        "command": "brew install atuin",
+        "supportOs": [
+          "linux"
+        ],
+        "tag": [
+          "linuxserver",
           "cli",
           "terminal-extras"
         ]

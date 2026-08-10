@@ -100,9 +100,26 @@ Describe 'Windows 声明式 package catalog' {
         $script:PackageManagers = ConvertTo-ConfigHashtable -InputObject $script:AppsConfig.packageManagers
     }
 
-    It 'Core 只包含确认的 10 个 Scoop CLI' {
+    It 'Core 只包含确认的 12 个 Scoop CLI' {
         $core = @(Select-PackageManagerApps -Apps @($script:PackageManagers.scoop) -TargetOS Windows -RequiredTag @('core', 'cli'))
-        @($core.name) | Should -Be @('zoxide', 'fnm', 'starship', 'fzf', 'ripgrep', 'jq', 'uv', 'bat', 'fd', 'eza')
+        @($core.name) | Should -Be @('zoxide', 'fnm', 'starship', 'fzf', 'ripgrep', 'jq', 'uv', 'bat', 'fd', 'eza', 'carapace-bin', 'atuin')
+        @($core | Where-Object name -eq 'carapace-bin').bucket | Should -Be @('extras')
+    }
+
+    It 'Core 预览先声明 Extras bucket 再包含两个 Shell 工具' {
+        $output = pwsh -NoProfile -File (Join-Path $script:RepoRoot 'windows/05installCoreCli.ps1') -WhatIf 2>&1
+        $text = $output | Out-String
+
+        $LASTEXITCODE | Should -Be 0
+        $bucketMatch = [regex]::Match($text, '(?m)^\[Preview\] bucket:extras: ')
+        $carapaceMatch = [regex]::Match($text, '(?m)^\[(?:Preview|AlreadyPresent)\] carapace-bin: ')
+        $atuinMatch = [regex]::Match($text, '(?m)^\[(?:Preview|AlreadyPresent)\] atuin: ')
+
+        $bucketMatch.Success | Should -BeTrue
+        $carapaceMatch.Success | Should -BeTrue
+        $atuinMatch.Success | Should -BeTrue
+        $bucketMatch.Index | Should -BeLessThan $carapaceMatch.Index
+        $bucketMatch.Index | Should -BeLessThan $atuinMatch.Index
     }
 
     It 'Full terminal extras 不包含 GUI 条目' {
@@ -132,6 +149,54 @@ Describe 'Windows 声明式 package catalog' {
         Test-WindowsScoopListContains `
             -InputObject @([pscustomobject]@{ Name = 'main' }) `
             -Name nerd-fonts | Should -BeFalse
+    }
+
+    It 'Scoop bucket helper 支持预览与新版对象幂等检查' {
+        $preview = Initialize-WindowsScoopBucket -Bucket extras -Preview
+        $preview.Status | Should -Be 'Preview'
+        $preview.Message | Should -Be 'scoop bucket add extras'
+
+        function global:scoop {
+            param([Parameter(ValueFromRemainingArguments = $true)][object[]]$RemainingArgs)
+            $global:LASTEXITCODE = 0
+            [pscustomobject]@{ Name = 'extras'; Source = 'fixture' }
+        }
+        try {
+            $existing = Initialize-WindowsScoopBucket -Bucket extras
+            $existing.Status | Should -Be 'AlreadyPresent'
+            $existing.ExitCode | Should -Be 0
+        }
+        finally {
+            Remove-Item Function:\scoop -ErrorAction SilentlyContinue
+        }
+    }
+
+    It '必需 bucket 添加失败时停止应用安装' {
+        InModuleScope WindowsInstall -Parameters @{ RepositoryRoot = $script:RepoRoot } {
+            param($RepositoryRoot)
+            Mock Initialize-WindowsScoopBucket {
+                New-WindowsInstallResult -Name 'bucket:extras' -Status Failed -Message 'fixture failure' -ExitCode 1
+            }
+            Mock Install-PackageManagerApps { throw 'bucket 失败后不应进入应用安装' }
+
+            $result = @(Invoke-WindowsScoopCatalogInstall `
+                    -RepoRoot $RepositoryRoot `
+                    -RequiredTag @('core', 'cli') `
+                    -Preview)
+
+            $result.Count | Should -Be 1
+            $result[0].Status | Should -Be 'Failed'
+            Should -Invoke Install-PackageManagerApps -Times 0 -Exactly
+        }
+    }
+
+    It '应用清单只允许 Scoop 条目声明合法 bucket' {
+        Import-Module (Join-Path $script:RepoRoot 'psutils') -Force
+        $nonScoop = @{ packageManagers = @{ homebrew = @(@{ name = 'bad'; bucket = 'extras' }) } }
+        $invalidName = @{ packageManagers = @{ scoop = @(@{ name = 'bad'; bucket = '../extras' }) } }
+
+        { Test-PackageManagerAppCatalog -ConfigObject $nonScoop } | Should -Throw '*仅 Scoop 条目允许声明 bucket*'
+        { Test-PackageManagerAppCatalog -ConfigObject $invalidName } | Should -Throw '*bucket 无效*'
     }
 
     It '只允许普通令牌或绑定真实用户 profile 的自动化用户阶段' {
