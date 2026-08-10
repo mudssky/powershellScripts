@@ -1,0 +1,9 @@
+{"file":".agents/skills/repo-ops/references/shell-profile-integration.md","reason":"执行仓库 Shell Profile 安装、初始化、键位冲突与验证流程"}
+{"file":".trellis/spec/shell-shared/package/index.md","reason":"检查 Zsh 专属归属、加载顺序、重复 source 与工具缺失降级"}
+{"file":".trellis/spec/bash-scripts/package/index.md","reason":"检查 Shell Vitest 归属、行为测试约束与包级验证入口"}
+{"file":".trellis/spec/infra/macos-install-pipeline.md","reason":"检查 macOS Core Homebrew 选择、统一清单与 formula 只读验证合同"}
+{"file":".trellis/spec/infra/windows-install-pipeline.md","reason":"检查 Windows Core Scoop 精确集合、Preview 与只读验证合同"}
+{"file":".trellis/spec/infra/linux-install-pipeline.md","reason":"检查 Linux Core 排除和 Full terminal-extras 选择合同"}
+{"file":".trellis/tasks/08-10-terminal-daily-tools/research/package-availability.md","reason":"核对官方包名、可执行名、版本和 TLDR 平台决策"}
+{"file":".trellis/tasks/08-10-terminal-daily-tools/prd.md","reason":"核对跨平台 Delta、macOS/Linux Tealdeer 与 Zsh 插件验收标准"}
+{"file":".trellis/tasks/08-10-terminal-daily-tools/design.md","reason":"核对插件加载顺序、平台选择矩阵、测试与回滚设计"}

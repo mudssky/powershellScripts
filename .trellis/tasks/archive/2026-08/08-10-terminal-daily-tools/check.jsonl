@@ -1,0 +1,7 @@
+{"file":".trellis/spec/shell-shared/package/index.md","reason":"复核 Zsh 加载顺序、幂等守卫、失败隔离与共享片段边界"}
+{"file":".trellis/spec/bash-scripts/package/index.md","reason":"复核 Shell 行为测试与 pnpm test:bash 门禁"}
+{"file":".trellis/spec/infra/macos-install-pipeline.md","reason":"复核 macOS Core、Homebrew formula 检测、WhatIf 与 99 只读验证"}
+{"file":".trellis/spec/infra/windows-install-pipeline.md","reason":"复核 Windows Core 新增 Delta、Tealdeer 不选中和精确集合断言"}
+{"file":".trellis/spec/infra/linux-install-pipeline.md","reason":"复核 Linux Core 排除及 Full 包含 Delta/Tealdeer"}
+{"file":".trellis/tasks/08-10-terminal-daily-tools/prd.md","reason":"逐项核对平台矩阵、验收标准和明确排除范围"}
+{"file":".trellis/tasks/08-10-terminal-daily-tools/design.md","reason":"复核 Atuin/Autosuggestions/Highlighting 顺序、Delta TTY 边界与本机 smoke"}
