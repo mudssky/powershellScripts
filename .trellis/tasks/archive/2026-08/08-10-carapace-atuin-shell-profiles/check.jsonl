@@ -1,0 +1,7 @@
+{"file":".trellis/spec/profile/package/profile-runtime.md","reason":"检查 PowerShell 模式隔离、OnIdle 幂等、错误降级和真实入口验证"}
+{"file":".trellis/spec/shell-shared/package/index.md","reason":"检查双 Shell 兼容、加载顺序、重复 init 与工具缺失降级"}
+{"file":".trellis/spec/bash-scripts/package/index.md","reason":"检查 Bash/Zsh 测试入口与根 QA 语义"}
+{"file":".trellis/tasks/08-10-carapace-atuin-shell-profiles/research/tool-integration.md","reason":"核对实现命令、Atuin 键位和 Carapace MenuComplete 契约"}
+{"file":".trellis/spec/infra/windows-install-pipeline.md","reason":"检查 Scoop Extras bucket 幂等、Core 选择和 Preview/失败行为"}
+{"file":".trellis/spec/infra/macos-install-pipeline.md","reason":"检查 macOS Core Homebrew 选择与现有安装链复用"}
+{"file":".trellis/spec/infra/linux-install-pipeline.md","reason":"检查 Linux Core 排除和 Full terminal-extras 包含关系"}

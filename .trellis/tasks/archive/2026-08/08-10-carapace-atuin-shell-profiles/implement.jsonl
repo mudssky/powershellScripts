@@ -1,0 +1,7 @@
+{"file":".trellis/spec/profile/package/profile-runtime.md","reason":"PowerShell Profile 模式、OnIdle、缓存与运行态验证合同"}
+{"file":".trellis/spec/shell-shared/package/index.md","reason":"Bash/Zsh 共享片段边界、重复初始化防护与双 Shell 验证规范"}
+{"file":".trellis/spec/bash-scripts/package/index.md","reason":"Shell Vitest 归属与 Bash 包级验证入口"}
+{"file":".trellis/tasks/08-10-carapace-atuin-shell-profiles/research/tool-integration.md","reason":"Carapace 与 Atuin 官方初始化命令及仓库适配结论"}
+{"file":".trellis/spec/infra/windows-install-pipeline.md","reason":"Windows Scoop Core 清单、bucket 前置、Preview 与安装退出合同"}
+{"file":".trellis/spec/infra/macos-install-pipeline.md","reason":"macOS Homebrew Core CLI 清单与既有 05 安装入口合同"}
+{"file":".trellis/spec/infra/linux-install-pipeline.md","reason":"Linux Core 与 Full terminal-extras 分层及 05/08 安装入口合同"}
