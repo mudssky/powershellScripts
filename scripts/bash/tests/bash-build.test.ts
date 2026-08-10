@@ -51,11 +51,19 @@ function createWorkspace(): Workspace {
       '',
     ].join('\n'),
   )
-  fs.chmodSync(path.join(root, 'scripts/bash/systemd-service-manager/build.sh'), 0o755)
+  fs.chmodSync(
+    path.join(root, 'scripts/bash/systemd-service-manager/build.sh'),
+    0o755,
+  )
 
   writeText(
     path.join(root, 'scripts/bash/aliyun-oss-put.sh'),
     ['#!/usr/bin/env bash', 'printf "aliyun\\n"', ''].join('\n'),
+  )
+
+  writeText(
+    path.join(root, 'scripts/bash/browserctl.sh'),
+    ['#!/usr/bin/env bash', 'printf "browserctl\\n"', ''].join('\n'),
   )
 
   return { root, buildScript, binDir }
@@ -94,12 +102,17 @@ describe('scripts/bash/build.sh', () => {
     expect(result.exitCode).toBe(0)
     expect(result.stdout).toContain('name=systemd-service-manager')
     expect(result.stdout).toContain('type=build')
-    expect(result.stdout).toContain('source=scripts/bash/systemd-service-manager/build.sh')
+    expect(result.stdout).toContain(
+      'source=scripts/bash/systemd-service-manager/build.sh',
+    )
     expect(result.stdout).toContain('output=<managed-by-target-build>')
     expect(result.stdout).toContain('name=aliyun-oss-put')
     expect(result.stdout).toContain('type=copy')
     expect(result.stdout).toContain('source=scripts/bash/aliyun-oss-put.sh')
     expect(result.stdout).toContain('output=bin/aliyun-oss-put')
+    expect(result.stdout).toContain('name=browserctl')
+    expect(result.stdout).toContain('source=scripts/bash/browserctl.sh')
+    expect(result.stdout).toContain('output=bin/browserctl')
   })
 
   it('copies single-file shell scripts into bin without the .sh suffix', async () => {
@@ -114,8 +127,12 @@ describe('scripts/bash/build.sh', () => {
     expect(fs.readFileSync(outputPath, 'utf8')).toContain('printf "aliyun')
     expect(fs.statSync(outputPath).mode & 0o111).not.toBe(0)
     expect(result.stdout).toContain('args=--only aliyun-oss-put')
-    expect(result.stdout).toContain('ACTION aliyun-oss-put copy source -> bin/aliyun-oss-put')
-    expect(result.stdout).toContain('SUMMARY total=1 success=1 failed=0 skipped=0')
+    expect(result.stdout).toContain(
+      'ACTION aliyun-oss-put copy source -> bin/aliyun-oss-put',
+    )
+    expect(result.stdout).toContain(
+      'SUMMARY total=1 success=1 failed=0 skipped=0',
+    )
   })
 
   it('runs build targets and prints parsed jobs and task summaries', async () => {
@@ -127,14 +144,23 @@ describe('scripts/bash/build.sh', () => {
     expect(result.exitCode).toBe(0)
     expect(result.stdout).toContain('args=--jobs 1')
     expect(result.stdout).toContain('jobs=1 source=--jobs')
-    expect(result.stdout).toContain('targets=2')
+    expect(result.stdout).toContain('targets=3')
     expect(result.stdout).toContain('START systemd-service-manager type=build')
-    expect(result.stdout).toContain('ACTION systemd-service-manager run build.sh')
+    expect(result.stdout).toContain(
+      'ACTION systemd-service-manager run build.sh',
+    )
     expect(result.stdout).toContain('DONE systemd-service-manager exit=0')
     expect(result.stdout).toContain('START aliyun-oss-put type=copy')
-    expect(result.stdout).toContain('SUMMARY total=2 success=2 failed=0 skipped=0')
-    expect(fs.existsSync(path.join(workspace.binDir, 'systemd-service-manager'))).toBe(true)
-    expect(fs.existsSync(path.join(workspace.binDir, 'aliyun-oss-put'))).toBe(true)
+    expect(result.stdout).toContain(
+      'SUMMARY total=3 success=3 failed=0 skipped=0',
+    )
+    expect(
+      fs.existsSync(path.join(workspace.binDir, 'systemd-service-manager')),
+    ).toBe(true)
+    expect(fs.existsSync(path.join(workspace.binDir, 'aliyun-oss-put'))).toBe(
+      true,
+    )
+    expect(fs.existsSync(path.join(workspace.binDir, 'browserctl'))).toBe(true)
   })
 
   it('returns non-zero with a failure summary for invalid targets', async () => {
@@ -146,7 +172,9 @@ describe('scripts/bash/build.sh', () => {
 
     expect(result.exitCode).not.toBe(0)
     expect(result.stdout + result.stderr).toContain('FAIL aliyun-oss-put')
-    expect(result.stdout + result.stderr).toContain('SUMMARY total=1 success=0 failed=1 skipped=0')
+    expect(result.stdout + result.stderr).toContain(
+      'SUMMARY total=1 success=0 failed=1 skipped=0',
+    )
     expect(result.stdout + result.stderr).toContain('log=')
   })
 })

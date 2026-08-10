@@ -11,6 +11,7 @@ BIN_DIR="${REPO_ROOT}/bin"
 BASH_BUILD_TARGETS=(
   "build:systemd-service-manager:scripts/bash/systemd-service-manager/build.sh:<managed-by-target-build>"
   "copy:aliyun-oss-put:scripts/bash/aliyun-oss-put.sh:bin/aliyun-oss-put"
+  "copy:browserctl:scripts/bash/browserctl.sh:bin/browserctl"
 )
 
 # 输出统一格式日志。
