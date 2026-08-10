@@ -100,24 +100,28 @@ Describe 'Windows 声明式 package catalog' {
         $script:PackageManagers = ConvertTo-ConfigHashtable -InputObject $script:AppsConfig.packageManagers
     }
 
-    It 'Core 只包含确认的 12 个 Scoop CLI' {
+    It 'Core 只包含确认的 13 个 Scoop CLI' {
         $core = @(Select-PackageManagerApps -Apps @($script:PackageManagers.scoop) -TargetOS Windows -RequiredTag @('core', 'cli'))
-        @($core.name) | Should -Be @('zoxide', 'fnm', 'starship', 'fzf', 'ripgrep', 'jq', 'uv', 'bat', 'fd', 'eza', 'carapace-bin', 'atuin')
+        @($core.name) | Should -Be @('delta', 'zoxide', 'fnm', 'starship', 'fzf', 'ripgrep', 'jq', 'uv', 'bat', 'fd', 'eza', 'carapace-bin', 'atuin')
+        @($core.name) | Should -Not -Contain 'tldr'
         @($core | Where-Object name -eq 'carapace-bin').bucket | Should -Be @('extras')
     }
 
-    It 'Core 预览先声明 Extras bucket 再包含两个 Shell 工具' {
+    It 'Core 预览先声明 Extras bucket 再包含 Shell 工具与 Delta' {
         $output = pwsh -NoProfile -File (Join-Path $script:RepoRoot 'windows/05installCoreCli.ps1') -WhatIf 2>&1
         $text = $output | Out-String
 
         $LASTEXITCODE | Should -Be 0
         $bucketMatch = [regex]::Match($text, '(?m)^\[Preview\] bucket:extras: ')
+        $deltaMatch = [regex]::Match($text, '(?m)^\[(?:Preview|AlreadyPresent)\] delta: ')
         $carapaceMatch = [regex]::Match($text, '(?m)^\[(?:Preview|AlreadyPresent)\] carapace-bin: ')
         $atuinMatch = [regex]::Match($text, '(?m)^\[(?:Preview|AlreadyPresent)\] atuin: ')
 
         $bucketMatch.Success | Should -BeTrue
+        $deltaMatch.Success | Should -BeTrue
         $carapaceMatch.Success | Should -BeTrue
         $atuinMatch.Success | Should -BeTrue
+        $bucketMatch.Index | Should -BeLessThan $deltaMatch.Index
         $bucketMatch.Index | Should -BeLessThan $carapaceMatch.Index
         $bucketMatch.Index | Should -BeLessThan $atuinMatch.Index
     }

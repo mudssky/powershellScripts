@@ -385,14 +385,27 @@ Describe "Test-PackageManagerAppCatalog 函数测试" {
         { Test-PackageManagerAppCatalog -ConfigObject $duplicateTag } | Should -Throw '*重复标签*'
     }
 
-    It "仓库应用清单满足 macOS Core Full 和可选组合同" {
+    It "仓库应用清单满足三平台 Core Full 和可选组合同" {
         $configPath = Join-Path $PSScriptRoot '../../profile/installer/apps-config.json'
         $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
         $homebrew = @($config.packageManagers.homebrew)
+        $scoop = @($config.packageManagers.scoop)
 
         Test-PackageManagerAppCatalog -ConfigObject $config | Should -BeTrue
         @((Select-PackageManagerApps -Apps $homebrew -TargetOS macOS -RequiredTag @('core', 'cli')).name) |
-            Should -Be @('fnm', 'jq', 'fd', 'eza', 'ripgrep', 'fzf', 'zoxide', 'starship', 'bat', 'uv', 'carapace', 'atuin')
+            Should -Be @('fnm', 'jq', 'fd', 'eza', 'ripgrep', 'fzf', 'zoxide', 'starship', 'bat', 'dust', 'uv', 'carapace', 'atuin', 'zsh-autosuggestions', 'zsh-syntax-highlighting', 'git-delta', 'tealdeer')
+        @((Select-PackageManagerApps -Apps $scoop -TargetOS Windows -RequiredTag @('core', 'cli')).name) |
+            Should -Be @('delta', 'zoxide', 'fnm', 'starship', 'fzf', 'ripgrep', 'jq', 'uv', 'bat', 'fd', 'eza', 'carapace-bin', 'atuin')
+        @((Select-PackageManagerApps -Apps $scoop -TargetOS Windows -RequiredTag @('core', 'cli')).name) |
+            Should -Not -Contain 'tldr'
+        @((Select-PackageManagerApps -Apps $homebrew -TargetOS Linux -RequiredTag @('core', 'cli')).name) |
+            Should -Not -Contain 'git-delta'
+        @((Select-PackageManagerApps -Apps $homebrew -TargetOS Linux -RequiredTag @('core', 'cli')).name) |
+            Should -Not -Contain 'tealdeer'
+        @((Select-PackageManagerApps -Apps $homebrew -TargetOS Linux -RequiredTag @('cli', 'terminal-extras')).name) |
+            Should -Contain 'git-delta'
+        @((Select-PackageManagerApps -Apps $homebrew -TargetOS Linux -RequiredTag @('cli', 'terminal-extras')).name) |
+            Should -Contain 'tealdeer'
         @((Select-PackageManagerApps -Apps $homebrew -TargetOS macOS -RequiredTag @('core', 'font')).name) |
             Should -Be @('font-symbols-only-nerd-font', 'font-fira-code-nerd-font', 'font-jetbrains-mono-nerd-font')
         @((Select-PackageManagerApps -Apps $homebrew -TargetOS macOS -RequiredTag full -AnyTag @('gui', 'platform')).name) |

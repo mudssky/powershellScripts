@@ -436,6 +436,19 @@ Describe "Test-MacOSApplicationInstalled 函数测试" {
                 $result | Should -Be $false
             }
         }
+
+        It "CLI 缺失时应该回退检测 Homebrew formula" {
+            InModuleScope test {
+                Mock Test-EXEProgram { return $false }
+                Mock Test-MacOSCaskApp { return $false }
+                Mock Test-HomebrewFormula { return $AppName -eq 'zsh-autosuggestions' }
+
+                $result = Test-MacOSApplicationInstalled -AppName 'zsh-autosuggestions'
+
+                $result | Should -BeTrue
+                Should -Invoke Test-HomebrewFormula -Times 1 -Exactly -ParameterFilter { $AppName -eq 'zsh-autosuggestions' }
+            }
+        }
     }
 }
 
