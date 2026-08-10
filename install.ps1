@@ -183,7 +183,8 @@ if ($ListSteps -or -not [string]::IsNullOrWhiteSpace($Preset)) {
             -NetworkMode $NetworkMode `
             -Preview:$WhatIfPreference `
             -Unattended:$Unattended `
-            -NonInteractive:$NonInteractive
+            -NonInteractive:$NonInteractive `
+            -ShowProgress:($OutputFormat -eq 'Text')
         if ($OutputFormat -eq 'Json') {
             [Console]::Out.WriteLine((ConvertTo-InstallRunJson -Document $document))
         }

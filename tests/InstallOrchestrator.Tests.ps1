@@ -132,6 +132,29 @@ param(
     [switch]`$NonInteractive
 )
 $sourceOutput
+if (`$env:INSTALL_FIXTURE_DELAY_STEP -eq '$stepId') {
+    Start-Sleep -Milliseconds ([int]`$env:INSTALL_FIXTURE_DELAY_MILLISECONDS)
+}
+if (`$env:INSTALL_FIXTURE_CHILD_STEP -eq '$stepId') {
+    `$childStartInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    `$childStartInfo.FileName = (Get-Command pwsh -ErrorAction Stop).Source
+    `$childStartInfo.UseShellExecute = `$false
+    `$childStartInfo.ArgumentList.Add('-NoProfile')
+    `$childStartInfo.ArgumentList.Add('-File')
+    `$childStartInfo.ArgumentList.Add((Join-Path `$PSScriptRoot 'child-wait.ps1'))
+    `$child = [System.Diagnostics.Process]::new()
+    `$child.StartInfo = `$childStartInfo
+    try {
+        if (-not `$child.Start()) {
+            throw 'failed to start child fixture'
+        }
+        `$child.Id | Set-Content -LiteralPath `$env:INSTALL_FIXTURE_CHILD_PID_LOG -Encoding ascii
+        `$child.WaitForExit()
+    }
+    finally {
+        `$child.Dispose()
+    }
+}
 if (`$env:INSTALL_FIXTURE_FAIL_STEP -eq '$stepId') {
     [Console]::Error.WriteLine('$stepId-failed')
     exit 1
@@ -144,6 +167,10 @@ exit 0
 "@
             Set-Content -LiteralPath $scriptPath -Value $scriptContent -Encoding utf8NoBOM
         }
+        Set-Content -LiteralPath (Join-Path $script:FixtureRoot 'child-wait.ps1') -Encoding utf8NoBOM -Value @'
+Start-Sleep -Seconds 60
+'@
+
 
         $restoreDirectory = Join-Path $script:FixtureRoot 'scripts/pwsh/misc'
         New-Item -ItemType Directory -Path $restoreDirectory -Force | Out-Null
@@ -193,6 +220,10 @@ exit $exitCode
         Remove-Item Env:\INSTALL_FIXTURE_FAIL_STEP -ErrorAction SilentlyContinue
         Remove-Item Env:\INSTALL_FIXTURE_BLOCK_STEP -ErrorAction SilentlyContinue
         Remove-Item Env:\INSTALL_FIXTURE_RESTORE_EXIT -ErrorAction SilentlyContinue
+        Remove-Item Env:\INSTALL_FIXTURE_DELAY_STEP -ErrorAction SilentlyContinue
+        Remove-Item Env:\INSTALL_FIXTURE_DELAY_MILLISECONDS -ErrorAction SilentlyContinue
+        Remove-Item Env:\INSTALL_FIXTURE_CHILD_STEP -ErrorAction SilentlyContinue
+        Remove-Item Env:\INSTALL_FIXTURE_CHILD_PID_LOG -ErrorAction SilentlyContinue
         $script:RestoreLog = Join-Path $script:FixtureRoot 'restore.log'
         $env:INSTALL_FIXTURE_RESTORE_LOG = $script:RestoreLog
     }
@@ -201,6 +232,10 @@ exit $exitCode
         Remove-Item Env:\INSTALL_FIXTURE_FAIL_STEP -ErrorAction SilentlyContinue
         Remove-Item Env:\INSTALL_FIXTURE_BLOCK_STEP -ErrorAction SilentlyContinue
         Remove-Item Env:\INSTALL_FIXTURE_RESTORE_EXIT -ErrorAction SilentlyContinue
+        Remove-Item Env:\INSTALL_FIXTURE_DELAY_STEP -ErrorAction SilentlyContinue
+        Remove-Item Env:\INSTALL_FIXTURE_DELAY_MILLISECONDS -ErrorAction SilentlyContinue
+        Remove-Item Env:\INSTALL_FIXTURE_CHILD_STEP -ErrorAction SilentlyContinue
+        Remove-Item Env:\INSTALL_FIXTURE_CHILD_PID_LOG -ErrorAction SilentlyContinue
         Remove-Item Env:\INSTALL_FIXTURE_RESTORE_LOG -ErrorAction SilentlyContinue
         if ($script:FixtureRoot -and (Test-Path -LiteralPath $script:FixtureRoot)) {
             Remove-Item -LiteralPath $script:FixtureRoot -Recurse -Force
@@ -218,6 +253,149 @@ exit $exitCode
         $document.ExitCode | Should -Be 0
         @($document.Results.Id) | Should -Be $script:FixtureSteps
         @($document.Results.Status | Select-Object -Unique) | Should -Be @('Succeeded')
+    }
+
+    It 'writes progress before a long Text step exits' {
+        $env:INSTALL_FIXTURE_DELAY_STEP = 'profile-tools'
+        $env:INSTALL_FIXTURE_DELAY_MILLISECONDS = '1600'
+        $originalError = [Console]::Error
+        $writer = [System.IO.StringWriter]::new()
+        $powerShell = [powershell]::Create()
+        $asyncResult = $null
+        try {
+            [Console]::SetError($writer)
+            $null = $powerShell.AddScript({
+                    param($ModulePath, $Registry, $RepoRoot)
+                    Import-Module $ModulePath -Force
+                    $module = Get-Module InstallOrchestrator
+                    & $module { $script:InstallProgressHeartbeatMilliseconds = 200 }
+                    Invoke-InstallOrchestrator `
+                        -Registry $Registry `
+                        -RepoRoot $RepoRoot `
+                        -Platform macos `
+                        -Preset Core `
+                        -Step @('profile-tools') `
+                        -ShowProgress
+                }).AddArgument($script:ModulePath).AddArgument($script:FixtureRegistry).AddArgument($script:FixtureRoot)
+            $asyncResult = $powerShell.BeginInvoke()
+
+            foreach ($attempt in 1..80) {
+                if ($writer.ToString() -match '\[Running\] 07 profile-tools elapsed=1s') {
+                    break
+                }
+                Start-Sleep -Milliseconds 25
+            }
+            $progressBeforeExit = $writer.ToString()
+            $asyncResult.IsCompleted | Should -BeFalse
+            $output = $powerShell.EndInvoke($asyncResult)
+            $document = @($output)[-1]
+        }
+        finally {
+            if ($null -ne $asyncResult -and -not $asyncResult.IsCompleted) {
+                $powerShell.Stop()
+                try { $null = $powerShell.EndInvoke($asyncResult) } catch {}
+            }
+            $powerShell.Dispose()
+            [Console]::SetError($originalError)
+            $writer.Dispose()
+        }
+
+        $document.Status | Should -Be 'Succeeded'
+        $progressBeforeExit | Should -Match '\[Running\] 07 profile-tools: .*profile-tools\.ps1'
+        $progressBeforeExit | Should -Match '\[Running\] 07 profile-tools elapsed=1s'
+    }
+
+    It 'keeps progress disabled for JSON-oriented calls by default' {
+        $originalError = [Console]::Error
+        $writer = [System.IO.StringWriter]::new()
+        try {
+            [Console]::SetError($writer)
+            $document = Invoke-InstallOrchestrator `
+                -Registry $script:FixtureRegistry `
+                -RepoRoot $script:FixtureRoot `
+                -Platform macos `
+                -Preset Core `
+                -Step @('shell')
+            $json = ConvertTo-InstallRunJson -Document $document
+            $progress = $writer.ToString()
+        }
+        finally {
+            [Console]::SetError($originalError)
+            $writer.Dispose()
+        }
+
+        $progress | Should -BeNullOrEmpty
+        ($json | ConvertFrom-Json).Status | Should -Be 'Succeeded'
+    }
+
+    It 'terminates the live child process tree when the orchestrator pipeline is interrupted' {
+        $env:INSTALL_FIXTURE_CHILD_STEP = 'profile-tools'
+        $childPidLog = Join-Path $script:FixtureRoot 'child.pid'
+        $env:INSTALL_FIXTURE_CHILD_PID_LOG = $childPidLog
+        $powerShell = [powershell]::Create()
+        $asyncResult = $null
+        $childPid = 0
+        try {
+            $null = $powerShell.AddScript({
+                    param($ModulePath, $Registry, $RepoRoot)
+                    Import-Module $ModulePath -Force
+                    Invoke-InstallOrchestrator `
+                        -Registry $Registry `
+                        -RepoRoot $RepoRoot `
+                        -Platform macos `
+                        -Preset Core `
+                        -Step @('profile-tools')
+                }).AddArgument($script:ModulePath).AddArgument($script:FixtureRegistry).AddArgument($script:FixtureRoot)
+            $asyncResult = $powerShell.BeginInvoke()
+            foreach ($attempt in 1..50) {
+                if (Test-Path -LiteralPath $childPidLog) {
+                    break
+                }
+                Start-Sleep -Milliseconds 100
+            }
+            Test-Path -LiteralPath $childPidLog | Should -BeTrue
+            $childPid = [int](Get-Content -LiteralPath $childPidLog -Raw)
+            $childProcess = Get-Process -Id $childPid -ErrorAction Stop
+            try {
+                $childProcess.HasExited | Should -BeFalse
+            }
+            finally {
+                $childProcess.Dispose()
+            }
+
+            $powerShell.Stop()
+            try { $null = $powerShell.EndInvoke($asyncResult) } catch {}
+
+            $childExited = $false
+            foreach ($attempt in 1..50) {
+                try {
+                    $remainingChild = Get-Process -Id $childPid -ErrorAction Stop
+                    $remainingChild.Dispose()
+                    Start-Sleep -Milliseconds 100
+                }
+                catch {
+                    $childExited = $true
+                    break
+                }
+            }
+            $childExited | Should -BeTrue
+        }
+        finally {
+            if ($null -ne $asyncResult -and -not $asyncResult.IsCompleted) {
+                $powerShell.Stop()
+                try { $null = $powerShell.EndInvoke($asyncResult) } catch {}
+            }
+            $powerShell.Dispose()
+            if ($childPid -gt 0) {
+                try {
+                    $remainingChild = Get-Process -Id $childPid -ErrorAction Stop
+                    $remainingChild.Kill($true)
+                    $remainingChild.Dispose()
+                }
+                catch {
+                }
+            }
+        }
     }
 
     It 'blocks source dependents but continues independent steps' {

@@ -174,15 +174,17 @@ param([string]$Preset, [switch]$WhatIf)
         $document.ExitCode | Should -Be 2
     }
 
-    It 'keeps leaf stdout inside one orchestrator JSON document' {
+    It 'keeps leaf output and Text progress out of the JSON CLI streams' {
+        $stderrPath = Join-Path $script:TempRoot 'json-stderr.log'
         $output = pwsh -NoProfile -File (Join-Path $script:TempRoot 'install.ps1') `
-            -Preset Core -Step verify -OutputFormat Json 2>$null
+            -Preset Core -Step verify -OutputFormat Json 2> $stderrPath
 
         $LASTEXITCODE | Should -Be 0
         $document = $output | Out-String | ConvertFrom-Json
         $document.Status | Should -Be 'Succeeded'
         @($document.Results).Count | Should -Be 1
         $document.Results[0].Message | Should -Match 'verify-leaf-noise'
+        (Get-Content -LiteralPath $stderrPath -Raw) | Should -Not -Match '\[Running\]'
     }
 
     It 'returns one Blocked JSON document when future platform leaves are missing' {

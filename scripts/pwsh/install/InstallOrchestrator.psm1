@@ -4,6 +4,9 @@ $script:SupportedPresets = @('Core', 'Full')
 $script:SupportedPlatforms = @('macos', 'linux', 'windows')
 $script:SupportedRunners = @('pwsh', 'bash', 'zsh')
 
+$script:InstallProgressHeartbeatMilliseconds = 15000
+$script:InstallProcessPollMilliseconds = 250
+
 function Test-InstallStepRegistry {
     <#
     .SYNOPSIS
@@ -470,6 +473,140 @@ function Protect-InstallDiagnostic {
     return $protected.Substring(0, $MaxLength) + '...'
 }
 
+function Get-InstallDescendantProcessIds {
+    <#
+    .SYNOPSIS
+        获取 Unix 平台上指定进程的全部后代进程 ID。
+
+    .PARAMETER ParentId
+        进程树根节点的进程 ID。
+
+    .OUTPUTS
+        System.Int32[]。按父到子的顺序返回后代进程 ID。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [int]$ParentId
+    )
+
+    if ($IsWindows) {
+        return @()
+    }
+
+    $psCommand = Get-Command ps -ErrorAction Stop
+    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = $psCommand.Source
+    $startInfo.UseShellExecute = $false
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    $startInfo.CreateNoWindow = $true
+    $startInfo.ArgumentList.Add('-axo')
+    $startInfo.ArgumentList.Add('pid=,ppid=')
+
+    $snapshotProcess = [System.Diagnostics.Process]::new()
+    $snapshotProcess.StartInfo = $startInfo
+    try {
+        if (-not $snapshotProcess.Start()) {
+            return @()
+        }
+        $output = $snapshotProcess.StandardOutput.ReadToEnd()
+        $snapshotProcess.WaitForExit()
+        if ($snapshotProcess.ExitCode -ne 0) {
+            return @()
+        }
+    }
+    finally {
+        $snapshotProcess.Dispose()
+    }
+
+    $childrenByParent = @{}
+    foreach ($line in $output -split "`r?`n") {
+        if ($line -notmatch '^\s*(\d+)\s+(\d+)\s*$') {
+            continue
+        }
+        $processId = [int]$Matches[1]
+        $parentProcessId = [int]$Matches[2]
+        if (-not $childrenByParent.ContainsKey($parentProcessId)) {
+            $childrenByParent[$parentProcessId] = [System.Collections.Generic.List[int]]::new()
+        }
+        $childrenByParent[$parentProcessId].Add($processId)
+    }
+
+    $descendants = [System.Collections.Generic.List[int]]::new()
+    $pending = [System.Collections.Generic.Queue[int]]::new()
+    $pending.Enqueue($ParentId)
+    while ($pending.Count -gt 0) {
+        $currentParentId = $pending.Dequeue()
+        if (-not $childrenByParent.ContainsKey($currentParentId)) {
+            continue
+        }
+        foreach ($childId in $childrenByParent[$currentParentId]) {
+            $descendants.Add($childId)
+            $pending.Enqueue($childId)
+        }
+    }
+    return $descendants.ToArray()
+}
+
+function Stop-InstallProcessTree {
+    <#
+    .SYNOPSIS
+        终止安装叶子及其后代进程，且不让清理错误覆盖原始异常。
+
+    .PARAMETER Process
+        已启动的安装叶子进程。
+
+    .OUTPUTS
+        None.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [System.Diagnostics.Process]$Process
+    )
+
+    $descendantIds = @(try { Get-InstallDescendantProcessIds -ParentId $Process.Id } catch {})
+    try {
+        if (-not $Process.HasExited) {
+            try {
+                $Process.Kill($true)
+            }
+            catch {
+                $Process.Kill()
+            }
+        }
+    }
+    catch {
+        # 清理失败由后续存活检查处理，不能覆盖原始中断或执行异常。
+    }
+
+    for ($index = $descendantIds.Count - 1; $index -ge 0; $index--) {
+        $descendant = $null
+        try {
+            $descendant = [System.Diagnostics.Process]::GetProcessById($descendantIds[$index])
+            if (-not $descendant.HasExited) {
+                $descendant.Kill($true)
+            }
+        }
+        catch {
+            # 进程可能已随父进程退出；此时无需额外处理。
+        }
+        finally {
+            if ($null -ne $descendant) {
+                $descendant.Dispose()
+            }
+        }
+    }
+
+    try {
+        $null = $Process.WaitForExit(5000)
+    }
+    catch {
+        # 有限等待仅用于回收资源，不改变原始退出语义。
+    }
+}
+
 function Invoke-InstallLeafProcess {
     <#
     .SYNOPSIS
@@ -484,6 +621,15 @@ function Invoke-InstallLeafProcess {
     .PARAMETER ArgumentList
         透传给叶子的参数数组。
 
+    .PARAMETER ShowProgress
+        是否向 stderr 写入受控的步骤启动信息和 elapsed heartbeat。
+
+    .PARAMETER StepNumber
+        用于进度输出的稳定步骤编号。
+
+    .PARAMETER StepId
+        用于进度输出的稳定步骤 ID。
+
     .OUTPUTS
         PSCustomObject。包含退出码、stdout、stderr、耗时和展示命令。
     #>
@@ -496,7 +642,13 @@ function Invoke-InstallLeafProcess {
         [Parameter(Mandatory)]
         [string]$ScriptPath,
 
-        [string[]]$ArgumentList
+        [string[]]$ArgumentList,
+
+        [switch]$ShowProgress,
+
+        [string]$StepNumber = '',
+
+        [string]$StepId = ''
     )
 
     $runnerCommand = Get-Command $Runner -ErrorAction Stop
@@ -510,6 +662,7 @@ function Invoke-InstallLeafProcess {
         $processArguments.Add([string]$argument)
     }
 
+    $command = Format-InstallCommand -Executable $runnerCommand.Source -Arguments $processArguments.ToArray()
     $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
     $startInfo.FileName = $runnerCommand.Source
     $startInfo.UseShellExecute = $false
@@ -522,13 +675,29 @@ function Invoke-InstallLeafProcess {
 
     $process = [System.Diagnostics.Process]::new()
     $process.StartInfo = $startInfo
+    $processStarted = $false
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     try {
         if (-not $process.Start()) {
             throw "无法启动安装叶子: $ScriptPath"
         }
+        $processStarted = $true
+        if ($ShowProgress) {
+            [Console]::Error.WriteLine(("[Running] {0} {1}: {2}" -f $StepNumber, $StepId, $command))
+        }
         $stdoutTask = $process.StandardOutput.ReadToEndAsync()
         $stderrTask = $process.StandardError.ReadToEndAsync()
+        $nextHeartbeatMilliseconds = $script:InstallProgressHeartbeatMilliseconds
+        while (-not $process.WaitForExit($script:InstallProcessPollMilliseconds)) {
+            if ($PSCmdlet.Stopping) {
+                throw [System.Management.Automation.PipelineStoppedException]::new()
+            }
+            if ($ShowProgress -and $stopwatch.ElapsedMilliseconds -ge $nextHeartbeatMilliseconds) {
+                $elapsedSeconds = [long][Math]::Floor($stopwatch.Elapsed.TotalSeconds)
+                [Console]::Error.WriteLine(("[Running] {0} {1} elapsed={2}s" -f $StepNumber, $StepId, $elapsedSeconds))
+                $nextHeartbeatMilliseconds += $script:InstallProgressHeartbeatMilliseconds
+            }
+        }
         $process.WaitForExit()
         $stdout = $stdoutTask.GetAwaiter().GetResult()
         $stderr = $stderrTask.GetAwaiter().GetResult()
@@ -538,12 +707,15 @@ function Invoke-InstallLeafProcess {
             Stdout     = $stdout
             Stderr     = $stderr
             DurationMs = [long]$stopwatch.ElapsedMilliseconds
-            Command    = Format-InstallCommand -Executable $runnerCommand.Source -Arguments $processArguments.ToArray()
+            Command    = $command
         }
     }
     finally {
         if ($stopwatch.IsRunning) {
             $stopwatch.Stop()
+        }
+        if ($processStarted -and -not $process.HasExited) {
+            Stop-InstallProcessTree -Process $process
         }
         $process.Dispose()
     }
@@ -822,6 +994,9 @@ function Invoke-InstallOrchestrator {
     .PARAMETER NonInteractive
         是否使用严格非交互模式。
 
+    .PARAMETER ShowProgress
+        是否向 stderr 写入步骤启动信息和长任务 heartbeat。
+
     .OUTPUTS
         PSCustomObject。稳定安装运行 document。
     #>
@@ -854,7 +1029,9 @@ function Invoke-InstallOrchestrator {
 
         [switch]$Unattended,
 
-        [switch]$NonInteractive
+        [switch]$NonInteractive,
+
+        [switch]$ShowProgress
     )
 
     $null = Test-InstallStepRegistry -Registry $Registry
@@ -927,7 +1104,13 @@ function Invoke-InstallOrchestrator {
             -Unattended:$Unattended `
             -NonInteractive:$NonInteractive
         try {
-            $processResult = Invoke-InstallLeafProcess -Runner ([string]$platformEntry.Runner) -ScriptPath $scriptPath -ArgumentList $arguments
+            $processResult = Invoke-InstallLeafProcess `
+                -Runner ([string]$platformEntry.Runner) `
+                -ScriptPath $scriptPath `
+                -ArgumentList $arguments `
+                -ShowProgress:$ShowProgress `
+                -StepNumber ([string]$planStep.Number) `
+                -StepId ([string]$planStep.Id)
             $status = switch ($processResult.ExitCode) {
                 0 { if ($Preview) { 'Preview' } else { 'Succeeded' } }
                 10 { 'Blocked' }

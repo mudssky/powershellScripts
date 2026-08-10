@@ -54,6 +54,9 @@ pnpm provision:full [-NetworkMode China | -Step <id> | -FromStep <id>]
 - JSON stdout 必须只有一个 document；叶子 stdout/stderr 由编排器捕获，稳定结果只保存截断且脱敏的摘要。
 - 失败汇总必须提供包含 Preset、步骤、NetworkMode 和交互模式的 `-Step` 重跑命令，以及 `-FromStep` 继续命令。
 - Text 汇总通过 `[Console]::Out.WriteLine` 输出时，包含多个 `-f` 参数的完整格式表达式必须用括号规约为单个方法参数；不得依赖 PowerShell 在方法调用逗号与格式参数逗号之间猜测绑定。
+- Text 模式必须为每个实际启动的叶子即时向 stderr 输出 `[Running] <number> <id>: <safe-command>`；持续运行时每 15 秒输出 `[Running] <number> <id> elapsed=<seconds>s`。命令只能来自 `Format-InstallCommand`，不得转发任意叶子 stdout/stderr。
+- JSON 模式必须关闭运行进度；stdout 继续只有最终单个 JSON document，stderr 也不得出现 Text 进度行。
+- 叶子等待必须使用有限轮询以响应中断，但不得把轮询或 heartbeat 解释为安装超时；等待异常或中断时必须终止仍存活的直接子进程树，再释放 `Process`。
 
 ### 4. Validation & Error Matrix
 
@@ -74,6 +77,9 @@ pnpm provision:full [-NetworkMode China | -Step <id> | -FromStep <id>]
 | JSON 模式叶子输出日志 | 日志被捕获到结果摘要，stdout 仍只有一个 JSON document |
 | `pnpm provision:* -- -NetworkMode China` | 字面量 `--` 会传给 PowerShell 并触发参数错误；必须直接追加 `-NetworkMode China` |
 | Text 汇总把多参数 `-f` 表达式直接写进 `WriteLine(...)` | PowerShell 把逗号解释为方法参数边界并抛格式化异常 |
+| Text 模式叶子持续运行超过 15 秒 | 启动时立即写安全命令到 stderr，之后每 15 秒写 elapsed heartbeat；最终汇总和结果不变 |
+| JSON 模式执行同一叶子 | 不输出任何 Text 进度，stdout 仍可作为单个 JSON document 解析 |
+| 等待叶子时发生中断或异常 | 终止仍存活的直接子进程及其后代，不遗留下载或安装进程 |
 
 ### 5. Good/Base/Bad Cases
 
@@ -95,6 +101,7 @@ pnpm provision:full [-NetworkMode China | -Step <id> | -FromStep <id>]
 - 默认测试不得执行真实安装或 China/Auto Apply；使用临时仓库、fixture 叶子和隔离状态。
 - package scripts：`provision:list`、Core/Full preview smoke、参数透传，且不得触发 pnpm 依赖安装流程。
 - Text 输出：标题、步骤、source restore 与最终状态的多占位符格式必须完整输出，不抛 `FormatException`。
+- 进度：Text 启动行、长任务 elapsed heartbeat、JSON 静默，以及中断等待后无遗留直接子进程树。
 - 代码完成后运行 `pnpm qa` 与 `pnpm test:pwsh:all`。
 
 ### 7. Wrong vs Correct
@@ -144,3 +151,31 @@ finally {
 ```
 
 理由：外层括号先完成 `-f` 运算，再向 `WriteLine` 传递单个字符串；否则逗号可能被解析为方法参数分隔符。
+
+#### Wrong：无限静默等待且只释放进程对象
+
+```powershell
+$process.WaitForExit()
+$process.Dispose()
+```
+
+#### Correct：有限轮询只负责 heartbeat，中断路径清理进程树
+
+```powershell
+while (-not $process.WaitForExit(250)) {
+    if ($showProgress -and $stopwatch.ElapsedMilliseconds -ge $nextHeartbeat) {
+        [Console]::Error.WriteLine(("[Running] {0} {1} elapsed={2}s" -f $number, $id, $elapsedSeconds))
+        $nextHeartbeat += 15000
+    }
+}
+
+finally {
+    if ($processStarted -and -not $process.HasExited) {
+        $process.Kill($true)
+        $process.WaitForExit()
+    }
+    $process.Dispose()
+}
+```
+
+理由：250ms 轮询让 PowerShell 能处理 Ctrl+C，15 秒阈值只控制可观测 heartbeat，不是安装超时；`Kill(true)` 防止叶子退出后留下 fnm 等下载进程。
