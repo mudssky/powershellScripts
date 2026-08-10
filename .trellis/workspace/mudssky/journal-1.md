@@ -1671,3 +1671,24 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Status
 
 [OK] **Completed**
+
+
+## Session 53: 修复 Core provision 启动卡顿
+
+**Date**: 2026-08-10
+**Task**: 修复 Core provision 启动卡顿
+**Branch**: `master`
+
+### Summary
+
+定位 profile-tools 中 fnm install --lts 的静默网络等待；为 Text 模式增加步骤启动与 heartbeat 进度，保持 JSON 单文档输出，并补齐跨平台进程树中断清理和回归测试。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `05337a68` | (see git log) |
+
+### Status
+
+[OK] **Completed**

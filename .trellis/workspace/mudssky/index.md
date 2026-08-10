@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 52
+- **Total Sessions**: 53
 - **Last Active**: 2026-08-10
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1673 | Active |
+| `journal-1.md` | ~1694 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 53 | 2026-08-10 | 修复 Core provision 启动卡顿 | `05337a68` | `master` |
 | 52 | 2026-08-10 | 统一三系统根目录安装入口 | `b851d924` | `master` |
 | 51 | 2026-08-10 | 补齐高频 Zsh 与终端工具 | `4e1ed2e`, `aeedb92`, `19c1d11`, `6886773` | `master` |
 | 50 | 2026-08-10 | 配置 Carapace 与 Atuin 多 Shell Profile | `b70de5a`, `4c122cc`, `b0d69e2` | `master` |
