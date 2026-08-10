@@ -1626,3 +1626,27 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Status
 
 [OK] **Completed**
+
+
+## Session 51: 补齐高频 Zsh 与终端工具
+
+**Date**: 2026-08-10
+**Task**: 补齐高频 Zsh 与终端工具
+**Branch**: `master`
+
+### Summary
+
+补齐 macOS Zsh 插件、Dust、Delta 与 Tealdeer，更新 Windows/macOS/Linux 安装矩阵、行为测试与平台规范，并完成本机部署及全量门禁。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4e1ed2e` | (see git log) |
+| `aeedb92` | (see git log) |
+| `19c1d11` | (see git log) |
+| `6886773` | (see git log) |
+
+### Status
+
+[OK] **Completed**
