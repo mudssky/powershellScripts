@@ -23,6 +23,7 @@
 
 - 双 Shell 均可执行且不含专属 widget/数组语法的初始化放 `shell/shared.d/*.sh`；文件由 `shell/deploy.sh` 部署到 `~/.bashrc.d/`，不得直接写用户完整 rc。
 - Zsh completion system 只由 `shell/zsh.d/00-compinit.zsh` 初始化。通用补全排在它之后；命令专属补全排在通用补全之后，以保留最终覆盖权。
+- Atuin 先注册历史 widget，`95-zsh-autosuggestions.zsh` 再包装现有 widget；`zzz-zsh-syntax-highlighting.zsh` 必须在 prompt 与其它 widget 后最后加载。两个插件只在交互式 Zsh source，缺失、失败或已由用户配置加载时安静降级且不重复注册。
 - 历史 hook 靠近 prompt 之前加载；重复 source 必须由当前会话变量阻止重复注册。
 - PowerShell 外部工具探测与同步初始化只属于 Full。Minimal 不执行工具探测，UltraMinimal 不加载完整 Environment。
 - PowerShell OnIdle 保持 `$Global:__PowerShellProfileOnIdleState` 单订阅；psutils、wrapper、fzf、PSReadLine 各步骤继续独立捕获错误。

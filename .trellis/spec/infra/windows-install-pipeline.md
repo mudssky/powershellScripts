@@ -29,7 +29,7 @@ pwsh windows/99verifyInstall.ps1 `
 - 普通用户进程在提升前预检 Git、PowerShell、Full/AutoHotkey 和 IncludeWsl；一次 00 调用最多启动一个 allowlist UAC 子进程。
 - 提升 executor 只接受 `WingetInstall`、`MsiInstall`、`ExeInstaller`、`WslInstall`，参数由代码生成；禁止配置或 plan 注入任意脚本文本。
 - Scoop、Profile、用户 PATH、AHK Startup 和 `.wslconfig` 不得在提升进程中执行。提升后的 Stage 1 必须返回 Blocked/10。
-- Core Scoop 真源为 `Windows + core + cli`，当前精确 12 项；Full 只追加 `Windows + cli + terminal-extras` 和 AutoHotkey，不默认安装 GUI。
+- Core Scoop 真源为 `Windows + core + cli`，当前精确 13 项并包含 Delta；Tealdeer 不进入原生 Windows Core/Full。Full 只追加 `Windows + cli + terminal-extras` 和 AutoHotkey，不默认安装 GUI。
 - 共享应用安装器解析命令后必须把参数数组赋给变量并使用真正的 splatting；禁止写 `@($arguments)` 作为调用参数，否则 Windows Scoop 会把 `install eza` 合并为单个参数。
 - Scoop 应用可通过清单 `bucket` 字段声明前置 bucket；统一 catalog 安装必须先调用通用幂等 helper，兼容新版对象和旧版文本输出。任一必需 bucket 添加失败时停止本批应用安装。字体安装复用同一 helper，不维护第二套 bucket 检测。
 - Windows 用户阶段默认拒绝管理员令牌；Ansible/runas 只有在显式 bootstrap session 且 `USERPROFILE` 不是 system profile 时才可继续，确保 Profile、bin 和用户 PATH 仍写入目标 workstation user。
@@ -67,7 +67,7 @@ pwsh windows/99verifyInstall.ps1 `
 
 ### 6. Tests Required
 
-- Pester：Windows 11/10/ARM64/Server 平台矩阵、Core 精确 12 项、Full/GUI 边界、退出优先级。
+- Pester：Windows 11/10/ARM64/Server 平台矩阵、Core 精确 13 项（包含 Delta、不包含 Tealdeer）、Full/GUI 边界、退出优先级。
 - Pester：应用清单 bucket 字段校验、Extras Preview/幂等/失败停止、nerd-fonts 回归、manifest hash、PS5 parser、03 单文档 JSON、05/06/08/09/WSL WhatIf 零写入、99 JSON。
 - Pester：WSL build 过滤、相同内容幂等、变化备份、禁止自动 shutdown。
 - 实机/回归：`wsl --list --quiet` 输出含 NUL 时，发行版名解析不得使用 `.Replace([char]0, '')`；`Initialize-WslHost -WhatIf` 对已注册发行版应 AlreadyPresent/exit 0。

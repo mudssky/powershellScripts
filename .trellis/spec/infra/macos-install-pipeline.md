@@ -38,8 +38,8 @@ pwsh macos/pwsh/Test-InstallState.ps1 `
 - 物理编号固定为 `00 bootstrap`、`01 package-manager`、`02 pwsh`、`03 sources`、`04 shell`、`05 core-cli`、`06 fonts`、`07 profile-tools`、`08 full-apps`、`09 platform-automation`、`10 login-items`、`11 desktop-integration`、`99 verify`。
 - `00` 远程获取仓库时使用 `git clone --depth=1`；获得 PowerShell 7 后必须移交根 `install.ps1 -Preset`，不得保存第二份步骤图。
 - Core 选择 `03`～`07` 与 `99`；Full 在 Core 上追加 `08`～`11`。所有非 source zsh 叶子必须接受根编排器透传的 `--preset` 和交互模式参数。
-- `apps-config.json` 是软件真源：`05 = core + cli`，`06 = core + font`，`08 = full + (gui OR platform)`；`skipInstall: true` 始终优先。
-- zsh 预览使用 `--dry-run`，PowerShell 预览使用 `-WhatIf`；预览不得安装、写用户配置、启动 GUI，且不得因 fnm、uv 或目标 App 尚未安装而阻塞计划生成。
+- `apps-config.json` 是软件真源：`05 = core + cli`，`06 = core + font`，`08 = full + (gui OR platform)`；`skipInstall: true` 始终优先。macOS Core 包含 Zsh Autosuggestions、Syntax Highlighting、Delta、Tealdeer 与 Dust。
+- 无同名 CLI 的 Homebrew Zsh 插件必须通过现有 formula 检测回退（`brew list`）识别；Delta/Tealdeer/Dust 分别使用 `delta`、`tldr`、`dust` 检测。zsh 预览使用 `--dry-run`，PowerShell 预览使用 `-WhatIf`；预览不得安装、写用户配置、启动 GUI，且不得因 fnm、uv 或目标 App 尚未安装而阻塞计划生成。
 - 退出码固定为 0 成功/已满足/预览，1 执行或验证失败，2 参数错误，10 外部权限或前置 Blocked。
 - Hammerspoon 相同内容不备份、不复制；Quick Action 先在 Services 同文件系统临时目录配置和 `plutil` 校验，变化时备份后原子替换；登录项 dry-run 不调用 AppleScript。
 - `99` 只读；Core/Full 默认步骤按预设选择，`--step` 精准检查。JSON stdout 只能有一个 document，字段至少包含 `Preset`、`Status`、`ExitCode`、`Counts`、`Results`。
@@ -72,7 +72,7 @@ pwsh macos/pwsh/Test-InstallState.ps1 `
 
 ### 6. Tests Required
 
-- Pester：05/06/08 标签边界、07 无外部工具 WhatIf、模块平台矩阵、Profile 只在变化时备份。
+- Pester：05/06/08 标签边界、macOS Core 工具精确集合、Homebrew formula 检测回退、07 无外部工具 WhatIf、模块平台矩阵、Profile 只在变化时备份。
 - Pester/macOS：04 空 exclude dry-run、09 重跑零备份、10 dry-run 零 AppleScript、11 临时 HOME 原子替换和备份。
 - Pester：99 参数错误、单文档 JSON、`--step`、应用名称来自 `apps-config.json`。
 - Shell：所有编号 zsh `zsh -n`，`shell/deploy.sh` `bash -n`，Quick Action plist `plutil -lint`。

@@ -43,7 +43,7 @@ pwsh linux/99verifyInstall.ps1 -Preset Core|Full [-Step <id[]>] [-OutputFormat T
 - pacman 需要刷新索引时使用单次 `-Syu --needed` 完成同步升级与安装，不允许 `-Sy` 后分离执行 `-S` 形成部分升级。
 - 03 组合发行版、brew、npm、pnpm、pip、go target，事务与 Auto Restore 由共享引擎和根编排器负责。
 - 04 只调用 `shell/deploy.sh`；Linuxbrew PATH 由 `shell/shared.d/homebrew.sh` 从已知 prefix 恢复，不直接追加 rc。
-- 05 选择 `Linux + core + cli`；08 选择 `Linux + cli + terminal-extras`，不安装 GUI。
+- 05 选择 `Linux + core + cli`；08 选择 `Linux + cli + terminal-extras`，不安装 GUI。Delta 与 Tealdeer 只属于 Full `terminal-extras`，Core 明确排除。
 - 06 Auto 在 WSL 和无桌面环境选择 Server，并以内部 Skipped 退出 0；Desktop 使用发行版字体包和 `fc-cache`。
 - 07 复用共享 `ProfileTools.psm1`，Linux 只追加系统包、Docker 和 WSL 客体配置。
 - Docker 以 `docker info` 判断实际可用性；已有 Docker Desktop/Engine 不重复安装。
@@ -79,7 +79,7 @@ pwsh linux/99verifyInstall.ps1 -Preset Core|Full [-Step <id[]>] [-OutputFormat T
 ### 6. Tests Required
 
 - Vitest：Stage 0 shallow clone、China/Auto Blocked、01/02 dry-run、03 参数透传、04 临时 HOME、Homebrew shell fragment。
-- Pester：Ubuntu/Debian/WSL/Arch/ARM 平台模型，apt/pacman 分派，05/08 标签边界，06 环境选择，07 WhatIf，WSL config 幂等/备份，Docker Preview。
+- Pester：Ubuntu/Debian/WSL/Arch/ARM 平台模型，apt/pacman 分派，05/08 标签边界（Core 排除、Full 包含 Delta/Tealdeer），06 环境选择，07 WhatIf，WSL config 幂等/备份，Docker Preview。
 - Pester：99 单文档 JSON、精确步骤、未知步骤、清单名称来源、ARM Blocked 与 WSL systemd 状态。
 - 回归：macOS 07 公共 Profile Tools 抽取后保持原测试通过。
 - Gates：`pnpm test:bash`、`pnpm qa`、`pnpm test:pwsh:all`、`git diff --check`。

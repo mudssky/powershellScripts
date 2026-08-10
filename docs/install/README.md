@@ -7,15 +7,15 @@
 
 ## Windows 环境配置
 
-1. 从普通用户 Windows PowerShell 执行 `windows/00quickstart.ps1 -Preset Core`
-2. 需要 terminal extras 与 AutoHotkey 时使用 `-Preset Full`
-3. 使用 `pwsh windows/99verifyInstall.ps1 -Preset Core|Full` 做只读验证
+1. 从普通用户 Windows PowerShell 执行 `windows/00quickstart.ps1 -Preset Core`；Core 包含 Delta，但不安装 Tealdeer。
+2. 需要 terminal extras 与 AutoHotkey 时使用 `-Preset Full`；TLDR 仍建议在 WSL 客体使用。
+3. 使用 `pwsh windows/99verifyInstall.ps1 -Preset Core|Full` 做只读验证。
 
 ## macOS 环境配置
 
-1. 执行 `zsh macos/00bootstrap.zsh` 完成默认 Core 安装
-2. 需要 GUI 与桌面集成时执行 `zsh macos/00bootstrap.zsh --preset Full`
-3. 使用 `zsh macos/99verifyInstall.zsh --preset Core|Full` 做只读验证
+1. 执行 `zsh macos/00bootstrap.zsh` 完成默认 Core 安装；Core 包含 Carapace、Atuin、Zsh Autosuggestions、Syntax Highlighting、Delta、Tealdeer 与 Dust。
+2. 需要 GUI 与桌面集成时执行 `zsh macos/00bootstrap.zsh --preset Full`。
+3. 使用 `zsh macos/99verifyInstall.zsh --preset Core|Full` 做只读验证；Shell 片段由 `shell/deploy.sh --shell zsh` 管理，不覆盖完整 `~/.zshrc`。
 
 ## Linux（WSL）环境配置
 
@@ -34,4 +34,4 @@ generateResolvConf = false
 nameserver 114.114.114.114
 ```
 
-3. 推荐直接执行 `bash linux/00quickstart.sh --preset Core`
+3. 推荐直接执行 `bash linux/00quickstart.sh --preset Core`；需要 Delta 与 Tealdeer 时使用 `--preset Full`，两者属于 Linux/WSL `terminal-extras`。
