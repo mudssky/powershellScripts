@@ -7,6 +7,7 @@ BeforeAll {
     $script:DebugProfilePath = Join-Path $script:ProfileRoot 'Debug-ProfilePerformance.ps1'
     $script:PwshPath = (Get-Command pwsh -CommandType Application -ErrorAction Stop | Select-Object -First 1).Path
     . (Join-Path $script:ProfileRoot 'core/platform.ps1')
+    . (Join-Path $script:ProfileRoot 'core/loadModule.ps1')
 
     function Invoke-ProfileContractChild {
         <#
@@ -210,5 +211,56 @@ Describe 'Profile performance diagnostic contract' {
         $report.ProcessElapsed.SamplesMs.Count | Should -Be 2
         $report.Phases.PSObject.Properties.Name | Should -Contain 'bootstrap-definitions'
         $report.Phases.PSObject.Properties.Name | Should -Not -Contain 'core-loaders'
+    }
+}
+
+
+Describe 'Profile OnIdle Shell 工具键位' {
+    BeforeEach {
+        $Global:__PowerShellProfileOnIdleState = $null
+        $Global:CapturedTabFunction = $null
+        $script:CapturedIdleAction = $null
+
+        function global:Set-PSReadLineKeyHandler {
+            param(
+                [string]$Key,
+                [string]$Function
+            )
+            if ($Key -eq 'Tab') {
+                $Global:CapturedTabFunction = $Function
+            }
+        }
+        Mock Register-EngineEvent {
+            param(
+                [string]$SourceIdentifier,
+                [int]$MaxTriggerCount,
+                [ScriptBlock]$Action
+            )
+            $script:CapturedIdleAction = $Action
+            [PSCustomObject]@{ SubscriptionId = 42 }
+        }
+    }
+
+    AfterEach {
+        Remove-Item Function:\Set-PSReadLineKeyHandler -ErrorAction SilentlyContinue
+        Remove-Variable -Name __PowerShellProfileOnIdleState -Scope Global -ErrorAction SilentlyContinue
+        Remove-Variable -Name __CarapaceInitialized -Scope Global -ErrorAction SilentlyContinue
+        Remove-Variable -Name CapturedTabFunction -Scope Global -ErrorAction SilentlyContinue
+    }
+
+    It 'Carapace 状态为 <CarapaceInitialized> 时 Tab 使用 <ExpectedFunction>' -ForEach @(
+        @{ CarapaceInitialized = $true; ExpectedFunction = 'MenuComplete' }
+        @{ CarapaceInitialized = $false; ExpectedFunction = 'Complete' }
+    ) {
+        param($CarapaceInitialized, $ExpectedFunction)
+        $Global:__CarapaceInitialized = $CarapaceInitialized
+
+        $state = Register-ProfileOnIdle `
+            -ProfileRoot $TestDrive `
+            -ModuleManifest (Join-Path $TestDrive 'missing.psd1')
+        & $script:CapturedIdleAction 3>$null
+
+        $state.Status | Should -Be 'Registered'
+        $Global:CapturedTabFunction | Should -Be $ExpectedFunction
     }
 }

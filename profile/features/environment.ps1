@@ -621,16 +621,24 @@ function Initialize-Environment {
 
     # === 工具初始化 ===
     Write-Verbose "初始化开发工具"
-    $Global:__ZoxideInitialized = $false
+    if (-not (Get-Variable -Name __ZoxideInitialized -Scope Global -ErrorAction SilentlyContinue)) {
+        $Global:__ZoxideInitialized = $false
+    }
+    if (-not (Get-Variable -Name __CarapaceInitialized -Scope Global -ErrorAction SilentlyContinue)) {
+        $Global:__CarapaceInitialized = $false
+    }
+    if (-not (Get-Variable -Name __AtuinInitialized -Scope Global -ErrorAction SilentlyContinue)) {
+        $Global:__AtuinInitialized = $false
+    }
 
     # 平台标识符（用于工具缓存 key，防止跨平台缓存交叉污染）
     $runtimePlatform = Get-ProfileInstallHintPlatform -PlatformContext $PlatformContext
     $platformId = [string]$PlatformContext.CacheId
 
     # 批量检测所有工具与包管理器（避免 Get-Command 未命中回退导致的冷启动卡顿）
-    $toolNames = @('starship', 'zoxide', 'sccache', 'fnm')
+    $toolNames = @('starship', 'zoxide', 'sccache', 'fnm', 'carapace', 'atuin')
     $trackedToolNames = if ($PlatformContext.IsWindows) {
-        @('starship', 'zoxide', 'sccache')
+        @('starship', 'zoxide', 'sccache', 'carapace', 'atuin')
     }
     else {
         $toolNames
@@ -720,6 +728,40 @@ function Initialize-Environment {
             $zoxideFile = Invoke-WithFileCache -Key "zoxide-init-powershell-$platformId" -MaxAge ([TimeSpan]::FromDays(7)) -Generator { zoxide init powershell } -BaseDir (Join-Path $profileRoot '.cache')
             . $zoxideFile
             $Global:__ZoxideInitialized = $true
+        }
+        carapace = {
+            if ($SkipTools -or $Global:__CarapaceInitialized) { return }
+            Write-Verbose "初始化 Carapace 参数补全"
+            $carapaceFile = Invoke-WithFileCache `
+                -Key "carapace-init-powershell-$platformId" `
+                -MaxAge ([TimeSpan]::FromDays(7)) `
+                -Generator {
+                    $initScriptLines = & carapace _carapace 2>$null
+                    if ($LASTEXITCODE -ne 0 -or -not $initScriptLines) {
+                        throw 'carapace _carapace 未返回可用初始化脚本'
+                    }
+                    $initScriptLines -join [System.Environment]::NewLine
+                } `
+                -BaseDir (Join-Path $profileRoot '.cache')
+            . $carapaceFile
+            $Global:__CarapaceInitialized = $true
+        }
+        atuin    = {
+            if ($SkipTools -or $Global:__AtuinInitialized) { return }
+            Write-Verbose "初始化 Atuin 历史记录"
+            $atuinFile = Invoke-WithFileCache `
+                -Key "atuin-init-powershell-$platformId" `
+                -MaxAge ([TimeSpan]::FromDays(7)) `
+                -Generator {
+                    $initScriptLines = & atuin init powershell --disable-up-arrow 2>$null
+                    if ($LASTEXITCODE -ne 0 -or -not $initScriptLines) {
+                        throw 'atuin init powershell 未返回可用初始化脚本'
+                    }
+                    $initScriptLines -join [System.Environment]::NewLine
+                } `
+                -BaseDir (Join-Path $profileRoot '.cache')
+            . $atuinFile
+            $Global:__AtuinInitialized = $true
         }
         sccache  = {
             # Rust 编译缓存（跨平台）；若 env.local 已设置则保留

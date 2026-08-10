@@ -71,7 +71,7 @@ profile.ps1
 - `Import-Module psutils.psd1 -Force` — 全量加载 psutils（70+ 函数）
 - `wrapper.ps1` — yaz, Add-CondaEnv 等包装函数
 - `Register-FzfHistorySmartKeyBinding` — fzf 历史搜索键绑定
-- `Set-PSReadLineKeyHandler -Key Tab` — Tab 补全模式设置
+- `Set-PSReadLineKeyHandler -Key Tab` — Carapace 成功时使用 `MenuComplete`，否则使用 `Complete`
 
 Profile 使用会话级注册状态保证幂等；同一会话重复加载 Profile 不会创建第二个相同 OnIdle 任务。
 
@@ -82,6 +82,14 @@ Profile 使用会话级注册状态保证幂等；同一会话重复加载 Profi
 | **Full** | 默认 | 全部加载 |
 | **Minimal** | `POWERSHELL_PROFILE_MODE=minimal` | 核心模块立即可用；跳过工具探测、初始化、安装提示和别名 |
 | **UltraMinimal** | `POWERSHELL_PROFILE_MODE=ultra` 或 Codex 环境自动降级 | UTF-8 + 仓库路径；保留 Help/Install/Initialize 公共函数，不加载 psutils |
+
+### Shell 工具
+
+Full 模式批量探测并初始化 Carapace 与 Atuin；Minimal/UltraMinimal 不启动两项工具。工具缺失或单项初始化失败时基础 Profile 继续加载，且不会额外输出安装提示。
+
+- Carapace：生成的 PowerShell 补全脚本缓存 7 天；成功加载后 Tab 使用 `MenuComplete`。
+- Atuin：使用 `atuin init powershell --disable-up-arrow`；`Ctrl+r` 由 Atuin 提供，Up 保持原生历史导航，现有 `Alt+h` fzf 历史入口不变。
+- 同一 PowerShell 会话重复加载 Profile 时，两项工具均只初始化一次。
 
 ## 性能诊断
 
@@ -154,7 +162,9 @@ Process elapsed   avg=...ms median=...ms min=...ms max=...ms
 ├── starship-init-powershell-linux-v2.ps1 # Linux starship 缓存
 ├── zoxide-init-powershell-win.ps1        # Windows zoxide 缓存
 ├── zoxide-init-powershell-macos.ps1      # macOS zoxide 缓存
-└── zoxide-init-powershell-linux.ps1      # Linux zoxide 缓存
+├── zoxide-init-powershell-linux.ps1      # Linux zoxide 缓存
+├── carapace-init-powershell-{win|macos|linux}.ps1
+└── atuin-init-powershell-{win|macos|linux}.ps1
 ```
 
 缓存有效期 7 天，自动过期重新生成。手动清除：

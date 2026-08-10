@@ -119,7 +119,8 @@ catch {
     Write-Warning "[profile/core/loadModule.ps1] OnIdle fzf 键绑定注册失败: `$(`$_.Exception.Message)"
 }
 try {
-    Set-PSReadLineKeyHandler -Key Tab -Function Complete
+    `$tabFunction = if (`$Global:__CarapaceInitialized) { 'MenuComplete' } else { 'Complete' }
+    Set-PSReadLineKeyHandler -Key Tab -Function `$tabFunction
 }
 catch {
     Write-Warning "[profile/core/loadModule.ps1] OnIdle PSReadLine Tab 键绑定注册失败: `$(`$_.Exception.Message)"

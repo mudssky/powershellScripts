@@ -111,12 +111,14 @@ Describe 'Initialize-Environment command discovery integration' {
         $script:RuntimePlatform = Get-ProfileInstallHintPlatform
         switch ($script:RuntimePlatform) {
             'windows' {
-                # Windows 只跟踪 starship / zoxide / sccache 以及三种包管理器，fnm 不参与提示。
-                $script:ExpectedTrackedCommandNames = @('starship', 'zoxide', 'sccache', 'scoop', 'winget', 'choco')
+                # Windows 跟踪两个 Shell 工具，但它们不进入 Profile 缺失安装提示。
+                $script:ExpectedTrackedCommandNames = @('starship', 'zoxide', 'sccache', 'carapace', 'atuin', 'scoop', 'winget', 'choco')
                 $script:MockCommandDiscoveryResults = @(
                     [PSCustomObject]@{ Name = 'starship'; Found = $false; Path = $null }
                     [PSCustomObject]@{ Name = 'zoxide'; Found = $false; Path = $null }
                     [PSCustomObject]@{ Name = 'sccache'; Found = $false; Path = $null }
+                    [PSCustomObject]@{ Name = 'carapace'; Found = $false; Path = $null }
+                    [PSCustomObject]@{ Name = 'atuin'; Found = $false; Path = $null }
                     [PSCustomObject]@{ Name = 'scoop'; Found = $true; Path = 'C:\Users\mudssky\scoop\shims\scoop.cmd' }
                     [PSCustomObject]@{ Name = 'winget'; Found = $false; Path = $null }
                     [PSCustomObject]@{ Name = 'choco'; Found = $false; Path = $null }
@@ -125,26 +127,30 @@ Describe 'Initialize-Environment command discovery integration' {
                 $script:ExpectedHintCommand = 'scoop install starship zoxide'
             }
             'macos' {
-                # macOS 会把 fnm 也纳入缺失提示，并优先使用 brew 生成单行安装命令。
-                $script:ExpectedTrackedCommandNames = @('starship', 'zoxide', 'sccache', 'fnm', 'brew')
+                # macOS 跟踪两个 Shell 工具，但聚合提示只保留既有显式提示定义。
+                $script:ExpectedTrackedCommandNames = @('starship', 'zoxide', 'sccache', 'fnm', 'carapace', 'atuin', 'brew')
                 $script:MockCommandDiscoveryResults = @(
                     [PSCustomObject]@{ Name = 'starship'; Found = $false; Path = $null }
                     [PSCustomObject]@{ Name = 'zoxide'; Found = $false; Path = $null }
                     [PSCustomObject]@{ Name = 'sccache'; Found = $false; Path = $null }
                     [PSCustomObject]@{ Name = 'fnm'; Found = $false; Path = $null }
+                    [PSCustomObject]@{ Name = 'carapace'; Found = $false; Path = $null }
+                    [PSCustomObject]@{ Name = 'atuin'; Found = $false; Path = $null }
                     [PSCustomObject]@{ Name = 'brew'; Found = $true; Path = '/opt/homebrew/bin/brew' }
                 )
                 $script:ExpectedHintMessage = '未安装以下工具：starship、zoxide、fnm。可手动执行下面这行命令一次性安装。'
                 $script:ExpectedHintCommand = 'brew install starship zoxide fnm'
             }
             default {
-                # Linux 允许在 brew 不可用时回退到 apt，因此这里显式模拟 apt 可用的常见路径。
-                $script:ExpectedTrackedCommandNames = @('starship', 'zoxide', 'sccache', 'fnm', 'brew', 'apt')
+                # Linux 允许 brew 不可用时回退 apt；Shell 工具仍不进入 Profile 提示定义。
+                $script:ExpectedTrackedCommandNames = @('starship', 'zoxide', 'sccache', 'fnm', 'carapace', 'atuin', 'brew', 'apt')
                 $script:MockCommandDiscoveryResults = @(
                     [PSCustomObject]@{ Name = 'starship'; Found = $false; Path = $null }
                     [PSCustomObject]@{ Name = 'zoxide'; Found = $false; Path = $null }
                     [PSCustomObject]@{ Name = 'sccache'; Found = $false; Path = $null }
                     [PSCustomObject]@{ Name = 'fnm'; Found = $false; Path = $null }
+                    [PSCustomObject]@{ Name = 'carapace'; Found = $false; Path = $null }
+                    [PSCustomObject]@{ Name = 'atuin'; Found = $false; Path = $null }
                     [PSCustomObject]@{ Name = 'brew'; Found = $false; Path = $null }
                     [PSCustomObject]@{ Name = 'apt'; Found = $true; Path = '/usr/bin/apt' }
                 )
@@ -206,5 +212,140 @@ Describe 'Initialize-Environment command discovery integration' {
 
         Should -Invoke Find-ExecutableCommand -Times 0 -Exactly
         $script:WrittenHostLines.Count | Should -Be 0
+    }
+}
+
+Describe 'Initialize-Environment Shell 工具初始化' {
+    BeforeEach {
+        $script:ProfileMode = 'Full'
+        $script:UseUltraMinimalProfile = $false
+        $script:UseMinimalProfile = $false
+        $script:ProfilePlatformContext = Get-ProfilePlatformContext -Platform Windows
+        $script:profileLoadStartTime = Get-Date
+        $script:ProfileModeDecision = [PSCustomObject]@{
+            Mode = 'Full'; Source = 'explicit'; Reason = 'test'; Markers = @('test'); ElapsedMs = 0; V2 = $null
+        }
+        $script:ToolCacheRoot = Join-Path $TestDrive ([System.Guid]::NewGuid().ToString('N'))
+        $Global:CarapaceFixtureCalls = [System.Collections.Generic.List[string]]::new()
+        $Global:AtuinFixtureCalls = [System.Collections.Generic.List[string]]::new()
+        $Global:CarapaceFixtureExitCode = 0
+        $Global:__CarapaceInitialized = $false
+        $Global:__AtuinInitialized = $false
+        $Global:CarapaceFixtureLoaded = $false
+        $Global:AtuinFixtureLoaded = $false
+
+        function global:Set-ProfileUtf8Encoding {}
+        function global:Test-EnvSwitchEnabled {
+            param([string]$Name)
+            return $false
+        }
+        function global:Write-ProfileModeDecisionSummary {}
+        function global:Write-ProfileModeFallbackGuide {
+            param([switch]$VerboseOnly)
+        }
+        function global:Invoke-WithFileCache {
+            <#
+            .SYNOPSIS
+                在测试目录模拟文件缓存。
+            .PARAMETER Key
+                缓存键。
+            .PARAMETER MaxAge
+                兼容生产函数签名的最大年龄。
+            .PARAMETER Generator
+                首次缺失时生成脚本内容的回调。
+            .PARAMETER BaseDir
+                兼容生产函数签名的缓存目录。
+            .OUTPUTS
+                System.String。返回生成的脚本路径。
+            #>
+            param(
+                [string]$Key,
+                [TimeSpan]$MaxAge,
+                [ScriptBlock]$Generator,
+                [string]$BaseDir
+            )
+            $path = Join-Path $script:ToolCacheRoot "$Key.ps1"
+            if (-not (Test-Path -LiteralPath $path)) {
+                New-Item -ItemType Directory -Path $script:ToolCacheRoot -Force | Out-Null
+                (& $Generator) | Set-Content -LiteralPath $path -Encoding utf8NoBOM
+            }
+            return $path
+        }
+        function global:carapace {
+            param([Parameter(ValueFromRemainingArguments = $true)][string[]]$RemainingArgs)
+            $Global:CarapaceFixtureCalls.Add(($RemainingArgs -join ' ')) | Out-Null
+            $global:LASTEXITCODE = $Global:CarapaceFixtureExitCode
+            if ($Global:CarapaceFixtureExitCode -eq 0) {
+                '$Global:CarapaceFixtureLoaded = $true'
+            }
+        }
+        function global:atuin {
+            param([Parameter(ValueFromRemainingArguments = $true)][string[]]$RemainingArgs)
+            $Global:AtuinFixtureCalls.Add(($RemainingArgs -join ' ')) | Out-Null
+            $global:LASTEXITCODE = 0
+            '$Global:AtuinFixtureLoaded = $true'
+        }
+
+        Mock Find-ExecutableCommand {
+            @(
+                [PSCustomObject]@{ Name = 'starship'; Found = $false; Path = $null }
+                [PSCustomObject]@{ Name = 'zoxide'; Found = $false; Path = $null }
+                [PSCustomObject]@{ Name = 'sccache'; Found = $false; Path = $null }
+                [PSCustomObject]@{ Name = 'carapace'; Found = $true; Path = 'fixture:carapace' }
+                [PSCustomObject]@{ Name = 'atuin'; Found = $true; Path = 'fixture:atuin' }
+                [PSCustomObject]@{ Name = 'scoop'; Found = $false; Path = $null }
+                [PSCustomObject]@{ Name = 'winget'; Found = $false; Path = $null }
+                [PSCustomObject]@{ Name = 'choco'; Found = $false; Path = $null }
+            )
+        }
+    }
+
+    AfterEach {
+        foreach ($name in @(
+                'Set-ProfileUtf8Encoding', 'Test-EnvSwitchEnabled',
+                'Write-ProfileModeDecisionSummary', 'Write-ProfileModeFallbackGuide',
+                'Invoke-WithFileCache', 'carapace', 'atuin')) {
+            Remove-Item "Function:\$name" -ErrorAction SilentlyContinue
+        }
+        foreach ($name in @(
+                'CarapaceFixtureCalls', 'AtuinFixtureCalls', 'CarapaceFixtureExitCode',
+                '__CarapaceInitialized', '__AtuinInitialized',
+                'CarapaceFixtureLoaded', 'AtuinFixtureLoaded')) {
+            Remove-Variable -Name $name -Scope Global -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'Full 模式缓存并只初始化 Carapace 与 Atuin 一次' {
+        $parameters = @{
+            ScriptRoot = (Resolve-Path $script:ProfileRootDir).Path
+            PlatformContext = $script:ProfilePlatformContext
+            SkipProxy = $true
+            SkipAliases = $true
+            SkipStarship = $true
+            SkipZoxide = $true
+        }
+
+        Initialize-Environment @parameters
+        Initialize-Environment @parameters
+
+        @($Global:CarapaceFixtureCalls) | Should -Be @('_carapace')
+        @($Global:AtuinFixtureCalls) | Should -Be @('init powershell --disable-up-arrow')
+        $Global:CarapaceFixtureLoaded | Should -BeTrue
+        $Global:AtuinFixtureLoaded | Should -BeTrue
+        $Global:__CarapaceInitialized | Should -BeTrue
+        $Global:__AtuinInitialized | Should -BeTrue
+    }
+
+    It 'Carapace 初始化失败时仍继续初始化 Atuin' {
+        $Global:CarapaceFixtureExitCode = 1
+
+        Initialize-Environment `
+            -ScriptRoot (Resolve-Path $script:ProfileRootDir).Path `
+            -PlatformContext $script:ProfilePlatformContext `
+            -SkipProxy -SkipAliases -SkipStarship -SkipZoxide
+
+        $Global:__CarapaceInitialized | Should -BeFalse
+        $Global:__AtuinInitialized | Should -BeTrue
+        $Global:AtuinFixtureLoaded | Should -BeTrue
     }
 }
