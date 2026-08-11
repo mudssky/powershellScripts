@@ -1692,3 +1692,24 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Status
 
 [OK] **Completed**
+
+
+## Session 54: 修复安装输出乱码与失败诊断
+
+**Date**: 2026-08-11
+**Task**: 修复安装输出乱码与失败诊断
+**Branch**: `master`
+
+### Summary
+
+改为并发捕获叶子进程原始字节并严格解码，删除 elapsed heartbeat，增强包安装失败摘要与脱敏截断；安装相关测试通过，本机全量 coverage 62.39，WSL 环境用例因路径解析失败。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `24cd7f3f` | (see git log) |
+
+### Status
+
+[OK] **Completed**

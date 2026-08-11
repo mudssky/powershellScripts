@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 53
-- **Last Active**: 2026-08-10
+- **Total Sessions**: 54
+- **Last Active**: 2026-08-11
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1694 | Active |
+| `journal-1.md` | ~1715 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 54 | 2026-08-11 | 修复安装输出乱码与失败诊断 | `24cd7f3f` | `master` |
 | 53 | 2026-08-10 | 修复 Core provision 启动卡顿 | `05337a68` | `master` |
 | 52 | 2026-08-10 | 统一三系统根目录安装入口 | `b851d924` | `master` |
 | 51 | 2026-08-10 | 补齐高频 Zsh 与终端工具 | `4e1ed2e`, `aeedb92`, `19c1d11`, `6886773` | `master` |
