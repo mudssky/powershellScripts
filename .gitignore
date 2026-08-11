@@ -30,7 +30,8 @@ node_modules/
 *.pyc
 
 # 测试、覆盖率与报告产物
-/tests/reports/*.xml
+/tests/reports/*
+!/tests/reports/.gitkeep
 
 # 编辑器、平台与历史本地文件
 .vs/

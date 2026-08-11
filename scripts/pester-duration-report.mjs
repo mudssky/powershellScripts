@@ -1,213 +1,341 @@
-import { spawn } from 'node:child_process'
-import { readFile } from 'node:fs/promises'
+import { spawn, spawnSync } from 'node:child_process'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 const cwd = process.cwd()
-const args = process.argv.slice(2)
 
 /**
- * 解析命令行参数。
+ * 解析耗时报告命令行参数。
  *
- * 支持两种模式：
- * - `--file <path>`：读取已有日志文件并生成排序报告
- * - `--command "<cmd>"`：执行命令、实时透传输出，并在结束后生成排序报告
- *
- * @returns {{ filePath: string | null, command: string | null, top: number | null }}
+ * @param {string[]} argv 命令行参数
+ * @returns {{ filePath: string | null, command: string | null, nunitPath: string | null, jsonPath: string | null, lane: string, top: number | null }}
  */
-function parseArgs() {
-  /** @type {{ filePath: string | null, command: string | null, top: number | null }} */
+export function parseArgs(argv = process.argv.slice(2)) {
   const parsed = {
     filePath: null,
     command: null,
+    nunitPath: null,
+    jsonPath: null,
+    lane: 'single',
     top: null,
   }
 
-  for (let index = 0; index < args.length; index += 1) {
-    const arg = args[index]
-    if (arg === '--file') {
-      parsed.filePath = args[index + 1] ?? null
-      index += 1
-      continue
-    }
-
-    if (arg === '--command') {
-      parsed.command = args[index + 1] ?? null
-      index += 1
-      continue
-    }
-
-    if (arg === '--top') {
-      const rawTop = args[index + 1] ?? ''
-      const parsedTop = Number.parseInt(rawTop, 10)
-      if (!Number.isNaN(parsedTop) && parsedTop > 0) {
-        parsed.top = parsedTop
-      }
-      index += 1
-      continue
-    }
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index]
+    const value = argv[index + 1] ?? null
+    if (arg === '--file') parsed.filePath = value
+    else if (arg === '--command') parsed.command = value
+    else if (arg === '--nunit') parsed.nunitPath = value
+    else if (arg === '--json') parsed.jsonPath = value
+    else if (arg === '--lane' && value) parsed.lane = value
+    else if (arg === '--top') {
+      const parsedTop = Number.parseInt(value ?? '', 10)
+      if (parsedTop > 0) parsed.top = parsedTop
+    } else continue
+    index += 1
   }
 
   return parsed
 }
 
 /**
- * 去除控制台 ANSI 转义码，保证正则匹配稳定。
+ * 去除控制台 ANSI 转义码。
  *
- * @param {string} text
+ * @param {string} value 原始文本
  * @returns {string}
  */
-function stripAnsi(text) {
-  return text.replace(/\u001B\[[0-9;]*m/g, '')
+export function stripAnsi(value) {
+  // biome-ignore lint/complexity/useRegexLiterals: 字符串形式避免控制字符规则误判 ANSI ESC。
+  return value.replace(new RegExp('\\x1B\\[[0-?]*[ -/]*[@-~]', 'g'), '')
 }
 
 /**
- * 将 Pester 摘要中的持续时间转换为毫秒。
+ * 将 Pester 持续时间转换为毫秒。
  *
- * @param {string} rawDuration
+ * @param {string} rawDuration 持续时间文本
  * @returns {number}
  */
-function durationToMs(rawDuration) {
-  if (rawDuration.endsWith('ms')) {
-    return Number.parseFloat(rawDuration.slice(0, -2))
-  }
-
-  return Number.parseFloat(rawDuration.slice(0, -1)) * 1000
+export function durationToMs(rawDuration) {
+  const match = rawDuration.trim().match(/^(\d+(?:\.\d+)?)\s*(ms|s|m)$/i)
+  if (!match) return 0
+  const value = Number.parseFloat(match[1])
+  if (match[2].toLowerCase() === 'ms') return value
+  if (match[2].toLowerCase() === 'm') return value * 60_000
+  return value * 1000
 }
 
 /**
- * 从控制台日志中提取文件级 Pester 耗时。
+ * 从控制台日志提取文件级和阶段耗时。
  *
- * 支持：
- * - `pnpm test:pwsh:coverage`
- * - `pnpm test:pwsh:full`
- * - `pnpm test:pwsh:full:assertions`
- * - `pnpm test:pwsh:linux:full`
- * - `pnpm test:pwsh:all`（带 `[host]` / `[linux]` 前缀）
- *
- * @param {string} text
- * @returns {Array<{ lane: string, pathText: string, durationText: string, durationMs: number }>}
+ * @param {string} text 控制台日志
+ * @returns {{ files: Array<{ lane: string, path: string, durationMs: number }>, phases: { discoveryMs: number | null, runMs: number | null, coverageMs: number | null } }}
  */
-function extractDurations(text) {
-  const results = []
+export function parseConsoleDurations(text) {
+  const files = []
+  const phases = { discoveryMs: null, runMs: null, coverageMs: null }
   const normalizedText = stripAnsi(text)
-  const lines = normalizedText.split(/\r?\n/)
-  const pattern =
-    /^(?:\[(?<lane>[^\]]+)\]\s+)?\[\+\]\s+(?<path>.+?)\s+(?<duration>\d+(?:\.\d+)?(?:ms|s))\s+\(/
+  const filePattern =
+    /^(?:\[(?<lane>[^\]]+)\]\s+)?\[\+\]\s+(?<path>.+?)\s+(?<duration>\d+(?:\.\d+)?(?:ms|s|m))\s+\(/
 
-  for (const line of lines) {
-    const match = line.match(pattern)
-    if (!match?.groups) {
-      continue
+  for (const line of normalizedText.split(/\r?\n/)) {
+    const fileMatch = line.match(filePattern)
+    if (fileMatch?.groups) {
+      files.push({
+        lane: fileMatch.groups.lane ?? 'single',
+        path: fileMatch.groups.path.trim(),
+        durationMs: durationToMs(fileMatch.groups.duration),
+      })
     }
 
-    const lane = match.groups.lane ?? 'single'
-    const pathText = match.groups.path.trim()
-    const durationText = match.groups.duration
-    results.push({
-      lane,
-      pathText,
-      durationText,
-      durationMs: durationToMs(durationText),
-    })
+    const phasePatterns = [
+      [
+        'discoveryMs',
+        /Discovery (?:finished|found .*?) in\s+(\d+(?:\.\d+)?(?:ms|s|m))/i,
+      ],
+      ['runMs', /Tests completed in\s+(\d+(?:\.\d+)?(?:ms|s|m))/i],
+      [
+        'coverageMs',
+        /(?:Code Coverage result processed|Coverage processing finished) in\s+(\d+(?:\.\d+)?(?:ms|s|m))/i,
+      ],
+    ]
+    for (const [key, pattern] of phasePatterns) {
+      const match = line.match(pattern)
+      if (match) phases[key] = durationToMs(match[1])
+    }
   }
 
-  return results.sort((left, right) => right.durationMs - left.durationMs)
+  files.sort((left, right) => right.durationMs - left.durationMs)
+  return { files, phases }
 }
 
 /**
- * 以简单对齐格式打印排序报告。
+ * 解码 XML 属性中的基础实体。
  *
- * @param {Array<{ lane: string, pathText: string, durationText: string, durationMs: number }>} rows
- * @param {number | null} top
+ * @param {string} value XML 属性值
+ * @returns {string}
  */
-function printReport(rows, top) {
-  const limitedRows = top ? rows.slice(0, top) : rows
-  if (limitedRows.length === 0) {
-    console.error('[pester-duration-report] no Pester duration rows found')
-    return
+function decodeXmlAttribute(value) {
+  return value
+    .replaceAll('&quot;', '"')
+    .replaceAll('&apos;', "'")
+    .replaceAll('&lt;', '<')
+    .replaceAll('&gt;', '>')
+    .replaceAll('&amp;', '&')
+}
+
+/**
+ * 从 NUnit3 XML 提取文件与测试用例耗时。
+ *
+ * @param {string} xml NUnit3 文本
+ * @param {string} lane lane 名称
+ * @returns {{ files: Array<{ lane: string, path: string, durationMs: number, result: string }>, testCases: Array<{ lane: string, name: string, className: string, durationMs: number, result: string }> }}
+ */
+export function parseNUnitDurations(xml, lane = 'single') {
+  const files = []
+  const testCases = []
+  const tagPattern = /<(test-suite|test-case)\b([^>]*?)\/?>(?:\s*)/g
+
+  for (const match of xml.matchAll(tagPattern)) {
+    const tagName = match[1]
+    const attributes = Object.fromEntries(
+      [...match[2].matchAll(/([\w-]+)="([^"]*)"/g)].map((entry) => [
+        entry[1],
+        decodeXmlAttribute(entry[2]),
+      ]),
+    )
+    const durationMs = Number.parseFloat(attributes.duration ?? '0') * 1000
+    if (tagName === 'test-suite' && attributes.type === 'Assembly') {
+      files.push({
+        lane,
+        path: attributes.fullname ?? attributes.name ?? '',
+        durationMs,
+        result: attributes.result ?? 'Unknown',
+      })
+    }
+    if (tagName === 'test-case') {
+      testCases.push({
+        lane,
+        name: attributes.fullname ?? attributes.name ?? '',
+        className: attributes.classname ?? '',
+        durationMs,
+        result: attributes.result ?? 'Unknown',
+      })
+    }
   }
 
-  const laneWidth = Math.max(
-    'lane'.length,
-    ...limitedRows.map((row) => row.lane.length),
-  )
-  const durationWidth = Math.max(
-    'duration'.length,
-    ...limitedRows.map((row) => row.durationText.length),
-  )
+  files.sort((left, right) => right.durationMs - left.durationMs)
+  testCases.sort((left, right) => right.durationMs - left.durationMs)
+  return { files, testCases }
+}
 
-  console.log('\n=== Slowest Pester Files ===')
-  console.log(
-    `${'lane'.padEnd(laneWidth)}  ${'duration'.padEnd(durationWidth)}  path`,
-  )
+/**
+ * 执行外部命令并透传输出。
+ *
+ * @param {string} command 命令文本
+ * @param {NodeJS.ProcessEnv} env 子进程环境变量
+ * @returns {Promise<{ exitCode: number, output: string }>}
+ */
+async function runCommand(command, env) {
+  return await new Promise((resolve, reject) => {
+    const child = spawn(command, {
+      cwd,
+      env,
+      shell: true,
+      stdio: ['inherit', 'pipe', 'pipe'],
+    })
+    let output = ''
+    for (const [stream, target] of [
+      [child.stdout, process.stdout],
+      [child.stderr, process.stderr],
+    ]) {
+      stream.on('data', (chunk) => {
+        const value = chunk.toString()
+        output += value
+        target.write(value)
+      })
+    }
+    child.on('error', reject)
+    child.on('close', (code) => resolve({ exitCode: code ?? 1, output }))
+  })
+}
 
+/**
+ * 打印 Top N 耗时表。
+ *
+ * @param {string} title 标题
+ * @param {Array<{ lane: string, path?: string, name?: string, durationMs: number }>} rows 数据行
+ * @param {number | null} top 最大行数
+ * @returns {void}
+ */
+function printReport(title, rows, top) {
+  const limitedRows = top ? rows.slice(0, top) : rows
+  if (limitedRows.length === 0) return
+  console.log(`\n=== ${title} ===`)
   for (const row of limitedRows) {
     console.log(
-      `${row.lane.padEnd(laneWidth)}  ${row.durationText.padEnd(durationWidth)}  ${row.pathText}`,
+      `${row.lane.padEnd(8)} ${(row.durationMs / 1000).toFixed(3).padStart(10)}s  ${row.path ?? row.name}`,
     )
   }
 }
 
 /**
- * 执行外部命令并保留原始输出，同时把完整日志收集回来用于排序。
+ * 读取外部工具版本；工具不可用时返回 null。
  *
- * @param {string} command
- * @returns {Promise<{ exitCode: number, output: string }>}
+ * @param {string} command 命令名
+ * @param {string[]} args 命令参数
+ * @returns {string | null}
  */
-async function runCommand(command) {
-  return await new Promise((resolve, reject) => {
-    const child = spawn(command, {
-      cwd,
-      shell: true,
-      stdio: ['inherit', 'pipe', 'pipe'],
-    })
-
-    let output = ''
-
-    child.stdout.on('data', (chunk) => {
-      const text = chunk.toString()
-      output += text
-      process.stdout.write(text)
-    })
-
-    child.stderr.on('data', (chunk) => {
-      const text = chunk.toString()
-      output += text
-      process.stderr.write(text)
-    })
-
-    child.on('error', reject)
-    child.on('close', (code) => {
-      resolve({
-        exitCode: code ?? 1,
-        output,
-      })
-    })
+function readToolVersion(command, args) {
+  const result = spawnSync(command, args, {
+    cwd,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
   })
+  if (result.status !== 0) return null
+  const value = result.stdout.trim()
+  return value || null
 }
 
-const { filePath, command, top } = parseArgs()
+/**
+ * 执行 CLI 主流程。
+ *
+ * @param {string[]} argv 命令行参数
+ * @returns {Promise<number>}
+ */
+export async function main(argv = process.argv.slice(2)) {
+  const options = parseArgs(argv)
+  if (!options.filePath && !options.command) {
+    console.error(
+      '[pester-duration-report] usage: --file <log> | --command "<cmd>" [--nunit <xml>] [--json <json>] [--lane host] [--top 10]',
+    )
+    return 1
+  }
 
-if (!filePath && !command) {
-  console.error(
-    '[pester-duration-report] usage: node ./scripts/pester-duration-report.mjs --file <log> | --command "<cmd>" [--top 10]',
+  const timestamp = new Date()
+    .toISOString()
+    .replaceAll(':', '-')
+    .replaceAll('.', '-')
+  const reportDirectory = path.resolve(cwd, 'tests/reports')
+  const nunitPath = path.resolve(
+    cwd,
+    options.nunitPath ??
+      path.join(reportDirectory, `pester-duration-${timestamp}.xml`),
   )
-  process.exit(1)
+  const jsonPath = path.resolve(
+    cwd,
+    options.jsonPath ??
+      path.join(reportDirectory, `pester-duration-${timestamp}.json`),
+  )
+  await mkdir(path.dirname(jsonPath), { recursive: true })
+
+  const startedAt = new Date()
+  let output = ''
+  let exitCode = 0
+  if (options.command) {
+    const result = await runCommand(options.command, {
+      ...process.env,
+      PESTER_RESULT_PATH: nunitPath,
+    })
+    output = result.output
+    exitCode = result.exitCode
+  } else {
+    output = await readFile(path.resolve(cwd, options.filePath), 'utf8')
+  }
+  const endedAt = new Date()
+
+  const consoleData = parseConsoleDurations(output)
+  let nunitData = { files: [], testCases: [] }
+  try {
+    nunitData = parseNUnitDurations(
+      await readFile(nunitPath, 'utf8'),
+      options.lane,
+    )
+  } catch {
+    // 失败命令或纯日志分析允许没有 NUnit 文件，artifact 仍保留控制台阶段信息。
+  }
+  const hasMultipleConsoleLanes = new Set(
+    consoleData.files.map((file) => file.lane),
+  ).size > 1
+  const files = hasMultipleConsoleLanes
+    ? consoleData.files
+    : nunitData.files.length > 0
+      ? nunitData.files
+      : consoleData.files
+  const artifact = {
+    schemaVersion: 1,
+    command: options.command,
+    lane: options.lane,
+    platform: process.platform,
+    architecture: process.arch,
+    nodeVersion: process.version,
+    pwshVersion: readToolVersion('pwsh', [
+      '-NoProfile',
+      '-Command',
+      '$PSVersionTable.PSVersion.ToString()',
+    ]),
+    pesterVersion: readToolVersion('pwsh', [
+      '-NoProfile',
+      '-Command',
+      '(Get-Module -ListAvailable Pester | Sort-Object Version -Descending | Select-Object -First 1).Version.ToString()',
+    ]),
+    startedAt: startedAt.toISOString(),
+    endedAt: endedAt.toISOString(),
+    elapsedMs: endedAt.getTime() - startedAt.getTime(),
+    exitCode,
+    phases: consoleData.phases,
+    nunitPath,
+    files,
+    testCases: nunitData.testCases,
+  }
+  await writeFile(jsonPath, `${JSON.stringify(artifact, null, 2)}\n`, 'utf8')
+
+  printReport('Slowest Pester Files', files, options.top)
+  printReport('Slowest Pester Test Cases', nunitData.testCases, options.top)
+  console.log(`\n[pester-duration-report] artifact=${jsonPath}`)
+  return exitCode
 }
 
-let exitCode = 0
-let output = ''
-
-if (command) {
-  const result = await runCommand(command)
-  exitCode = result.exitCode
-  output = result.output
-} else if (filePath) {
-  const absolutePath = path.resolve(cwd, filePath)
-  output = await readFile(absolutePath, 'utf8')
-}
-
-const rows = extractDurations(output)
-printReport(rows, top)
-
-process.exit(exitCode)
+const isDirectRun =
+  process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+if (isDirectRun) process.exit(await main())

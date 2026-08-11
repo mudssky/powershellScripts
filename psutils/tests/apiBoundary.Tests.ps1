@@ -47,11 +47,12 @@ BeforeAll {
     $script:DiagnosticCommandNames = @(
         'Clear-EXEProgramCache', 'Debug-CommandExecution', 'Out-ModuleToFile', 'Test-HelpSearchPerformance'
     )
+    Import-Module $script:ManifestPath -Force
 }
 
 Describe 'psutils API 分层契约' {
     BeforeEach {
-        Remove-Module psutils, docker, filesystem, help, install, test, error, pwsh, wrapper, string -Force -ErrorAction SilentlyContinue
+        Remove-Module docker, filesystem, help, install, test, error, pwsh, wrapper, string -Force -ErrorAction SilentlyContinue
     }
 
     It '聚合 manifest 只保留稳定、共享和兼容 API' {
@@ -83,11 +84,9 @@ Describe 'psutils API 分层契约' {
             @{ ModuleName = $entry.Key; CommandNames = @($entry.Value) }
         }
     ) {
-        Import-Module $script:ManifestPath -Force
         foreach ($name in $CommandNames) {
             Get-Command $name -Module psutils -ErrorAction SilentlyContinue | Should -BeNullOrEmpty
         }
-        Remove-Module psutils -Force
 
         Import-Module (Join-Path $script:ModulesRoot "$ModuleName.psm1") -Force
         foreach ($name in $CommandNames) {
@@ -120,7 +119,6 @@ Describe 'psutils API 分层契约' {
     }
 
     It '所有聚合公共函数都有返回值和显式参数说明' {
-        Import-Module $script:ManifestPath -Force
         $failures = [System.Collections.Generic.List[string]]::new()
 
         foreach ($command in Get-Command -Module psutils -CommandType Function) {

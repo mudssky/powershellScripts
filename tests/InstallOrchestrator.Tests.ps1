@@ -232,9 +232,91 @@ exit $exitCode
         Remove-Item Env:\INSTALL_FIXTURE_DIAGNOSTIC_STEP -ErrorAction SilentlyContinue
         $script:RestoreLog = Join-Path $script:FixtureRoot 'restore.log'
         $env:INSTALL_FIXTURE_RESTORE_LOG = $script:RestoreLog
+        $module = Get-Module InstallOrchestrator
+        & $module {
+            $script:InstallLeafProcessTestCalls = [System.Collections.Generic.List[object]]::new()
+            $script:InstallLeafProcessTestHook = {
+                param(
+                    [string]$Runner,
+                    [string]$ScriptPath,
+                    [string[]]$ArgumentList,
+                    [switch]$ShowProgress,
+                    [string]$StepNumber,
+                    [string]$StepId
+                )
+
+                $script:InstallLeafProcessTestCalls.Add([pscustomobject]@{
+                        Runner       = $Runner
+                        ScriptPath   = $ScriptPath
+                        ArgumentList = @($ArgumentList)
+                        ShowProgress = $ShowProgress.IsPresent
+                        StepNumber   = $StepNumber
+                        StepId       = $StepId
+                    })
+                $leafName = [System.IO.Path]::GetFileNameWithoutExtension($ScriptPath)
+                $exitCode = 0
+                $stdout = "$leafName-ok"
+                $stderr = ''
+
+                if ($leafName -eq 'Switch-Mirrors') {
+                    $transactionIndex = [array]::IndexOf($ArgumentList, '-TransactionId')
+                    $transactionId = if ($transactionIndex -ge 0) { $ArgumentList[$transactionIndex + 1] } else { '' }
+                    if ($env:INSTALL_FIXTURE_RESTORE_LOG) {
+                        $transactionId | Add-Content -LiteralPath $env:INSTALL_FIXTURE_RESTORE_LOG -Encoding utf8NoBOM
+                    }
+                    $exitCode = if ($env:INSTALL_FIXTURE_RESTORE_EXIT) { [int]$env:INSTALL_FIXTURE_RESTORE_EXIT } else { 0 }
+                    $stdout = [pscustomobject]@{
+                        ExitCode      = $exitCode
+                        TransactionId = $transactionId
+                        Results       = @([pscustomobject]@{ Status = if ($exitCode -eq 0) { 'Restored' } else { 'RestoreFailed' } })
+                    } | ConvertTo-Json -Depth 5 -Compress
+                }
+                elseif ($leafName -eq 'sources') {
+                    $transactionIndex = [array]::IndexOf($ArgumentList, '-TransactionId')
+                    $transactionId = if ($transactionIndex -ge 0) { $ArgumentList[$transactionIndex + 1] } else { '' }
+                    $networkModeIndex = [array]::IndexOf($ArgumentList, '-NetworkMode')
+                    $networkMode = if ($networkModeIndex -ge 0) { $ArgumentList[$networkModeIndex + 1] } else { 'Direct' }
+                    $isPreview = $ArgumentList -contains '-WhatIf'
+                    $sourceTransactionId = if (-not $isPreview -and $networkMode -in @('China', 'Auto')) { $transactionId } else { '' }
+                    $stdout = [pscustomobject]@{
+                        ExitCode     = 0
+                        TransactionId = $sourceTransactionId
+                        Rollback     = if ($sourceTransactionId) { "restore $sourceTransactionId" } else { '' }
+                        Results      = @()
+                    } | ConvertTo-Json -Depth 5 -Compress
+                }
+
+                if ($env:INSTALL_FIXTURE_DIAGNOSTIC_STEP -eq $leafName) {
+                    $exitCode = 1
+                    $stdout = (1..200 | ForEach-Object { "success-log-$_`: $('x' * 32)" }) -join "`n"
+                    $stdout += "`n[Failed] delta: command=scoop install delta; exitCode=1; outputTail=bucket update failed token=fixture-secret"
+                }
+                if ($env:INSTALL_FIXTURE_FAIL_STEP -eq $leafName) {
+                    $exitCode = 1
+                    $stderr = "$leafName-failed"
+                }
+                if ($env:INSTALL_FIXTURE_BLOCK_STEP -eq $leafName) {
+                    $exitCode = 10
+                    $stderr = "$leafName-blocked"
+                }
+
+                return [pscustomobject]@{
+                    ExitCode   = $exitCode
+                    Stdout     = $stdout
+                    Stderr     = $stderr
+                    DurationMs = 1
+                    Command    = "$Runner $ScriptPath $($ArgumentList -join ' ')".Trim()
+                }
+            }
+        }
     }
 
     AfterEach {
+        $module = Get-Module InstallOrchestrator
+        & $module {
+            $script:InstallLeafProcessTestHook = $null
+            $script:InstallLeafProcessTestCalls = $null
+        }
         Remove-Item Env:\INSTALL_FIXTURE_FAIL_STEP -ErrorAction SilentlyContinue
         Remove-Item Env:\INSTALL_FIXTURE_BLOCK_STEP -ErrorAction SilentlyContinue
         Remove-Item Env:\INSTALL_FIXTURE_RESTORE_EXIT -ErrorAction SilentlyContinue
@@ -260,9 +342,36 @@ exit $exitCode
         $document.ExitCode | Should -Be 0
         @($document.Results.Id) | Should -Be $script:FixtureSteps
         @($document.Results.Status | Select-Object -Unique) | Should -Be @('Succeeded')
+        $module = Get-Module InstallOrchestrator
+        $calls = & $module { @($script:InstallLeafProcessTestCalls) }
+        @($calls.StepId) | Should -Be $script:FixtureSteps
+    }
+
+    It 'process boundary preserves the zsh runner and argument list' {
+        $module = Get-Module InstallOrchestrator
+
+        $result = & $module {
+            Invoke-InstallLeafProcessBoundary `
+                -Runner zsh `
+                -ScriptPath '/fixture/leaf.zsh' `
+                -ArgumentList @('--preset', 'Full') `
+                -ShowProgress `
+                -StepNumber '09' `
+                -StepId 'platform-automation'
+        }
+
+        $result.ExitCode | Should -Be 0
+        $call = & $module { @($script:InstallLeafProcessTestCalls)[0] }
+        $call.Runner | Should -Be 'zsh'
+        $call.ArgumentList | Should -Be @('--preset', 'Full')
+        $call.ShowProgress | Should -BeTrue
+        $call.StepNumber | Should -Be '09'
+        $call.StepId | Should -Be 'platform-automation'
     }
 
     It 'writes exactly one startup progress line before a long Text step exits' {
+        $module = Get-Module InstallOrchestrator
+        & $module { $script:InstallLeafProcessTestHook = $null }
         $env:INSTALL_FIXTURE_DELAY_STEP = 'profile-tools'
         $env:INSTALL_FIXTURE_DELAY_MILLISECONDS = '1600'
         $originalError = [Console]::Error
@@ -393,6 +502,8 @@ $stderrText = 'stderr-start|' + ('错误诊断-边界|' * 2500) + 'stderr-end'
     }
 
     It 'terminates the live child process tree when the orchestrator pipeline is interrupted' {
+        $module = Get-Module InstallOrchestrator
+        & $module { $script:InstallLeafProcessTestHook = $null }
         $env:INSTALL_FIXTURE_CHILD_STEP = 'profile-tools'
         $childPidLog = Join-Path $script:FixtureRoot 'child.pid'
         $env:INSTALL_FIXTURE_CHILD_PID_LOG = $childPidLog

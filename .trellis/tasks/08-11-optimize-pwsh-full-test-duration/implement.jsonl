@@ -1,0 +1,7 @@
+{"file":".trellis/tasks/08-11-optimize-pwsh-full-test-duration/research/slow-points.md","reason":"实现前读取逐文件、逐用例热点与命令发现实验数据"}
+{"file":".trellis/spec/infra/test-report-artifacts.md","reason":"保持 NUnit3、coverage、PESTER_RESULT_PATH 和报告目录合同"}
+{"file":".trellis/spec/infra/install-orchestrator.md","reason":"保留编排器状态、输出、真实进程与清理测试合同"}
+{"file":".trellis/spec/infra/windows-install-pipeline.md","reason":"保留 Windows 平台矩阵、清单、WhatIf、WSL 和 verify 合同"}
+{"file":".trellis/spec/infra/linux-install-pipeline.md","reason":"保留 Linux/WSL 平台、清单、Docker 和 verify 合同"}
+{"file":".trellis/spec/infra/macos-install-pipeline.md","reason":"保留 macOS 清单、入口、桌面集成和 verify 合同"}
+{"file":"archive/openspec/specs/pester-test-performance/spec.md","reason":"沿用 fast/full 分层和 full assertions 不降级的历史设计"}

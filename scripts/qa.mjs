@@ -58,6 +58,7 @@ const qaSmokeTestPaths = [
   './tests/ProfileMode.Tests.ps1',
   './tests/Switch-Mirrors.Tests.ps1',
   './tests/WindowsInstallPipeline.Tests.ps1',
+  './tests/WindowsInstallEntrypoint.Tests.ps1',
   './psutils/tests/error.Tests.ps1',
   './psutils/tests/filesystem.Tests.ps1',
   './psutils/tests/font.Tests.ps1',
@@ -284,6 +285,7 @@ function resolveQaTestPaths(modeValue, sinceRef, pathspecs) {
       changedFile === 'profile/installer/apps-config.json'
     ) {
       addQaTestPath(selected, './tests/WindowsInstallPipeline.Tests.ps1')
+      addQaTestPath(selected, './tests/WindowsInstallEntrypoint.Tests.ps1')
     }
 
     if (

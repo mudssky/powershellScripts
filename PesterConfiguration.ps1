@@ -5,7 +5,7 @@
     Pester测试框架配置脚本
 
 .DESCRIPTION
-    该脚本定义了Pester测试框架的配置参数，包括测试路径、并行执行设置、
+    该脚本定义了Pester测试框架的配置参数，包括测试路径、运行模式、
     代码覆盖率分析等。配置用于自动化测试psutils模块的功能。
 
 .EXAMPLE
@@ -15,7 +15,7 @@
 .NOTES
     配置包括：
     - 测试路径设置为./psutils目录
-    - 启用并行测试，最大4个线程
+    - 按当前 Pester 5.7.1 支持的串行 container 模式执行
     - 启用代码覆盖率分析
     - 排除特定模块的覆盖率统计
     - 输出格式为CoverageGutters
@@ -83,6 +83,7 @@ $qaDefaultPaths = @(
     "./psutils/tests/commandDiscovery.Tests.ps1"
     "./tests/Switch-Mirrors.Tests.ps1"
     "./tests/WindowsInstallPipeline.Tests.ps1"
+    "./tests/WindowsInstallEntrypoint.Tests.ps1"
     "./psutils/tests/error.Tests.ps1"
     "./psutils/tests/filesystem.Tests.ps1"
     "./psutils/tests/font.Tests.ps1"
@@ -107,12 +108,6 @@ $config = @{
         # 输出测试结果对象，因为我不需要解析结果对象，所以关掉
         # PassThru = $True
         PassThru = $False
-        # 多线程执行测试
-        Parallel = @{
-            Enabled    = -not $isSerial
-            MaxThreads = 4
-        }
-
         # 关键点：
         # 本地运行 (False): 测试失败仅仅显示红色，不退出 PowerShell 进程
         # CI 运行 (True): 测试失败会返回非零 ExitCode，让 GitHub Action 标记为失败

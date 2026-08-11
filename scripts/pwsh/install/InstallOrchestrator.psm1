@@ -1,5 +1,7 @@
 Set-StrictMode -Version Latest
 
+$script:InstallLeafProcessTestHook = $null
+
 $script:SupportedPresets = @('Core', 'Full')
 $script:SupportedPlatforms = @('macos', 'linux', 'windows')
 $script:SupportedRunners = @('pwsh', 'bash', 'zsh')
@@ -825,6 +827,56 @@ function Invoke-InstallLeafProcess {
     }
 }
 
+function Invoke-InstallLeafProcessBoundary {
+    <#
+    .SYNOPSIS
+        通过可测试边界调用安装叶子进程。
+
+    .PARAMETER Runner
+        pwsh 或 bash runner。
+
+    .PARAMETER ScriptPath
+        叶子脚本绝对路径。
+
+    .PARAMETER ArgumentList
+        传给叶子脚本的参数数组。
+
+    .PARAMETER ShowProgress
+        是否向 stderr 输出一次启动提示。
+
+    .PARAMETER StepNumber
+        安装步骤编号。
+
+    .PARAMETER StepId
+        安装步骤 ID。
+
+    .OUTPUTS
+        PSCustomObject。包含退出码、输出、耗时与安全命令。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateSet('pwsh', 'bash', 'zsh')]
+        [string]$Runner,
+
+        [Parameter(Mandatory)]
+        [string]$ScriptPath,
+
+        [string[]]$ArgumentList,
+
+        [switch]$ShowProgress,
+
+        [string]$StepNumber = '',
+
+        [string]$StepId = ''
+    )
+
+    if ($null -ne $script:InstallLeafProcessTestHook) {
+        return & $script:InstallLeafProcessTestHook @PSBoundParameters
+    }
+    return Invoke-InstallLeafProcess @PSBoundParameters
+}
+
 function Invoke-InstallSourceRestore {
     <#
     .SYNOPSIS
@@ -853,7 +905,7 @@ function Invoke-InstallSourceRestore {
         throw "package source 恢复入口不存在: $restorePath"
     }
 
-    $processResult = Invoke-InstallLeafProcess `
+    $processResult = Invoke-InstallLeafProcessBoundary `
         -Runner pwsh `
         -ScriptPath $restorePath `
         -ArgumentList @(
@@ -1206,7 +1258,7 @@ function Invoke-InstallOrchestrator {
             -Unattended:$Unattended `
             -NonInteractive:$NonInteractive
         try {
-            $processResult = Invoke-InstallLeafProcess `
+            $processResult = Invoke-InstallLeafProcessBoundary `
                 -Runner ([string]$platformEntry.Runner) `
                 -ScriptPath $scriptPath `
                 -ArgumentList $arguments `

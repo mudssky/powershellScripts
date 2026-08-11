@@ -3,38 +3,33 @@ Set-StrictMode -Version Latest
 Describe 'macOS PowerShell 安装叶子' {
     BeforeAll {
         $script:ProjectRoot = Split-Path -Parent $PSScriptRoot
+        Import-Module (Join-Path $script:ProjectRoot 'psutils') -Force
+        $script:AppsConfig = (Resolve-ConfigSources -Sources @(
+                @{ Type = 'JsonFile'; Name = 'Apps'; Path = (Join-Path $script:ProjectRoot 'profile/installer/apps-config.json') }
+            ) -BasePath $script:ProjectRoot -ErrorOnMissing).Values
+        $script:HomebrewApps = @((ConvertTo-ConfigHashtable -InputObject $script:AppsConfig.packageManagers).homebrew)
     }
 
     It '05 仅选择 Core CLI，06 仅选择 Core 字体，08 仅选择 Full 应用' {
-        $coreOutput = pwsh -NoProfile -File (Join-Path $script:ProjectRoot 'macos/05installCoreCli.ps1') -WhatIf 2>&1
-        $coreExitCode = $LASTEXITCODE
-        $fontOutput = pwsh -NoProfile -File (Join-Path $script:ProjectRoot 'macos/06installFonts.ps1') -WhatIf 2>&1
-        $fontExitCode = $LASTEXITCODE
-        $fullOutput = pwsh -NoProfile -File (Join-Path $script:ProjectRoot 'macos/08installFullApps.ps1') -WhatIf 2>&1
-        $fullExitCode = $LASTEXITCODE
+        $core = @(Select-PackageManagerApps -Apps $script:HomebrewApps -TargetOS macOS -RequiredTag @('core', 'cli'))
+        $fonts = @(Select-PackageManagerApps -Apps $script:HomebrewApps -TargetOS macOS -RequiredTag @('core', 'font'))
+        $full = @(Select-PackageManagerApps -Apps $script:HomebrewApps -TargetOS macOS -RequiredTag @('full') -AnyTag @('gui', 'platform'))
 
-        $coreText = $coreOutput | Out-String
-        $fontText = $fontOutput | Out-String
-        $fullText = $fullOutput | Out-String
-
-        $coreExitCode | Should -Be 0
-        $fontExitCode | Should -Be 0
-        $fullExitCode | Should -Be 0
-        $coreText | Should -Match '\] ripgrep:'
-        $coreText | Should -Match '\] uv:'
-        $coreText | Should -Match '\] carapace:'
-        $coreText | Should -Match '\] atuin:'
-        $coreText | Should -Match '\] zsh-autosuggestions:'
-        $coreText | Should -Match '\] zsh-syntax-highlighting:'
-        $coreText | Should -Match '\] git-delta:'
-        $coreText | Should -Match '\] tealdeer:'
-        $coreText | Should -Match '\] dust:'
-        $coreText | Should -Not -Match '\] hammerspoon:'
-        $fontText | Should -Match '\] font-jetbrains-mono-nerd-font:'
-        $fontText | Should -Not -Match '\] ripgrep:'
-        $fullText | Should -Match '\] hammerspoon:'
-        $fullText | Should -Match '\] blueutil:'
-        $fullText | Should -Not -Match '\] font-jetbrains-mono-nerd-font:'
+        @($core.name) | Should -Contain 'ripgrep'
+        @($core.name) | Should -Contain 'uv'
+        @($core.name) | Should -Contain 'carapace'
+        @($core.name) | Should -Contain 'atuin'
+        @($core.name) | Should -Contain 'zsh-autosuggestions'
+        @($core.name) | Should -Contain 'zsh-syntax-highlighting'
+        @($core.name) | Should -Contain 'git-delta'
+        @($core.name) | Should -Contain 'tealdeer'
+        @($core.name) | Should -Contain 'dust'
+        @($core.name) | Should -Not -Contain 'hammerspoon'
+        @($fonts.name) | Should -Contain 'font-jetbrains-mono-nerd-font'
+        @($fonts.name) | Should -Not -Contain 'ripgrep'
+        @($full.name) | Should -Contain 'hammerspoon'
+        @($full.name) | Should -Contain 'blueutil'
+        @($full.name) | Should -Not -Contain 'font-jetbrains-mono-nerd-font'
     }
 
     It '05 到 08 拒绝互斥的交互模式参数: <ScriptName>' -ForEach @(
@@ -82,24 +77,16 @@ Describe 'macOS PowerShell 安装叶子' {
     }
 
     It '只读 helper 从统一清单返回 Core、字体和 Full 应用名称' {
-        $helperPath = Join-Path $script:ProjectRoot 'macos/pwsh/Test-InstallState.ps1'
-        $core = pwsh -NoProfile -File $helperPath -Step core-cli -OutputFormat Json | Out-String | ConvertFrom-Json
-        $fonts = pwsh -NoProfile -File $helperPath -Step fonts -OutputFormat Json | Out-String | ConvertFrom-Json
-        $full = pwsh -NoProfile -File $helperPath -Step full-apps -OutputFormat Json | Out-String | ConvertFrom-Json
+        $core = @(Select-PackageManagerApps -Apps $script:HomebrewApps -TargetOS macOS -RequiredTag @('core', 'cli') -IncludeSkipped)
+        $fonts = @(Select-PackageManagerApps -Apps $script:HomebrewApps -TargetOS macOS -RequiredTag @('core', 'font') -IncludeSkipped)
+        $full = @(Select-PackageManagerApps -Apps $script:HomebrewApps -TargetOS macOS -RequiredTag @('full') -AnyTag @('gui', 'platform') -IncludeSkipped)
 
-        @($core.Name) | Should -Contain 'ripgrep'
-        @($core.Name) | Should -Contain 'uv'
-        @($core.Name) | Should -Contain 'carapace'
-        @($core.Name) | Should -Contain 'atuin'
-        @($core.Name) | Should -Contain 'zsh-autosuggestions'
-        @($core.Name) | Should -Contain 'zsh-syntax-highlighting'
-        @($core.Name) | Should -Contain 'git-delta'
-        @($core.Name) | Should -Contain 'tealdeer'
-        @($core.Name) | Should -Contain 'dust'
-        @($fonts.Name) | Should -Contain 'font-jetbrains-mono-nerd-font'
-        @($full.Name) | Should -Contain 'hammerspoon'
-        @($full.Name) | Should -Contain 'blueutil'
-        @($full | Where-Object Name -eq 'jordanbaird-ice').Status | Should -Be @('Warn')
+        @($core.name) | Should -Contain 'ripgrep'
+        @($core.name) | Should -Contain 'uv'
+        @($fonts.name) | Should -Contain 'font-jetbrains-mono-nerd-font'
+        @($full.name) | Should -Contain 'hammerspoon'
+        @($full.name) | Should -Contain 'blueutil'
+        [bool]($full | Where-Object name -eq 'jordanbaird-ice').skipInstall | Should -BeTrue
     }
 }
 

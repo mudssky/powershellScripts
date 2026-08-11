@@ -4,6 +4,20 @@ BeforeAll {
     Import-Module (Join-Path $script:RepoRoot 'windows/bootstrap/WindowsBootstrap.psm1') -Force
     Import-Module (Join-Path $script:RepoRoot 'scripts/pwsh/install/ProfileTools.psm1') -Force
     Import-Module (Join-Path $script:RepoRoot 'psutils') -Force
+    $script:AllWindowsCommandsMissing = @{
+        winget                = $false
+        pwsh                  = $false
+        scoop                 = $false
+        wsl                   = $false
+        AutoHotkey            = $false
+        'Get-WinGetSource'    = $false
+        'Add-WinGetSource'    = $false
+        'Remove-WinGetSource' = $false
+    }
+    $script:AllWindowsCommandsAvailable = $script:AllWindowsCommandsMissing.Clone()
+    foreach ($commandName in @('winget', 'pwsh', 'scoop', 'wsl')) {
+        $script:AllWindowsCommandsAvailable[$commandName] = $true
+    }
 
     function Invoke-WindowsTestProcess {
         <#
@@ -54,7 +68,7 @@ Describe 'Windows 安装平台模型' {
             -BuildNumber 22631 `
             -Architecture AMD64 `
             -Administrator $false `
-            -CommandAvailability @{ winget = $true; pwsh = $true; scoop = $true; wsl = $true }
+            -CommandAvailability $script:AllWindowsCommandsAvailable
 
         $platform.Edition | Should -Be 'Windows11'
         $platform.Architecture | Should -Be 'amd64'
@@ -69,7 +83,8 @@ Describe 'Windows 安装平台模型' {
             -InstallationType Client `
             -BuildNumber 19045 `
             -Architecture x64 `
-            -Administrator $false
+            -Administrator $false `
+            -CommandAvailability $script:AllWindowsCommandsMissing
 
         $platform.Edition | Should -Be 'Windows10'
         $platform.SupportLevel | Should -Be 'Full'
@@ -77,10 +92,85 @@ Describe 'Windows 安装平台模型' {
     }
 
     It '将 ARM64 和 Server 保持在非完整支持路径' {
-        (Get-WindowsInstallEnvironment -WindowsHost $true -ProductName 'Windows 11 Pro' -InstallationType Client -BuildNumber 22631 -Architecture arm64 -Administrator $false).SupportLevel |
+        (Get-WindowsInstallEnvironment -WindowsHost $true -ProductName 'Windows 11 Pro' -InstallationType Client -BuildNumber 22631 -Architecture arm64 -Administrator $false -CommandAvailability $script:AllWindowsCommandsMissing).SupportLevel |
             Should -Be 'Blocked'
-        (Get-WindowsInstallEnvironment -WindowsHost $true -ProductName 'Windows Server 2025' -InstallationType Server -BuildNumber 26100 -Architecture amd64 -Administrator $true).SupportLevel |
+        (Get-WindowsInstallEnvironment -WindowsHost $true -ProductName 'Windows Server 2025' -InstallationType Server -BuildNumber 26100 -Architecture amd64 -Administrator $true -CommandAvailability $script:AllWindowsCommandsMissing).SupportLevel |
             Should -Be 'Partial'
+    }
+
+    It '完整 CommandAvailability 不触发真实命令或模块发现' {
+        InModuleScope WindowsInstall -Parameters @{ Availability = $script:AllWindowsCommandsMissing } {
+            param($Availability)
+            Mock Find-ExecutableCommand { throw '不应执行外部命令发现' }
+            Mock Get-Module { throw '不应执行 WinGet 模块发现' } -ParameterFilter { $ListAvailable }
+
+            $platform = Get-WindowsInstallEnvironment `
+                -WindowsHost $true `
+                -ProductName 'Windows 11 Pro' `
+                -InstallationType Client `
+                -BuildNumber 22631 `
+                -Architecture amd64 `
+                -Administrator $false `
+                -CommandAvailability $Availability
+
+            $platform.HasWinget | Should -BeFalse
+            $platform.HasWingetSourceCmdlets | Should -BeFalse
+            Should -Invoke Find-ExecutableCommand -Times 0 -Exactly
+        }
+    }
+
+    It '批量发现 PATH 外部命令并按 WinGet 模块导出判断 cmdlet' {
+        InModuleScope WindowsInstall {
+            $script:WindowsWinGetSourceAvailability = $null
+            Mock Find-ExecutableCommand {
+                param([string[]]$Name)
+                foreach ($commandName in $Name) {
+                    [pscustomobject]@{ Name = $commandName; Found = $commandName -in @('winget', 'pwsh', 'scoop') ; Path = $null }
+                }
+            }
+            Mock Get-Module {
+                [pscustomobject]@{
+                    Version          = [version]'1.0.0'
+                    ExportedCommands = @{
+                        'Get-WinGetSource' = $true
+                        'Add-WinGetSource' = $true
+                    }
+                }
+            } -ParameterFilter { $ListAvailable -and $Name -eq 'Microsoft.WinGet.Client' }
+
+            $availability = Get-WindowsCommandAvailability
+            $secondAvailability = Get-WindowsCommandAvailability
+
+            $availability.winget | Should -BeTrue
+            $availability.wsl | Should -BeFalse
+            $availability.'Get-WinGetSource' | Should -BeTrue
+            $availability.'Remove-WinGetSource' | Should -BeFalse
+            $secondAvailability.'Add-WinGetSource' | Should -BeTrue
+            Should -Invoke Find-ExecutableCommand -Times 2 -Exactly
+            Should -Invoke Get-Module -Times 1 -Exactly -ParameterFilter { $ListAvailable }
+        }
+    }
+
+    It '不完整 CommandAvailability 明确失败且不回退真实扫描' {
+        InModuleScope WindowsInstall {
+            Mock Find-ExecutableCommand { throw '不应执行外部命令发现' }
+            Mock Get-Module { throw '不应执行 WinGet 模块发现' } -ParameterFilter { $ListAvailable }
+
+            { Get-WindowsCommandAvailability -Override @{ winget = $true } } |
+                Should -Throw '*CommandAvailability 缺少必需能力*'
+            Should -Invoke Find-ExecutableCommand -Times 0 -Exactly
+            Should -Invoke Get-Module -Times 0 -Exactly -ParameterFilter { $ListAvailable }
+        }
+    }
+
+    It 'PATH 未命中 AutoHotkey 时仍检查已知安装路径' {
+        InModuleScope WindowsInstall {
+            Mock Find-ExecutableCommand { [pscustomobject]@{ Name = 'AutoHotkey.exe'; Found = $false; Path = $null } }
+            Mock Test-Path { $LiteralPath -eq 'C:\Program Files\AutoHotkey\v2\AutoHotkey.exe' }
+
+            Test-WindowsAutoHotkeyAvailable -WindowsHost $true | Should -BeTrue
+            Should -Invoke Test-Path -Times 1 -Exactly
+        }
     }
 
     It '按 Failed 优先于 Blocked 汇总退出码' {
@@ -105,25 +195,6 @@ Describe 'Windows 声明式 package catalog' {
         @($core.name) | Should -Be @('delta', 'zoxide', 'fnm', 'starship', 'fzf', 'ripgrep', 'jq', 'uv', 'bat', 'fd', 'eza', 'carapace-bin', 'atuin')
         @($core.name) | Should -Not -Contain 'tldr'
         @($core | Where-Object name -eq 'carapace-bin').bucket | Should -Be @('extras')
-    }
-
-    It 'Core 预览先声明 Extras bucket 再包含 Shell 工具与 Delta' {
-        $output = pwsh -NoProfile -File (Join-Path $script:RepoRoot 'windows/05installCoreCli.ps1') -WhatIf 2>&1
-        $text = $output | Out-String
-
-        $LASTEXITCODE | Should -Be 0
-        $bucketMatch = [regex]::Match($text, '(?m)^\[Preview\] bucket:extras: ')
-        $deltaMatch = [regex]::Match($text, '(?m)^\[(?:Preview|AlreadyPresent)\] delta: ')
-        $carapaceMatch = [regex]::Match($text, '(?m)^\[(?:Preview|AlreadyPresent)\] carapace-bin: ')
-        $atuinMatch = [regex]::Match($text, '(?m)^\[(?:Preview|AlreadyPresent)\] atuin: ')
-
-        $bucketMatch.Success | Should -BeTrue
-        $deltaMatch.Success | Should -BeTrue
-        $carapaceMatch.Success | Should -BeTrue
-        $atuinMatch.Success | Should -BeTrue
-        $bucketMatch.Index | Should -BeLessThan $deltaMatch.Index
-        $bucketMatch.Index | Should -BeLessThan $carapaceMatch.Index
-        $bucketMatch.Index | Should -BeLessThan $atuinMatch.Index
     }
 
     It 'Full terminal extras 不包含 GUI 条目' {
@@ -195,7 +266,6 @@ Describe 'Windows 声明式 package catalog' {
     }
 
     It '应用清单只允许 Scoop 条目声明合法 bucket' {
-        Import-Module (Join-Path $script:RepoRoot 'psutils') -Force
         $nonScoop = @{ packageManagers = @{ homebrew = @(@{ name = 'bad'; bucket = 'extras' }) } }
         $invalidName = @{ packageManagers = @{ scoop = @(@{ name = 'bad'; bucket = '../extras' }) } }
 
@@ -373,53 +443,6 @@ Describe 'Windows Stage 0 与叶子入口' {
         $executor | Should -Match ([regex]::Escape("AutoHotkey = 'AutoHotkey.AutoHotkey'"))
         $executor | Should -Match 'Get-AuthenticodeSignature'
         $executor | Should -Match '拒绝资产树之外的 source helper'
-    }
-
-    It '03 WhatIf 输出单个可解析 JSON document' {
-        $result = Invoke-WindowsTestProcess `
-            -ScriptPath (Join-Path $script:RepoRoot 'windows/03configureSources.ps1') `
-            -ArgumentList @('-NetworkMode', 'Direct', '-TransactionId', 'windows-test', '-OutputFormat', 'Json', '-WhatIf')
-        $result.ExitCode | Should -Be 0
-        $document = $result.Stdout | ConvertFrom-Json
-        $document.SchemaVersion | Should -Be 1
-        @($document.Results.Target) | Should -Contain 'winget'
-        @($document.Results.Target) | Should -Contain 'npm'
-    }
-
-    It 'Core、字体、Full 和 AutoHotkey 叶子 WhatIf 不执行真实安装' {
-        $cases = @(
-            @{ Path = 'windows/05installCoreCli.ps1'; Arguments = @('-Preset', 'Core', '-WhatIf'); Expected = 'zoxide' },
-            @{ Path = 'windows/06installFonts.ps1'; Arguments = @('-Preset', 'Core', '-WhatIf'); Expected = 'JetBrainsMono-NF' },
-            @{ Path = 'windows/08installFullApps.ps1'; Arguments = @('-Preset', 'Full', '-WhatIf'); Expected = 'terminal-extras|xh' },
-            @{ Path = 'windows/09deployAutoHotkey.ps1'; Arguments = @('-Preset', 'Full', '-StartupPath', (Join-Path $TestDrive 'Startup'), '-WhatIf'); Expected = 'AutoHotkey' }
-        )
-        foreach ($case in $cases) {
-            $result = Invoke-WindowsTestProcess -ScriptPath (Join-Path $script:RepoRoot $case.Path) -ArgumentList $case.Arguments
-            $result.ExitCode | Should -Be 0
-            ($result.Stdout + $result.Stderr) | Should -Match $case.Expected
-        }
-        Test-Path -LiteralPath (Join-Path $TestDrive 'Startup') | Should -BeFalse
-    }
-
-    It 'WSL WhatIf 不写配置也不调用 shutdown' {
-        $target = Join-Path $TestDrive '.wslconfig'
-        $result = Invoke-WindowsTestProcess `
-            -ScriptPath (Join-Path $script:RepoRoot 'windows/wsl/Initialize-WslHost.ps1') `
-            -ArgumentList @('-Distribution', 'Ubuntu-24.04', '-WslConfigTargetPath', $target, '-WhatIf')
-        $result.ExitCode | Should -Be 0
-        $result.Stdout | Should -Match 'Preview'
-        $result.Stdout | Should -Not -Match 'wsl --shutdown.*执行'
-        Test-Path -LiteralPath $target | Should -BeFalse
-    }
-
-    It '99 始终输出单个 JSON document' {
-        $result = Invoke-WindowsTestProcess `
-            -ScriptPath (Join-Path $script:RepoRoot 'windows/99verifyInstall.ps1') `
-            -ArgumentList @('-Preset', 'Core', '-OutputFormat', 'Json')
-        $document = $result.Stdout | ConvertFrom-Json
-        $document.SchemaVersion | Should -Be 1
-        $document.Preset | Should -Be 'Core'
-        $document.Results.Count | Should -BeGreaterThan 0
     }
 
     It '根步骤注册表启用 Windows 03/05/06/07/08/09/99 且保持 04/10/11 unsupported' {

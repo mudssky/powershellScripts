@@ -1,0 +1,7 @@
+{"file":".trellis/tasks/08-11-optimize-pwsh-full-test-duration/research/slow-points.md","reason":"复核优化后是否命中原始前五热点与 6 分钟目标"}
+{"file":".trellis/spec/infra/test-report-artifacts.md","reason":"检查结构化报告路径、隔离和 CI reporter 兼容性"}
+{"file":".trellis/spec/infra/install-orchestrator.md","reason":"检查 Mock 分层后真实进程、输出和中断合同未丢失"}
+{"file":".trellis/spec/infra/windows-install-pipeline.md","reason":"检查 Windows 能力发现和入口 smoke 仍覆盖规范矩阵"}
+{"file":".trellis/spec/infra/linux-install-pipeline.md","reason":"检查 Linux/WSL/Docker 断言未因提速被跳过"}
+{"file":".trellis/spec/infra/macos-install-pipeline.md","reason":"检查 macOS 平台合同仍在 full 自动执行"}
+{"file":"archive/openspec/specs/pester-test-performance/spec.md","reason":"检查 fast/full 与 combined gate 语义保持一致"}

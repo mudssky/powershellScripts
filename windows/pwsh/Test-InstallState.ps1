@@ -41,9 +41,26 @@ $ErrorActionPreference = 'Stop'
 
 $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 Import-Module (Join-Path $repoRoot 'windows/pwsh/WindowsInstall.psm1') -Force
-Import-Module (Join-Path $repoRoot 'psutils') -Force
-$platform = Get-WindowsInstallEnvironment
-$packageCatalog = Import-WindowsPackageCatalog -Path (Join-Path $repoRoot 'config/install/windows-packages.psd1')
+$psutilsSteps = @('sources', 'core-cli', 'full-apps')
+if (@($Step | Where-Object { $_ -in $psutilsSteps }).Count -gt 0 -and
+    (-not (Get-Command Resolve-ConfigSources -ErrorAction SilentlyContinue) -or
+        -not (Get-Command Select-PackageManagerApps -ErrorAction SilentlyContinue) -or
+        -not (Get-Command Test-ApplicationInstalled -ErrorAction SilentlyContinue))) {
+    Import-Module (Join-Path $repoRoot 'psutils') -Force -Global
+}
+$platformSteps = @('platform', 'package-manager', 'pwsh', 'fonts', 'profile-tools', 'platform-automation', 'wsl-host')
+$platform = if (@($Step | Where-Object { $_ -in $platformSteps }).Count -gt 0) {
+    Get-WindowsInstallEnvironment
+}
+else {
+    $null
+}
+$packageCatalog = if (@($Step | Where-Object { $_ -in @('fonts', 'wsl-host') }).Count -gt 0) {
+    Import-WindowsPackageCatalog -Path (Join-Path $repoRoot 'config/install/windows-packages.psd1')
+}
+else {
+    $null
+}
 $results = [System.Collections.Generic.List[object]]::new()
 
 function Add-WindowsInstallCheck {

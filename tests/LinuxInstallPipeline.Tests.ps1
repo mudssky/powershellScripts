@@ -5,6 +5,11 @@ BeforeAll {
     $script:ModulePath = Join-Path $script:ProjectRoot 'linux/pwsh/LinuxInstall.psm1'
     $script:CatalogPath = Join-Path $script:ProjectRoot 'config/install/linux-packages.psd1'
     Import-Module $script:ModulePath -Force
+    Import-Module (Join-Path $script:ProjectRoot 'psutils') -Force
+    $script:AppsConfig = (Resolve-ConfigSources -Sources @(
+            @{ Type = 'JsonFile'; Name = 'Apps'; Path = (Join-Path $script:ProjectRoot 'profile/installer/apps-config.json') }
+        ) -BasePath $script:ProjectRoot -ErrorOnMissing).Values
+    $script:HomebrewApps = @((ConvertTo-ConfigHashtable -InputObject $script:AppsConfig.packageManagers).homebrew)
 
     function New-LinuxEnvironmentFixture {
         <#
@@ -241,30 +246,19 @@ Describe 'Linux PowerShell install leaves' -Tag 'Leaves' {
     }
 
     It '05 只选择 Core CLI，08 只选择 terminal extras' {
-        $coreOutput = pwsh -NoProfile -File (Join-Path $script:ProjectRoot 'linux/05installCoreCli.ps1') -WhatIf 2>&1
-        $coreExitCode = $LASTEXITCODE
-        $fullOutput = pwsh -NoProfile -File (Join-Path $script:ProjectRoot 'linux/08installFullApps.ps1') -WhatIf 2>&1
-        $fullExitCode = $LASTEXITCODE
-        $coreText = $coreOutput | Out-String
-        $fullText = $fullOutput | Out-String
+        $core = @(Select-PackageManagerApps -Apps $script:HomebrewApps -TargetOS Linux -RequiredTag @('core', 'cli'))
+        $full = @(Select-PackageManagerApps -Apps $script:HomebrewApps -TargetOS Linux -RequiredTag @('cli', 'terminal-extras'))
 
-        $coreExitCode | Should -Be 0
-        $fullExitCode | Should -Be 0
-        $coreText | Should -Match '\] ripgrep:'
-        $coreText | Should -Match '\] uv:'
-        $coreText | Should -Not -Match '\] lazygit:'
-        $coreText | Should -Not -Match '\] carapace:'
-        $coreText | Should -Not -Match '\] atuin:'
-        $coreText | Should -Not -Match '\] git-delta:'
-        $coreText | Should -Not -Match '\] tealdeer:'
-        $fullText | Should -Match '\] lazygit:'
-        $fullText | Should -Match '\] neovim:'
-        $fullText | Should -Match '\] carapace:'
-        $fullText | Should -Match '\] atuin:'
-        $fullText | Should -Match '\] git-delta:'
-        $fullText | Should -Match '\] tealdeer:'
-        $fullText | Should -Not -Match '\] ripgrep:'
-        $fullText | Should -Not -Match 'hammerspoon'
+        @($core.Name) | Should -Contain 'ripgrep'
+        @($core.Name) | Should -Contain 'uv'
+        @($core.Name) | Should -Not -Contain 'lazygit'
+        @($core.Name) | Should -Not -Contain 'carapace'
+        @($full.Name) | Should -Contain 'lazygit'
+        @($full.Name) | Should -Contain 'neovim'
+        @($full.Name) | Should -Contain 'carapace'
+        @($full.Name) | Should -Contain 'atuin'
+        @($full.Name) | Should -Not -Contain 'ripgrep'
+        @($full.Name) | Should -Not -Contain 'hammerspoon'
     }
 
     It '06 在 WSL 默认跳过，显式 Desktop 只生成 apt 与 font-cache 计划' {
@@ -293,16 +287,22 @@ Describe 'Linux PowerShell install leaves' -Tag 'Leaves' {
     }
 
     It 'Arch 06/07 WhatIf 使用 pacman 且不依赖 AUR' {
-        Set-Content -LiteralPath $script:LeafFixture.OsReleasePath -Value "ID=arch`nID_LIKE=arch" -Encoding utf8NoBOM
+        $catalog = Import-LinuxPackageCatalog -Path $script:CatalogPath
+        $family = Get-LinuxPackageFamily -Catalog $catalog -DistributionFamily arch
+        $fontPlan = @(Install-LinuxSystemPackages `
+                -DistributionFamily arch `
+                -Name fonts-packages `
+                -Package @($family.DesktopFonts.Required) `
+                -Update `
+                -Preview)
+        $profilePlan = @(Install-LinuxSystemPackages `
+                -DistributionFamily arch `
+                -Name core-system `
+                -Package @($family.CoreSystem) `
+                -Update `
+                -Preview)
+        $text = @($fontPlan.Message + $profilePlan.Message) -join "`n"
 
-        $fontOutput = pwsh -NoProfile -File (Join-Path $script:ProjectRoot 'linux/06installFonts.ps1') -Environment Desktop -WhatIf 2>&1
-        $fontExitCode = $LASTEXITCODE
-        $profileOutput = pwsh -NoProfile -File (Join-Path $script:ProjectRoot 'linux/07installProfileTools.ps1') -WhatIf 2>&1
-        $profileExitCode = $LASTEXITCODE
-        $text = (($fontOutput + $profileOutput) | Out-String)
-
-        $fontExitCode | Should -Be 0
-        $profileExitCode | Should -Be 0
         $text | Should -Match 'pacman -Syu --needed --noconfirm'
         $text | Should -Not -Match 'aur\.archlinux|yay'
     }
@@ -436,11 +436,8 @@ Describe 'Linux read-only verification' -Tag 'Verify' {
     }
 
     It 'uses apps-config names for Core CLI verification' {
-        $jsonOutput = pwsh -NoProfile -File (Join-Path $script:ProjectRoot 'linux/99verifyInstall.ps1') -Step core-cli -OutputFormat Json 2>$null
-        $document = $jsonOutput | Out-String | ConvertFrom-Json
-        $names = @($document.Results.Name)
+        $names = @(Select-PackageManagerApps -Apps $script:HomebrewApps -TargetOS Linux -RequiredTag @('core', 'cli') | ForEach-Object name)
 
-        $LASTEXITCODE | Should -BeIn @(0, 1, 10)
         $names | Should -Contain 'ripgrep'
         $names | Should -Contain 'uv'
         $names | Should -Not -Contain 'hammerspoon'
@@ -454,30 +451,24 @@ Describe 'Linux read-only verification' -Tag 'Verify' {
     }
 
     It 'reports ARM as Blocked without running install checks' {
-        $env:POWERSHELL_SCRIPTS_ARCHITECTURE = 'aarch64'
-        $jsonOutput = pwsh -NoProfile -File (Join-Path $script:ProjectRoot 'linux/99verifyInstall.ps1') -Step platform -OutputFormat Json 2>$null
-        $exitCode = $LASTEXITCODE
-        $document = $jsonOutput | Out-String | ConvertFrom-Json
+        $environment = Get-LinuxInstallEnvironment `
+            -OsReleasePath $script:VerifyFixture.OsReleasePath `
+            -ProcVersionPath $script:VerifyFixture.ProcVersionPath `
+            -SystemdDirectory $script:VerifyFixture.SystemdDirectory `
+            -Architecture aarch64
 
-        $exitCode | Should -Be 10
-        $document.Status | Should -Be 'Blocked'
-        $document.Environment | Should -Be 'ubuntu-arm64'
+        $environment.SupportLevel | Should -Be 'Blocked'
+        $environment.DistributionId | Should -Be 'ubuntu'
+        $environment.Architecture | Should -Be 'arm64'
     }
 
     It 'passes matching WSL guest config after systemd is active' {
-        $env:WSL_DISTRO_NAME = 'Ubuntu-24.04'
         $targetPath = Join-Path $script:VerifyFixture.Root 'wsl.conf'
         Copy-Item -LiteralPath (Join-Path $script:ProjectRoot 'linux/wsl/wsl.conf') -Destination $targetPath
+        $expectedPath = Join-Path $script:ProjectRoot 'linux/wsl/wsl.conf'
 
-        $jsonOutput = pwsh -NoProfile -File (Join-Path $script:ProjectRoot 'linux/99verifyInstall.ps1') `
-            -Step wsl-config `
-            -WslConfigTargetPath $targetPath `
-            -OutputFormat Json 2>$null
-        $exitCode = $LASTEXITCODE
-        $document = $jsonOutput | Out-String | ConvertFrom-Json
-
-        $exitCode | Should -Be 0
-        @($document.Results.Status) | Should -Be @('Pass')
+        Test-WslGuestConfigContent -Content (Get-Content -LiteralPath $targetPath -Raw) | Should -BeTrue
+        (Get-Content -LiteralPath $targetPath -Raw) | Should -BeExactly (Get-Content -LiteralPath $expectedPath -Raw)
     }
 }
 

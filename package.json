@@ -55,7 +55,7 @@
     "test:fnos": "vitest run --config ./linux/fnos/fnos-mount-manager/vitest.config.ts",
     "test:bash": "vitest run --config ./scripts/bash/vitest.config.ts",
     "test:systemd-service-manager": "vitest run --config ./scripts/bash/systemd-service-manager/vitest.config.ts",
-    "test:pwsh:all": "pnpm exec concurrently --group --names host,linux --prefix-colors blue,magenta --success all \"pnpm test:pwsh:full:assertions\" \"pnpm test:pwsh:linux:full\"",
+    "test:pwsh:all": "node ./scripts/test-pwsh-all.mjs",
     "qa:fnos": "pnpm run test:fnos",
     "qa:bash": "pnpm run test:bash",
     "qa:systemd-service-manager": "pnpm run test:systemd-service-manager",

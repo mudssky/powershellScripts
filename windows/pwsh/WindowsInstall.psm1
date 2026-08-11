@@ -1,5 +1,79 @@
 Set-StrictMode -Version Latest
 
+$script:RepoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
+$script:CommandDiscoveryModulePath = Join-Path $script:RepoRoot 'psutils/modules/commandDiscovery.psm1'
+$script:WindowsWinGetSourceAvailability = $null
+if (-not (Get-Command Find-ExecutableCommand -ErrorAction SilentlyContinue)) {
+    Import-Module $script:CommandDiscoveryModulePath -Force
+}
+
+function Get-WindowsCommandAvailability {
+    <#
+    .SYNOPSIS
+        一次性解析 Windows 安装流水线使用的外部命令与 WinGet 模块能力。
+
+    .PARAMETER Override
+        调用方提供的命令可用性覆盖；已提供的键不会触发真实探测。
+
+    .OUTPUTS
+        System.Collections.Hashtable。包含全部 Windows 安装命令能力键。
+    #>
+    [CmdletBinding()]
+    param(
+        [hashtable]$Override = @{}
+    )
+
+    $availability = @{}
+    foreach ($entry in $Override.GetEnumerator()) {
+        $availability[[string]$entry.Key] = [bool]$entry.Value
+    }
+
+    $externalCommandMap = [ordered]@{
+        winget         = 'winget'
+        pwsh           = 'pwsh'
+        scoop          = 'scoop'
+        wsl            = 'wsl'
+        'AutoHotkey'   = 'AutoHotkey.exe'
+    }
+    $wingetSourceCommands = @('Get-WinGetSource', 'Add-WinGetSource', 'Remove-WinGetSource')
+    $requiredNames = @($externalCommandMap.Keys) + $wingetSourceCommands
+    if ($Override.Count -gt 0) {
+        $missingOverrideNames = @($requiredNames | Where-Object { -not $Override.ContainsKey($_) })
+        if ($missingOverrideNames.Count -gt 0) {
+            throw "CommandAvailability 缺少必需能力: $($missingOverrideNames -join ', ')"
+        }
+        return $availability
+    }
+
+    $missingExternalNames = @($externalCommandMap.Keys | Where-Object { -not $availability.ContainsKey($_) })
+    if ($missingExternalNames.Count -gt 0) {
+        $lookupNames = @($missingExternalNames | ForEach-Object { $externalCommandMap[$_] })
+        $lookupResults = @(Find-ExecutableCommand -Name $lookupNames -CacheMisses)
+        for ($index = 0; $index -lt $missingExternalNames.Count; $index++) {
+            $availability[$missingExternalNames[$index]] = [bool]$lookupResults[$index].Found
+        }
+    }
+
+    $missingWingetCommands = @($wingetSourceCommands | Where-Object { -not $availability.ContainsKey($_) })
+    if ($missingWingetCommands.Count -gt 0) {
+        if ($null -eq $script:WindowsWinGetSourceAvailability) {
+            $wingetModule = Get-Module -ListAvailable -Name Microsoft.WinGet.Client |
+                Sort-Object Version -Descending |
+                Select-Object -First 1
+            $exportedNames = if ($null -eq $wingetModule) { @() } else { @($wingetModule.ExportedCommands.Keys) }
+            $script:WindowsWinGetSourceAvailability = @{}
+            foreach ($commandName in $wingetSourceCommands) {
+                $script:WindowsWinGetSourceAvailability[$commandName] = $exportedNames -contains $commandName
+            }
+        }
+        foreach ($commandName in $missingWingetCommands) {
+            $availability[$commandName] = [bool]$script:WindowsWinGetSourceAvailability[$commandName]
+        }
+    }
+
+    return $availability
+}
+
 function ConvertTo-WindowsArchitecture {
     <#
     .SYNOPSIS
@@ -105,7 +179,7 @@ function Test-WindowsAutoHotkeyAvailable {
     if ($CommandAvailability.ContainsKey('AutoHotkey')) {
         return [bool]$CommandAvailability.AutoHotkey
     }
-    if (Get-Command AutoHotkey.exe -ErrorAction SilentlyContinue) {
+    if ((Find-ExecutableCommand -Name AutoHotkey.exe -CacheMisses).Found) {
         return $true
     }
     if (-not $WindowsHost) {
@@ -236,8 +310,15 @@ function Get-WindowsInstallEnvironment {
     else {
         Test-WindowsAdministrator -WindowsHost $isWindowsHost
     }
+    $resolvedCommandAvailability = Get-WindowsCommandAvailability -Override $CommandAvailability
+    $autoHotkeyAvailability = if ($CommandAvailability.Count -gt 0) {
+        $resolvedCommandAvailability
+    }
+    else {
+        @{}
+    }
     $hasWingetSourceCmdlets = @(@('Get-WinGetSource', 'Add-WinGetSource', 'Remove-WinGetSource') | Where-Object {
-            Test-WindowsCommandAvailable -Name $_ -CommandAvailability $CommandAvailability
+            Test-WindowsCommandAvailable -Name $_ -CommandAvailability $resolvedCommandAvailability
         }).Count -eq 3
 
     return [pscustomobject]@{
@@ -248,12 +329,12 @@ function Get-WindowsInstallEnvironment {
         IsWindows                    = [bool]$isWindowsHost
         IsServer                     = [bool]$isServer
         IsAdministrator              = [bool]$isAdministrator
-        HasWinget                    = Test-WindowsCommandAvailable -Name winget -CommandAvailability $CommandAvailability
+        HasWinget                    = Test-WindowsCommandAvailable -Name winget -CommandAvailability $resolvedCommandAvailability
         HasWingetSourceCmdlets       = [bool]$hasWingetSourceCmdlets
-        HasPowerShell7               = Test-WindowsCommandAvailable -Name pwsh -CommandAvailability $CommandAvailability
-        HasScoop                     = Test-WindowsCommandAvailable -Name scoop -CommandAvailability $CommandAvailability
-        HasWsl                       = Test-WindowsCommandAvailable -Name wsl -CommandAvailability $CommandAvailability
-        HasAutoHotkey                = Test-WindowsAutoHotkeyAvailable -CommandAvailability $CommandAvailability -WindowsHost $isWindowsHost
+        HasPowerShell7               = Test-WindowsCommandAvailable -Name pwsh -CommandAvailability $resolvedCommandAvailability
+        HasScoop                     = Test-WindowsCommandAvailable -Name scoop -CommandAvailability $resolvedCommandAvailability
+        HasWsl                       = Test-WindowsCommandAvailable -Name wsl -CommandAvailability $resolvedCommandAvailability
+        HasAutoHotkey                = Test-WindowsAutoHotkeyAvailable -CommandAvailability $autoHotkeyAvailability -WindowsHost $isWindowsHost
         SupportsModernWslConfig      = -not $isServer -and $BuildNumber -ge 22621
         SupportsNestedVirtualization = -not $isServer -and $BuildNumber -ge 22000
         SupportLevel                 = $supportLevel
@@ -439,7 +520,12 @@ function Invoke-WindowsScoopCatalogInstall {
     )
 
     $resolvedRepoRoot = [System.IO.Path]::GetFullPath($RepoRoot)
-    Import-Module (Join-Path $resolvedRepoRoot 'psutils') -Force
+    if (-not (Get-Command Resolve-ConfigSources -ErrorAction SilentlyContinue) -or
+        -not (Get-Command Test-PackageManagerAppCatalog -ErrorAction SilentlyContinue) -or
+        -not (Get-Command Select-PackageManagerApps -ErrorAction SilentlyContinue) -or
+        -not (Get-Command Install-PackageManagerApps -ErrorAction SilentlyContinue)) {
+        Import-Module (Join-Path $resolvedRepoRoot 'psutils') -Force -Global
+    }
     $configPath = Join-Path $resolvedRepoRoot 'profile/installer/apps-config.json'
     $config = (Resolve-ConfigSources -Sources @(
             @{ Type = 'JsonFile'; Name = 'AppsConfig'; Path = $configPath }
@@ -855,6 +941,7 @@ function Set-WindowsManagedContent {
 
 Export-ModuleMember -Function @(
     'ConvertTo-WindowsArchitecture',
+    'Get-WindowsCommandAvailability',
     'Test-WindowsCommandAvailable',
     'Test-WindowsAdministrator',
     'Test-WindowsAutoHotkeyAvailable',
