@@ -1735,3 +1735,24 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Status
 
 [OK] **Completed**
+
+
+## Session 56: 优化 PowerShell 全量测试耗时
+
+**Date**: 2026-08-11
+**Task**: 优化 PowerShell 全量测试耗时
+**Branch**: `master`
+
+### Summary
+
+复用快速命令发现并收缩重复真实子进程测试，新增唯一 NUnit/JSON 耗时报告与 Docker 预检；coverage full 三轮中位数 322.49 秒，较 718.6 秒基线改善 55.12。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4d1d7a69` | (see git log) |
+
+### Status
+
+[OK] **Completed**
