@@ -1,0 +1,5 @@
+{"file":".trellis/spec/infra/install-orchestrator.md","reason":"实施时更新 Text 启动提示、删除 elapsed heartbeat，并保持 JSON 单文档、有限轮询、进程树清理、脱敏摘要和重跑命令合同"}
+{"file":".trellis/spec/infra/windows-install-pipeline.md","reason":"实施时保持 Windows Core Scoop 精确集合、单项失败继续安装和共享安装器兼容边界"}
+{"file":".trellis/spec/pwsh-scripts/package/index.md","reason":"实施时复用仓库 PowerShell 测试入口并遵守 scripts/pwsh 包边界"}
+{"file":".trellis/spec/psutils/package/index.md","reason":"实施共享安装器时遵守 psutils 模块位置、测试入口和公共函数合同"}
+{"file":".trellis/spec/psutils/package/runtime-safety.md","reason":"实施原生命令输出捕获和失败诊断时遵守参数、敏感信息与异常处理边界"}

@@ -1,0 +1,5 @@
+{"file":".trellis/spec/infra/install-orchestrator.md","reason":"检查 UTF-8 输出完整性、Text 单次启动提示、无 elapsed heartbeat、JSON 隔离、中断清理、摘要脱敏与长度上限"}
+{"file":".trellis/spec/infra/windows-install-pipeline.md","reason":"检查 Scoop 失败诊断、后续项继续执行、不自动重试及 Windows Core 清单回归"}
+{"file":".trellis/spec/pwsh-scripts/package/index.md","reason":"检查测试入口、PowerShell 脚本规范和包边界"}
+{"file":".trellis/spec/psutils/package/index.md","reason":"检查共享模块兼容、函数帮助与 psutils 测试要求"}
+{"file":".trellis/spec/psutils/package/runtime-safety.md","reason":"检查原生命令参数安全、失败诊断脱敏和异常处理"}
