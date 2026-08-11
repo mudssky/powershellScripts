@@ -102,7 +102,7 @@ renameLegal.ps1 -reverse
 |--------|------|--------|
 | Setup-VSCodeSSH.ps1 | 配置VS Code SSH连接的自动化脚本 | vscode, ssh, remote, development |
 | Setup-SshNoPasswd.ps1 | SSH免密登录配置脚本 | ssh, passwordless, auth, security |
-| `browserctl.ps1` | 调用 installed browser-host，统一管理 Windows/WSLg browser runtime 与 Agent Browser/Playwright attach | browser, runtime, cdp, powershell |
+| `browserctl.ps1` | 一次性 setup Windows browser-runtime，并统一管理 Windows/WSLg runtime 与 Agent Browser/Playwright attach | browser, runtime, setup, cdp, powershell |
 
 ### 🛠️ Misc（杂项）
 
@@ -147,7 +147,7 @@ renameLegal.ps1 -reverse
 | `bin/browserctl.ps1` | 由 `tool.psd1` / `Manage-BinScripts.ps1` 生成的 PowerShell 薄入口 | browser, runtime, powershell |
 | `bin/browserctl` | 由 `scripts/bash/build.sh --only browserctl` 生成，可由 Bash 或 Zsh 直接执行 | browser, runtime, bash, zsh |
 
-两份入口只调用 `~/.local/share/selfhosted-compose/browser-runtime/browser-host.ps1`，共享 `status`、`start windows|wsl`、`stop`、`attach agent-browser|playwright`、`detach`、`diagnose` 与显式 `recover-owner` 合同。普通 `stop` 不执行 `wsl --shutdown`、不杀未知 Chrome、不删除 Profile lock。
+两份入口共享 `setup windows`、`status`、`start windows|wsl`、`stop`、`attach agent-browser|playwright`、`detach`、`diagnose` 与显式 `recover-owner` 合同。`setup windows` 从 self-hosted-compose checkout 调用权威 setup 脚本，支持 SourceRoot、RuntimeRoot 与 dedicated ProfileRoot；其它 action 只调用 installed `browser-host.ps1`。普通 `stop` 不执行 `wsl --shutdown`、不杀未知 Chrome、不删除 Profile lock 或 Profile 数据。
 
 ### Browser Debug Profile CLI（Windows PowerShell）
 

@@ -14,7 +14,7 @@ function Invoke-BrowserHostControl {
     if ([string]::IsNullOrWhiteSpace($BrowserHostPath)) { $BrowserHostPath = Join-Path $HOME '.local\share\selfhosted-compose\browser-runtime\browser-host.ps1' }
     if (-not (Test-Path -LiteralPath $BrowserHostPath -PathType Leaf)) {
         $action = if ($Arguments.Count -gt 0) { $Arguments[0] } else { 'unknown' }
-        [Console]::Error.WriteLine((@{ schemaVersion = 1; error = 'installed browser-host control is missing'; action = $action } | ConvertTo-Json -Compress))
+        [Console]::Error.WriteLine((@{ schemaVersion = 1; error = 'browser runtime is not initialized; run browserctl setup windows from the self-hosted-compose checkout or pass -SourceRoot'; action = $action } | ConvertTo-Json -Compress))
         return [pscustomobject]@{ ExitCode = 127 }
     }
     & powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $BrowserHostPath @Arguments

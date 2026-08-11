@@ -16,13 +16,27 @@ Describe 'browserctl manifest' {
 }
 
 Describe 'browserctl dispatch' {
-    BeforeEach { Mock Invoke-BrowserHostControl { [pscustomobject]@{ ExitCode = 0 } } }
+    BeforeEach {
+        Mock Invoke-BrowserHostControl { [pscustomobject]@{ ExitCode = 0 } }
+        Mock Invoke-BrowserRuntimeSetup { [pscustomobject]@{ ExitCode = 0 } }
+    }
 
     It 'passes stable start and attach argv' {
         Invoke-BrowserControlCommand -Action start -Target wsl | Out-Null
         Should -Invoke Invoke-BrowserHostControl -ParameterFilter { $Arguments -join ' ' -eq 'start -Runtime wsl' }
         Invoke-BrowserControlCommand -Action attach -Target playwright | Out-Null
         Should -Invoke Invoke-BrowserHostControl -ParameterFilter { $Arguments -join ' ' -eq 'attach -Client playwright' }
+    }
+
+    It 'routes setup directly to the authoritative setup helper with path options' {
+        Invoke-BrowserControlCommand -Action setup -Target windows -SourceRoot 'C:\src\self-hosted-compose' -RuntimeRoot 'D:\browser-runtime' -ProfileRoot 'D:\browser-runtime\profile' | Out-Null
+        Should -Invoke Invoke-BrowserRuntimeSetup -Times 1 -ParameterFilter {
+            $Runtime -eq 'windows' -and
+            $SourceRoot -eq 'C:\src\self-hosted-compose' -and
+            $RuntimeRoot -eq 'D:\browser-runtime' -and
+            $ProfileRoot -eq 'D:\browser-runtime\profile'
+        }
+        Should -Invoke Invoke-BrowserHostControl -Times 0
     }
 
     It 'keeps stop thin and requires owner recovery confirmation' {
@@ -40,7 +54,8 @@ Describe 'browserctl dispatch' {
 }
 
 Describe 'installed helper boundary' {
-    It 'returns 127 when browser-host is missing' {
-        (Invoke-BrowserHostControl -Arguments @('status') -BrowserHostPath (Join-Path $TestDrive 'missing.ps1')).ExitCode | Should -Be 127
+    It 'returns 127 with executable setup guidance when browser-host is missing' {
+        (Invoke-BrowserHostControl -Arguments @('start', '-Runtime', 'windows') -BrowserHostPath (Join-Path $TestDrive 'missing.ps1')).ExitCode | Should -Be 127
+        (Get-Content -LiteralPath (Join-Path $script:ToolRoot 'private/Invoke-BrowserHostControl.ps1') -Raw) | Should -Match 'browserctl setup windows'
     }
 }
