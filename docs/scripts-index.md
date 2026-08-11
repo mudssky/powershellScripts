@@ -149,6 +149,61 @@ renameLegal.ps1 -reverse
 
 两份入口只调用 `~/.local/share/selfhosted-compose/browser-runtime/browser-host.ps1`，共享 `status`、`start windows|wsl`、`stop`、`attach agent-browser|playwright`、`detach`、`diagnose` 与显式 `recover-owner` 合同。普通 `stop` 不执行 `wsl --shutdown`、不杀未知 Chrome、不删除 Profile lock。
 
+### Browser Debug Profile CLI（Windows PowerShell）
+
+| 入口 | 描述 | 关键词 |
+|---|---|---|
+| `bin/browser-debug.ps1` | 创建和管理独立 Chrome/Edge CDP Profile、SSH 转发配置与 Agent 交接信息 | browser, cdp, playwright, ssh, powershell |
+
+公开命令树如下；名称使用位置参数，选项统一使用小写 kebab-case：
+
+```text
+browser-debug profile create|set|get|list|start|status|stop|shortcut
+browser-debug ssh create|set|get|list|info|start|status|stop
+browser-debug completion powershell
+browser-debug help
+```
+
+Profile 默认登记到 `D:\browser-debug-profiles\registry.json`，数据目录为 `D:\browser-debug-profiles\<name>`。`create` 默认从所选浏览器当前用户的标准 User Data 目录克隆登录状态、Profile 数据和扩展，再创建注册记录与 `<name>.lnk` Local 桌面快捷方式，但不启动浏览器。可用 `profile shortcut` 追加 `<name>-LAN.lnk`，两种模式互不替换；快捷方式启动成功后会在同一浏览器 Profile 中打开静态连接指南。停止后可持久修改端口，快捷方式和 SSH 配置会在使用时解析新端口：
+
+```powershell
+browser-debug profile create work --browser chrome --cdp-port 9333
+browser-debug profile create edge-work --browser edge --cdp-port 9444 --without-extensions
+browser-debug profile create portable --browser edge --source-user-data-path 'E:\BrowserBackups\Edge User Data'
+browser-debug profile set work --cdp-port 9444
+browser-debug profile shortcut work --mode lan
+browser-debug profile start work
+browser-debug profile start work --mode lan --listen-address 192.168.1.20
+browser-debug profile status work --json
+browser-debug profile stop work
+```
+
+`--source-user-data-path` 可覆盖默认来源；`--without-extensions` 会排除扩展本体、扩展数据库和同步状态目录，但仍复制 Cookies、登录状态及其他 Profile 数据。克隆始终排除 Chromium Singleton 锁、DevToolsActivePort、LevelDB `LOCK`、临时文件和明显运行时缓存。来源浏览器仍在运行或存在锁文件时，命令会拒绝复制并提示完全关闭浏览器后重试；来源与目标不能相同或互相包含。复制先进入同目录临时路径，成功后再重命名为最终 Profile，失败不会写入 registry。
+
+`local` 仅监听 `127.0.0.1`。`lan` 必须每次显式指定，会警告 CDP 没有认证且可完全控制浏览器；工具不会自动修改防火墙。同一模式快捷方式再次运行时会复用已拥有的浏览器进程并刷新指南；不同模式不会静默复用，必须先执行 `profile stop`。
+
+指南写入 registry 同级的 `guides/` 目录，包含本次实际监听模式、CDP endpoint、`/json/version`、`playwright-cli attach`、当前 LAN IPv4、关联 SSH 配置和中文 Agent Prompt。`0.0.0.0` 通配监听会为每个候选 LAN IPv4 分别列出 endpoint、探测、attach 和 Prompt，不把 Tailscale、虚拟网卡或排序首项当成唯一地址；显式 `--listen-address` 则只突出该接口。页面中的动态文本全部经过 HTML 编码，不读取 Cookie、密码、Token、浏览历史或页面标题；指南生成或打开失败只返回 warning，不改变浏览器已启动成功的结果。
+
+Edge 的 Windows launcher 可能在把 Profile 交给子进程后正常退出 0。`profile start` 不把 launcher 退出视为浏览器失败，而是等待命令行明确拥有目标 Profile 的 Edge 进程与 CDP endpoint 同时就绪；非零退出且没有接管证据时仍会立即返回诊断错误。
+
+SSH 生命周期与浏览器完全独立。`local-forward` 只生成供远端 Agent 主机执行的 `ssh -L` 命令；`reverse-forward` 才由 Windows detached 启动并管理 `ssh -R`：
+
+```powershell
+browser-debug ssh create remote-agent --profile work --direction local-forward --target windows-host --agent-port 9555
+browser-debug ssh info remote-agent
+
+browser-debug ssh create reverse-agent --profile work --direction reverse-forward --target agent-host --agent-port 9666
+browser-debug ssh start reverse-agent
+browser-debug ssh status reverse-agent
+browser-debug ssh stop reverse-agent
+```
+
+`ssh info` 同时输出 SSH 命令、`http://127.0.0.1:<agentPort>`、`playwright-cli attach --cdp=...`、探测 URL 和中文 Agent Prompt。Prompt 明确要求连接现有浏览器，不创建新的浏览器实例。PowerShell Profile 的 Full 模式会幂等注册 `browser-debug` 别名和 Native Completer；也可手动执行以下输出：
+
+```powershell
+browser-debug completion powershell | Invoke-Expression
+```
+
 ### Linux/WSL 安装流水线
 
 | 入口 | 描述 | 关键词 |

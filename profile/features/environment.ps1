@@ -1,3 +1,31 @@
+function Register-BrowserDebugProfileIntegration {
+    <#
+    .SYNOPSIS
+        注册 browser-debug 别名和 Native Completer。
+
+    .PARAMETER ProfileRoot
+        PowerShell 脚本仓库根目录。
+
+    .OUTPUTS
+        None
+        仅在当前会话注册轻量别名和补全，不读取 browser-debug 注册表。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$ProfileRoot
+    )
+
+    $commandPath = Join-Path $ProfileRoot 'bin/browser-debug.ps1'
+    $completionPath = Join-Path $ProfileRoot 'scripts/pwsh/devops/browser-debug/completion.ps1'
+    if (-not (Test-Path -LiteralPath $commandPath -PathType Leaf) -or -not (Test-Path -LiteralPath $completionPath -PathType Leaf)) {
+        return
+    }
+
+    . $completionPath
+    Register-BrowserDebugCompletion -CommandPath $commandPath
+}
+
 function Set-AliasProfile {
     [CmdletBinding()]
     param (
@@ -30,6 +58,10 @@ function Set-AliasProfile {
             }
             Set-CustomAlias -Name $alias.aliasName -Value $alias.aliasValue -Description $alias.description -AliasDespPrefix $AliasDescPrefix -Scope Global
             Write-Verbose "已设置别名: $($alias.aliasName) -> $($alias.aliasValue)"
+        }
+        $profileRootVariable = Get-Variable -Name ProfileRoot -Scope Script -ErrorAction SilentlyContinue
+        if ($profileRootVariable -and -not [string]::IsNullOrWhiteSpace([string]$profileRootVariable.Value)) {
+            Register-BrowserDebugProfileIntegration -ProfileRoot ([string]$profileRootVariable.Value)
         }
     }
 }
