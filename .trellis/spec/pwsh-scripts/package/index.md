@@ -15,6 +15,8 @@
 * `Invoke-PesterMode.ps1` 未显式传入 `-Path` 时必须保留上游 `PWSH_TEST_PATH`；只有显式参数才覆盖或清空，确保 `scripts/qa.mjs` 的 changed 测试集能到达 Pester。
 * 新增或修改脚本配置加载时，先阅读 [Config Loading](./config-loading.md)，优先复用 `psutils/src/config` 通过 `psutils/modules/config.psm1` 暴露的解析器。
 * 修改 `scripts/pwsh/misc/package-sources/**` 或 `Switch-Mirrors.ps1` 时，先阅读 [Package Source Transactions](../../infra/package-sources.md)。
+* 修改 `scripts/pwsh/devops/browser-debug/**` 时，先阅读 [Browser Debug CLI](./browser-debug-cli.md)，保持 Chromium 所有权、实际 CDP 参数、快捷方式和静态帮助页合同。
+* 修改 Pester 配置、测试 runner 或全量测试性能时，先阅读 [Pester 全量测试性能合同](./pester-performance.md)。
 * 改动涉及 `profile` 或 `psutils` 时确认是否应归入对应包，不要把所有 PowerShell 规则塞进 `scripts/pwsh`。
 
 ## Package Script Contract
@@ -41,4 +43,6 @@
 | Guide | Description | Status |
 |-------|-------------|--------|
 | [Config Loading](./config-loading.md) | 独立 PowerShell 脚本加载 env、JSON、`.psd1`、Markdown preset 与 CLI 覆盖参数的统一约定 | Active |
+| [Browser Debug CLI](./browser-debug-cli.md) | Windows Chrome/Edge User Data 克隆、CDP 所有权、快捷方式、SSH 交接与静态帮助页合同 | Active |
+| [Pester 全量测试性能合同](./pester-performance.md) | Pester 分层、命令发现、唯一报告路径、Docker 预检与三轮性能验收约定 | Active |
 | [Interactive Terminal Launching](./interactive-terminal-launching.md) | 独立 PowerShell 脚本启动 SSH/WSL/TUI 等交互式原生命令时的当前 tab、detached terminal 与 TTY 约定 | Active |

@@ -1,0 +1,8 @@
+{"file":".trellis/spec/pwsh-scripts/package/index.md","reason":"核对 PowerShell 质量门禁和测试范围"}
+{"file":".trellis/spec/pwsh-scripts/package/config-loading.md","reason":"检查注册表读取和配置覆盖语义"}
+{"file":".trellis/spec/pwsh-scripts/package/interactive-terminal-launching.md","reason":"检查 detached 进程和参数数组实现"}
+{"file":".trellis/spec/psutils/package/shared-config-resolver.md","reason":"检查 SSH config 解析与 OpenSSH 权威边界"}
+{"file":".trellis/spec/profile/package/index.md","reason":"核对 Profile 补全注册的测试和质量门禁"}
+{"file":".trellis/spec/profile/package/profile-runtime.md","reason":"检查启动性能、模式与重复加载行为"}
+{"file":".trellis/tasks/08-11-browser-remote-cdp-profile/prd.md","reason":"逐项核对验收标准和越界行为"}
+{"file":".trellis/tasks/08-11-browser-remote-cdp-profile/design.md","reason":"检查安全默认值、进程所有权和回滚设计"}

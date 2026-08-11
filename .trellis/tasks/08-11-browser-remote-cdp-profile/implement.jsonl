@@ -1,0 +1,9 @@
+{"file":".trellis/spec/pwsh-scripts/package/index.md","reason":"PowerShell 工具目录、测试与质量门禁约定"}
+{"file":".trellis/spec/pwsh-scripts/package/config-loading.md","reason":"注册表和 CLI 配置来源应复用共享配置能力"}
+{"file":".trellis/spec/pwsh-scripts/package/interactive-terminal-launching.md","reason":"浏览器 detached 启动与 ArgumentList 边界"}
+{"file":".trellis/spec/psutils/package/shared-config-resolver.md","reason":"复用 SSH config Host alias 解析合同"}
+{"file":".trellis/spec/profile/package/index.md","reason":"PowerShell Profile 补全注册与质量门禁"}
+{"file":".trellis/spec/profile/package/profile-runtime.md","reason":"保持 Profile 模式、OnIdle、降级与重复加载合同"}
+{"file":".trellis/tasks/08-11-browser-remote-cdp-profile/prd.md","reason":"最终需求、范围和验收标准"}
+{"file":".trellis/tasks/08-11-browser-remote-cdp-profile/design.md","reason":"命令、数据、进程所有权与快捷方式设计"}
+{"file":".trellis/tasks/08-11-browser-remote-cdp-profile/implement.md","reason":"实施顺序、验证命令和回滚点"}
