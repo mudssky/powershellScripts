@@ -20,6 +20,9 @@
 - 默认先做串行路径优化；未经单独设计，不引入外层并行分片。
 - 不降低 50% coverage 门槛，不通过排除测试文件或删除关键端到端合同获得性能数字。
 - 性能采样继续使用唯一 NUnit3/JSON artifact，禁止并发 Pester 污染样本。
+- 固定本机、Docker 和 CI 使用的 Pester 版本，避免 `Install-Module Pester` 随 PSGallery 最新版漂移。
+- 建立独立 Pester 6 PoC，验证文件级并行、`#pester:no-parallel`、Mock、TestDrive、coverage 和 NUnit 合同；PoC 不直接替换默认 full。
+- 不采用 Pester 5 `CodeCoverage.UseBreakpoints = $false` 作为优化，因为探索实验出现 coverage 少采。
 
 ## Acceptance Criteria
 
@@ -28,6 +31,7 @@
 - [ ] `psutils/tests/install.Tests.ps1` 典型耗时降低到 15 秒以内，或记录证据说明剩余成本不可安全移除。
 - [ ] 不引入新的 full 失败；既有 WSL guest 路径失败需单独标记，不能归因于本任务。
 - [ ] `pnpm qa` 通过；Docker 不可用时 `pnpm test:pwsh:all` 继续快速失败并提示 fallback。
+- [ ] Pester 版本在本机安装入口、Docker 和 CI 中可复现；升级 PoC 可通过显式开关回退到 Pester 5.7.1。
 
 ## Out of Scope
 
