@@ -4,7 +4,6 @@ $script:SupportedPresets = @('Core', 'Full')
 $script:SupportedPlatforms = @('macos', 'linux', 'windows')
 $script:SupportedRunners = @('pwsh', 'bash', 'zsh')
 
-$script:InstallProgressHeartbeatMilliseconds = 15000
 $script:InstallProcessPollMilliseconds = 250
 
 function Test-InstallStepRegistry {
@@ -470,7 +469,56 @@ function Protect-InstallDiagnostic {
     if ($protected.Length -le $MaxLength) {
         return $protected
     }
-    return $protected.Substring(0, $MaxLength) + '...'
+    $marker = '...<truncated>...'
+    $availableLength = $MaxLength - $marker.Length
+    $headLength = [int][Math]::Ceiling($availableLength * 0.6)
+    $tailLength = $availableLength - $headLength
+    return $protected.Substring(0, $headLength) + $marker + $protected.Substring($protected.Length - $tailLength)
+}
+
+function Select-InstallDiagnosticText {
+    <#
+    .SYNOPSIS
+        从叶子输出中选择最有操作价值的诊断文本。
+
+    .PARAMETER Stdout
+        叶子标准输出。
+
+    .PARAMETER Stderr
+        叶子标准错误。
+
+    .PARAMETER ExitCode
+        叶子退出码，用于决定是否优先筛选结构化失败项。
+
+    .OUTPUTS
+        System.String。失败时优先包含 Failed 或 Blocked 逐项结果，否则保持 stderr 优先。
+    #>
+    [CmdletBinding()]
+    param(
+        [AllowNull()]
+        [string]$Stdout,
+
+        [AllowNull()]
+        [string]$Stderr,
+
+        [int]$ExitCode
+    )
+
+    if ($ExitCode -ne 0) {
+        $failureLines = @(@($Stderr, $Stdout) |
+                Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } |
+                ForEach-Object { [string]$_ -split "`r?`n" } |
+                Where-Object { $_ -match '^\s*\[(?:Failed|Blocked)\]\s+' } |
+                Select-Object -Unique)
+        if ($failureLines.Count -gt 0) {
+            return $failureLines -join [System.Environment]::NewLine
+        }
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($Stderr)) {
+        return $Stderr
+    }
+    return $Stdout
 }
 
 function Get-InstallDescendantProcessIds {
@@ -607,6 +655,45 @@ function Stop-InstallProcessTree {
     }
 }
 
+function ConvertFrom-InstallOutputBytes {
+    <#
+    .SYNOPSIS
+        把叶子输出字节解码为稳定文本。
+
+    .PARAMETER Bytes
+        从 stdout 或 stderr 完整复制得到的原始字节。
+
+    .OUTPUTS
+        System.String。优先严格 UTF-8；Windows 兼容本地 ANSI code page。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [byte[]]$Bytes
+    )
+
+    if ($Bytes.Count -eq 0) {
+        return ''
+    }
+
+    $utf8 = [System.Text.UTF8Encoding]::new($false, $true)
+    try {
+        return $utf8.GetString($Bytes)
+    }
+    catch [System.Text.DecoderFallbackException] {
+        if (-not $IsWindows) {
+            throw
+        }
+        $ansiCodePage = [System.Globalization.CultureInfo]::CurrentCulture.TextInfo.ANSICodePage
+        $ansi = [System.Text.Encoding]::GetEncoding(
+            $ansiCodePage,
+            [System.Text.EncoderFallback]::ExceptionFallback,
+            [System.Text.DecoderFallback]::ExceptionFallback)
+        return $ansi.GetString($Bytes)
+    }
+}
+
 function Invoke-InstallLeafProcess {
     <#
     .SYNOPSIS
@@ -622,7 +709,7 @@ function Invoke-InstallLeafProcess {
         透传给叶子的参数数组。
 
     .PARAMETER ShowProgress
-        是否向 stderr 写入受控的步骤启动信息和 elapsed heartbeat。
+        是否向 stderr 写入一次受控的步骤启动信息。
 
     .PARAMETER StepNumber
         用于进度输出的稳定步骤编号。
@@ -676,6 +763,10 @@ function Invoke-InstallLeafProcess {
     $process = [System.Diagnostics.Process]::new()
     $process.StartInfo = $startInfo
     $processStarted = $false
+    $stdoutBuffer = [System.IO.MemoryStream]::new()
+    $stderrBuffer = [System.IO.MemoryStream]::new()
+    $stdoutCopyTask = $null
+    $stderrCopyTask = $null
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     try {
         if (-not $process.Start()) {
@@ -685,22 +776,19 @@ function Invoke-InstallLeafProcess {
         if ($ShowProgress) {
             [Console]::Error.WriteLine(("[Running] {0} {1}: {2}" -f $StepNumber, $StepId, $command))
         }
-        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
-        $stderrTask = $process.StandardError.ReadToEndAsync()
-        $nextHeartbeatMilliseconds = $script:InstallProgressHeartbeatMilliseconds
+        # 同时复制两个原始字节流，避免长输出填满任一管道，并把解码边界统一放到进程退出之后。
+        $stdoutCopyTask = $process.StandardOutput.BaseStream.CopyToAsync($stdoutBuffer)
+        $stderrCopyTask = $process.StandardError.BaseStream.CopyToAsync($stderrBuffer)
         while (-not $process.WaitForExit($script:InstallProcessPollMilliseconds)) {
             if ($PSCmdlet.Stopping) {
                 throw [System.Management.Automation.PipelineStoppedException]::new()
             }
-            if ($ShowProgress -and $stopwatch.ElapsedMilliseconds -ge $nextHeartbeatMilliseconds) {
-                $elapsedSeconds = [long][Math]::Floor($stopwatch.Elapsed.TotalSeconds)
-                [Console]::Error.WriteLine(("[Running] {0} {1} elapsed={2}s" -f $StepNumber, $StepId, $elapsedSeconds))
-                $nextHeartbeatMilliseconds += $script:InstallProgressHeartbeatMilliseconds
-            }
         }
         $process.WaitForExit()
-        $stdout = $stdoutTask.GetAwaiter().GetResult()
-        $stderr = $stderrTask.GetAwaiter().GetResult()
+        $null = $stdoutCopyTask.GetAwaiter().GetResult()
+        $null = $stderrCopyTask.GetAwaiter().GetResult()
+        $stdout = ConvertFrom-InstallOutputBytes -Bytes ([byte[]]$stdoutBuffer.ToArray())
+        $stderr = ConvertFrom-InstallOutputBytes -Bytes ([byte[]]$stderrBuffer.ToArray())
         $stopwatch.Stop()
         return [pscustomobject]@{
             ExitCode   = $process.ExitCode
@@ -717,7 +805,23 @@ function Invoke-InstallLeafProcess {
         if ($processStarted -and -not $process.HasExited) {
             Stop-InstallProcessTree -Process $process
         }
+        if ($processStarted) {
+            $pendingCopyTasks = @(@($stdoutCopyTask, $stderrCopyTask) |
+                    Where-Object { $null -ne $_ -and -not $_.IsCompleted })
+            if ($pendingCopyTasks.Count -gt 0) {
+                try {
+                    $null = [System.Threading.Tasks.Task]::WaitAll(
+                        [System.Threading.Tasks.Task[]]$pendingCopyTasks,
+                        5000)
+                }
+                catch {
+                    Write-Verbose "等待叶子输出流回收失败: $($_.Exception.Message)"
+                }
+            }
+        }
         $process.Dispose()
+        $stdoutBuffer.Dispose()
+        $stderrBuffer.Dispose()
     }
 }
 
@@ -758,12 +862,10 @@ function Invoke-InstallSourceRestore {
             '-OutputFormat', 'Json'
         )
 
-    $messageSource = if (-not [string]::IsNullOrWhiteSpace($processResult.Stderr)) {
-        $processResult.Stderr
-    }
-    else {
-        $processResult.Stdout
-    }
+    $messageSource = Select-InstallDiagnosticText `
+        -Stdout $processResult.Stdout `
+        -Stderr $processResult.Stderr `
+        -ExitCode $processResult.ExitCode
     $message = Protect-InstallDiagnostic -Text $messageSource
     if ($processResult.ExitCode -eq 0) {
         try {
@@ -1116,7 +1218,10 @@ function Invoke-InstallOrchestrator {
                 10 { 'Blocked' }
                 default { 'Failed' }
             }
-            $messageSource = if (-not [string]::IsNullOrWhiteSpace($processResult.Stderr)) { $processResult.Stderr } else { $processResult.Stdout }
+            $messageSource = Select-InstallDiagnosticText `
+                -Stdout $processResult.Stdout `
+                -Stderr $processResult.Stderr `
+                -ExitCode $processResult.ExitCode
             $message = Protect-InstallDiagnostic -Text $messageSource
 
             if ($planStep.Id -eq 'sources' -and -not [string]::IsNullOrWhiteSpace($processResult.Stdout)) {

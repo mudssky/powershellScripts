@@ -135,6 +135,11 @@ $sourceOutput
 if (`$env:INSTALL_FIXTURE_DELAY_STEP -eq '$stepId') {
     Start-Sleep -Milliseconds ([int]`$env:INSTALL_FIXTURE_DELAY_MILLISECONDS)
 }
+if (`$env:INSTALL_FIXTURE_DIAGNOSTIC_STEP -eq '$stepId') {
+    1..200 | ForEach-Object { Write-Output ("success-log-{0}: {1}" -f `$_, ('x' * 32)) }
+    Write-Output '[Failed] delta: command=scoop install delta; exitCode=1; outputTail=bucket update failed token=fixture-secret'
+    exit 1
+}
 if (`$env:INSTALL_FIXTURE_CHILD_STEP -eq '$stepId') {
     `$childStartInfo = [System.Diagnostics.ProcessStartInfo]::new()
     `$childStartInfo.FileName = (Get-Command pwsh -ErrorAction Stop).Source
@@ -224,6 +229,7 @@ exit $exitCode
         Remove-Item Env:\INSTALL_FIXTURE_DELAY_MILLISECONDS -ErrorAction SilentlyContinue
         Remove-Item Env:\INSTALL_FIXTURE_CHILD_STEP -ErrorAction SilentlyContinue
         Remove-Item Env:\INSTALL_FIXTURE_CHILD_PID_LOG -ErrorAction SilentlyContinue
+        Remove-Item Env:\INSTALL_FIXTURE_DIAGNOSTIC_STEP -ErrorAction SilentlyContinue
         $script:RestoreLog = Join-Path $script:FixtureRoot 'restore.log'
         $env:INSTALL_FIXTURE_RESTORE_LOG = $script:RestoreLog
     }
@@ -236,6 +242,7 @@ exit $exitCode
         Remove-Item Env:\INSTALL_FIXTURE_DELAY_MILLISECONDS -ErrorAction SilentlyContinue
         Remove-Item Env:\INSTALL_FIXTURE_CHILD_STEP -ErrorAction SilentlyContinue
         Remove-Item Env:\INSTALL_FIXTURE_CHILD_PID_LOG -ErrorAction SilentlyContinue
+        Remove-Item Env:\INSTALL_FIXTURE_DIAGNOSTIC_STEP -ErrorAction SilentlyContinue
         Remove-Item Env:\INSTALL_FIXTURE_RESTORE_LOG -ErrorAction SilentlyContinue
         if ($script:FixtureRoot -and (Test-Path -LiteralPath $script:FixtureRoot)) {
             Remove-Item -LiteralPath $script:FixtureRoot -Recurse -Force
@@ -255,7 +262,7 @@ exit $exitCode
         @($document.Results.Status | Select-Object -Unique) | Should -Be @('Succeeded')
     }
 
-    It 'writes progress before a long Text step exits' {
+    It 'writes exactly one startup progress line before a long Text step exits' {
         $env:INSTALL_FIXTURE_DELAY_STEP = 'profile-tools'
         $env:INSTALL_FIXTURE_DELAY_MILLISECONDS = '1600'
         $originalError = [Console]::Error
@@ -267,8 +274,6 @@ exit $exitCode
             $null = $powerShell.AddScript({
                     param($ModulePath, $Registry, $RepoRoot)
                     Import-Module $ModulePath -Force
-                    $module = Get-Module InstallOrchestrator
-                    & $module { $script:InstallProgressHeartbeatMilliseconds = 200 }
                     Invoke-InstallOrchestrator `
                         -Registry $Registry `
                         -RepoRoot $RepoRoot `
@@ -280,7 +285,7 @@ exit $exitCode
             $asyncResult = $powerShell.BeginInvoke()
 
             foreach ($attempt in 1..80) {
-                if ($writer.ToString() -match '\[Running\] 07 profile-tools elapsed=1s') {
+                if ($writer.ToString() -match '\[Running\] 07 profile-tools: .*profile-tools\.ps1') {
                     break
                 }
                 Start-Sleep -Milliseconds 25
@@ -302,7 +307,66 @@ exit $exitCode
 
         $document.Status | Should -Be 'Succeeded'
         $progressBeforeExit | Should -Match '\[Running\] 07 profile-tools: .*profile-tools\.ps1'
-        $progressBeforeExit | Should -Match '\[Running\] 07 profile-tools elapsed=1s'
+        $writer.ToString() | Should -Not -Match 'elapsed='
+        @([regex]::Matches($writer.ToString(), '\[Running\] 07 profile-tools')).Count | Should -Be 1
+    }
+
+    It 'preserves long UTF-8 stdout and stderr across buffer boundaries' {
+        $fixturePath = Join-Path $script:FixtureRoot 'utf8-output.ps1'
+        Set-Content -LiteralPath $fixturePath -Encoding utf8NoBOM -Value @'
+$stdoutText = 'stdout-start|' + ('中文输出-边界|' * 2500) + 'stdout-end'
+$stderrText = 'stderr-start|' + ('错误诊断-边界|' * 2500) + 'stderr-end'
+[Console]::Out.Write($stdoutText)
+[Console]::Error.Write($stderrText)
+'@
+        $expectedStdout = 'stdout-start|' + ('中文输出-边界|' * 2500) + 'stdout-end'
+        $expectedStderr = 'stderr-start|' + ('错误诊断-边界|' * 2500) + 'stderr-end'
+        $module = Get-Module InstallOrchestrator
+
+        $result = & $module { param($Path) Invoke-InstallLeafProcess -Runner pwsh -ScriptPath $Path } $fixturePath
+
+        $result.ExitCode | Should -Be 0
+        $result.Stdout | Should -BeExactly $expectedStdout
+        $result.Stderr | Should -BeExactly $expectedStderr
+        $result.Stdout | Should -Not -Match ([char]0xfffd)
+        $result.Stderr | Should -Not -Match ([char]0xfffd)
+    }
+
+    It 'decodes a round-trippable Windows ANSI output fallback without replacement characters' -Skip:(-not $IsWindows) {
+        $text = '本地编码诊断'
+        $codePage = [System.Globalization.CultureInfo]::CurrentCulture.TextInfo.ANSICodePage
+        $encoding = [System.Text.Encoding]::GetEncoding($codePage)
+        $bytes = $encoding.GetBytes($text)
+        if ($encoding.GetString($bytes) -ne $text) {
+            Set-ItResult -Skipped -Because "ANSI code page $codePage 无法往返中文夹具"
+            return
+        }
+        $module = Get-Module InstallOrchestrator
+
+        $decoded = & $module { param($InputBytes) ConvertFrom-InstallOutputBytes -Bytes $InputBytes } $bytes
+
+        $decoded | Should -BeExactly $text
+        $decoded | Should -Not -Match ([char]0xfffd)
+    }
+
+    It 'prioritizes a failed item over long successful output and protects secrets' {
+        $env:INSTALL_FIXTURE_DIAGNOSTIC_STEP = 'core-cli'
+
+        $document = Invoke-InstallOrchestrator `
+            -Registry $script:FixtureRegistry `
+            -RepoRoot $script:FixtureRoot `
+            -Platform windows `
+            -Preset Core `
+            -Step @('core-cli')
+
+        $result = $document.Results[0]
+        $result.Status | Should -Be 'Failed'
+        $result.Message | Should -Match '\[Failed\] delta:'
+        $result.Message | Should -Match 'command=scoop install delta'
+        $result.Message | Should -Match 'exitCode=1'
+        $result.Message | Should -Match 'token=\[REDACTED\]'
+        $result.Message.Length | Should -BeLessOrEqual 1024
+        $result.Message | Should -Not -Match 'success-log-1:'
     }
 
     It 'keeps progress disabled for JSON-oriented calls by default' {

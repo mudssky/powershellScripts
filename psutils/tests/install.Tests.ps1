@@ -256,14 +256,16 @@ Describe "Install-PackageManagerApps 函数测试" {
                     )
                 }
             }
-            Mock -ModuleName install Test-PackageManagerAppInstalled { return $AppName -eq 'installed' }
-            Mock -ModuleName install Invoke-PackageInstallCommand { throw 'WhatIf 不应执行安装命令' }
-
-            $results = @(Install-PackageManagerApps -PackageManager homebrew -ConfigObject $config -TargetOS macOS -RequiredTag @('core', 'cli') -Required -WhatIf)
+            $results = @(InModuleScope install -Parameters @{ FixtureConfig = $config } {
+                    Mock Test-PackageManagerAppInstalled { return $AppName -eq 'installed' }
+                    Mock Invoke-PackageInstallCommand { throw 'WhatIf 不应执行安装命令' }
+                    $innerResults = @(Install-PackageManagerApps -PackageManager homebrew -ConfigObject $FixtureConfig -TargetOS macOS -RequiredTag @('core', 'cli') -Required -WhatIf)
+                    Should -Invoke Invoke-PackageInstallCommand -Times 0 -Exactly
+                    return $innerResults
+                })
 
             @($results.Status) | Should -Be @('AlreadyPresent', 'Preview', 'Skipped')
             @($results.Required | Select-Object -Unique) | Should -Be @($true)
-            Should -Invoke -ModuleName install Invoke-PackageInstallCommand -Times 0
         }
 
         It "单项失败后继续安装并返回 required failure" {
@@ -275,19 +277,25 @@ Describe "Install-PackageManagerApps 函数测试" {
                     )
                 }
             }
-            Mock -ModuleName install Test-PackageManagerAppInstalled { return $false }
-            Mock -ModuleName install Invoke-PackageInstallCommand {
-                if ($Command -match 'failed') {
-                    throw '模拟安装失败'
-                }
-                return 0
-            }
-
-            $results = @(Install-PackageManagerApps -PackageManager homebrew -ConfigObject $config -TargetOS macOS -RequiredTag @('core', 'cli') -Required)
+            $results = @(InModuleScope install -Parameters @{ FixtureConfig = $config } {
+                    Mock Test-PackageManagerAppInstalled { return $false }
+                    Mock Invoke-PackageInstallCommand {
+                        if ($Command -match 'failed') {
+                            throw '安装命令失败: command=brew install failed; exitCode=23; outputTail=模拟下载失败'
+                        }
+                        return 0
+                    }
+                    $innerResults = @(Install-PackageManagerApps -PackageManager homebrew -ConfigObject $FixtureConfig -TargetOS macOS -RequiredTag @('core', 'cli') -Required)
+                    Should -Invoke Invoke-PackageInstallCommand -Times 2 -Exactly
+                    Should -Invoke Invoke-PackageInstallCommand -Times 1 -Exactly -ParameterFilter { $Command -match 'failed' }
+                    return $innerResults
+                })
 
             @($results.Status) | Should -Be @('Failed', 'Installed')
             @($results | Where-Object { $_.Required -and $_.Status -eq 'Failed' }).Count | Should -Be 1
-            Should -Invoke -ModuleName install Invoke-PackageInstallCommand -Times 2
+            $results[0].Message | Should -Match 'command=brew install failed'
+            $results[0].Message | Should -Match 'exitCode=23'
+            $results[0].Message | Should -Match '模拟下载失败'
         }
     }
 
@@ -444,6 +452,35 @@ Describe "受限安装命令解析测试" {
             Invoke-PackageInstallCommand -Command 'scoop install eza' | Should -Be 0
 
             $script:CapturedInstallArguments | Should -Be @('install', 'eza')
+        }
+    }
+
+    It "失败时保留有界命令输出尾部和退出码" {
+        InModuleScope install {
+            Mock Write-Host { }
+            function Invoke-PackageInstallFailureFixture {
+                1..300 | ForEach-Object { "progress-$($_): $('x' * 24)" }
+                Write-Information 'information-stream-tail-marker' -InformationAction Continue
+                Write-Error 'bucket update failed: delta' -ErrorAction Continue
+                $global:LASTEXITCODE = 23
+            }
+            Mock Get-Command { [pscustomobject]@{ Source = 'Invoke-PackageInstallFailureFixture' } }
+
+            $message = try {
+                Invoke-PackageInstallCommand -Command 'scoop install delta'
+                ''
+            }
+            catch {
+                $_.Exception.Message
+            }
+
+            $message | Should -Match 'command=scoop install delta'
+            $message | Should -Match 'exitCode=23'
+            $message | Should -Match 'information-stream-tail-marker'
+            $message | Should -Match 'bucket update failed: delta'
+            $message | Should -Not -Match 'progress-1:'
+            $message.Length | Should -BeLessOrEqual 4600
+            Should -Invoke Write-Host -ParameterFilter { [string]$Object -eq 'information-stream-tail-marker' } -Times 1
         }
     }
 }

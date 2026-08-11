@@ -531,13 +531,42 @@ function Invoke-PackageInstallCommand {
         [string]$Command
     )
 
-    $parsed = ConvertFrom-PackageInstallCommand -Command $Command
-    $commandInfo = Get-Command $parsed.Executable -ErrorAction Stop
-    $arguments = @($parsed.ArgumentList)
-    & $commandInfo.Source @arguments
-    $exitCode = [int]$LASTEXITCODE
-    if ($exitCode -ne 0) {
-        throw "安装命令退出码为 ${exitCode}: $Command"
+    $tailMaxLength = 4096
+    $tail = [System.Text.StringBuilder]::new($tailMaxLength)
+    $exitCode = -1
+    $executionException = $null
+    try {
+        $parsed = ConvertFrom-PackageInstallCommand -Command $Command
+        $commandInfo = Get-Command $parsed.Executable -ErrorAction Stop
+        $arguments = @($parsed.ArgumentList)
+        & $commandInfo.Source @arguments *>&1 | ForEach-Object {
+            $line = [string]$_
+            if (-not [string]::IsNullOrWhiteSpace($line)) {
+                Write-Host $line
+                $null = $tail.AppendLine($line.TrimEnd())
+                if ($tail.Length -gt $tailMaxLength) {
+                    $tail.Remove(0, $tail.Length - $tailMaxLength) | Out-Null
+                }
+            }
+        }
+        $exitCode = [int]$LASTEXITCODE
+    }
+    catch {
+        $executionException = $_.Exception
+        if (-not [string]::IsNullOrWhiteSpace($executionException.Message)) {
+            $null = $tail.AppendLine($executionException.Message)
+            if ($tail.Length -gt $tailMaxLength) {
+                $tail.Remove(0, $tail.Length - $tailMaxLength) | Out-Null
+            }
+        }
+    }
+
+    if ($null -ne $executionException -or $exitCode -ne 0) {
+        $outputTail = $tail.ToString().Trim()
+        if ([string]::IsNullOrWhiteSpace($outputTail)) {
+            $outputTail = '(no output)'
+        }
+        throw "安装命令失败: command=$Command; exitCode=$exitCode; outputTail=$outputTail"
     }
     return $exitCode
 }
