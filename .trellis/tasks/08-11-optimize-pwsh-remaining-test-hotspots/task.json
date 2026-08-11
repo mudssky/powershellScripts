@@ -1,0 +1,32 @@
+{
+  "id": "optimize-pwsh-remaining-test-hotspots",
+  "name": "optimize-pwsh-remaining-test-hotspots",
+  "title": "继续优化 PowerShell 全量测试剩余热点",
+  "description": "继续优化 PowerShell full 剩余热点，优先处理 install、平台入口和重复扫描导入成本。",
+  "status": "planning",
+  "dev_type": null,
+  "scope": "pwsh-tests",
+  "package": "pwsh-scripts",
+  "priority": "P2",
+  "creator": "mudssky",
+  "assignee": "mudssky",
+  "createdAt": "2026-08-11",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "master",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "psutils/tests/install.Tests.ps1",
+    "tests/WindowsInstallEntrypoint.Tests.ps1",
+    "tests/LinuxInstallPipeline.Tests.ps1",
+    "tests/PackageSources.Tests.ps1",
+    "PesterConfiguration.ps1"
+  ],
+  "notes": "上一任务三轮中位数 322.49 秒；待用户确认 290 秒串行目标或 240 秒外层并行目标。",
+  "meta": {}
+}

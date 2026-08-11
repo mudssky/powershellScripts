@@ -106,3 +106,26 @@
 - 单纯拆分 `.Tests.ps1` 不会缩短当前 full 时长，还会增加 discovery 和 BeforeAll 成本。
 - 本次实际收益来自模块内断言、共享导入、完整 command fixture 和进程边界 test hook。
 - 若未来需要并行，必须在 Pester 外层分片，并先设计 NUnit/coverage 合并与唯一输出路径。
+
+## 最终策略结论与后续方向
+
+本轮确认有效的主要策略按收益排序如下：
+
+1. 减少重复真实 `pwsh`/`bash`/`zsh` 子进程，把清单选择、平台分类和状态机分支迁移到模块内测试。
+2. 对编排器 Mock 稳定进程边界，仅保留 UTF-8、多流、单次 `[Running]`、退出码和中断进程树等真实进程合同。
+3. Windows 外部命令复用 `Find-ExecutableCommand` 批量扫描 PATH/PATHEXT；该探测比 `Get-Command` 快约 6.5-8.45 倍。
+4. 使用完整 `CommandAvailability` fixture 阻止单元测试静默回退宿主扫描；WinGet cmdlet 使用会话级模块能力 snapshot。
+5. 聚合模块和大型 fixture 在 `BeforeAll` 共享，避免动态用例反复完整 import/remove。
+6. 每轮性能测试使用唯一 NUnit3/JSON 路径；Docker 不可用时在启动 host lane 前快速失败。
+
+当前剩余热点以最终 coverage full 为参考：
+
+| 优先级 | 文件 | 典型耗时 | 后续实验 |
+|---|---|---:|---|
+| P1 | `psutils/tests/install.Tests.ps1` | 25-33s | 检查未 Mock 的 `Install-Module`、仓库查询和命令发现边界 |
+| P1 | `tests/WindowsInstallEntrypoint.Tests.ps1` | 21-25s | 在保留真实入口合同的前提下聚合进程 smoke |
+| P1 | `tests/LinuxInstallPipeline.Tests.ps1` | 23-26s | 继续分离模块合同与必要入口进程 |
+| P2 | `tests/PackageSources.Tests.ps1` | 17-29s | 定位事务 fixture、模块导入和文件系统初始化波动 |
+| P2 | `docker.Tests.ps1`、`Install.Tests.ps1`、`moduleContract.Tests.ps1` | 16-18s | 减少目录扫描、重复导入和宿主探测 |
+
+下一阶段应先做串行路径优化，现实目标为 Windows host coverage-on 三轮中位数 260-290 秒。只有目标要求显著低于 240 秒时，才考虑 Pester 外层分片；该方案必须同时实现 coverage 合并、NUnit 汇总、TestDrive 和环境变量隔离。
