@@ -454,7 +454,7 @@ param(
 '@
         $module = Get-Module InstallOrchestrator
         $temporaryPattern = Join-Path ([System.IO.Path]::GetTempPath()) 'powershellScripts-install-*.ps1'
-        $wrappersBefore = @(Get-ChildItem -Path $temporaryPattern -ErrorAction SilentlyContinue).FullName
+        $wrappersBefore = @(Get-ChildItem -Path $temporaryPattern -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })
 
         $result = & $module {
             param($Path)
@@ -467,7 +467,7 @@ param(
         $document.Preset | Should -Be 'Core'
         $document.Enabled | Should -BeTrue
         $result.Stdout | Should -Not -Match '^What if:'
-        $wrappersAfter = @(Get-ChildItem -Path $temporaryPattern -ErrorAction SilentlyContinue).FullName
+        $wrappersAfter = @(Get-ChildItem -Path $temporaryPattern -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })
         @($wrappersAfter | Where-Object { $_ -notin $wrappersBefore }) | Should -BeNullOrEmpty
     }
 
