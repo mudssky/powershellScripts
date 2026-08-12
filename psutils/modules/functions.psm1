@@ -1,5 +1,13 @@
 
 
+$installModulePath = Join-Path $PSScriptRoot 'install.psm1'
+if (-not (Get-Command Install-RequiredModule -ErrorAction SilentlyContinue)) {
+    if (-not (Test-Path -LiteralPath $installModulePath -PathType Leaf)) {
+        throw "缺少统一模块安装边界: $installModulePath"
+    }
+    Import-Module $installModulePath -Force
+}
+
 <#
 .SYNOPSIS
     获取PowerShell历史命令的使用频率排名
@@ -132,13 +140,6 @@ function Start-Ipython () {
     用途: 提升PowerShell命令行交互体验。
 #>
 function Start-PSReadline() {
-    if (-not (Get-Command Install-RequiredModule -ErrorAction SilentlyContinue)) {
-        $installModulePath = Join-Path $PSScriptRoot 'install.psm1'
-        if (-not (Test-Path -LiteralPath $installModulePath -PathType Leaf)) {
-            throw "缺少统一模块安装边界: $installModulePath"
-        }
-        Import-Module $installModulePath -Force
-    }
 
     $installResult = @(Install-RequiredModule -ModuleNames PSReadLine)
     if ($installResult.Count -eq 0 -or $installResult[0].Status -eq 'Failed') {

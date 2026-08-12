@@ -742,16 +742,33 @@ function Invoke-InstallLeafProcess {
 
     $runnerCommand = Get-Command $Runner -ErrorAction Stop
     $processArguments = [System.Collections.Generic.List[string]]::new()
+    $wrapperPath = $null
     if ($Runner -eq 'pwsh') {
+        $wrapperPath = Join-Path ([System.IO.Path]::GetTempPath()) ("powershellScripts-install-{0}.ps1" -f [guid]::NewGuid().ToString('N'))
+        $wrapperContent = @'
+param(
+    [Parameter(Mandatory, Position = 0)]
+    [string]$ScriptPath,
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [object[]]$RemainingArguments
+)
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+[Console]::InputEncoding = [System.Text.UTF8Encoding]::new($false)
+& $ScriptPath @RemainingArguments
+exit $LASTEXITCODE
+'@
+        [System.IO.File]::WriteAllText($wrapperPath, $wrapperContent, [System.Text.UTF8Encoding]::new($false))
         $processArguments.Add('-NoProfile')
         $processArguments.Add('-File')
+        $processArguments.Add($wrapperPath)
     }
     $processArguments.Add($ScriptPath)
     foreach ($argument in @($ArgumentList)) {
         $processArguments.Add([string]$argument)
     }
 
-    $command = Format-InstallCommand -Executable $runnerCommand.Source -Arguments $processArguments.ToArray()
+    $displayArguments = @('-NoProfile', '-File', $ScriptPath) + @($ArgumentList)
+    $command = Format-InstallCommand -Executable $runnerCommand.Source -Arguments $(if ($Runner -eq 'pwsh') { $displayArguments } else { $processArguments.ToArray() })
     $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
     $startInfo.FileName = $runnerCommand.Source
     $startInfo.UseShellExecute = $false
@@ -824,6 +841,9 @@ function Invoke-InstallLeafProcess {
         $process.Dispose()
         $stdoutBuffer.Dispose()
         $stderrBuffer.Dispose()
+        if ($wrapperPath -and (Test-Path -LiteralPath $wrapperPath -PathType Leaf)) {
+            Remove-Item -LiteralPath $wrapperPath -Force -ErrorAction SilentlyContinue
+        }
     }
 }
 

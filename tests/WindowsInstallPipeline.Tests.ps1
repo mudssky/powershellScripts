@@ -30,6 +30,8 @@ BeforeAll {
         .PARAMETER ArgumentList
             传给脚本的参数数组。
 
+        .PARAMETER Environment
+            仅对子进程生效的环境变量覆盖。
         .OUTPUTS
             PSCustomObject。包含 ExitCode、Stdout 和 Stderr。
         #>
@@ -38,7 +40,9 @@ BeforeAll {
             [Parameter(Mandatory)]
             [string]$ScriptPath,
 
-            [string[]]$ArgumentList
+            [string[]]$ArgumentList,
+
+            [hashtable]$Environment = @{}
         )
 
         $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
@@ -46,6 +50,9 @@ BeforeAll {
         $startInfo.UseShellExecute = $false
         $startInfo.RedirectStandardOutput = $true
         $startInfo.RedirectStandardError = $true
+        foreach ($entry in $Environment.GetEnumerator()) {
+            $startInfo.Environment[[string]$entry.Key] = [string]$entry.Value
+        }
         foreach ($argument in @('-NoLogo', '-NoProfile', '-File', $ScriptPath) + @($ArgumentList)) {
             $startInfo.ArgumentList.Add([string]$argument)
         }
@@ -348,30 +355,37 @@ Describe 'Windows 声明式 package catalog' {
     }
 
     It 'Windows 验证 JSON 不包含 Scoop Information stream' {
-        function global:scoop {
-            [CmdletBinding()]
-            param(
-                [Parameter(ValueFromRemainingArguments)]
-                [object[]]$RemainingArguments
+        $shimRoot = Join-Path $TestDrive 'scoop-shim'
+        New-Item -ItemType Directory -Path $shimRoot -Force | Out-Null
+        if ($IsWindows) {
+            $shimPath = Join-Path $shimRoot 'scoop.cmd'
+            Set-Content -LiteralPath $shimPath -Encoding ascii -Value @(
+                '@echo off',
+                'echo Installed apps:',
+                'echo JetBrainsMono-NF',
+                'echo FiraCode-NF'
             )
-
-            Write-Host 'Installed apps:'
-            Write-Output ([pscustomobject]@{ Name = 'JetBrainsMono-NF' })
-            Write-Output ([pscustomobject]@{ Name = 'FiraCode-NF' })
+        }
+        else {
+            $shimPath = Join-Path $shimRoot 'scoop'
+            Set-Content -LiteralPath $shimPath -Encoding utf8NoBOM -Value @(
+                '#!/usr/bin/env sh',
+                'echo "Installed apps:"',
+                'echo "JetBrainsMono-NF"',
+                'echo "FiraCode-NF"'
+            )
+            chmod +x $shimPath
         }
 
-        try {
-            $output = @(& (Join-Path $script:RepoRoot 'windows/pwsh/Test-InstallState.ps1') `
-                    -Step fonts `
-                    -OutputFormat Json 6>&1)
-            $document = ($output -join [System.Environment]::NewLine) | ConvertFrom-Json
+        $result = Invoke-WindowsTestProcess `
+            -ScriptPath (Join-Path $script:RepoRoot 'windows/pwsh/Test-InstallState.ps1') `
+            -ArgumentList @('-Step', 'fonts', '-OutputFormat', 'Json') `
+            -Environment @{ PATH = $shimRoot + [System.IO.Path]::PathSeparator + $env:PATH }
+        $document = $result.Stdout | ConvertFrom-Json
 
-            @($document).Count | Should -Be 2
-            @($document.Status | Select-Object -Unique) | Should -Be @('Pass')
-        }
-        finally {
-            Remove-Item Function:\global:scoop -ErrorAction SilentlyContinue
-        }
+        $result.ExitCode | Should -Be 0 -Because $result.Stderr
+        @($document).Count | Should -Be 2
+        @($document.Status | Select-Object -Unique) | Should -Be @('Pass')
     }
 }
 

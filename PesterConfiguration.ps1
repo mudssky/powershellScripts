@@ -41,10 +41,10 @@ $defaultTestResultPath = Join-Path $reportDirectory 'testResults.xml'
 $coveragePath = if (-not [string]::IsNullOrWhiteSpace($env:PESTER_COVERAGE_PATH)) { $env:PESTER_COVERAGE_PATH } else { $defaultCoveragePath }
 
 $includeSlow = $env:PWSH_TEST_INCLUDE_SLOW -in @('1', 'true', 'yes', 'on')
-$excludeTags = if ($includeSlow) { @() } else { @('Slow') }
-if ($IsLinux -or $IsMacOS) {
-    $excludeTags += 'windowsOnly'
-}
+$excludeTags = @(
+    if (-not $includeSlow) { 'Slow' }
+    if ($IsLinux -or $IsMacOS) { 'windowsOnly' }
+)
 
 
 $isCI = $env:CI -in @('true', '1', 'yes', 'on')

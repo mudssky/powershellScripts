@@ -30,6 +30,9 @@ node scripts/pester-duration-report.mjs \
 - `PWSH_TEST_ENABLE_COVERAGE`：显式控制 coverage；`full` 验收保持开启。
 - duration JSON 必须包含 `schemaVersion`、`command`、`lane`、`startedAt`、`endedAt`、`elapsedMs`、`exitCode`、`phases`、`nunitPath`、`coveragePath`、`files` 和 `testCases`。
 - `test:pwsh:all` 必须在启动 host lane 前检查 Docker CLI、daemon 和 Compose；缺失时输出 `pnpm test:pwsh:full` fallback，不启动长测试。
+- `Filter.ExcludeTag` 必须始终是独立字符串数组；PowerShell 条件表达式可能把单元素数组展开为标量，后续 `+=` 会退化成字符串拼接，因此应使用显式数组收集块构造标签。
+- hosted runner 回归测试不得假设机器预装 Pester 5.7.1、Scoop 或 WSL 发行版；旧版本模块使用临时 `PSModulePath` fixture，原生命令使用临时 PATH shim，无 WSL 发行版时只跳过依赖真实 guest 的用例。
+- `pwsh` 叶子进程必须在写出端固定 UTF-8 标准流编码；父进程只负责并发复制原始字节和严格解码，不能在字符已被当前代码页替换后补救。
 
 ## 4. Validation & Error Matrix
 
@@ -43,6 +46,9 @@ node scripts/pester-duration-report.mjs \
 | 完整命令 fixture 缺字段 | 测试应显式失败，不回退真实 `Get-Command` 扫描 |
 | 命令显式指定 `-PesterVersion` | artifact 的 `pesterVersion` 与该参数一致 |
 | pnpm 等间接入口未显式指定版本 | 依次使用 `PWSH_PESTER_VERSION`、`.pester-version`；两者都不存在时才探测已安装版本 |
+| 多个排除标签显示为 `SlowwindowsOnly` | 配置构造失败；必须保留 `Slow`、`windowsOnly` 等独立数组元素 |
+| hosted runner 缺少旧 Pester、Scoop 或 WSL guest | 使用隔离模块/命令 fixture；仅真实 WSL guest 用例按能力 Skip |
+| Windows 子进程长 UTF-8 输出出现 `?` | 在 `pwsh -File` 临时 wrapper 中先设置 Console UTF-8，再执行真实脚本并透传退出码 |
 
 ## 5. Good / Base / Bad Cases
 
@@ -56,6 +62,9 @@ node scripts/pester-duration-report.mjs \
 - all runner：Docker CLI、daemon、Compose 三类预检失败，以及成功时 host/linux lane 启动顺序。
 - Windows 命令发现：present/missing、PATH 变化、Scoop cmd shim、WinGet module export、完整 `CommandAvailability`。
 - 编排器：状态机调用顺序与次数；真实 UTF-8、多流、Running、中断进程树清理。
+- 配置筛选：Windows 保留独立 `Slow`，Linux/macOS 保留独立 `Slow` 与 `windowsOnly`，禁止出现 `SlowwindowsOnly`。
+- hosted runner 隔离：旧 Pester 用标准版本模块目录注入临时 `PSModulePath`；Scoop 用临时 PATH shim；Windows 无 WSL 发行版时 guest smoke 明确 Skip。
+- `pwsh` 子进程：临时 UTF-8 wrapper 不出现在展示命令中，且长 stdout/stderr、退出码、`[Running]` 与中断进程树清理合同全部通过。
 - 性能验收：Windows host coverage-on 连续 3 轮，报告中位数、最慢值和 coverage；样本期间不得并发运行其他 Pester。
 
 ## 7. Wrong vs Correct
@@ -72,6 +81,14 @@ Get-WindowsInstallEnvironment -CommandAvailability @{ winget = $true }
 ```powershell
 # fixture 覆盖模块要求的全部命令能力，纯分类测试不访问宿主环境。
 Get-WindowsInstallEnvironment -CommandAvailability $completeCommandAvailability
+```
+
+```powershell
+# 条件表达式结果用数组收集块固定，避免单元素结果退化为字符串。
+$excludeTags = @(
+    if (-not $includeSlow) { 'Slow' }
+    if ($IsLinux -or $IsMacOS) { 'windowsOnly' }
+)
 ```
 
 ## Design Decisions

@@ -1,7 +1,7 @@
 Set-StrictMode -Version Latest
 
 BeforeAll {
-    $script:RepoRoot = Join-Path $PSScriptRoot '..'
+    $script:RepoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
     $script:ToolRoot = Join-Path $script:RepoRoot 'scripts/pwsh/devops/browser-debug'
     $env:PWSH_TEST_SKIP_BROWSER_DEBUG_MAIN = '1'
     . (Join-Path $script:ToolRoot 'main.ps1')

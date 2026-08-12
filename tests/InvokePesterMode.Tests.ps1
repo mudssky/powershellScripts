@@ -29,6 +29,19 @@ function global:Invoke-Pester {
     }
 }
 '@ | Set-Content -LiteralPath (Join-Path $script:TestRepo 'PesterConfiguration.ps1')
+        $script:FakePesterRoot = Join-Path $script:TestRepo 'modules'
+        $script:FakePesterVersionRoot = Join-Path $script:FakePesterRoot 'Pester/5.7.1'
+        $script:FakePesterModule = Join-Path $script:FakePesterVersionRoot 'Pester.psm1'
+        $script:FakePesterManifest = Join-Path $script:FakePesterVersionRoot 'Pester.psd1'
+        New-Item -ItemType Directory -Path $script:FakePesterVersionRoot -Force | Out-Null
+        Set-Content -LiteralPath $script:FakePesterModule -Value @'
+function New-PesterConfiguration {
+    [pscustomobject]@{ Run = [pscustomobject]@{ Exit = $false } }
+}
+Export-ModuleMember -Function New-PesterConfiguration
+'@
+        New-ModuleManifest -Path $script:FakePesterManifest -RootModule 'Pester.psm1' -ModuleVersion '5.7.1' -FunctionsToExport 'New-PesterConfiguration'
+
     }
 
     AfterEach {
@@ -99,17 +112,25 @@ $results | ConvertTo-Json -Compress
         ($results | Where-Object Name -eq 'NoImportedPesterLeak').Value | Should -Be 'False'
         ($results | Where-Object Name -eq 'RestoredEnvironment').Value | Should -Be 'false|||'
 
-        $unsupportedOutput = & pwsh -NoProfile -File $script:WrapperTarget -Mode full -Coverage Off -PesterVersion 5.7.1 -Parallel 2>&1 | Out-String
+        $originalModulePath = $env:PSModulePath
+        try {
+            $env:PSModulePath = $script:FakePesterRoot + [System.IO.Path]::PathSeparator + $originalModulePath
+            $unsupportedOutput = & pwsh -NoProfile -File $script:WrapperTarget -Mode full -Coverage Off -PesterVersion 5.7.1 -Parallel 2>&1 | Out-String
+        }
+        finally {
+            $env:PSModulePath = $originalModulePath
+        }
         $LASTEXITCODE | Should -Not -Be 0
         $unsupportedOutput | Should -Match '不支持 Run\.Parallel'
         ($results | Where-Object Name -eq 'MissingVersion').Value | Should -Match '未安装 Pester 99\.99\.99'
     }
 
     It '已加载不同 Pester 版本时要求独立进程' {
-        $command = @'
+        $command = @"
+`$env:PSModulePath = '$($script:FakePesterRoot.Replace("'", "''"))' + [System.IO.Path]::PathSeparator + `$env:PSModulePath
 Import-Module Pester -RequiredVersion 5.7.1 -Force
-& $env:INVOKE_PESTER_MODE_TEST_WRAPPER -Mode qa -PesterVersion '6.1.0'
-'@
+& `$env:INVOKE_PESTER_MODE_TEST_WRAPPER -Mode qa -PesterVersion '6.1.0'
+"@
 
         $output = & pwsh -NoProfile -Command $command 2>&1 | Out-String
 

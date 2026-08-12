@@ -103,6 +103,14 @@ Describe 'WSL SSH 宿主与客体入口合同' {
     }
 
     It 'guest 测试模式输出零副作用单文档 Preview' {
+        if ($IsWindows) {
+            $distributions = @(wsl.exe --list --quiet 2>$null | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+            if ($LASTEXITCODE -ne 0 -or $distributions.Count -eq 0) {
+                Set-ItResult -Skipped -Because '当前 Windows 宿主没有可用 WSL 发行版'
+                return
+            }
+        }
+
         $original = $env:WSL_SSH_ACCESS_TEST_MODE
         try {
             $env:WSL_SSH_ACCESS_TEST_MODE = '1'

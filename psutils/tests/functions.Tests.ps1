@@ -1,5 +1,10 @@
 BeforeAll {
+    Remove-Module functions, install -Force -ErrorAction SilentlyContinue
     Import-Module (Join-Path $PSScriptRoot '..' 'modules' 'functions.psm1') -Force
+}
+
+AfterAll {
+    Remove-Module functions, install -Force -ErrorAction SilentlyContinue
 }
 
 Describe "Start-PSReadline 函数测试" {

@@ -104,6 +104,19 @@ Describe 'PesterConfiguration 并行保护' {
         { & $script:ConfigPath } | Should -Throw '*必须为 0 到 128 的整数*'
     }
 
+    It '按平台保留独立排除标签而非字符串拼接' {
+        $env:PWSH_TEST_INCLUDE_SLOW = 'false'
+
+        $config = & $script:ConfigPath
+        $excludeTags = @($config.Filter.ExcludeTag.Value)
+
+        $excludeTags | Should -Contain 'Slow'
+        if ($IsLinux -or $IsMacOS) {
+            $excludeTags | Should -Contain 'windowsOnly'
+            $excludeTags | Should -Not -Contain 'SlowwindowsOnly'
+        }
+    }
+
     It 'IncludeSlow 移除默认 Slow 排除标签' {
         $env:PWSH_TEST_INCLUDE_SLOW = 'true'
 
