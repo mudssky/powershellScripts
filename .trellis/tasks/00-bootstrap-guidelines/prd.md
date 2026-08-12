@@ -22,8 +22,8 @@ the rest conversationally.
 ## Status (update the checkboxes as you complete each item)
 
 - [x] Add PowerShell config loading guidelines based on `psutils/src/config`
-- [ ] Fill guidelines for node-script
-- [ ] Add code examples
+- [x] Fill guidelines for node-script
+- [x] Add code examples
 
 ---
 
@@ -31,8 +31,9 @@ the rest conversationally.
 
 ### Package: node-script (`spec/node-script/`)
 
-- Frontend guidelines: `.trellis/spec/node-script/frontend/`
-
+- Package guidelines: `.trellis/spec/node-script/package/`
+- The generated frontend templates were removed because `scripts/node` is a
+  Node.js CLI package rather than a frontend application.
 
 ### Thinking guides (already populated)
 
@@ -67,6 +68,7 @@ usually much faster than documenting from scratch.
 ### Step 2: Analyze the codebase for anything not covered by existing docs
 
 Scan real code to discover patterns. Before writing each spec file:
+
 - Find 2-3 real examples of each pattern in the codebase.
 - Reference real file paths (not hypothetical ones).
 - Document anti-patterns the team clearly avoids.
