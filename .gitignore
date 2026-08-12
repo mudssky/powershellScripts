@@ -15,6 +15,7 @@ database-query.local.*
 # 本地运行数据与工具状态
 .shrimp-data/
 .playwright/
+.playwright-cli
 .serena/
 .cache/
 .ruff_cache/
