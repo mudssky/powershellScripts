@@ -84,7 +84,7 @@
     "concurrently": "^10.0.4",
     "execa": "^10.0.0",
     "husky": "^9.1.7",
-    "lint-staged": "^17.2.0",
+    "lint-staged": "^17.3.0",
     "rumdl": "^0.2.43",
     "turbo": "^2.10.6",
     "typescript": "^7.0.2",
