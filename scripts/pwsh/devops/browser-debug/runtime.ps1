@@ -746,31 +746,6 @@ function Add-BrowserDebugProfileShortcut {
 
 <##
 .SYNOPSIS
-    获取当前可用于局域网连接的 IPv4 地址。
-.OUTPUTS
-    System.String[]
-    返回已启用网卡的非回环、非 APIPA IPv4 地址。
-#>
-function Get-BrowserDebugLanIPv4Addresses {
-    [CmdletBinding()]
-    param()
-    return @(
-        [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces() |
-            Where-Object { $_.OperationalStatus -eq [System.Net.NetworkInformation.OperationalStatus]::Up } |
-            ForEach-Object { $_.GetIPProperties().UnicastAddresses } |
-            ForEach-Object { $_.Address } |
-            Where-Object {
-                $_.AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetwork -and
-                -not [System.Net.IPAddress]::IsLoopback($_) -and
-                -not $_.ToString().StartsWith('169.254.', [System.StringComparison]::Ordinal)
-            } |
-            ForEach-Object { $_.ToString() } |
-            Sort-Object -Unique
-    )
-}
-
-<##
-.SYNOPSIS
     构造启动帮助页使用的不可变快照。
 .PARAMETER Profile
     Profile 注册对象。
@@ -789,27 +764,8 @@ function New-BrowserDebugGuideSnapshot {
         [Parameter(Mandatory)][object]$StartResult,
         [Parameter(Mandatory)][object]$Registry
     )
-    $lanAddresses = @(Get-BrowserDebugLanIPv4Addresses)
     $actualPort = if ($StartResult.PSObject.Properties['cdpPort']) { [int]$StartResult.cdpPort } else { [int]$Profile.cdpPort }
-    $endpointHost = if ([string]$StartResult.mode -eq 'lan' -and [string]$StartResult.listenAddress -ne '0.0.0.0') { [string]$StartResult.listenAddress } else { '127.0.0.1' }
-    $endpoint = "http://${endpointHost}:$actualPort"
-    $directAddresses = if ([string]$StartResult.mode -ne 'lan') {
-        @()
-    }
-    elseif ([string]$StartResult.listenAddress -ne '0.0.0.0') {
-        @([string]$StartResult.listenAddress)
-    }
-    else { @($lanAddresses) }
-    $directConnections = @($directAddresses | ForEach-Object {
-            $directEndpoint = "http://${_}:$actualPort"
-            [pscustomobject]@{
-                address           = [string]$_
-                endpoint          = $directEndpoint
-                probeUrl          = "$directEndpoint/json/version"
-                playwrightCommand = "playwright-cli attach --cdp=$directEndpoint"
-                agentPrompt       = "请连接现有浏览器，不要创建新的浏览器实例。先确认 $directEndpoint/json/version 可访问，然后执行 ``playwright-cli attach --cdp=$directEndpoint``。"
-            }
-        })
+    $endpoint = "http://127.0.0.1:$actualPort"
     $snapshotProfile = $Profile.PSObject.Copy()
     $snapshotProfile.cdpPort = $actualPort
     $sshInfo = @(
@@ -818,25 +774,46 @@ function New-BrowserDebugGuideSnapshot {
             ForEach-Object { New-BrowserDebugSshInfo -Configuration $_ -Profile $snapshotProfile }
     )
     $cdpBrowser = if ($StartResult.cdpVersion -and $StartResult.cdpVersion.PSObject.Properties['Browser']) { [string]$StartResult.cdpVersion.Browser } else { $null }
-    return [pscustomobject]@{
-        generatedAt       = (Get-Date).ToString('o')
-        name              = [string]$Profile.name
-        browser           = [string]$Profile.browser
-        profilePath       = [string]$Profile.profilePath
-        cdpPort           = $actualPort
-        mode              = [string]$StartResult.mode
-        listenAddress     = [string]$StartResult.listenAddress
-        endpoint          = $endpoint
-        probeUrl          = "$endpoint/json/version"
-        playwrightCommand = "playwright-cli attach --cdp=$endpoint"
-        cdpVersion        = $cdpBrowser
-        lanAddresses      = $lanAddresses
-        directConnections = $directConnections
-        sshConfigurations = $sshInfo
-        agentPrompt       = if ($directConnections.Count -gt 1) {
-            '请连接现有浏览器，不要创建新的浏览器实例。请从页面列出的 LAN IPv4 直连项中选择远端可达地址，再使用对应的探测 URL 和 playwright-cli attach 命令。'
+    $localPrompt = "请连接现有浏览器，不要创建新的浏览器实例。先确认 $endpoint/json/version 可访问，然后执行 ``playwright-cli attach --cdp=$endpoint``。"
+    $tailscale = $null
+    $sshLocalForward = $null
+    if ([string]$StartResult.mode -eq 'lan') {
+        $tailscaleEndpoint = "http://<本机 MagicDNS 或 Tailscale IP>:$actualPort"
+        $tailscale = [pscustomobject]@{
+            enableCommand     = "tailscale serve --bg --yes --tcp=$actualPort tcp://127.0.0.1:$actualPort"
+            statusCommand     = 'tailscale serve status'
+            disableCommand    = "tailscale serve --tcp=$actualPort off"
+            endpoint          = $tailscaleEndpoint
+            probeUrl          = "$tailscaleEndpoint/json/version"
+            playwrightCommand = "playwright-cli attach --cdp=$tailscaleEndpoint"
+            agentPrompt       = "请通过 Tailnet 连接现有浏览器，不要创建新的浏览器实例。先确认 $tailscaleEndpoint/json/version 可访问，然后执行 ``playwright-cli attach --cdp=$tailscaleEndpoint``；访问权限受 Tailscale ACL/Grants 控制。"
         }
-        else { "请连接现有浏览器，不要创建新的浏览器实例。先确认 $endpoint/json/version 可访问，然后执行 ``playwright-cli attach --cdp=$endpoint``。" }
+        $sshCommand = "ssh -N -o ExitOnForwardFailure=yes -L ${actualPort}:127.0.0.1:$actualPort <windows-user>@<windows-host>"
+        $sshLocalForward = [pscustomobject]@{
+            sshCommand        = $sshCommand
+            endpoint          = $endpoint
+            probeUrl          = "$endpoint/json/version"
+            playwrightCommand = "playwright-cli attach --cdp=$endpoint"
+            agentPrompt       = "请在远端设备执行 ``$sshCommand``，然后连接现有浏览器，不要创建新的浏览器实例。先确认 $endpoint/json/version 可访问，再执行 ``playwright-cli attach --cdp=$endpoint``。"
+        }
+    }
+    return [pscustomobject]@{
+        generatedAt        = (Get-Date).ToString('o')
+        name               = [string]$Profile.name
+        browser            = [string]$Profile.browser
+        profilePath        = [string]$Profile.profilePath
+        cdpPort            = $actualPort
+        mode               = [string]$StartResult.mode
+        listenAddress      = [string]$StartResult.listenAddress
+        nativeLanReachable = $false
+        endpoint           = $endpoint
+        probeUrl           = "$endpoint/json/version"
+        playwrightCommand  = "playwright-cli attach --cdp=$endpoint"
+        cdpVersion         = $cdpBrowser
+        tailscale          = $tailscale
+        sshLocalForward    = $sshLocalForward
+        sshConfigurations  = $sshInfo
+        agentPrompt        = $localPrompt
     }
 }
 
@@ -852,7 +829,11 @@ function New-BrowserDebugGuideSnapshot {
 function ConvertTo-BrowserDebugGuideHtml {
     [CmdletBinding()]
     param([Parameter(Mandatory)][object]$Snapshot)
-    $encode = { param([object]$Value) [System.Net.WebUtility]::HtmlEncode([string]$Value) }
+    $templatePath = Join-Path $PSScriptRoot 'browser-debug-guide.template.html'
+    if (-not (Test-Path -LiteralPath $templatePath -PathType Leaf)) { throw "browser-debug 指南模板不存在: $templatePath" }
+    $template = Get-Content -LiteralPath $templatePath -Raw -Encoding utf8
+    # 额外编码 @，防止动态值在模板替换阶段伪造占位符。
+    $encode = { param([object]$Value) ([System.Net.WebUtility]::HtmlEncode([string]$Value)).Replace('@', '&#64;') }
     $copyField = {
         param([string]$Label, [string]$Value, [string]$Tone = 'default')
         $encodedLabel = & $encode $Label
@@ -864,86 +845,58 @@ function ConvertTo-BrowserDebugGuideHtml {
 </div>
 "@
     }
-
-    $lanRows = [System.Collections.Generic.List[string]]::new()
-    foreach ($connection in @($Snapshot.directConnections)) {
-        $address = & $encode $connection.address
-        $lanRows.Add(@"
-<article class="connection-item">
-<div class="connection-heading"><span class="connection-address">$address</span><span class="semantic-tag tag-lan">LAN IPv4</span></div>
-$(& $copyField 'CDP endpoint' ([string]$connection.endpoint) 'connect')
-$(& $copyField '探测地址' ([string]$connection.probeUrl))
-$(& $copyField 'Playwright attach' ([string]$connection.playwrightCommand))
-</article>
-"@)
-    }
-
     $sshRows = [System.Collections.Generic.List[string]]::new()
     foreach ($ssh in @($Snapshot.sshConfigurations)) {
         $sshName = & $encode $ssh.name
         $sshFields = [System.Collections.Generic.List[string]]::new()
         $sshFields.Add((& $copyField 'SSH 命令' ([string]$ssh.sshCommand) 'ssh'))
-        $sshEndpoint = $ssh.PSObject.Properties['endpoint']
-        $sshProbeUrl = $ssh.PSObject.Properties['probeUrl']
-        $sshPlaywrightCommand = $ssh.PSObject.Properties['playwrightCommand']
-        if ($sshEndpoint -and -not [string]::IsNullOrWhiteSpace([string]$sshEndpoint.Value)) { $sshFields.Add((& $copyField 'CDP endpoint' ([string]$sshEndpoint.Value) 'connect')) }
-        if ($sshProbeUrl -and -not [string]::IsNullOrWhiteSpace([string]$sshProbeUrl.Value)) { $sshFields.Add((& $copyField '探测地址' ([string]$sshProbeUrl.Value))) }
-        if ($sshPlaywrightCommand -and -not [string]::IsNullOrWhiteSpace([string]$sshPlaywrightCommand.Value)) { $sshFields.Add((& $copyField 'Playwright attach' ([string]$sshPlaywrightCommand.Value))) }
-        $sshRows.Add(@"
-<article class="connection-item">
-<div class="connection-heading"><span class="connection-address">$sshName</span><span class="semantic-tag tag-ssh">SSH</span></div>
-$($sshFields -join [Environment]::NewLine)
-</article>
-"@)
+        foreach ($field in @(@('endpoint', 'CDP endpoint', 'connect'), @('probeUrl', '探测地址', 'default'), @('playwrightCommand', 'Playwright attach', 'default'))) {
+            $property = $ssh.PSObject.Properties[$field[0]]
+            if ($property -and -not [string]::IsNullOrWhiteSpace([string]$property.Value)) { $sshFields.Add((& $copyField $field[1] ([string]$property.Value) $field[2])) }
+        }
+        $sshRows.Add("<article class=`"connection-item`"><div class=`"connection-heading`"><span class=`"connection-address`">$sshName</span><span class=`"semantic-tag tag-ssh`">SSH</span></div>$($sshFields -join [Environment]::NewLine)</article>")
     }
-
     $promptRows = [System.Collections.Generic.List[string]]::new()
-    $promptRows.Add((& $copyField '通用 Agent Prompt' ([string]$Snapshot.agentPrompt) 'prompt'))
-    foreach ($connection in @($Snapshot.directConnections)) {
-        $promptRows.Add((& $copyField "LAN $($connection.address)" ([string]$connection.agentPrompt) 'prompt'))
+    $promptRows.Add((& $copyField '本机 Agent Prompt' ([string]$Snapshot.agentPrompt) 'prompt'))
+    if ([string]$Snapshot.mode -eq 'lan') {
+        $promptRows.Add((& $copyField 'Tailscale Serve Agent Prompt' ([string]$Snapshot.tailscale.agentPrompt) 'prompt'))
+        $promptRows.Add((& $copyField 'SSH local forward Agent Prompt' ([string]$Snapshot.sshLocalForward.agentPrompt) 'prompt'))
     }
-    foreach ($ssh in @($Snapshot.sshConfigurations)) {
-        $promptRows.Add((& $copyField "SSH $($ssh.name)" ([string]$ssh.agentPrompt) 'prompt'))
-    }
-
-    $mode = & $encode $Snapshot.mode
-    $name = & $encode $Snapshot.name
-    $browser = & $encode $Snapshot.browser
-    $profilePath = & $encode $Snapshot.profilePath
-    $listenAddress = & $encode $Snapshot.listenAddress
-    $cdpVersion = & $encode $Snapshot.cdpVersion
-    $generatedAt = & $encode $Snapshot.generatedAt
-    $cdpPort = & $encode $Snapshot.cdpPort
-    $lanAddresses = & $encode (@($Snapshot.lanAddresses) -join ', ')
+    foreach ($ssh in @($Snapshot.sshConfigurations)) { $promptRows.Add((& $copyField "SSH $($ssh.name)" ([string]$ssh.agentPrompt) 'prompt')) }
     $modeLabel = if ([string]$Snapshot.mode -eq 'lan') { 'LAN 调试' } else { '本机调试' }
-    $warning = if ([string]$Snapshot.mode -eq 'lan') {
-        '<aside class="risk-notice" role="note"><div class="risk-icon" aria-hidden="true">!</div><div><strong>LAN 安全警告</strong><p>CDP 没有认证，同一网络中的可达主机可以完全控制此浏览器。本工具不会自动配置 Windows 防火墙，请仅在受控网络开放。</p></div></aside>'
+    $statusGrid = "<div class=`"status-item`"><span class=`"status-label`">运行模式</span><span class=`"status-value`">$(& $encode $modeLabel)</span></div><div class=`"status-item`"><span class=`"status-label`">CDP 端口</span><span class=`"status-value`">$(& $encode $Snapshot.cdpPort)</span></div><div class=`"status-item`"><span class=`"status-label`">浏览器版本</span><span class=`"status-value`">$(& $encode $Snapshot.cdpVersion)</span></div><div class=`"status-item`"><span class=`"status-label`">快照时间</span><span class=`"status-value`">$(& $encode $Snapshot.generatedAt)</span></div>"
+    $localSection = "<section class=`"tool-panel quick-connect`"><div class=`"panel-heading`"><div><span class=`"section-kicker`">快速连接</span><h2>本机 CDP</h2></div><span class=`"semantic-tag tag-connect`">Ready</span></div>$(& $copyField 'CDP endpoint' ([string]$Snapshot.endpoint) 'connect')$(& $copyField '探测地址' ([string]$Snapshot.probeUrl))$(& $copyField 'Playwright attach' ([string]$Snapshot.playwrightCommand))</section>"
+    $metadataSection = "<aside class=`"tool-panel metadata-panel`"><div class=`"panel-heading`"><div><span class=`"section-kicker`">运行上下文</span><h2>Profile metadata</h2></div></div><dl class=`"metadata-grid`"><div class=`"meta-row`"><dt class=`"meta-label`">Profile 路径</dt><dd class=`"meta-value`">$(& $encode $Snapshot.profilePath)</dd></div><div class=`"meta-row`"><dt class=`"meta-label`">浏览器</dt><dd class=`"meta-value`">$(& $encode $Snapshot.browser)</dd></div><div class=`"meta-row`"><dt class=`"meta-label`">请求监听地址</dt><dd class=`"meta-value`">$(& $encode $Snapshot.listenAddress)</dd></div><div class=`"meta-row`"><dt class=`"meta-label`">请求模式</dt><dd class=`"meta-value`">$(& $encode $Snapshot.mode)</dd></div></dl></aside>"
+    $remoteGuidance = ''
+    if ([string]$Snapshot.mode -eq 'lan') {
+        $remoteGuidance = "<aside class=`"risk-notice unavailable`" role=`"note`"><div class=`"risk-icon`" aria-hidden=`"true`">!</div><div><strong>远程 CDP 直连当前不生效</strong><p>当前 Windows Chrome/Edge 实际只监听 127.0.0.1；LAN 模式与请求监听地址不代表存在真实 LAN listener。请选择 Tailscale Serve 或 ssh -L。</p></div></aside><div class=`"scenario-stack`"><section class=`"scenario-section lan-section`"><div class=`"section-heading`"><div><span class=`"section-kicker`">推荐 · 多设备共享</span><h2>Tailscale Serve</h2></div><span class=`"semantic-tag tag-lan`">Tailnet</span></div><p class=`"connection-note`">只在 Tailnet 内提供访问，权限仍受 Tailscale ACL/Grants 控制；关闭示例只关闭当前 CDP TCP 端口。</p>$(& $copyField '启用 TCP forwarder' ([string]$Snapshot.tailscale.enableCommand) 'ssh')$(& $copyField '查看 Serve 状态' ([string]$Snapshot.tailscale.statusCommand))$(& $copyField '关闭当前 CDP 端口' ([string]$Snapshot.tailscale.disableCommand))$(& $copyField 'Tailnet endpoint' ([string]$Snapshot.tailscale.endpoint) 'connect')$(& $copyField '探测地址' ([string]$Snapshot.tailscale.probeUrl))$(& $copyField 'Playwright attach' ([string]$Snapshot.tailscale.playwrightCommand))</section><section class=`"scenario-section ssh-section`"><div class=`"section-heading`"><div><span class=`"section-kicker`">单设备 · 临时连接</span><h2>SSH local forward</h2></div><span class=`"semantic-tag tag-ssh`">远端执行</span></div>$(& $copyField 'ssh -L 命令' ([string]$Snapshot.sshLocalForward.sshCommand) 'ssh')$(& $copyField '远端本地 endpoint' ([string]$Snapshot.sshLocalForward.endpoint) 'connect')$(& $copyField '探测地址' ([string]$Snapshot.sshLocalForward.probeUrl))$(& $copyField 'Playwright attach' ([string]$Snapshot.sshLocalForward.playwrightCommand))</section></div>"
     }
-    else { '' }
-    $lanSection = if ($lanRows.Count -gt 0) {
-        "<section class=`"scenario-section lan-section`"><div class=`"section-heading`"><div><span class=`"section-kicker`">局域网直连</span><h2>LAN endpoints</h2></div><span class=`"section-count`">$($lanRows.Count) 个地址</span></div><div class=`"connection-list`">$($lanRows -join [Environment]::NewLine)</div></section>"
+    $registeredSshSection = if ($sshRows.Count -gt 0) { "<section class=`"scenario-section registered-ssh-section`"><div class=`"section-heading`"><div><span class=`"section-kicker`">已登记高级配置</span><h2>SSH configurations</h2></div><span class=`"section-count`">$($sshRows.Count) 个配置</span></div><div class=`"connection-list`">$($sshRows -join [Environment]::NewLine)</div></section>" } else { '' }
+    $agentSection = "<section class=`"scenario-section agent-section`"><div class=`"section-heading`"><div><span class=`"section-kicker`">Agent 交接</span><h2>Agent Prompts</h2></div></div><div class=`"connection-list`">$($promptRows -join [Environment]::NewLine)</div></section>"
+    $replacements = [ordered]@{
+        '@@BROWSER_DEBUG_PAGE_TITLE@@'             = "browser-debug - $(& $encode $Snapshot.name)"
+        '@@BROWSER_DEBUG_PROFILE_NAME@@'           = & $encode $Snapshot.name
+        '@@BROWSER_DEBUG_BROWSER@@'                = & $encode $Snapshot.browser
+        '@@BROWSER_DEBUG_STATUS_GRID@@'            = $statusGrid
+        '@@BROWSER_DEBUG_LOCAL_SECTION@@'          = $localSection
+        '@@BROWSER_DEBUG_METADATA_SECTION@@'       = $metadataSection
+        '@@BROWSER_DEBUG_REMOTE_GUIDANCE@@'        = $remoteGuidance
+        '@@BROWSER_DEBUG_REGISTERED_SSH_SECTION@@' = $registeredSshSection
+        '@@BROWSER_DEBUG_AGENT_SECTION@@'          = $agentSection
     }
-    else { '' }
-    $sshSection = if ($sshRows.Count -gt 0) {
-        "<section class=`"scenario-section ssh-section`"><div class=`"section-heading`"><div><span class=`"section-kicker`">远程转发</span><h2>SSH configurations</h2></div><span class=`"section-count`">$($sshRows.Count) 个配置</span></div><div class=`"connection-list`">$($sshRows -join [Environment]::NewLine)</div></section>"
+    foreach ($token in $replacements.Keys) {
+        $count = ([regex]::Matches($template, [regex]::Escape($token))).Count
+        if ($count -ne 1) { throw "browser-debug 指南模板占位符必须且只能出现一次: $token (实际 $count)" }
     }
-    else { '' }
-    return @"
-<!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>browser-debug - $name</title>
-<style>:root{color-scheme:light;--page:#f3f5f7;--surface:#ffffff;--surface-muted:#f8fafb;--text:#17212b;--muted:#5f6b76;--border:#d9e0e6;--green:#17824f;--green-soft:#e9f7ef;--cyan:#087f8c;--cyan-soft:#e7f7f8;--amber:#a15c00;--amber-soft:#fff4df;--red:#b23a3a;--red-soft:#fff0f0;--focus:#0b6bcb;--shadow:0 1px 2px rgba(23,33,43,.06)}*{box-sizing:border-box}body{margin:0;background:var(--page);color:var(--text);font-family:"Segoe UI",Arial,sans-serif;font-size:14px;line-height:1.5;letter-spacing:0}.shell{width:min(1180px,calc(100% - 32px));margin:24px auto 48px}.app-header{margin-bottom:16px;min-width:0}.brand-line{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:8px}.brand{font-size:14px;font-weight:700;color:var(--cyan)}.running-badge{display:inline-flex;align-items:center;gap:7px;color:var(--green);font-weight:600;background:var(--green-soft);border:1px solid #b9e2ca;padding:4px 9px;border-radius:6px}.status-dot{width:8px;height:8px;border-radius:50%;background:var(--green)}h1{font-size:28px;line-height:1.2;margin:0 0 5px;font-weight:680;overflow-wrap:anywhere}h1 span{color:var(--muted);font-weight:500}.subtitle{margin:0;color:var(--muted);overflow-wrap:anywhere}.status-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:8px;overflow:hidden;box-shadow:var(--shadow);margin-bottom:16px}.status-item{background:var(--surface);padding:13px 15px;min-width:0}.status-label,.section-kicker,.command-label,.meta-label{display:block;color:var(--muted);font-size:12px;font-weight:650}.status-value{display:block;margin-top:3px;font-size:15px;font-weight:650;overflow-wrap:anywhere}.content-grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(280px,.8fr);gap:16px;align-items:start}.tool-panel,.scenario-section{background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow);min-width:0}.quick-connect{padding:20px;border-top:3px solid var(--cyan)}.panel-heading,.section-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px}.panel-heading h2,.section-heading h2{font-size:18px;margin:2px 0 0}.semantic-tag,.section-count{display:inline-flex;align-items:center;white-space:nowrap;border-radius:6px;padding:3px 8px;font-size:12px;font-weight:650}.tag-connect{color:var(--cyan);background:var(--cyan-soft)}.tag-lan{color:var(--amber);background:var(--amber-soft)}.tag-ssh{color:#3756a3;background:#edf1ff}.command-field{min-width:0}.command-field+.command-field{margin-top:12px}.command-label{margin-bottom:5px}.copy-field{display:grid;grid-template-columns:minmax(0,1fr) 36px;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:var(--surface-muted);min-width:0}.command-connect .copy-field{border-color:#9fd6db;background:var(--cyan-soft)}.command-ssh .copy-field{border-color:#c9d2ef;background:#f3f5ff}.command-prompt .copy-field{border-color:#d8c7ef;background:#faf7ff}.copy-field code{display:block;padding:10px 12px;color:var(--text);font:13px/1.55 Consolas,"Courier New",monospace;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;min-width:0}.copy-button{display:grid;place-items:center;width:36px;min-height:36px;padding:0;border:0;border-left:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer}.copy-button svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.copy-button:hover{color:var(--cyan);background:#eef8f9}.copy-button:focus-visible{outline:3px solid var(--focus);outline-offset:-3px}.copy-button.is-copied{color:var(--green);background:var(--green-soft)}.metadata-panel{padding:20px}.metadata-grid{display:grid;grid-template-columns:1fr;gap:0;margin:0}.meta-row{padding:10px 0;border-bottom:1px solid #edf0f2;min-width:0}.meta-row:last-child{border-bottom:0}.meta-value{display:block;margin-top:2px;font-weight:550;overflow-wrap:anywhere}.risk-notice{display:flex;gap:12px;align-items:flex-start;margin:16px 0;padding:13px 15px;border:1px solid #efc589;border-left:4px solid var(--amber);border-radius:6px;background:var(--amber-soft);color:#613c08}.risk-notice p{margin:2px 0 0;color:#72511f}.risk-icon{display:grid;place-items:center;flex:0 0 24px;height:24px;border-radius:50%;background:var(--amber);color:#fff;font-weight:800}.scenario-stack{display:grid;gap:16px;margin-top:16px}.scenario-section{padding:20px}.lan-section{border-top:3px solid var(--amber)}.ssh-section{border-top:3px solid #536fb5}.agent-section{border-top:3px solid #7b5aa6}.connection-list{display:grid;gap:18px}.connection-item{min-width:0}.connection-item+.connection-item{padding-top:18px;border-top:1px solid var(--border)}.connection-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:11px}.connection-address{font-weight:700;overflow-wrap:anywhere}.icon-sprite{position:absolute;width:0;height:0;overflow:hidden}.toast{position:fixed;right:20px;bottom:20px;z-index:10;max-width:min(360px,calc(100% - 32px));padding:10px 14px;border-radius:6px;background:#17212b;color:#fff;box-shadow:0 8px 24px rgba(23,33,43,.18);opacity:0;transform:translateY(8px);pointer-events:none;transition:opacity .15s ease,transform .15s ease}.toast.is-visible{opacity:1;transform:translateY(0)}@media(max-width:900px){.status-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.content-grid{grid-template-columns:1fr}}@media(max-width:720px){.shell{width:min(100% - 20px,1180px);margin-top:14px}.brand-line,.panel-heading,.section-heading,.connection-heading{align-items:flex-start}.status-grid{grid-template-columns:1fr 1fr}.quick-connect,.metadata-panel,.scenario-section{padding:15px}h1{font-size:23px}.copy-field code{font-size:12px;padding:9px 10px}}@media(max-width:440px){.status-grid{grid-template-columns:1fr}.brand-line{flex-direction:column;gap:6px}.running-badge{align-self:flex-start}}@media(prefers-reduced-motion:reduce){.toast{transition:none}}</style>
-<style>body{display:flex;justify-content:center}.shell{flex:0 1 1180px;min-width:0}.app-header{text-align:center}.brand-line{justify-content:center}main{text-align:left}@media(max-width:720px){.brand-line{align-items:center}}@media(max-width:440px){.running-badge{align-self:center}}</style>
-</head><body><svg class="icon-sprite" aria-hidden="true"><symbol id="icon-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></symbol><symbol id="icon-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"></path></symbol></svg>
-<div class="shell"><header class="app-header"><div class="brand-line"><div class="brand">browser-debug / 浏览器运维</div><div class="running-badge"><span class="status-dot" aria-hidden="true"></span>CDP 已就绪</div></div><h1>Profile <span>$name</span></h1><p class="subtitle">独立 $browser 调试环境的连接参数与远程交接快照</p></header>
-<section class="status-grid" aria-label="运行状态摘要"><div class="status-item"><span class="status-label">运行模式</span><span class="status-value">$modeLabel</span></div><div class="status-item"><span class="status-label">CDP 端口</span><span class="status-value">$cdpPort</span></div><div class="status-item"><span class="status-label">浏览器版本</span><span class="status-value">$cdpVersion</span></div><div class="status-item"><span class="status-label">快照时间</span><span class="status-value">$generatedAt</span></div></section>
-<main><div class="content-grid"><section class="tool-panel quick-connect"><div class="panel-heading"><div><span class="section-kicker">快速连接</span><h2>本机 CDP</h2></div><span class="semantic-tag tag-connect">Ready</span></div>$(& $copyField 'CDP endpoint' ([string]$Snapshot.endpoint) 'connect')$(& $copyField '探测地址' ([string]$Snapshot.probeUrl))$(& $copyField 'Playwright attach' ([string]$Snapshot.playwrightCommand))</section>
-<aside class="tool-panel metadata-panel"><div class="panel-heading"><div><span class="section-kicker">运行上下文</span><h2>Profile metadata</h2></div></div><dl class="metadata-grid"><div class="meta-row"><dt class="meta-label">Profile 路径</dt><dd class="meta-value">$profilePath</dd></div><div class="meta-row"><dt class="meta-label">浏览器</dt><dd class="meta-value">$browser</dd></div><div class="meta-row"><dt class="meta-label">监听地址</dt><dd class="meta-value">$listenAddress</dd></div><div class="meta-row"><dt class="meta-label">运行模式</dt><dd class="meta-value">$mode</dd></div><div class="meta-row"><dt class="meta-label">LAN IPv4</dt><dd class="meta-value">$lanAddresses</dd></div></dl></aside></div>
-$warning<div class="scenario-stack">$lanSection$sshSection<section class="scenario-section agent-section"><div class="section-heading"><div><span class="section-kicker">Agent 交接</span><h2>Agent Prompts</h2></div></div><div class="connection-list">$($promptRows -join [Environment]::NewLine)</div></section></div></main></div>
-<div id="copy-toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
-<script>var copyFeedbackTimer;function fallbackCopy(value){var area=document.createElement('textarea');area.value=value;area.setAttribute('readonly','');area.style.position='fixed';area.style.opacity='0';document.body.appendChild(area);area.select();document.execCommand('copy');document.body.removeChild(area);}function showCopyFeedback(button,label){var icon=button.querySelector('use');var toast=document.getElementById('copy-toast');window.clearTimeout(copyFeedbackTimer);button.classList.add('is-copied');icon.setAttribute('href','#icon-check');toast.textContent='已复制：'+label;toast.classList.add('is-visible');copyFeedbackTimer=window.setTimeout(function(){button.classList.remove('is-copied');icon.setAttribute('href','#icon-copy');toast.classList.remove('is-visible');toast.textContent='';},1800);}document.querySelectorAll('[data-copy]').forEach(function(button){button.addEventListener('click',function(){var value=button.getAttribute('data-copy');var label=button.getAttribute('aria-label').replace(/^复制\s*/, '');var operation=navigator.clipboard&&window.isSecureContext?navigator.clipboard.writeText(value):Promise.reject();operation.catch(function(){fallbackCopy(value);}).then(function(){showCopyFeedback(button,label);});});});</script>
-</body></html>
-"@
+    $declaredPattern = ($replacements.Keys | ForEach-Object { [regex]::Escape($_) }) -join '|'
+    $template = [regex]::Replace(
+        $template,
+        $declaredPattern,
+        [System.Text.RegularExpressions.MatchEvaluator]{ param($match) [string]$replacements[$match.Value] }
+    )
+    $remaining = [regex]::Match($template, '@@BROWSER_DEBUG_[A-Z0-9_]+@@')
+    if ($remaining.Success) { throw "browser-debug 指南模板存在未解析占位符: $($remaining.Value)" }
+    return $template
 }
 
 <##

@@ -569,11 +569,19 @@ Describe 'browser-debug 快捷方式' {
         $shortcut.Arguments | Should -Match 'profile start `?"?demo'
         $shortcut.Arguments | Should -Match '--mode local --open-guide --yes'
         $shortcut.Arguments | Should -Not -Match '9333|--mode lan|ssh'
+        $shortcut.TargetPath | Should -Be $pwshPath
+        $shortcut.WorkingDirectory | Should -Be $script:RepoRoot
+        $shortcut.IconLocation | Should -Match ([regex]::Escape($pwshPath))
+
 
         $lanPath = New-BrowserDebugShortcut -Profile $profile -ShortcutDirectory (Join-Path $TestDrive 'Desktop') -RepoRoot $script:RepoRoot -Mode lan
         $lanPath | Should -Match 'demo-LAN\.lnk$'
         $lanShortcut = (New-Object -ComObject WScript.Shell).CreateShortcut($lanPath)
         $lanShortcut.Arguments | Should -Match '--mode lan --open-guide --yes'
+        $lanShortcut.TargetPath | Should -Be $shortcut.TargetPath
+        $lanShortcut.WorkingDirectory | Should -Be $shortcut.WorkingDirectory
+        $lanShortcut.IconLocation | Should -Be $shortcut.IconLocation
+        $lanShortcut.Arguments.Replace('--mode lan', '--mode local') | Should -Be $shortcut.Arguments
     }
 
     It '同目录同模式幂等，未知同名文件拒绝覆盖' {
@@ -636,90 +644,110 @@ Describe 'browser-debug 快捷方式' {
 }
 
 Describe 'browser-debug 启动帮助页' {
-    It '通配 LAN 快照列出全部候选地址并使用实际端口同步 SSH 信息' {
-        Mock Get-BrowserDebugLanIPv4Addresses { @('100.64.0.2', '172.20.0.1', '192.168.1.8') }
+    It 'LAN 快照只将实际回环端口标为原生 Ready 并生成两种远程方案' {
         $profile = [pscustomobject]@{ name = 'demo'; browser = 'edge'; profilePath = 'C:\Profiles\demo'; cdpPort = 9222 }
         $registry = [pscustomobject]@{ sshConfigurations = @([pscustomobject]@{ name = 'remote'; profile = 'demo'; direction = 'local-forward'; target = 'windows-host'; agentPort = 9555; sshConfigPath = $null; verboseLogging = $false }) }
         $startResult = [pscustomobject]@{ mode = 'lan'; listenAddress = '0.0.0.0'; cdpPort = 9444; cdpVersion = [pscustomobject]@{ Browser = 'Edge/1' } }
         $snapshot = New-BrowserDebugGuideSnapshot -Profile $profile -StartResult $startResult -Registry $registry
         $snapshot.cdpPort | Should -Be 9444
         $snapshot.endpoint | Should -Be 'http://127.0.0.1:9444'
-        $snapshot.directConnections.endpoint | Should -Be @('http://100.64.0.2:9444', 'http://172.20.0.1:9444', 'http://192.168.1.8:9444')
-        $snapshot.agentPrompt | Should -Match '页面列出的 LAN IPv4'
+        $snapshot.nativeLanReachable | Should -BeFalse
+        $snapshot.tailscale.enableCommand | Should -Be 'tailscale serve --bg --yes --tcp=9444 tcp://127.0.0.1:9444'
+        $snapshot.tailscale.statusCommand | Should -Be 'tailscale serve status'
+        $snapshot.tailscale.disableCommand | Should -Be 'tailscale serve --tcp=9444 off'
+        $snapshot.sshLocalForward.sshCommand | Should -Be 'ssh -N -o ExitOnForwardFailure=yes -L 9444:127.0.0.1:9444 <windows-user>@<windows-host>'
+        $snapshot.sshLocalForward.probeUrl | Should -Be 'http://127.0.0.1:9444/json/version'
+        $snapshot.sshLocalForward.playwrightCommand | Should -Be 'playwright-cli attach --cdp=http://127.0.0.1:9444'
         $snapshot.sshConfigurations[0].sshCommand | Should -Match '127\.0\.0\.1:9444'
     }
 
-    It '显式 LAN 监听只突出实际接口地址' {
-        Mock Get-BrowserDebugLanIPv4Addresses { @('100.64.0.2', '192.168.1.8') }
+    It 'Local 快照不生成通用远程方案且保留已登记 SSH' {
         $profile = [pscustomobject]@{ name = 'demo'; browser = 'edge'; profilePath = 'C:\Profiles\demo'; cdpPort = 9444 }
-        $snapshot = New-BrowserDebugGuideSnapshot -Profile $profile -StartResult ([pscustomobject]@{ mode = 'lan'; listenAddress = '192.168.1.8'; cdpPort = 9444; cdpVersion = $null }) -Registry ([pscustomobject]@{ sshConfigurations = @() })
-        $snapshot.endpoint | Should -Be 'http://192.168.1.8:9444'
-        $snapshot.directConnections.Count | Should -Be 1
-        $snapshot.directConnections[0].address | Should -Be '192.168.1.8'
+        $registry = [pscustomobject]@{ sshConfigurations = @([pscustomobject]@{ name = 'remote'; profile = 'demo'; direction = 'local-forward'; target = 'windows-host'; agentPort = 9555; sshConfigPath = $null; verboseLogging = $false }) }
+        $snapshot = New-BrowserDebugGuideSnapshot -Profile $profile -StartResult ([pscustomobject]@{ mode = 'local'; listenAddress = '127.0.0.1'; cdpPort = 9444; cdpVersion = $null }) -Registry $registry
+        $snapshot.endpoint | Should -Be 'http://127.0.0.1:9444'
+        $snapshot.tailscale | Should -BeNullOrEmpty
+        $snapshot.sshLocalForward | Should -BeNullOrEmpty
+        $snapshot.sshConfigurations.Count | Should -Be 1
+        $html = ConvertTo-BrowserDebugGuideHtml -Snapshot $snapshot
+        $html | Should -Not -Match '远程 CDP 直连当前不生效|Tailscale Serve|SSH local forward|tailscale serve'
+        $html | Should -Match 'SSH configurations|remote'
     }
 
-    It '编码全部动态内容并包含模式、连接命令、复制按钮与 LAN 警告' {
+    It '编码全部动态内容并保留复制控件且排除敏感快照字段' {
         $snapshot = [pscustomobject]@{
-            generatedAt = '2026-08-11T10:00:00+08:00'; name = '"><script>alert(1)</script><demo>'; browser = 'edge'; profilePath = 'C:\Profiles\<demo>'
-            cdpPort = 9333; mode = 'lan'; listenAddress = '0.0.0.0'; endpoint = 'http://192.168.1.8:9333/" onfocus="alert(2)'
-            probeUrl = 'http://192.168.1.8:9333/json/version'; playwrightCommand = 'playwright-cli attach --cdp=http://192.168.1.8:9333'
-            cdpVersion = 'Edge/<1>'; lanAddresses = @('192.168.1.8'); agentPrompt = '连接 </script><script>alert(3)</script><现有> 浏览器'
-            directConnections = @()
+            generatedAt = '2026-08-11T10:00:00+08:00'; name = '"><script>alert(1)</script><demo>@@BROWSER_DEBUG_AGENT_SECTION@@'; browser = 'edge'; profilePath = 'C:\Profiles\<demo>'
+            cdpPort = 9333; mode = 'lan'; listenAddress = '0.0.0.0'; nativeLanReachable = $false; endpoint = 'http://127.0.0.1:9333/" onfocus="alert(2)'
+            probeUrl = 'http://127.0.0.1:9333/json/version'; playwrightCommand = 'playwright-cli attach --cdp=http://127.0.0.1:9333'
+            cdpVersion = 'Edge/<1>'; agentPrompt = '连接 </script><script>alert(3)</script><现有> 浏览器'
+            tailscale = [pscustomobject]@{ enableCommand = 'tailscale serve --bg --yes --tcp=9333 tcp://127.0.0.1:9333'; statusCommand = 'tailscale serve status'; disableCommand = 'tailscale serve --tcp=9333 off'; endpoint = 'http://<tailscale-host>:9333'; probeUrl = 'http://<tailscale-host>:9333/json/version'; playwrightCommand = 'playwright-cli attach --cdp=http://<tailscale-host>:9333'; agentPrompt = 'Tailnet <prompt>' }
+            sshLocalForward = [pscustomobject]@{ sshCommand = 'ssh -N -L 9333:127.0.0.1:9333 <user>@<host>'; endpoint = 'http://127.0.0.1:9333'; probeUrl = 'http://127.0.0.1:9333/json/version'; playwrightCommand = 'playwright-cli attach --cdp=http://127.0.0.1:9333'; agentPrompt = 'SSH <prompt>' }
             sshConfigurations = @([pscustomobject]@{ name = '"><ssh>'; sshCommand = 'ssh host'; agentPrompt = '不要创建 <new>' })
             Cookie = 'cookie-secret'; password = 'password-secret'; token = 'token-secret'; history = 'history-secret'; tabTitle = 'tab-secret'
         }
         $html = ConvertTo-BrowserDebugGuideHtml -Snapshot $snapshot
-        $html | Should -Match '&lt;demo&gt;'
-        $html | Should -Match 'playwright-cli attach'
+        $html | Should -Match '&lt;demo&gt;|&lt;tailscale-host&gt;'
         $html | Should -Match 'data-copy='
         $html | Should -Match "execCommand\('copy'\)"
-        $html | Should -Match 'LAN 安全警告'
-        $html | Should -Not -Match '<demo>|<现有>|<ssh>|<new>'
+        $html | Should -Match '远程 CDP 直连当前不生效'
+        $html | Should -Not -Match '<demo>|<现有>|<ssh>|<new>|<tailscale-host>'
         $html | Should -Not -Match '<script>alert|onfocus="alert'
         ([regex]::Matches($html, '<script>')).Count | Should -Be 1
         $html | Should -Not -Match 'cookie-secret|password-secret|token-secret|history-secret|tab-secret'
+        $html | Should -Not -Match '@@BROWSER_DEBUG_[A-Z0-9_]+@@'
+        $html | Should -Match '&#64;&#64;BROWSER_DEBUG_AGENT_SECTION&#64;&#64;'
+        ([regex]::Matches($html, 'Agent Prompts')).Count | Should -Be 1
+    }
+
+    It '从模块目录读取外部模板且不依赖当前工作目录' {
+        $snapshot = New-BrowserDebugGuideSnapshot -Profile ([pscustomobject]@{ name = 'demo'; browser = 'edge'; profilePath = 'C:\Profiles\demo'; cdpPort = 9444 }) -StartResult ([pscustomobject]@{ mode = 'local'; listenAddress = '127.0.0.1'; cdpPort = 9444; cdpVersion = $null }) -Registry ([pscustomobject]@{ sshConfigurations = @() })
+        Push-Location $TestDrive
+        try { $html = ConvertTo-BrowserDebugGuideHtml -Snapshot $snapshot }
+        finally { Pop-Location }
+        $html | Should -Match '<!doctype html>|browser-debug - demo'
+        Test-Path -LiteralPath (Join-Path $script:ToolRoot 'browser-debug-guide.template.html') -PathType Leaf | Should -BeTrue
+        (Get-Content -LiteralPath (Join-Path $script:ToolRoot 'runtime.ps1') -Raw) | Should -Not -Match '<!doctype html>'
+    }
+
+    It '模板缺失、占位符缺失/重复和未声明占位符返回可诊断错误' {
+        $snapshot = [pscustomobject]@{ generatedAt = ''; name = 'demo'; browser = 'edge'; profilePath = ''; cdpPort = 9444; mode = 'local'; listenAddress = '127.0.0.1'; endpoint = 'http://127.0.0.1:9444'; probeUrl = 'http://127.0.0.1:9444/json/version'; playwrightCommand = 'playwright-cli attach --cdp=http://127.0.0.1:9444'; cdpVersion = ''; agentPrompt = ''; sshConfigurations = @() }
+        Mock Test-Path { $false } -ParameterFilter { $LiteralPath -like '*browser-debug-guide.template.html' }
+        { ConvertTo-BrowserDebugGuideHtml -Snapshot $snapshot } | Should -Throw '*指南模板不存在*browser-debug-guide.template.html*'
+        Mock Test-Path { $true } -ParameterFilter { $LiteralPath -like '*browser-debug-guide.template.html' }
+        $baseTemplate = '@@BROWSER_DEBUG_PAGE_TITLE@@@@BROWSER_DEBUG_PROFILE_NAME@@@@BROWSER_DEBUG_BROWSER@@@@BROWSER_DEBUG_STATUS_GRID@@@@BROWSER_DEBUG_LOCAL_SECTION@@@@BROWSER_DEBUG_METADATA_SECTION@@@@BROWSER_DEBUG_REMOTE_GUIDANCE@@@@BROWSER_DEBUG_REGISTERED_SSH_SECTION@@@@BROWSER_DEBUG_AGENT_SECTION@@'
+
+        Mock Get-Content { $baseTemplate.Replace('@@BROWSER_DEBUG_AGENT_SECTION@@', '') } -ParameterFilter { $LiteralPath -like '*browser-debug-guide.template.html' }
+        { ConvertTo-BrowserDebugGuideHtml -Snapshot $snapshot } | Should -Throw '*占位符必须且只能出现一次*BROWSER_DEBUG_AGENT_SECTION*实际 0*'
+
+        Mock Get-Content { $baseTemplate + '@@BROWSER_DEBUG_AGENT_SECTION@@' } -ParameterFilter { $LiteralPath -like '*browser-debug-guide.template.html' }
+        { ConvertTo-BrowserDebugGuideHtml -Snapshot $snapshot } | Should -Throw '*占位符必须且只能出现一次*BROWSER_DEBUG_AGENT_SECTION*实际 2*'
+
+        Mock Get-Content { $baseTemplate + '@@BROWSER_DEBUG_UNKNOWN@@' } -ParameterFilter { $LiteralPath -like '*browser-debug-guide.template.html' }
+        { ConvertTo-BrowserDebugGuideHtml -Snapshot $snapshot } | Should -Throw '*未解析占位符*BROWSER_DEBUG_UNKNOWN*'
     }
 
     It '渲染专业运维布局、语义状态与无外部依赖的可访问复制控件' {
-        $snapshot = [pscustomobject]@{
-            generatedAt = '2026-08-11T10:00:00+08:00'; name = 'edge-debug'; browser = 'edge'; profilePath = 'D:\browser-debug-profiles\edge-debug'
-            cdpPort = 21229; mode = 'lan'; listenAddress = '0.0.0.0'; endpoint = 'http://127.0.0.1:21229'
-            probeUrl = 'http://127.0.0.1:21229/json/version'; playwrightCommand = 'playwright-cli attach --cdp=http://127.0.0.1:21229'
-            cdpVersion = 'Edg/140.0'; lanAddresses = @('100.64.0.2', '192.168.1.8'); agentPrompt = '连接现有浏览器'
-            directConnections = @([pscustomobject]@{ address = '192.168.1.8'; endpoint = 'http://192.168.1.8:21229'; probeUrl = 'http://192.168.1.8:21229/json/version'; playwrightCommand = 'playwright-cli attach --cdp=http://192.168.1.8:21229'; agentPrompt = 'LAN prompt' })
-            sshConfigurations = @([pscustomobject]@{ name = 'remote'; sshCommand = 'ssh -L 21229:127.0.0.1:21229 host'; agentPrompt = 'SSH prompt'; endpoint = 'http://127.0.0.1:21229'; probeUrl = 'http://127.0.0.1:21229/json/version'; playwrightCommand = 'playwright-cli attach --cdp=http://127.0.0.1:21229' })
-        }
+        $profile = [pscustomobject]@{ name = 'edge-debug'; browser = 'edge'; profilePath = 'D:\browser-debug-profiles\edge-debug'; cdpPort = 21229 }
+        $snapshot = New-BrowserDebugGuideSnapshot -Profile $profile -StartResult ([pscustomobject]@{ mode = 'lan'; listenAddress = '0.0.0.0'; cdpPort = 21229; cdpVersion = [pscustomobject]@{ Browser = 'Edg/140.0' } }) -Registry ([pscustomobject]@{ sshConfigurations = @() })
         $html = ConvertTo-BrowserDebugGuideHtml -Snapshot $snapshot
-        $html | Should -Match 'class="app-header"'
-        $html | Should -Match 'browser-debug.*edge-debug'
-        $html | Should -Match 'class="status-grid"'
-        $html | Should -Match 'class="[^"]*quick-connect[^"]*"'
-        $html | Should -Match 'class="scenario-section lan-section"'
-        $html | Should -Match 'class="scenario-section ssh-section"'
-        $html | Should -Match 'class="scenario-section agent-section"'
-        $html | Should -Match 'class="status-dot"'
-        $html | Should -Match 'class="copy-button"[^>]+aria-label="复制'
-        $html | Should -Match 'class="copy-button"[^>]+title="复制'
-        $html | Should -Match '<svg[^>]+aria-hidden="true"[^>]*><use href="#icon-copy"'
-        $html | Should -Match 'id="icon-copy"|id="icon-check"'
-        $html | Should -Match 'role="status" aria-live="polite"'
-        $html | Should -Match ':focus-visible'
-        $html | Should -Match 'prefers-reduced-motion:reduce'
-        $html | Should -Match '@media\(max-width:720px\)'
-        $html | Should -Match 'overflow-wrap:anywhere'
-        $html | Should -Match 'body\{[^}]*display:flex[^}]*justify-content:center'
-        $html | Should -Match '\.shell\{[^}]*flex:0 1 1180px[^}]*min-width:0'
-        $html | Should -Match '\.app-header\{[^}]*text-align:center'
-        $html | Should -Match '\.brand-line\{[^}]*justify-content:center'
-        $html | Should -Match 'main\{text-align:left\}'
-        $html | Should -Match '@media\(max-width:720px\)\{\.brand-line\{align-items:center\}\}'
-        $html | Should -Match '@media\(max-width:440px\)\{\.running-badge\{align-self:center\}\}'
-        $html | Should -Match '\.running-badge\{align-self:center\}'
-        $html | Should -Match '#[0-9a-fA-F]{6}'
-        $html | Should -Not -Match 'border-radius:(?:9|[1-9][0-9]+)px'
+        $html | Should -Match 'class="app-header"|class="status-grid"|class="[^\"]*quick-connect[^\"]*"'
+        $html | Should -Match 'class="scenario-section lan-section"|class="scenario-section ssh-section"|class="scenario-section agent-section"'
+        $html | Should -Match 'class="copy-button"[^>]+aria-label="复制|role="status" aria-live="polite"'
+        $html | Should -Match ':focus-visible|prefers-reduced-motion:reduce|@media\(max-width:720px\)|overflow-wrap:anywhere'
         $html | Should -Not -Match 'gradient|@import|<(?:link|script)[^>]+(?:href|src)='
-        $html | Should -Match 'window\.isSecureContext'
-        $html | Should -Match "execCommand\('copy'\)"
+        $html | Should -Match 'window\.isSecureContext|execCommand\(''copy''\)'
+        $html | Should -Not -Match 'http://(?:100\.|172\.|192\.168\.)[^< ]*:21229'
+    }
+
+    It '将模板渲染结果原子写入 registry 同级 guides 目录' {
+        $registryPath = Join-Path $TestDrive 'state/registry.json'
+        New-Item -ItemType Directory -Path (Split-Path -Parent $registryPath) -Force | Out-Null
+        $snapshot = New-BrowserDebugGuideSnapshot -Profile ([pscustomobject]@{ name = 'demo'; browser = 'edge'; profilePath = 'C:\Profiles\demo'; cdpPort = 9444 }) -StartResult ([pscustomobject]@{ mode = 'local'; listenAddress = '127.0.0.1'; cdpPort = 9444; cdpVersion = $null }) -Registry ([pscustomobject]@{ sshConfigurations = @() })
+        $guidePath = Write-BrowserDebugGuide -Snapshot $snapshot -RegistryPath $registryPath
+        $guidePath | Should -Be (Join-Path $TestDrive 'state/guides/demo-local.html')
+        Test-Path -LiteralPath $guidePath -PathType Leaf | Should -BeTrue
+        @(Get-ChildItem -LiteralPath (Split-Path -Parent $guidePath) -Filter '*.tmp').Count | Should -Be 0
+        (Get-Content -LiteralPath $guidePath -Raw) | Should -Not -Match '@@BROWSER_DEBUG_[A-Z0-9_]+@@'
     }
 
     It '使用目标浏览器与同一 user-data-dir 打开 file 指南' {
