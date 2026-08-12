@@ -26,7 +26,7 @@
 - [x] 已安装精确版本的幂等测试仍证明安装调用次数为 0。
 - [x] 本地 `pwsh -NonInteractive` smoke 证明调用级 `-TrustRepository -WhatIf` 不触发 repository trust prompt、不执行安装，且 PSGallery `Trusted=false` 前后不变。
 - [x] `tests/InvokePesterMode.Tests.ps1`、PowerShell QA 与串行 full coverage 通过；`test:pwsh:all` 因 Docker CLI 不可用按合同安全短路，Linux 覆盖依赖本次 GitHub Actions。
-- [ ] workflow YAML 保持三平台矩阵与固定 Pester 版本来源；报告步骤使用“始终评估且仅在 XML 存在时运行”的条件。修复后重新触发或推送的 GitHub Actions run 中三个 `Install pinned Pester` 步骤通过并进入 `Run Pester`，且缺失报告不会产生第二个失败。
+- [x] workflow YAML 保持三平台矩阵与固定 Pester 版本来源；报告步骤使用“始终评估且仅在 XML 存在时运行”的条件。修复后重新触发或推送的 GitHub Actions run 中三个 `Install pinned Pester` 步骤通过并进入 `Run Pester`，且缺失报告不会产生第二个失败。
 
 ## Out of Scope
 
