@@ -8,11 +8,11 @@
 
 ---
 
-### 方案一：使用 Deno (推荐，原生支持 TS)
+## 方案一：使用 Deno (推荐，原生支持 TS)
 
 Deno 是 Node.js 之父开发的现代运行时，完美符合你的“单文件引入依赖”和“直接执行”的需求。
 
-#### 1. 编写脚本 (`script.ts`)
+### 1. 编写脚本 (`script.ts`)
 
 在 Deno 中，你可以直接在代码顶部 `import` 依赖（支持 CDN URL 或 `npm:` 前缀），无需 `npm install`。
 
@@ -79,7 +79,7 @@ chmod +x script.ts
 Windows 不支持 Shebang。你有两个选择：
 
 * **方法 A (推荐): 编译为 exe**
-    Deno 可以将脚本打包成独立的二进制文件（包含运行时），这样不需要对方安装 Deno 也能跑。
+  Deno 可以将脚本打包成独立的二进制文件（包含运行时），这样不需要对方安装 Deno 也能跑。
 
     ```powershell
     deno compile --allow-net --allow-read --allow-env --output mytool script.ts
@@ -88,7 +88,7 @@ Windows 不支持 Shebang。你有两个选择：
     ```
 
 * **方法 B: 使用 cmd 包装器**
-    创建一个 `script.cmd` 文件：
+  创建一个 `script.cmd` 文件：
 
     ```batch
     @deno run --allow-net --allow-read --allow-env "%~dp0script.ts" %*

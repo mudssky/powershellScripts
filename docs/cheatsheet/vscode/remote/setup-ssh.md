@@ -187,7 +187,7 @@ ssh 用户名@IP地址
     ./scripts/pwsh/network/openssh/Enable-WindowsOpenSsh.ps1
     ```
 
-    只装服务和防火墙、不改 `sshd_config`：
+   只装服务和防火墙、不改 `sshd_config`：
 
     ```powershell
     ./scripts/pwsh/network/openssh/Enable-WindowsOpenSsh.ps1 -SkipSshdConfigApply
@@ -218,4 +218,3 @@ Windows 版 OpenSSH 默认带一段 `Match Group administrators`，会把管理�
 Get-Service sshd                                # 应为 Running
 Get-NetFirewallRule -Name *ssh* | Format-Table  # 应有 sshd 规则
 ```
-

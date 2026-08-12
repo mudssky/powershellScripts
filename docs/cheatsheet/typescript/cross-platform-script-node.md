@@ -6,7 +6,7 @@
 
 以下是构建**“脚本工具箱”**的最佳实践指南：
 
-### 1. 核心工具选择
+## 1. 核心工具选择
 
 * **运行时**: **[tsx](https://github.com/privatenumber/tsx)**
   * 它是现代版的 `ts-node`，基于 esbuild，速度极快，支持原生 ESM，无需配置即可直接运行 TypeScript 文件。

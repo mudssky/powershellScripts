@@ -8,12 +8,12 @@
 
 ---
 
-### 方案一：最佳工具流 (推荐，类 Deno 体验)
+## 方案一：最佳工具流 (推荐，类 Deno 体验)
 
 使用专门的脚本运行器 **`gorun`**。
 这是目前最接近 Deno/Python `uv` 体验的方案。它允许你在 Go 文件头部定义依赖，运行时它会自动处理 `go mod init`、下载依赖、缓存编译结果。
 
-#### 1. 安装 gorun
+### 1. 安装 gorun
 
 ```bash
 go install github.com/erning/gorun@latest
@@ -170,16 +170,16 @@ func main() {
 虽然你想要“脚本”，但 Go 的本质是**静态编译语言**。
 
 1. **最“正统”的实践**：
-    不要试图写单文件脚本。建立一个文件夹，放 `main.go` 和 `go.mod`。
-    使用 `go build -o mytool` 编译成二进制文件。
-    **这是 Go 跨平台的最强形态**——你编译出一个 Binary，扔到任何服务器上（Linux/Windows/Mac）都能跑，**零依赖**，根本不需要对方安装 Go 环境。
+   不要试图写单文件脚本。建立一个文件夹，放 `main.go` 和 `go.mod`。
+   使用 `go build -o mytool` 编译成二进制文件。
+   **这是 Go 跨平台的最强形态**——你编译出一个 Binary，扔到任何服务器上（Linux/Windows/Mac）都能跑，**零依赖**，根本不需要对方安装 Go 环境。
 
 2. **最“脚本化”的实践 (推荐)**：
-    使用 **`gorun`** (方案一)。它完美解决了 `package.json/node_modules` 的痛点，让你在本地开发时感觉像在写 Python。
+   使用 **`gorun`** (方案一)。它完美解决了 `package.json/node_modules` 的痛点，让你在本地开发时感觉像在写 Python。
 
 3. **Shell 脚本的最佳替代**：
-    如果你的脚本主要是调用系统命令（ls, curl, git），Go 写起来非常痛苦（需要处理 `exec.Command`, `StdoutPipe` 等）。
-    建议使用 **[Bitfield Script](https://github.com/bitfield/script)** 库配合标准 Go 项目结构：
+   如果你的脚本主要是调用系统命令（ls, curl, git），Go 写起来非常痛苦（需要处理 `exec.Command`, `StdoutPipe` 等）。
+   建议使用 **[Bitfield Script](https://github.com/bitfield/script)** 库配合标准 Go 项目结构：
 
     ```go
     // main.go
@@ -191,4 +191,4 @@ func main() {
     }
     ```
 
-    然后编译发布。
+   然后编译发布。
