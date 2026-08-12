@@ -59,6 +59,25 @@ describe('browserctl Bash/Zsh wrapper', () => {
         'attach\n-Client\nagent-browser',
       )
     })
+    it(`routes setup through PowerShell and forwards path options from ${path.basename(shell)}`, async () => {
+      const { work, result } = await run(shell, [
+        'setup',
+        'windows',
+        '--source-root',
+        'C:\\src\\self-hosted-compose',
+        '--runtime-root',
+        'D:\\browser-runtime',
+        '--profile-root',
+        'D:\\browser-runtime\\profile',
+      ])
+      expect(result.exitCode).toBe(0)
+      const argv = fs.readFileSync(work.log, 'utf8')
+      expect(argv).toContain('main.ps1\nsetup\nwindows')
+      expect(argv).toContain('-SourceRoot\nC:\\src\\self-hosted-compose')
+      expect(argv).toContain('-RuntimeRoot\nD:\\browser-runtime')
+      expect(argv).toContain('-ProfileRoot\nD:\\browser-runtime\\profile')
+      expect(argv).not.toContain(work.host)
+    })
   }
   it('ordinary stop contains no destructive or recovery arguments', async () => {
     const { work, result } = await run('/bin/bash', ['stop'])
@@ -66,6 +85,23 @@ describe('browserctl Bash/Zsh wrapper', () => {
     expect(fs.readFileSync(work.log, 'utf8')).not.toMatch(
       /shutdown|kill|lock|recover/i,
     )
+  })
+  it('returns 127 with setup guidance when start has no installed host control', async () => {
+    const work = fixture()
+    fs.rmSync(work.host)
+    const result = await execa('/bin/bash', [script, 'start', 'windows'], {
+      cwd: work.root,
+      env: {
+        PATH: `${work.bin}:/usr/bin:/bin`,
+        BROWSER_HOST_CONTROL_PATH: work.host,
+        BROWSERCTL_TEST_LOG: work.log,
+      },
+      extendEnv: false,
+      reject: false,
+    })
+    expect(result.exitCode).toBe(127)
+    expect(result.stderr).toContain('browserctl setup windows')
+    expect(fs.existsSync(work.log)).toBe(false)
   })
   it('fails closed for recovery without confirmation and invalid targets', async () => {
     expect((await run('/bin/bash', ['recover-owner'])).result.exitCode).toBe(2)
