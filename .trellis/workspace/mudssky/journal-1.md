@@ -1829,3 +1829,27 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - 继续 08-12-design-pwsh-coverage-sharding，设计外层独立进程分片与 JaCoCo/NUnit 合并。
+
+
+## Session 62: 修复 GitHub Actions Pester 三平台失败
+
+**Date**: 2026-08-12
+**Task**: 修复 GitHub Actions Pester 三平台失败
+**Branch**: `master`
+
+### Summary
+
+迁移 CI Pester 安装为调用级 TrustRepository，修复报告发布条件与 hosted runner 环境依赖，完善 UTF-8 子进程参数转发和临时资源清理；GitHub Actions run 31609326328 在 Windows、Ubuntu、macOS 全部通过。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ce6b476b` | (see git log) |
+| `8fb1eb88` | (see git log) |
+| `f5fa262b` | (see git log) |
+| `77e54d2c` | (see git log) |
+
+### Status
+
+[OK] **Completed**
