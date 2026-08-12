@@ -6,12 +6,15 @@
 - 本机 Pester：5.7.1
 - Pester 5.7.1 `Run` 配置没有 `Parallel` 属性，当前按 container 串行执行。
 - PSGallery 当前存在稳定版 Pester 6.0.1，发布时间为 2026-07-18；Pester 6 文档将文件级并行标记为实验特性。
+- 将 Pester 6.0.1 保存到隔离目录并实际导入后，确认 `Run` 包含 `Parallel` 和 `ParallelThrottleLimit`；默认值分别为 `false` 和 `0`。
 
 ## 候选方案
 
 ### 1. Pester 6 文件级并行
 
 Pester 6 支持通过 `Run.Parallel` 按测试文件并行，并允许使用 `#pester:no-parallel` 将共享宿主状态的文件留在父会话。
+
+稳定版 6.0.1 的实测配置属性包括 `Parallel`、`ParallelThrottleLimit` 和 `RepoRoot`，因此 PoC 不需要采用 6.1.0 预发布版本。
 
 潜在收益：当前 full 有多个 12-33 秒的独立慢文件，文件级并行是最可能把中位数显著压到 240 秒以内的工具能力。
 

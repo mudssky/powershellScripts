@@ -1,1 +1,7 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file":".trellis/tasks/08-11-optimize-pwsh-remaining-test-hotspots/research/pwsh-tools-and-config.md","reason":"实现前读取 Pester 6、并行、coverage tracer 和版本固定研究结论"}
+{"file":".trellis/tasks/archive/2026-08/08-11-optimize-pwsh-full-test-duration/research/slow-points.md","reason":"沿用上一轮正式基线、Top 热点和已验证优化策略"}
+{"file":".trellis/spec/pwsh-scripts/package/pester-performance.md","reason":"遵循 Pester 分层、真实进程合同、唯一报告路径和三轮验收规范"}
+{"file":".trellis/spec/pwsh-scripts/package/index.md","reason":"遵循 pwsh-scripts 包入口、QA 和测试约定"}
+{"file":".trellis/spec/psutils/package/index.md","reason":"优化 psutils install 与模块测试时保持包级合同"}
+{"file":".trellis/spec/infra/test-report-artifacts.md","reason":"保持 NUnit3、coverage 和报告隔离合同"}
+{"file":".trellis/spec/infra/install-orchestrator.md","reason":"保留安装进程、输出、多流和清理行为"}

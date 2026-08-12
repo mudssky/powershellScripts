@@ -27,6 +27,6 @@
     "tests/PackageSources.Tests.ps1",
     "PesterConfiguration.ps1"
   ],
-  "notes": "上一任务三轮中位数 322.49 秒；待用户确认 290 秒串行目标或 240 秒外层并行目标。",
+  "notes": "用户批准两阶段目标：先将串行中位数压到 290 秒以内，再升级 Pester 6.0.1 验证文件级并行并挑战 240 秒。",
   "meta": {}
 }
