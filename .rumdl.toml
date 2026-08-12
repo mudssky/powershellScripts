@@ -8,6 +8,12 @@ exclude = [
   "dist",
   "bin",
   "archive",
+  # Agent 平台目录由 Trellis 生成或同步，不由根仓 Markdown formatter 改写
+  ".agents",
+  ".claude",
+  ".omp",
+  ".pi",
+  ".zcode",
   # 技能不需要校验
   "SKILL.md"
 ]
