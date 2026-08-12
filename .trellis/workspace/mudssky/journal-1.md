@@ -1791,3 +1791,41 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Status
 
 [OK] **Completed**
+
+
+## Session 61: 迁移 PSResourceGet 并升级 Pester 6.1.0
+
+**Date**: 2026-08-12
+**Task**: 迁移 PSResourceGet 并升级 Pester 6.1.0
+**Branch**: `master`
+
+### Summary
+
+统一活动 PowerShell 模块安装到 PSResourceGet，固定 Pester 6.1.0，验证串行 coverage 并否决原生并行 coverage 默认切换。
+
+### Main Changes
+
+- 活动 Install-Module 迁移为 Install-PSResource，并保留 WhatIf、结构化结果和安装后导入合同。
+- Pester runner 固定 6.1.0、保留 5.7.1 独立进程回退，并为 NUnit/JaCoCo/duration 分配唯一产物。
+- 隔离真实 fzf、PSReadLine 历史和 WSL guest 测试，修复全量测试交互等待与跨环境路径。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `d29de83e` | (see git log) |
+
+### Testing
+
+- [OK] PowerShell QA：228 passed, 0 failed。
+- [OK] 串行 full coverage：940 passed, 0 failed, 61.74。
+- [OK] 原生并行 coverage throttle 2：测试集合等价但 coverage 计数不等价，634.090s，未通过门禁。
+- [OK] pnpm qa 被无关 scripts/node 格式改动阻断；test:pwsh:all 因 Docker CLI 不可用安全短路，Linux 覆盖依赖 CI/WSL。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 继续 08-12-design-pwsh-coverage-sharding，设计外层独立进程分片与 JaCoCo/NUnit 合并。

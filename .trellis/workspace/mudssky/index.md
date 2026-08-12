@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 60
+- **Total Sessions**: 61
 - **Last Active**: 2026-08-12
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1793 | Active |
+| `journal-1.md` | ~1831 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -30,6 +30,7 @@
 
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 61 | 2026-08-12 | 迁移 PSResourceGet 并升级 Pester 6.1.0 | `d29de83e` | `master` |
 | 60 | 2026-08-12 | 完善 Node 脚本 Trellis 规范 | `81509266` | `master` |
 | 59 | 2026-08-12 | PowerShell 全量测试热点优化验收 | `af00d258` | `master` |
 | 58 | 2026-08-12 | 改进 browser-debug LAN 连接指南 | `f50ec29f` | `master` |
