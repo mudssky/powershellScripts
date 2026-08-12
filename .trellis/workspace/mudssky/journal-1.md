@@ -1756,3 +1756,24 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Status
 
 [OK] **Completed**
+
+
+## Session 57: 支持浏览器调试模式快捷切换
+
+**Date**: 2026-08-12
+**Task**: 支持浏览器调试模式快捷切换
+**Branch**: `master`
+
+### Summary
+
+为 browser-debug profile start 增加确认式 Local/LAN 切换和 --yes 非交互入口，快捷方式自动确认；补齐回归测试、规范同步与真实双向切换验证。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `42156e9a` | (see git log) |
+
+### Status
+
+[OK] **Completed**
