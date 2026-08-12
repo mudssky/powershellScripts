@@ -1,0 +1,5 @@
+{"file":".trellis/spec/pwsh-scripts/package/index.md","reason":"PowerShell 全量质量门禁与提交前检查"}
+{"file":".trellis/spec/pwsh-scripts/package/browser-debug-cli.md","reason":"核对 browser-debug 实际监听、指南、安全和测试合同"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"检查快照、HTML、快捷方式与 CLI 输出的一致性"}
+{"file":".trellis/tasks/08-12-browser-debug-ssh-lifecycle/prd.md","reason":"逐项验证最终验收标准"}
+{"file":".trellis/tasks/08-12-browser-debug-ssh-lifecycle/design.md","reason":"检查实现是否保持边界、安全与兼容性"}
