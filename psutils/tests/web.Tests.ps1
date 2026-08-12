@@ -120,8 +120,10 @@ Describe "New-WebShortcut Tests" {
             if ($IsLinux) {
                 # 需要 mock browser path 否则会 fallback 到 Html
                 Mock Get-BrowserPath { return "/usr/bin/fakebrowser" } -ModuleName web
-                Mock Test-Path { Microsoft.PowerShell.Management\Test-Path @PSBoundParameters } -ModuleName web
-                Mock Test-Path { return $true } -ParameterFilter { $Path -eq "/usr/bin/fakebrowser" } -ModuleName web
+                Mock Test-Path {
+                    param($Path)
+                    return $Path -eq '/usr/bin/fakebrowser' -or [System.IO.File]::Exists($Path) -or [System.IO.Directory]::Exists($Path)
+                } -ModuleName web
                 Mock Save-Icon { return $false } -ModuleName web
 
                 New-WebShortcut -Url "https://auto-test.com" -Name "AutoLinux" -Type Auto -SaveDir $TestDir

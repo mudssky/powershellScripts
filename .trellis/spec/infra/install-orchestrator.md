@@ -58,6 +58,8 @@ pnpm provision:full [-NetworkMode China | -Step <id> | -FromStep <id>]
 - JSON 模式必须关闭运行进度；stdout 继续只有最终单个 JSON document，stderr 也不得出现 Text 进度行。
 - stdout/stderr 必须先并发复制原始字节，再优先按严格 UTF-8 解码；Windows 子进程若产生非法 UTF-8，才允许按当前文化 ANSI code page 兼容解码，最终文本不得包含替换字符。
 - 叶子等待必须使用有限轮询以响应中断，但不得把有限轮询解释为安装超时；等待异常或中断时必须终止仍存活的直接子进程树，再释放 `Process`。
+- `pwsh -File` 临时 UTF-8 wrapper 不得把 token 数组直接 splat 给目标脚本；数组 splatting 只按位置绑定。wrapper 必须读取目标 `ExternalScript` 参数元数据，把 `-Name value` 与 switch token 重建为 hashtable splatting，再调用真实脚本。
+- wrapper 属于内部临时资源，必须在 `finally` 使用不受调用方 `WhatIfPreference` 影响的文件 API 清理；不得让 `Remove-Item -WhatIf` 文本污染 JSON stdout 或留下临时脚本。
 
 ### 4. Validation & Error Matrix
 
@@ -81,6 +83,8 @@ pnpm provision:full [-NetworkMode China | -Step <id> | -FromStep <id>]
 | Text 模式叶子持续运行 | 启动时立即且仅一次写安全命令到 stderr；不输出 elapsed heartbeat，最终汇总和结果不变 |
 | JSON 模式执行同一叶子 | 不输出任何 Text 进度，stdout 仍可作为单个 JSON document 解析 |
 | 等待叶子时发生中断或异常 | 终止仍存活的直接子进程及其后代，不遗留下载或安装进程 |
+| `pwsh -File` wrapper 直接 `& $ScriptPath @tokenArray` | 命名参数退化为位置值并触发 `ValidateSet` 等绑定错误；必须重建 hashtable splatting |
+| 根调用启用 `-WhatIf` 时清理 wrapper | 仍真实删除内部临时文件，且 JSON stdout 不出现 `What if:` |
 
 ### 5. Good/Base/Bad Cases
 
@@ -103,6 +107,7 @@ pnpm provision:full [-NetworkMode China | -Step <id> | -FromStep <id>]
 - package scripts：`provision:list`、Core/Full preview smoke、参数透传，且不得触发 pnpm 依赖安装流程。
 - Text 输出：标题、步骤、source restore 与最终状态的多占位符格式必须完整输出，不抛 `FormatException`。
 - 进度：Text 仅一次启动行且无 elapsed heartbeat、JSON 静默，以及中断等待后无遗留直接子进程树。
+- `pwsh` wrapper：无参数、命名值、switch、长 UTF-8、多流、退出码、中断进程树，以及 `-WhatIf` 下仍清理临时文件且不污染 JSON。
 - 代码完成后运行 `pnpm qa` 与 `pnpm test:pwsh:all`。
 
 ### 7. Wrong vs Correct

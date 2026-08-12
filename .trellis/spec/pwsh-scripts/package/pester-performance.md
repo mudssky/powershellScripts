@@ -31,7 +31,8 @@ node scripts/pester-duration-report.mjs \
 - duration JSON 必须包含 `schemaVersion`、`command`、`lane`、`startedAt`、`endedAt`、`elapsedMs`、`exitCode`、`phases`、`nunitPath`、`coveragePath`、`files` 和 `testCases`。
 - `test:pwsh:all` 必须在启动 host lane 前检查 Docker CLI、daemon 和 Compose；缺失时输出 `pnpm test:pwsh:full` fallback，不启动长测试。
 - `Filter.ExcludeTag` 必须始终是独立字符串数组；PowerShell 条件表达式可能把单元素数组展开为标量，后续 `+=` 会退化成字符串拼接，因此应使用显式数组收集块构造标签。
-- hosted runner 回归测试不得假设机器预装 Pester 5.7.1、Scoop 或 WSL 发行版；旧版本模块使用临时 `PSModulePath` fixture，原生命令使用临时 PATH shim，无 WSL 发行版时只跳过依赖真实 guest 的用例。
+- hosted runner 回归测试不得假设机器预装 Pester 5.7.1、Scoop、WSL 发行版或仓库忽略的 `bin/` 生成产物；旧版本模块使用临时 `PSModulePath` fixture，原生命令使用临时 PATH shim，生成入口必须在 `$TestDrive` 通过真实生成器创建，无 WSL 发行版时只跳过依赖真实 guest 的用例。
+- Windows-only 测试块必须整体标记独立 `windowsOnly` 标签；纯 schema、registry、HTML 与 SSH 数据逻辑继续跨平台执行，不能为消除失败扩大整文件排除。
 - `pwsh` 叶子进程必须在写出端固定 UTF-8 标准流编码；父进程只负责并发复制原始字节和严格解码，不能在字符已被当前代码页替换后补救。
 
 ## 4. Validation & Error Matrix
@@ -47,7 +48,8 @@ node scripts/pester-duration-report.mjs \
 | 命令显式指定 `-PesterVersion` | artifact 的 `pesterVersion` 与该参数一致 |
 | pnpm 等间接入口未显式指定版本 | 依次使用 `PWSH_PESTER_VERSION`、`.pester-version`；两者都不存在时才探测已安装版本 |
 | 多个排除标签显示为 `SlowwindowsOnly` | 配置构造失败；必须保留 `Slow`、`windowsOnly` 等独立数组元素 |
-| hosted runner 缺少旧 Pester、Scoop 或 WSL guest | 使用隔离模块/命令 fixture；仅真实 WSL guest 用例按能力 Skip |
+| hosted runner 缺少旧 Pester、Scoop、WSL guest 或忽略的 `bin/` 生成入口 | 使用隔离模块/命令 fixture；入口由真实生成器写入 `$TestDrive`；仅真实 WSL guest 用例按能力 Skip |
+| 非 Windows 执行 Chromium Profile 生命周期或 `.lnk` 快捷方式用例 | 测试分组缺少 `windowsOnly` 标签；应只标记真正依赖 Windows 宿主的分组 |
 | Windows 子进程长 UTF-8 输出出现 `?` | 在 `pwsh -File` 临时 wrapper 中先设置 Console UTF-8，再执行真实脚本并透传退出码 |
 
 ## 5. Good / Base / Bad Cases
@@ -63,8 +65,9 @@ node scripts/pester-duration-report.mjs \
 - Windows 命令发现：present/missing、PATH 变化、Scoop cmd shim、WinGet module export、完整 `CommandAvailability`。
 - 编排器：状态机调用顺序与次数；真实 UTF-8、多流、Running、中断进程树清理。
 - 配置筛选：Windows 保留独立 `Slow`，Linux/macOS 保留独立 `Slow` 与 `windowsOnly`，禁止出现 `SlowwindowsOnly`。
-- hosted runner 隔离：旧 Pester 用标准版本模块目录注入临时 `PSModulePath`；Scoop 用临时 PATH shim；Windows 无 WSL 发行版时 guest smoke 明确 Skip。
-- `pwsh` 子进程：临时 UTF-8 wrapper 不出现在展示命令中，且长 stdout/stderr、退出码、`[Running]` 与中断进程树清理合同全部通过。
+- hosted runner 隔离：旧 Pester 用标准版本模块目录注入临时 `PSModulePath`；Scoop 用临时 PATH shim；忽略的 bin 入口在 `$TestDrive` 通过真实生成器创建；Windows 无 WSL 发行版时 guest smoke 明确 Skip。
+- 平台标签：只给 Chromium Profile 生命周期、进程所有权与 `.lnk` 快捷方式等真实 Windows 宿主分组标记 `windowsOnly`，纯逻辑分组继续在 Ubuntu/macOS 回归。
+- `pwsh` 子进程：临时 UTF-8 wrapper 不出现在展示命令中，重建命名值与 switch 的 hashtable splatting，并覆盖长 stdout/stderr、退出码、`[Running]`、中断进程树及 `WhatIf` 清理合同。
 - 性能验收：Windows host coverage-on 连续 3 轮，报告中位数、最慢值和 coverage；样本期间不得并发运行其他 Pester。
 
 ## 7. Wrong vs Correct

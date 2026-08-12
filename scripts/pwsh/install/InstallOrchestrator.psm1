@@ -750,11 +750,37 @@ param(
     [Parameter(Mandatory, Position = 0)]
     [string]$ScriptPath,
     [Parameter(ValueFromRemainingArguments = $true)]
-    [object[]]$RemainingArguments
+    [string[]]$RemainingArguments
 )
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 [Console]::InputEncoding = [System.Text.UTF8Encoding]::new($false)
-& $ScriptPath @RemainingArguments
+$command = Get-Command -Name $ScriptPath -CommandType ExternalScript -ErrorAction Stop
+$boundParameters = @{}
+$remainingTokens = @($RemainingArguments)
+if ($remainingTokens.Count -eq 1 -and [string]::IsNullOrEmpty([string]$remainingTokens[0])) {
+    $remainingTokens = @()
+}
+for ($index = 0; $index -lt $remainingTokens.Count; $index++) {
+    $token = [string]$remainingTokens[$index]
+    if ($token -notmatch '^-(?<Name>[A-Za-z][A-Za-z0-9-]*)$') {
+        throw "无法解析叶子参数: $token"
+    }
+    $parameterName = $Matches.Name
+    $parameter = $command.Parameters[$parameterName]
+    if ($null -eq $parameter) {
+        throw "叶子脚本不支持参数: -$parameterName"
+    }
+    if ($parameter.ParameterType -eq [System.Management.Automation.SwitchParameter]) {
+        $boundParameters[$parameterName] = $true
+        continue
+    }
+    $index++
+    if ($index -ge $remainingTokens.Count) {
+        throw "叶子参数缺少值: -$parameterName"
+    }
+    $boundParameters[$parameterName] = [string]$remainingTokens[$index]
+}
+& $ScriptPath @boundParameters
 exit $LASTEXITCODE
 '@
         [System.IO.File]::WriteAllText($wrapperPath, $wrapperContent, [System.Text.UTF8Encoding]::new($false))
@@ -841,8 +867,8 @@ exit $LASTEXITCODE
         $process.Dispose()
         $stdoutBuffer.Dispose()
         $stderrBuffer.Dispose()
-        if ($wrapperPath -and (Test-Path -LiteralPath $wrapperPath -PathType Leaf)) {
-            Remove-Item -LiteralPath $wrapperPath -Force -ErrorAction SilentlyContinue
+        if ($wrapperPath -and [System.IO.File]::Exists($wrapperPath)) {
+            [System.IO.File]::Delete($wrapperPath)
         }
     }
 }

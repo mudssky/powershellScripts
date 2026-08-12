@@ -441,6 +441,36 @@ $stderrText = 'stderr-start|' + ('错误诊断-边界|' * 2500) + 'stderr-end'
         $result.Stderr | Should -Not -Match ([char]0xfffd)
     }
 
+    It 'binds named values and switches through the UTF-8 wrapper and removes it under WhatIf' {
+        $fixturePath = Join-Path $script:FixtureRoot 'named-arguments.ps1'
+        Set-Content -LiteralPath $fixturePath -Encoding utf8NoBOM -Value @'
+[CmdletBinding(SupportsShouldProcess)]
+param(
+    [ValidateSet('Core', 'Full')]
+    [string]$Preset,
+    [switch]$Enabled
+)
+[pscustomobject]@{ Preset = $Preset; Enabled = [bool]$Enabled } | ConvertTo-Json -Compress
+'@
+        $module = Get-Module InstallOrchestrator
+        $temporaryPattern = Join-Path ([System.IO.Path]::GetTempPath()) 'powershellScripts-install-*.ps1'
+        $wrappersBefore = @(Get-ChildItem -Path $temporaryPattern -ErrorAction SilentlyContinue).FullName
+
+        $result = & $module {
+            param($Path)
+            $WhatIfPreference = $true
+            Invoke-InstallLeafProcess -Runner pwsh -ScriptPath $Path -ArgumentList @('-Preset', 'Core', '-Enabled')
+        } $fixturePath
+        $document = $result.Stdout | ConvertFrom-Json
+
+        $result.ExitCode | Should -Be 0
+        $document.Preset | Should -Be 'Core'
+        $document.Enabled | Should -BeTrue
+        $result.Stdout | Should -Not -Match '^What if:'
+        $wrappersAfter = @(Get-ChildItem -Path $temporaryPattern -ErrorAction SilentlyContinue).FullName
+        @($wrappersAfter | Where-Object { $_ -notin $wrappersBefore }) | Should -BeNullOrEmpty
+    }
+
     It 'decodes a round-trippable Windows ANSI output fallback without replacement characters' -Skip:(-not $IsWindows) {
         $text = '本地编码诊断'
         $codePage = [System.Globalization.CultureInfo]::CurrentCulture.TextInfo.ANSICodePage

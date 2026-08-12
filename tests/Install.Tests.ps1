@@ -66,7 +66,7 @@ param([string]$Preset, [switch]$WhatIf)
             $verifyRelativePath = if ($IsWindows) { 'windows/99verifyInstall.ps1' } else { 'linux/99verifyInstall.ps1' }
             $verifyPath = Join-Path $script:TempRoot $verifyRelativePath
             New-Item -ItemType Directory -Path (Split-Path -Parent $verifyPath) -Force | Out-Null
-            Set-Content -LiteralPath $verifyPath -Encoding utf8NoBOM -Value "Write-Output 'verify-leaf-noise'`n"
+            Set-Content -LiteralPath $verifyPath -Encoding utf8NoBOM -Value "param([ValidateSet('Core', 'Full')][string]`$Preset)`nWrite-Output 'verify-leaf-noise'`n"
         }
 
         if (-not $IsWindows) {

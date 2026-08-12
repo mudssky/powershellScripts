@@ -132,9 +132,18 @@ if ($RemainingArgs[0] -eq '__complete') { 'profile' }
         Should -Invoke Read-BrowserDebugRegistry -Times 0
     }
 
-    It '通过真实 alias 与 ps1 入口调用内部补全且不终止当前会话' {
-        $completionPath = Join-Path $script:ToolRoot 'completion.ps1'
-        $commandPath = Join-Path $script:RepoRoot 'bin/browser-debug.ps1'
+    It '通过真实生成的 alias 与 ps1 入口调用内部补全且不终止当前会话' {
+        $generatedRoot = Join-Path $TestDrive 'generated-profile-root'
+        $generatedToolRoot = Join-Path $generatedRoot 'scripts/pwsh/devops/browser-debug'
+        New-Item -ItemType Directory -Path $generatedToolRoot -Force | Out-Null
+        Copy-Item -LiteralPath (Join-Path $script:RepoRoot 'Manage-BinScripts.ps1') -Destination $generatedRoot -Force
+        Copy-Item -LiteralPath (Join-Path $script:RepoRoot 'psutils/src/config') -Destination (Join-Path $generatedRoot 'psutils/src/config') -Recurse -Force
+        Copy-Item -Path (Join-Path $script:ToolRoot '*') -Destination $generatedToolRoot -Recurse -Force
+        & (Join-Path $generatedRoot 'Manage-BinScripts.ps1') -Action sync -Force *> $null
+
+        $completionPath = Join-Path $generatedToolRoot 'completion.ps1'
+        $commandPath = Join-Path $generatedRoot 'bin/browser-debug.ps1'
+        Test-Path -LiteralPath $commandPath -PathType Leaf | Should -BeTrue
         $childCommand = @"
 Remove-Item Env:\PWSH_TEST_SKIP_BROWSER_DEBUG_MAIN -ErrorAction SilentlyContinue
 . '$($completionPath.Replace("'", "''"))'
@@ -154,7 +163,7 @@ Register-BrowserDebugCompletion -CommandPath '$($commandPath.Replace("'", "''"))
     }
 }
 
-Describe 'browser-debug Profile 生命周期' {
+Describe 'browser-debug Profile 生命周期' -Tag 'windowsOnly' {
     BeforeEach {
         $script:RegistryPath = Join-Path $TestDrive 'registry.json'
         $script:ProfileRoot = Join-Path $TestDrive 'profiles'
@@ -559,7 +568,7 @@ Describe 'browser-debug User Data 克隆' {
     }
 }
 
-Describe 'browser-debug 快捷方式' {
+Describe 'browser-debug 快捷方式' -Tag 'windowsOnly' {
     It 'Local 与 LAN 快捷方式只引用 Profile 名称、显式模式并确认切换' {
         $pwshPath = (Get-Command pwsh.exe -ErrorAction Stop).Source
         $profile = [pscustomobject]@{ name = 'demo'; browserPath = $pwshPath; cdpPort = 9333 }
