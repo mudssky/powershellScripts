@@ -3,7 +3,7 @@
   "name": "design-pwsh-coverage-sharding",
   "title": "设计 PowerShell coverage 外层分片与报告合并",
   "description": "设计独立 Pester 进程分片、JaCoCo/NUnit 合并、环境隔离、负载均衡与三轮 coverage 门禁，不降低现有覆盖率和真实入口合同。",
-  "status": "planning",
+  "status": "completed",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -11,7 +11,7 @@
   "creator": "mudssky",
   "assignee": "mudssky",
   "createdAt": "2026-08-12",
-  "completedAt": null,
+  "completedAt": "2026-08-12",
   "branch": null,
   "base_branch": "master",
   "worktree_path": null,
@@ -22,5 +22,8 @@
   "parent": null,
   "relatedFiles": [],
   "notes": "",
-  "meta": {}
+  "meta": {
+    "outcome": "cancelled",
+    "reason": "原生并行 coverage 未通过正确性与性能门禁，用户决定不继续外层分片方案"
+  }
 }
