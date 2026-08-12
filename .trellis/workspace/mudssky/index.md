@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 57
+- **Total Sessions**: 58
 - **Last Active**: 2026-08-12
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1779 | Active |
+| `journal-1.md` | ~1742 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -27,8 +27,10 @@
 ## Session History
 
 <!-- @@@auto:session-history -->
+
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 58 | 2026-08-12 | 改进 browser-debug LAN 连接指南 | `f50ec29f` | `master` |
 | 57 | 2026-08-12 | 支持浏览器调试模式快捷切换 | `42156e9a` | `master` |
 | 56 | 2026-08-11 | 优化 PowerShell 全量测试耗时 | `4d1d7a69` | `master` |
 | 55 | 2026-08-11 | 完成 Browser Debug 远程 CDP Profile 工具 | `e1fe7daa`, `1aae1957` | `master` |
@@ -86,6 +88,7 @@
 | 3 | 2026-05-13 | rathole 配置模板与维护脚本 | `38dd0f9`, `3c9b174`, `4a77e6f`, `8c72b5a` | `master` |
 | 2 | 2026-05-08 | 修复 rclone Vitest 空测试套件 | `3911093` | `master` |
 | 1 | 2026-05-08 | 拆分 pnpm workspace 包边界 | `1e612a9` | `master` |
+
 <!-- @@@/auto:session-history -->
 
 ---

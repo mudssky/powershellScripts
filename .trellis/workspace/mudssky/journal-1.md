@@ -5,8 +5,6 @@
 
 ---
 
-
-
 ## Session 1: 拆分 pnpm workspace 包边界
 
 **Date**: 2026-05-08
@@ -40,7 +38,6 @@
 
 - None - task complete
 
-
 ## Session 2: 修复 rclone Vitest 空测试套件
 
 **Date**: 2026-05-08
@@ -73,7 +70,6 @@
 ### Next Steps
 
 - None - task complete
-
 
 ## Session 3: rathole 配置模板与维护脚本
 
@@ -110,7 +106,6 @@
 
 - None - task complete
 
-
 ## Session 4: GitHub CLI download installer
 
 **Date**: 2026-05-17
@@ -142,7 +137,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
-
 
 ## Session 5: 拆分 skills 安装器私有模块
 
@@ -181,7 +175,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 
 - None - task complete
 
-
 ## Session 6: 归档 rclone、内存诊断与 Claude profile 任务
 
 **Date**: 2026-05-27
@@ -218,7 +211,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 
 - None - task complete
 
-
 ## Session 7: LiteLLM claw agent fallback
 
 **Date**: 2026-05-28
@@ -250,7 +242,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
-
 
 ## Session 8: 创建仓库运维 Skill
 
@@ -284,7 +275,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 
 - None - task complete
 
-
 ## Session 9: 整理 Hermes 官方安装目录
 
 **Date**: 2026-05-28
@@ -317,7 +307,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 
 - None - task complete
 
-
 ## Session 10: Hermes 本地私有仓库管理
 
 **Date**: 2026-05-28
@@ -349,7 +338,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
-
 
 ## Session 11: macOS 内存诊断与 pwshfmt 回退修复
 
@@ -384,7 +372,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 
 - None - task complete
 
-
 ## Session 12: 数据库查询技能开发
 
 **Date**: 2026-05-31
@@ -416,7 +403,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
-
 
 ## Session 13: 创建通用整理分类技能
 
@@ -451,7 +437,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 
 - None - task complete
 
-
 ## Session 14: database-query 开箱即用体验
 
 **Date**: 2026-06-01
@@ -484,7 +469,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 
 - None - task complete
 
-
 ## Session 15: 改进 database-query CLI 与全局安装
 
 **Date**: 2026-06-01
@@ -516,7 +500,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
-
 
 ## Session 16: Docker 管理 skill 封装
 
@@ -551,7 +534,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 
 - None - task complete
 
-
 ## Session 17: 完善 API 示例测试 skill
 
 **Date**: 2026-06-05
@@ -583,7 +565,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
-
 
 ## Session 18: 完善 api-example-test-writer httpyac env 与认证示例
 
@@ -618,7 +599,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 
 - None - task complete
 
-
 ## Session 19: macOS mpv 安装与点击打开
 
 **Date**: 2026-06-11
@@ -650,7 +630,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
-
 
 ## Session 20: database-query 数据库候选自动发现
 
@@ -684,7 +663,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 
 - None - task complete
 
-
 ## Session 21: 创建 skill 开发规范导航
 
 **Date**: 2026-06-25
@@ -716,7 +694,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
-
 
 ## Session 22: 规范 API 示例测试 skill
 
@@ -750,7 +727,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 
 - None - task complete
 
-
 ## Session 23: Profile Core 跨平台启动链优化
 
 **Date**: 2026-07-11
@@ -782,7 +758,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
-
 
 ## Session 24: 完成统一安装编排器与预设
 
@@ -817,7 +792,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 
 - None - task complete
 
-
 ## Session 25: 完成 macOS 安装流水线
 
 **Date**: 2026-07-11
@@ -850,7 +824,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
-
 
 ## Session 26: 完成 Linux WSL 安装流水线
 
@@ -885,7 +858,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 
 - None - task complete
 
-
 ## Session 27: Windows 安装流水线
 
 **Date**: 2026-07-11
@@ -918,7 +890,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
-
 
 ## Session 28: 完成仓库冷归档批次
 
@@ -953,7 +924,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 
 - None - task complete
 
-
 ## Session 29: 收尾 macOS Finder 快捷操作并暂缓 Nix 试点
 
 **Date**: 2026-07-12
@@ -987,7 +957,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 
 - None - task complete
 
-
 ## Session 30: 收敛个人配置仓库边界并暂缓 Nix 试点
 
 **Date**: 2026-07-12
@@ -1017,7 +986,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
-
 
 ## Session 31: 项目冷归档技能与 JSON 索引
 
@@ -1051,7 +1019,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 
 - None - task complete
 
-
 ## Session 32: 归档 PromptX Trae 与 OpenSpec
 
 **Date**: 2026-07-12
@@ -1083,7 +1050,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
-
 
 ## Session 33: Arch Linux Core 支持与旧目录归档
 
@@ -1118,7 +1084,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 
 - None - task complete
 
-
 ## Session 34: 优化换源测试隔离与性能
 
 **Date**: 2026-07-12
@@ -1151,7 +1116,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 
 - None - task complete
 
-
 ## Session 35: 归档通用与历史文档
 
 **Date**: 2026-07-12
@@ -1183,7 +1147,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
-
 
 ## Session 36: 完成 psutils 核心入口与导出契约
 
@@ -1218,7 +1181,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 
 - None - task complete
 
-
 ## Session 37: 统一测试报告输出目录
 
 **Date**: 2026-07-12
@@ -1251,7 +1213,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 
 - None - task complete
 
-
 ## Session 38: 归档 JSON 对比工具
 
 **Date**: 2026-07-12
@@ -1283,7 +1244,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
-
 
 ## Session 39: 完成 psutils 文档与示例可靠性修复
 
@@ -1318,7 +1278,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 
 - None - task complete
 
-
 ## Session 40: 收敛 psutils 公共 API 与模块边界
 
 **Date**: 2026-07-12
@@ -1351,7 +1310,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
-
 
 ## Session 41: 加固 psutils 运行时安全与健壮性
 
@@ -1386,7 +1344,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 
 - None - task complete
 
-
 ## Session 42: 归档 AI 工具目录
 
 **Date**: 2026-07-12
@@ -1419,7 +1376,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Next Steps
 
 - None - task complete
-
 
 ## Session 43: Windows PSRP 远程 bootstrap
 
@@ -1455,7 +1411,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 
 - None - task complete
 
-
 ## Session 44: VS Code Remote code-host
 
 **Date**: 2026-07-24
@@ -1488,7 +1443,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 
 - None - task complete
 
-
 ## Session 45: 归档已完成任务清理
 
 **Date**: 2026-07-24
@@ -1519,7 +1473,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 
 - None - task complete
 
-
 ## Session 46: 验收 ansible 被控端准备
 
 **Date**: 2026-07-25
@@ -1539,7 +1492,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Status
 
 [OK] **Completed**
-
 
 ## Session 47: Mac Mini Rust 缓存迁外接盘
 
@@ -1562,7 +1514,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 
 [OK] **Completed**
 
-
 ## Session 48: 远程装机选型剩余验收归档
 
 **Date**: 2026-07-25
@@ -1583,7 +1534,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 
 [OK] **Completed**
 
-
 ## Session 49: WSL 配置与 22.04 原地升级
 
 **Date**: 2026-07-26
@@ -1603,7 +1553,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Status
 
 [OK] **Completed**
-
 
 ## Session 50: 配置 Carapace 与 Atuin 多 Shell Profile
 
@@ -1626,7 +1575,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Status
 
 [OK] **Completed**
-
 
 ## Session 51: 补齐高频 Zsh 与终端工具
 
@@ -1651,7 +1599,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 
 [OK] **Completed**
 
-
 ## Session 52: 统一三系统根目录安装入口
 
 **Date**: 2026-08-10
@@ -1671,7 +1618,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Status
 
 [OK] **Completed**
-
 
 ## Session 53: 修复 Core provision 启动卡顿
 
@@ -1693,7 +1639,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 
 [OK] **Completed**
 
-
 ## Session 54: 修复安装输出乱码与失败诊断
 
 **Date**: 2026-08-11
@@ -1713,7 +1658,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Status
 
 [OK] **Completed**
-
 
 ## Session 55: 完成 Browser Debug 远程 CDP Profile 工具
 
@@ -1736,7 +1680,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 
 [OK] **Completed**
 
-
 ## Session 56: 优化 PowerShell 全量测试耗时
 
 **Date**: 2026-08-11
@@ -1757,7 +1700,6 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 
 [OK] **Completed**
 
-
 ## Session 57: 支持浏览器调试模式快捷切换
 
 **Date**: 2026-08-12
@@ -1773,6 +1715,27 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 | Hash | Message |
 |------|---------|
 | `42156e9a` | (see git log) |
+
+### Status
+
+[OK] **Completed**
+
+
+## Session 58: 改进 browser-debug LAN 连接指南
+
+**Date**: 2026-08-12
+**Task**: 改进 browser-debug LAN 连接指南
+**Branch**: `master`
+
+### Summary
+
+抽离 browser-debug HTML 模板；LAN 指南标注原生直连不可用并提供 Tailscale Serve 与 ssh -L；专项 59/59、真实 Local/LAN 页面 smoke 通过，最终恢复 Local。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `f50ec29f` | (see git log) |
 
 ### Status
 
