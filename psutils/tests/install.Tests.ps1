@@ -482,6 +482,57 @@ Describe "受限安装命令解析测试" {
     }
 }
 
+Describe "Invoke-InstallModuleCommand 函数测试" {
+    It "默认只传模块名、CurrentUser 和 terminating error" {
+        InModuleScope install {
+            Mock Install-PSResource { }
+
+            Invoke-InstallModuleCommand -ModuleName 'Pester'
+
+            Should -Invoke Install-PSResource -Times 1 -Exactly -ParameterFilter {
+                $Name -eq 'Pester' -and
+                $Scope -eq 'CurrentUser' -and
+                $ErrorAction -eq 'Stop' -and
+                -not $PSBoundParameters.ContainsKey('Version') -and
+                -not $PSBoundParameters.ContainsKey('Reinstall')
+            }
+        }
+    }
+
+    It "按语义传递精确版本、安装范围与 Reinstall" {
+        InModuleScope install {
+            Mock Install-PSResource { }
+
+            Invoke-InstallModuleCommand -ModuleName 'Pester' -Version '6.1.0' -Scope AllUsers -Reinstall
+
+            Should -Invoke Install-PSResource -Times 1 -Exactly -ParameterFilter {
+                $Name -eq 'Pester' -and
+                $Version -eq '6.1.0' -and
+                $Scope -eq 'AllUsers' -and
+                $Reinstall -eq $true -and
+                $ErrorAction -eq 'Stop'
+            }
+        }
+    }
+}
+Describe "Install-RequiredModule WhatIf 测试" {
+    It "预览每个缺失模块且不安装或导入" {
+        InModuleScope install {
+            Mock Test-ModuleInstalled { return $false }
+            Mock Invoke-InstallModuleCommand { throw 'WhatIf 不应执行安装命令' }
+            Mock Import-InstalledModule { throw 'WhatIf 不应导入模块' }
+
+            $results = @(Install-RequiredModule -ModuleNames @('FirstModule', 'SecondModule') -WhatIf)
+
+            @($results.Status) | Should -Be @('Preview', 'Preview')
+            @($results.ExitCode) | Should -Be @(0, 0)
+            Should -Invoke Invoke-InstallModuleCommand -Times 0 -Exactly
+            Should -Invoke Import-InstalledModule -Times 0 -Exactly
+        }
+    }
+}
+
+
 Describe "Install-RequiredModule 函数测试" {
     It "按顺序处理已安装、安装成功与安装失败模块并继续执行" {
         InModuleScope install {

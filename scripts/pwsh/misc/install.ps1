@@ -29,7 +29,8 @@ $ErrorActionPreference = 'Stop'
 function Main {
     try {
         # 导入 psutils 模块以使用管理员权限检测功能
-        $psutilsPath = Join-Path $PSScriptRoot 'psutils'
+        $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..' '..' '..'))
+        $psutilsPath = Join-Path $repoRoot 'psutils'
         Import-Module $psutilsPath -Force
 
         # 检查管理员权限
@@ -49,29 +50,25 @@ function Main {
             Write-Host "已检测到管理员权限" -ForegroundColor Green
         }
 
-        # 安装测试框架（副作用操作，支持 -WhatIf）
-        if ($PSCmdlet.ShouldProcess('Pester 模块', '检查并安装')) {
-            if (-not (Get-Module -ListAvailable -Name Pester)) {
-                Write-Host "正在安装 Pester 模块..." -ForegroundColor Yellow
-                Install-Module -Name Pester -Force
-                Write-Host "Pester 模块安装完成" -ForegroundColor Green
-            }
-            else {
-                Write-Host "Pester 模块已安装，跳过安装" -ForegroundColor Green
-            }
+        # 安装测试框架（副作用操作，支持 -WhatIf）。专用入口读取仓库固定版本，
+        # 避免此兼容脚本重新引入浮动 latest 的第二安装路径。
+        if ($PSCmdlet.ShouldProcess('Pester 模块', '检查并安装仓库固定版本')) {
+            Write-Host "正在检查仓库固定版本的 Pester 模块..." -ForegroundColor Yellow
+            & (Join-Path $repoRoot 'scripts' 'pwsh' 'devops' 'Install-Pester.ps1')
+            Write-Host "Pester 模块检查完成" -ForegroundColor Green
         }
 
         # 根据平台加载 Profile（副作用操作，支持 -WhatIf）
         if ($IsWindows) {
             Write-Verbose "当前环境为 Windows，将执行 Windows 特定配置"
             if ($PSCmdlet.ShouldProcess('Windows Profile', '加载')) {
-                & (Join-Path $PSScriptRoot 'profile' 'profile.ps1') -loadProfile
+                & (Join-Path $repoRoot 'profile' 'profile.ps1') -loadProfile
             }
         }
         else {
             Write-Verbose "当前环境为 Unix 或类 Unix 系统，将执行 Unix 特定配置"
             if ($PSCmdlet.ShouldProcess('Unix Profile', '加载')) {
-                & (Join-Path $PSScriptRoot 'profile' 'profile_unix.ps1') -loadProfile
+                & (Join-Path $repoRoot 'profile' 'profile_unix.ps1') -loadProfile
             }
         }
     }

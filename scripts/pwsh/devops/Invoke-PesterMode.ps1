@@ -25,6 +25,9 @@
     可选的单文件或子集测试路径，对应 `PWSH_TEST_PATH`。
     未显式传入时保留调用方已有环境变量，便于 QA 编排器注入 changed 测试集。
 
+.PARAMETER CoveragePath
+    可选的 JaCoCo 输出路径，对应 `PESTER_COVERAGE_PATH`。未指定时保留调用方已有覆盖值。
+
 .PARAMETER PesterVersion
     要显式导入的 Pester 版本。未传入时依次读取 PWSH_PESTER_VERSION 和仓库
     `.pester-version`，避免自动加载机器上的任意版本。
@@ -60,6 +63,8 @@ param(
 
     [string]$Path,
 
+    [string]$CoveragePath,
+
     [string]$PesterVersion,
 
     [switch]$Parallel,
@@ -93,17 +98,30 @@ else {
 if ($effectivePesterVersion -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$') {
     throw "Pester 版本格式无效: $effectivePesterVersion"
 }
+$originalPesterModule = Get-Module -Name Pester | Select-Object -First 1
+
 
 $originalValues = @{
     PWSH_TEST_MODE            = [Environment]::GetEnvironmentVariable('PWSH_TEST_MODE', 'Process')
     PWSH_TEST_ENABLE_COVERAGE = [Environment]::GetEnvironmentVariable('PWSH_TEST_ENABLE_COVERAGE', 'Process')
     PWSH_TEST_VERBOSE         = [Environment]::GetEnvironmentVariable('PWSH_TEST_VERBOSE', 'Process')
     PWSH_TEST_PATH            = [Environment]::GetEnvironmentVariable('PWSH_TEST_PATH', 'Process')
-    PWSH_TEST_PARALLEL        = [Environment]::GetEnvironmentVariable('PWSH_TEST_PARALLEL', 'Process')
+    PWSH_TEST_PARALLEL          = [Environment]::GetEnvironmentVariable('PWSH_TEST_PARALLEL', 'Process')
     PWSH_TEST_PARALLEL_THROTTLE = [Environment]::GetEnvironmentVariable('PWSH_TEST_PARALLEL_THROTTLE', 'Process')
-    PWSH_TEST_INCLUDE_SLOW    = [Environment]::GetEnvironmentVariable('PWSH_TEST_INCLUDE_SLOW', 'Process')
+    PWSH_TEST_INCLUDE_SLOW      = [Environment]::GetEnvironmentVariable('PWSH_TEST_INCLUDE_SLOW', 'Process')
+    PESTER_COVERAGE_PATH        = [Environment]::GetEnvironmentVariable('PESTER_COVERAGE_PATH', 'Process')
 }
 
+<#
+.SYNOPSIS
+    恢复单个进程级环境变量。
+.PARAMETER Name
+    要恢复的环境变量名称。
+.PARAMETER Value
+    原始环境变量值；为 null 时删除该变量。
+.OUTPUTS
+    None。直接修改当前进程环境。
+#>
 function Restore-ProcessEnvironmentValue {
     [CmdletBinding()]
     param(
@@ -138,12 +156,12 @@ function Import-PinnedPester {
         [string]$Version
     )
 
-    $loadedPester = Get-Module -Name Pester
+    $loadedPester = Get-Module -Name Pester | Select-Object -First 1
     if ($loadedPester) {
         if ($loadedPester.Version.ToString() -eq $Version) {
             return $loadedPester
         }
-        Remove-Module -Name Pester -Force
+        throw "当前进程已加载 Pester $($loadedPester.Version)，不能切换到 $Version；请使用独立 pwsh 进程运行目标版本。"
     }
 
     try {
@@ -193,11 +211,27 @@ try {
         }
     }
 
+    if ($PSBoundParameters.ContainsKey('CoveragePath')) {
+        if ([string]::IsNullOrWhiteSpace($CoveragePath)) {
+            Remove-Item Env:\PESTER_COVERAGE_PATH -ErrorAction SilentlyContinue
+        }
+        else {
+            [Environment]::SetEnvironmentVariable('PESTER_COVERAGE_PATH', $CoveragePath, 'Process')
+        }
+    }
+
     if ($Parallel.IsPresent) {
         $probe = New-PesterConfiguration
         if ($probe.Run.PSObject.Properties.Name -notcontains 'Parallel') {
             throw "Pester $effectivePesterVersion 不支持 Run.Parallel；请使用 Pester 6 或移除 -Parallel。"
         }
+
+        $coverageRequested = $Coverage -eq 'On' -or ($Coverage -eq 'Default' -and $Mode -notin @('fast', 'serial', 'debug', 'qa'))
+        $comparablePesterVersion = [version]($effectivePesterVersion -replace '-.*$', '')
+        if ($coverageRequested -and $comparablePesterVersion -lt [version]'6.1.0') {
+            throw "Pester $effectivePesterVersion 不支持并行 coverage；需要 Pester 6.1.0 或更高版本。"
+        }
+
         [Environment]::SetEnvironmentVariable('PWSH_TEST_PARALLEL', 'true', 'Process')
         [Environment]::SetEnvironmentVariable('PWSH_TEST_PARALLEL_THROTTLE', [string]$ParallelThrottle, 'Process')
     }
@@ -220,5 +254,9 @@ try {
 finally {
     foreach ($entry in $originalValues.GetEnumerator()) {
         Restore-ProcessEnvironmentValue -Name $entry.Key -Value $entry.Value
+    }
+
+    if (-not $originalPesterModule -and (Get-Module -Name Pester)) {
+        Remove-Module -Name Pester -Force
     }
 }

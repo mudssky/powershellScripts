@@ -81,6 +81,7 @@ Get-WindowsInstallEnvironment -CommandAvailability $completeCommandAvailability
 - Pester 5.7.1 的 `Run` 配置没有 `Parallel` 属性；请求并行时必须明确拒绝，不能静默退回串行。
 - Pester 6.1.0 支持文件级 `Run.Parallel` 与 CodeCoverage 合并；旧于 6.1.0 的版本请求 parallel coverage 时仍必须明确拒绝。
 - `test:pwsh:full:parallel:poc` 是 assertions 诊断入口，固定 throttle 2；`test:pwsh:coverage:parallel:poc` 是原生并行 coverage 的薄 PoC 入口，同样固定 throttle 2 并由 reporter 分配唯一 NUnit、JaCoCo 与 duration artifact。
-- 默认 `test:pwsh:full` 在三轮正确性与性能门禁有证据前继续指向串行 coverage；自动、2、4 三档对照由调用方通过统一 runner 采样，不能仅凭 Pester 6.1.0 能力声明切换默认值。
-- 调用真实 Bash/WSL、修改进程环境或依赖共享宿主状态的测试文件必须使用 `#pester:no-parallel` 或等价隔离；该指令在 parallel batch 中产生的 NotRun 占位不代表漏跑，最终以 sequential batch 与 NUnit test-case 计数为准。
-- Pester 版本由根目录 `.pester-version` 固定为 6.1.0；本机、Docker 与 CI 安装入口必须读取该文件，runner 必须显式导入目标版本并保留 5.7.1 回退。
+- 默认 `test:pwsh:full` 保持串行 coverage。2026-08-12 的同提交对照中，串行基线为 `360.207s`、instruction `3011/1860`（61.81%），原生并行 throttle 2 为 `634.090s`、instruction `3030/1841`（62.20%）；两者 NUnit 都是 `965 total / 939 passed / 0 failed / 26 skipped`，但 coverage 计数不等价且并行超过 `270s` 最慢值门禁。
+- 原生并行候选一旦在首个固定 throttle 上失败测试集合、coverage 计数或性能门禁，后续 throttle 档位允许短路，不得用更多采样掩盖已失败的正确性合同；此时恢复外层进程分片任务作为备用方案。
+- 调用真实 Bash/WSL、修改进程环境或依赖共享宿主状态的测试必须显式隔离。Windows 调用 WSL guest 脚本时，应先把 Windows 路径规范为正斜杠并通过 `wsl.exe -- wslpath -a` 转换，再用 `wsl.exe -- env ... bash` 显式传递测试环境；不能混用 Git Bash `cygpath` 与 WSL `bash.exe`。
+- 统一 runner 在同进程被调用时，结束后必须恢复调用方原有测试环境变量；调用前没有加载 Pester 时不得留下目标版本模块。若当前进程已加载不同 Pester 版本，必须明确拒绝并要求独立 `pwsh`，不能尝试卸载后切换或恢复跨版本 DLL。

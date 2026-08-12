@@ -33,6 +33,7 @@
     "test:pwsh:full:serial": "pwsh -NoProfile -File ./scripts/pwsh/devops/Invoke-PesterMode.ps1 -Mode full -Coverage On",
     "test:pwsh:full:pester5": "pwsh -NoProfile -File ./scripts/pwsh/devops/Invoke-PesterMode.ps1 -Mode full -Coverage On -PesterVersion 5.7.1",
     "test:pwsh:full:parallel:poc": "pwsh -NoProfile -File ./scripts/pwsh/devops/Invoke-PesterMode.ps1 -Mode full -Coverage Off -Parallel -ParallelThrottle 2",
+    "test:pwsh:coverage:parallel:poc": "node ./scripts/pester-duration-report.mjs --command \"pwsh -NoProfile -File ./scripts/pwsh/devops/Invoke-PesterMode.ps1 -Mode full -Coverage On -Parallel -ParallelThrottle 2\" --lane parallel-coverage-t2",
     "test:pwsh:coverage": "pnpm test:pwsh:full",
     "test:pwsh:full:assertions": "pwsh -NoProfile -File ./scripts/pwsh/devops/Invoke-PesterMode.ps1 -Mode full -Coverage Off",
     "test:pwsh:fast": "pwsh -NoProfile -File ./scripts/pwsh/devops/Invoke-PesterMode.ps1 -Mode fast",

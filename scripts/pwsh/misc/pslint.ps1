@@ -44,7 +44,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 if ($Install) {
-    Install-Module PSScriptAnalyzer -Force
+    Install-PSResource -Name PSScriptAnalyzer -Scope CurrentUser -ErrorAction Stop
     exit
 }
 

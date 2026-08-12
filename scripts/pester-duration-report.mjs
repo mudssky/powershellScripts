@@ -9,13 +9,14 @@ const cwd = process.cwd()
  * 解析耗时报告命令行参数。
  *
  * @param {string[]} argv 命令行参数
- * @returns {{ filePath: string | null, command: string | null, nunitPath: string | null, jsonPath: string | null, lane: string, top: number | null }}
+ * @returns {{ filePath: string | null, command: string | null, nunitPath: string | null, coveragePath: string | null, jsonPath: string | null, lane: string, top: number | null }}
  */
 export function parseArgs(argv = process.argv.slice(2)) {
   const parsed = {
     filePath: null,
     command: null,
     nunitPath: null,
+    coveragePath: null,
     jsonPath: null,
     lane: 'single',
     top: null,
@@ -27,6 +28,7 @@ export function parseArgs(argv = process.argv.slice(2)) {
     if (arg === '--file') parsed.filePath = value
     else if (arg === '--command') parsed.command = value
     else if (arg === '--nunit') parsed.nunitPath = value
+    else if (arg === '--coverage') parsed.coveragePath = value
     else if (arg === '--json') parsed.jsonPath = value
     else if (arg === '--lane' && value) parsed.lane = value
     else if (arg === '--top') {
@@ -316,7 +318,7 @@ export async function main(argv = process.argv.slice(2)) {
   const options = parseArgs(argv)
   if (!options.filePath && !options.command) {
     console.error(
-      '[pester-duration-report] usage: --file <log> | --command "<cmd>" [--nunit <xml>] [--json <json>] [--lane host] [--top 10]',
+      '[pester-duration-report] usage: --file <log> | --command "<cmd>" [--nunit <xml>] [--coverage <xml>] [--json <json>] [--lane host] [--top 10]',
     )
     return 1
   }
@@ -331,12 +333,21 @@ export async function main(argv = process.argv.slice(2)) {
     options.nunitPath ??
       path.join(reportDirectory, `pester-duration-${timestamp}.xml`),
   )
+  const coveragePath = path.resolve(
+    cwd,
+    options.coveragePath ??
+      path.join(reportDirectory, `pester-coverage-${timestamp}.xml`),
+  )
   const jsonPath = path.resolve(
     cwd,
     options.jsonPath ??
       path.join(reportDirectory, `pester-duration-${timestamp}.json`),
   )
-  await mkdir(path.dirname(jsonPath), { recursive: true })
+  await Promise.all([
+    mkdir(path.dirname(nunitPath), { recursive: true }),
+    mkdir(path.dirname(coveragePath), { recursive: true }),
+    mkdir(path.dirname(jsonPath), { recursive: true }),
+  ])
 
   const startedAt = new Date()
   let output = ''
@@ -345,6 +356,7 @@ export async function main(argv = process.argv.slice(2)) {
     const result = await runCommand(options.command, {
       ...process.env,
       PESTER_RESULT_PATH: nunitPath,
+      PESTER_COVERAGE_PATH: coveragePath,
     })
     output = result.output
     exitCode = result.exitCode
@@ -417,6 +429,7 @@ export async function main(argv = process.argv.slice(2)) {
     exitCode,
     phases: consoleData.phases,
     nunitPath,
+    coveragePath,
     files,
     testCases: nunitData.testCases,
   }

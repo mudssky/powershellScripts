@@ -21,22 +21,50 @@ if (-not $script:ModuleInstalledCache) {
 function Invoke-InstallModuleCommand {
     <#
     .SYNOPSIS
-        执行模块安装命令。
+        通过 PSResourceGet 执行模块安装命令。
     .DESCRIPTION
-        将外部 `Install-Module` 调用收口到模块内包装函数，便于测试稳定 mock，
+        将外部 `Install-PSResource` 调用收口到模块内包装函数，便于测试稳定 mock，
         同时避免测试意外触发真实 PowerShell Gallery 路径。
     .PARAMETER ModuleName
         要安装的模块名称。
+    .PARAMETER Version
+        可选的精确模块版本。未指定时安装最新稳定版。
+    .PARAMETER Scope
+        模块安装范围。
+    .PARAMETER Reinstall
+        显式覆盖已安装的同版本模块。
     .OUTPUTS
         None。安装失败时抛出异常。
     #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
-        [string]$ModuleName
+        [string]$ModuleName,
+
+        [Parameter()]
+        [string]$Version,
+
+        [Parameter()]
+        [ValidateSet('CurrentUser', 'AllUsers')]
+        [string]$Scope = 'CurrentUser',
+
+        [Parameter()]
+        [switch]$Reinstall
     )
 
-    Install-Module -Name $ModuleName -Scope CurrentUser -Force -ErrorAction Stop
+    $installArguments = @{
+        Name        = $ModuleName
+        Scope       = $Scope
+        ErrorAction = 'Stop'
+    }
+    if (-not [string]::IsNullOrWhiteSpace($Version)) {
+        $installArguments.Version = $Version
+    }
+    if ($Reinstall.IsPresent) {
+        $installArguments.Reinstall = $true
+    }
+
+    Install-PSResource @installArguments
 }
 
 function Import-InstalledModule {

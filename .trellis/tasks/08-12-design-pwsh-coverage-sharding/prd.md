@@ -25,10 +25,10 @@
 
 ## Background
 
-- Pester 6.0.1 在 CodeCoverage 开启时会强制退回串行；Pester 6.1.0 已加入原生并行 coverage 合并，因此本任务当前作为原生方案未通过正确性或性能门禁时的备用设计保留。
-- 仓库新增 `test:pwsh:coverage:parallel:poc` 薄入口用于采集唯一 NUnit、JaCoCo 与 duration artifact；在自动、2、4 三档实测证据完成前，默认 `test:pwsh:full` 仍保持串行。
-- 使用实验性 WSL 串行标记时，assertions 并行 PoC throttle 2 可生成完整 NUnit，Run 196.65 秒，仅保留既有 WSL guest Windows 路径失败；该标记因 changed QA 合同未保留，后续设计需解决串行文件分类与既有失败隔离。
-- Pester 5.7.1 与 6.0.1 的单文件 coverage instruction 计数存在差异，任何原生或外层并行方案都必须与同版本串行基线验证计数等价，不能只比较百分比。
+- Pester 6.1.0 原生并行 coverage 已在 2026-08-12 完成仓库级 throttle 2 对照，但未通过门禁：串行 `360.207s`、instruction `3011/1860`（61.81%），并行 `634.090s`、instruction `3030/1841`（62.20%）；NUnit 测试集合等价，coverage 计数不等价且并行显著更慢。
+- 因首个固定候选同时失败正确性与 `<=270s` 性能门禁，自动与 throttle 4 采样按短路规则不再执行；默认 `test:pwsh:full` 继续串行，本任务恢复为外层进程分片备用设计。
+- 仓库新增 `test:pwsh:coverage:parallel:poc` 薄入口仅用于保留可复现诊断，不得作为默认 full。
+- Pester 5.7.1 与 6.x 的 coverage instruction 计数可能存在差异，任何原生或外层并行方案都必须与同版本串行基线验证计数等价，不能只比较百分比。
 
 ## Out of Scope
 

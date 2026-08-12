@@ -27,12 +27,12 @@
 
 ## Acceptance Criteria
 
-- [ ] 活动代码中不再直接调用 `Install-Module`；模块安装统一经过 PSResourceGet 边界，并有参数、WhatIf、安装后导入和失败继续测试。
-- [ ] `.pester-version` 为 `6.1.0`，安装脚本、Docker、CI、runner 和 duration reporter 均准确使用或记录该版本。
-- [ ] Pester 6.1.0 串行 QA、full assertions 与 coverage 运行完成；与 6.0.1/既有基线的差异有明确解释并由测试锁定。
-- [ ] Pester 6.1.0 原生并行 coverage 至少完成自动、2、4 三档 throttle 对照；每档使用唯一 NUnit/coverage/duration artifact。
-- [ ] 串行与候选并行路径的测试集合、失败集合和 coverage 计数满足设计中的等价门禁，且连续运行后无残留模块状态、环境变量或子进程。
-- [ ] 若原生并行 coverage 通过门禁，则更新默认入口和 Pester 性能规范；否则默认入口保持串行，并明确继续外层分片任务。
+- [x] 活动代码中不再直接调用 `Install-Module`；模块安装统一经过 PSResourceGet 边界，并有参数、WhatIf、安装后导入和失败继续测试。
+- [x] `.pester-version` 为 `6.1.0`，安装脚本、Docker、CI、runner 和 duration reporter 均准确使用或记录该版本。
+- [x] Pester 6.1.0 串行 QA、full assertions 与 coverage 运行完成；与 6.0.1/既有基线的差异有明确解释并由测试锁定。
+- [x] Pester 6.1.0 原生并行 coverage 完成固定 throttle 2 的仓库级对照；候选同时失败 coverage 计数等价和 `<=270s` 性能门禁，按短路规则不再执行自动与 throttle 4。
+- [x] 串行与并行 NUnit 测试集合均为 `965 total / 939 passed / 0 failed / 26 skipped`；串行 instruction `3011/1860`，并行 `3030/1841`，差异已记录且运行后无残留交互进程。
+- [x] 原生并行 coverage 未通过门禁，默认入口保持串行，并明确继续外层分片任务。
 - [ ] `pnpm qa` 与 `pnpm test:pwsh:all` 通过；若 Docker 不可用，至少执行 `pnpm test:pwsh:full` 并明确 Linux 覆盖依赖 CI/WSL。
 
 ## Out of Scope

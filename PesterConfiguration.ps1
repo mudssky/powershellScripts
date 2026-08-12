@@ -15,10 +15,10 @@
 .NOTES
     配置包括：
     - 测试路径设置为./psutils目录
-    - 默认按仓库固定 Pester 版本串行执行，显式开关可运行 Pester 6 assertions 并行 PoC
+    - 默认按仓库固定 Pester 版本串行执行，显式开关可运行 Pester 6 并行 PoC
     - 启用代码覆盖率分析
     - 排除特定模块的覆盖率统计
-    - coverage 输出格式为 JaCoCo，兼容 Pester 5.7.1 与 6.0.1
+    - coverage 输出格式为 JaCoCo，兼容 Pester 5.7.1 与 6.1.0
 #>
 
 [CmdletBinding()]
@@ -38,6 +38,7 @@ if (-not (Test-Path -LiteralPath $reportDirectory -PathType Container)) {
 }
 $defaultCoveragePath = Join-Path $reportDirectory 'coverage.xml'
 $defaultTestResultPath = Join-Path $reportDirectory 'testResults.xml'
+$coveragePath = if (-not [string]::IsNullOrWhiteSpace($env:PESTER_COVERAGE_PATH)) { $env:PESTER_COVERAGE_PATH } else { $defaultCoveragePath }
 
 $includeSlow = $env:PWSH_TEST_INCLUDE_SLOW -in @('1', 'true', 'yes', 'on')
 $excludeTags = if ($includeSlow) { @() } else { @('Slow') }
@@ -131,14 +132,14 @@ $config = @{
         ExcludeTag = $excludeTags
     }
     CodeCoverage = @{
-        # 允许通过环境变量覆盖 coverage，便于 Linux 容器在 Pester 收尾异常时退回到
-        # “full 断言回归但不承担 coverage”的执行模式。
+        # coverage 开关与输出路径分别由统一 runner 和 artifact reporter 注入；
+        # 默认仍写入仓库 reports 目录，连续或并行采样可使用唯一覆盖路径。
         Enabled                 = $isCoverageEnabled
         Path                    = "./psutils/modules/*.psm1"
         # 显式写回仓库当前采用的 50% 覆盖率门槛，避免继续沿用 Pester 默认 75%
         # 导致控制台输出与 OpenSpec 规范长期漂移。
         CoveragePercentTarget   = 50
-        OutputPath              = $defaultCoveragePath
+        OutputPath              = $coveragePath
         OutputFormat            = 'JaCoCo'
         ExcludeFromCodeCoverage = @(
             './psutils/modules/error.psm1'
@@ -172,12 +173,16 @@ $config = @{
 
 if ($isParallel) {
     $configurationProbe = New-PesterConfiguration
-    if ($isCoverageEnabled) {
-        throw 'Pester 6 在启用 CodeCoverage 时会把 Run.Parallel 退回串行；请关闭 coverage 运行并行 PoC。'
-    }
     if ($configurationProbe.Run.PSObject.Properties.Name -notcontains 'Parallel') {
         throw "当前 Pester 版本不支持 Run.Parallel，不能执行并行性能样本。"
     }
+
+    $loadedPester = Get-Module -Name Pester | Select-Object -First 1
+    if ($isCoverageEnabled -and (-not $loadedPester -or $loadedPester.Version -lt [version]'6.1.0')) {
+        $loadedVersion = if ($loadedPester) { $loadedPester.Version.ToString() } else { 'unknown' }
+        throw "Pester $loadedVersion 不支持并行 coverage；需要 Pester 6.1.0 或更高版本。"
+    }
+
     $config.Run.Parallel = $true
     $config.Run.ParallelThrottleLimit = $parallelThrottle
 }

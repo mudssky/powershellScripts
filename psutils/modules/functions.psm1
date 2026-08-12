@@ -91,6 +91,8 @@ function Get-ScriptFolder() {
 
 
 
+
+
 <#
 .SYNOPSIS
     启动IPython交互式Python环境
@@ -116,10 +118,10 @@ function Start-Ipython () {
 .SYNOPSIS
     安装并配置PSReadLine模块
 .DESCRIPTION
-    此函数用于安装PowerShell的PSReadLine模块，并配置其历史记录预测源。
+    此函数通过统一模块安装边界确保PSReadLine可用，并配置其历史记录预测源。
     PSReadLine提供了增强的命令行编辑体验，包括语法高亮、命令历史记录、Tab补全等。
 .OUTPUTS
-    无。安装并配置PSReadLine模块。
+    None。模块安装结果不向管道输出，随后配置当前会话的预测源。
 .EXAMPLE
     Start-PSReadline
     安装PSReadLine模块并启用历史记录预测。
@@ -128,12 +130,22 @@ function Start-Ipython () {
     版本: 1.0.0
     创建日期: 2025-01-07
     用途: 提升PowerShell命令行交互体验。
-    如果模块已安装，则会强制重新安装。
 #>
 function Start-PSReadline() {
-    # 安装
-    Install-Module -Name PSReadLine -AllowClobber -Force
-    # 开启基于历史记录的智能提示
+    if (-not (Get-Command Install-RequiredModule -ErrorAction SilentlyContinue)) {
+        $installModulePath = Join-Path $PSScriptRoot 'install.psm1'
+        if (-not (Test-Path -LiteralPath $installModulePath -PathType Leaf)) {
+            throw "缺少统一模块安装边界: $installModulePath"
+        }
+        Import-Module $installModulePath -Force
+    }
+
+    $installResult = @(Install-RequiredModule -ModuleNames PSReadLine)
+    if ($installResult.Count -eq 0 -or $installResult[0].Status -eq 'Failed') {
+        $message = if ($installResult.Count -gt 0) { $installResult[0].Message } else { '安装边界未返回结果' }
+        throw "无法确保 PSReadLine 模块可用: $message"
+    }
+
     Set-PSReadLineOption -PredictionSource History
 }
 

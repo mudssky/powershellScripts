@@ -1,15 +1,33 @@
 BeforeAll {
     Import-Module (Join-Path $PSScriptRoot '..' 'modules' 'functions.psm1') -Force
-    $script:CreatedFzfPlaceholder = $false
-    if (-not (Get-Command fzf -ErrorAction SilentlyContinue)) {
-        Set-Item -Path Function:\global:fzf -Value { }
-        $script:CreatedFzfPlaceholder = $true
-    }
 }
 
-AfterAll {
-    if ($script:CreatedFzfPlaceholder) {
-        Remove-Item Function:\global:fzf -ErrorAction SilentlyContinue
+Describe "Start-PSReadline 函数测试" {
+    It "通过统一安装边界确保模块可用后配置预测源" {
+        InModuleScope functions {
+            Mock Install-RequiredModule { [pscustomobject]@{ Name = 'PSReadLine'; Status = 'Installed'; Message = '模块安装并导入成功' } }
+            Mock Set-PSReadLineOption { }
+
+            Start-PSReadline
+
+            Should -Invoke Install-RequiredModule -Times 1 -Exactly -ParameterFilter {
+                @($ModuleNames) -join ',' -eq 'PSReadLine'
+            }
+            Should -Invoke Set-PSReadLineOption -Times 1 -Exactly -ParameterFilter {
+                $PredictionSource -eq 'History'
+            }
+        }
+    }
+
+    It "安装边界失败时不继续配置当前会话" {
+        InModuleScope functions {
+            Mock Install-RequiredModule { [pscustomobject]@{ Name = 'PSReadLine'; Status = 'Failed'; Message = '模拟安装失败' } }
+            Mock Set-PSReadLineOption { }
+
+            { Start-PSReadline } | Should -Throw '*模拟安装失败*'
+
+            Should -Invoke Set-PSReadLineOption -Times 0 -Exactly
+        }
     }
 }
 
@@ -178,12 +196,17 @@ Describe "Get-HistoryCommandRank 函数测试" {
     It "默认从 PSReadLine 读取跨平台历史文件路径" {
         $historyPath = Join-Path $TestDrive 'psreadline-history.txt'
         @('git status', 'git status') | Set-Content -LiteralPath $historyPath
-        Mock -ModuleName functions Get-PSReadLineOption { [PSCustomObject]@{ HistorySavePath = $historyPath } }
 
-        $result = Get-HistoryCommandRank -Top 1 | Out-String
+        InModuleScope functions -Parameters @{ HistoryPath = $historyPath } {
+            param($HistoryPath)
+            $script:HistoryPathForTest = $HistoryPath
+            Mock Get-PSReadLineOption { [PSCustomObject]@{ HistorySavePath = $script:HistoryPathForTest } }
 
-        $result | Should -Match 'git'
-        Should -Invoke Get-PSReadLineOption -ModuleName functions -Times 1 -Exactly
+            $result = Get-HistoryCommandRank -Top 1 | Out-String
+
+            $result | Should -Match 'git'
+            Should -Invoke Get-PSReadLineOption -Times 1 -Exactly
+        }
     }
 
     It "历史文件不存在时写入 Verbose 并返回空结果" {
@@ -225,73 +248,82 @@ Describe "Set-Script 函数测试" {
 }
 
 Describe "Invoke-FzfHistorySmart 函数测试" {
-    BeforeEach {
-        # 缺依赖场景只验证降级行为，不需要把用户提示输出带进默认测试日志。
-        Mock -ModuleName functions Write-Warning { }
-    }
-
     Context "缺少 fzf" {
         It "应该在没有 fzf 时不抛出异常" {
-            Mock -ModuleName functions Get-Command { return $null } -ParameterFilter { $Name -eq "fzf" }
-            { Invoke-FzfHistorySmart } | Should -Not -Throw
+            InModuleScope functions {
+                Mock Write-Warning { }
+                Mock Get-Command { return $null } -ParameterFilter { $Name -eq 'fzf' }
+
+                { Invoke-FzfHistorySmart } | Should -Not -Throw
+            }
         }
     }
 
     Context "动态执行边界" {
-        BeforeEach {
-            $script:historyPath = Join-Path $TestDrive 'fzf-history.txt'
-            @('Get-Date', 'Get-Location') | Set-Content -LiteralPath $script:historyPath
-            Mock -ModuleName functions Get-Command { [PSCustomObject]@{ Name = 'fzf' } } -ParameterFilter { $Name -eq 'fzf' }
-            Mock -ModuleName functions Get-PSReadLineOption { [PSCustomObject]@{ HistorySavePath = $script:historyPath } }
-            Mock -ModuleName functions Invoke-Expression { }
-            Mock -ModuleName functions Write-Host { }
-        }
-
         It "只有 Ctrl+E 会执行选中的本地历史命令" {
-            Mock -ModuleName functions fzf { @('ctrl-e', 'Get-Date') }
+            $historyPath = Join-Path $TestDrive 'fzf-history-ctrl-e.txt'
+            @('Get-Date', 'Get-Location') | Set-Content -LiteralPath $historyPath
 
-            Invoke-FzfHistorySmart
+            InModuleScope functions -Parameters @{ HistoryPath = $historyPath } {
+                param($HistoryPath)
 
-            Should -Invoke Invoke-Expression -ModuleName functions -Times 1 -Exactly -ParameterFilter {
-                $Command -eq 'Get-Date'
+                function fzf { @('ctrl-e', 'Get-Date') }
+                Mock Get-PSReadLineOption { [PSCustomObject]@{ HistorySavePath = $HistoryPath } }
+                Mock Invoke-Expression { }
+                Mock Write-Host { }
+
+                Invoke-FzfHistorySmart
+
+                Should -Invoke Invoke-Expression -Times 1 -Exactly -ParameterFilter {
+                    $Command -eq 'Get-Date'
+                }
             }
         }
 
         It "普通 Enter 不执行选中的历史命令" {
-            Mock -ModuleName functions fzf { 'Get-Date' }
+            $historyPath = Join-Path $TestDrive 'fzf-history-enter.txt'
+            @('Get-Date', 'Get-Location') | Set-Content -LiteralPath $historyPath
 
-            Invoke-FzfHistorySmart | Out-Null
+            InModuleScope functions -Parameters @{ HistoryPath = $historyPath } {
+                param($HistoryPath)
 
-            Should -Invoke Invoke-Expression -ModuleName functions -Times 0 -Exactly
+                function fzf { 'Get-Date' }
+                Mock Get-PSReadLineOption { [PSCustomObject]@{ HistorySavePath = $HistoryPath } }
+                Mock Invoke-Expression { }
+
+                Invoke-FzfHistorySmart | Out-Null
+
+                Should -Invoke Invoke-Expression -Times 0 -Exactly
+            }
         }
     }
 }
 
 Describe "Register-FzfHistorySmartKeyBinding 函数测试" {
-    BeforeEach {
-        Mock -ModuleName functions Write-Warning { }
-    }
-
     Context "缺少依赖" {
         It "应该在没有 PSReadLine 时返回 false" {
-            Mock -ModuleName functions Get-Command {
-                if ($Name -eq "Set-PSReadLineKeyHandler") { return $null }
-                return $null
-            }
+            InModuleScope functions {
+                Mock Get-Command { return $null }
 
-            $result = Register-FzfHistorySmartKeyBinding
-            $result | Should -Be $false
+                $result = Register-FzfHistorySmartKeyBinding
+
+                $result | Should -Be $false
+            }
         }
 
         It "应该在没有 fzf 时返回 false" {
-            Mock -ModuleName functions Get-Command {
-                if ($Name -eq "Set-PSReadLineKeyHandler") { return [PSCustomObject]@{ Name = "Set-PSReadLineKeyHandler" } }
-                if ($Name -eq "fzf") { return $null }
-                return $null
-            }
+            InModuleScope functions {
+                Mock Get-Command {
+                    if ($Name -eq 'Set-PSReadLineKeyHandler') {
+                        return [PSCustomObject]@{ Name = 'Set-PSReadLineKeyHandler' }
+                    }
+                    return $null
+                }
 
-            $result = Register-FzfHistorySmartKeyBinding
-            $result | Should -Be $false
+                $result = Register-FzfHistorySmartKeyBinding
+
+                $result | Should -Be $false
+            }
         }
     }
 }

@@ -1,3 +1,5 @@
+#pester:no-parallel
+
 Set-StrictMode -Version Latest
 
 Describe 'WSL SSH 宿主与客体入口合同' {
@@ -105,8 +107,19 @@ Describe 'WSL SSH 宿主与客体入口合同' {
         try {
             $env:WSL_SSH_ACCESS_TEST_MODE = '1'
             $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($script:FixtureKey))
-            $output = bash $script:GuestPath --operation plan --user mudssky --port 22 `
-                --authorized-key-base64 $encoded --output-format json
+            $guestPath = $script:GuestPath
+            if ($IsWindows) {
+                $windowsPath = $guestPath.Replace('\', '/')
+                $guestPath = (@(wsl.exe -- wslpath -a $windowsPath)[0]).Trim()
+                $LASTEXITCODE | Should -Be 0
+                $output = wsl.exe -- env WSL_SSH_ACCESS_TEST_MODE=1 bash $guestPath `
+                    --operation plan --user mudssky --port 22 `
+                    --authorized-key-base64 $encoded --output-format json
+            }
+            else {
+                $output = bash $guestPath --operation plan --user mudssky --port 22 `
+                    --authorized-key-base64 $encoded --output-format json
+            }
             $document = $output | Out-String | ConvertFrom-Json
 
             $LASTEXITCODE | Should -Be 0

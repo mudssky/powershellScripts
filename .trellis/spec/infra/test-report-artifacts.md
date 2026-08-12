@@ -23,6 +23,7 @@
 - `tests/reports/.gitkeep` 保证目录可见，`/tests/reports/*.xml` 必须被 Git 忽略。
 - GitHub Actions 的生成命令和 reporter 必须读取同一路径。
 - `test:pwsh:full` 必须复用 `Invoke-PesterMode.ps1 -Mode full -Coverage On`，不能在 package script 中使用会被 Unix shell 展开的 `$env:` 命令字符串。
+- duration reporter 的一次运行必须生成同一时间戳配对的唯一 NUnit、JaCoCo 与 JSON；JSON 中的 `nunitPath`、`coveragePath` 和 `pesterVersion` 必须能反向核对对应 XML 与实际加载版本。
 
 ## 4. Validation & Error Matrix
 
