@@ -1,0 +1,8 @@
+{"file":".trellis/tasks/08-12-research-pwsh-tooling/research/psresourceget-pester-610.md","reason":"实现前读取 PSResourceGet 参数语义、Pester 6.1.0 发布变化和现有任务影响"}
+{"file":".trellis/spec/pwsh-scripts/package/index.md","reason":"遵循 PowerShell 脚本入口、runner 复用和包级 QA 约定"}
+{"file":".trellis/spec/pwsh-scripts/package/pester-performance.md","reason":"遵循固定版本、并行隔离、coverage、报告和三轮性能门禁"}
+{"file":".trellis/spec/psutils/package/index.md","reason":"修改模块安装边界与测试时保持 psutils 公共入口和包合同"}
+{"file":".trellis/spec/infra/test-report-artifacts.md","reason":"并行 coverage PoC 必须保持 NUnit 与 coverage 唯一 artifact 和默认路径合同"}
+{"file":".trellis/spec/infra/install-orchestrator.md","reason":"安装入口必须保留 ShouldProcess、失败传播和真实进程边界"}
+{"file":".trellis/tasks/archive/2026-08/08-11-optimize-pwsh-remaining-test-hotspots/research/pwsh-tools-and-config.md","reason":"沿用 Pester 5.7.1/6.0.1 基线、热点和已验证并行隔离证据"}
+{"file":".trellis/tasks/08-12-design-pwsh-coverage-sharding/prd.md","reason":"实现时根据 6.1.0 原生并行 coverage 结论决定外层分片任务是否继续"}

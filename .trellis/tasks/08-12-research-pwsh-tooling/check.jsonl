@@ -1,0 +1,7 @@
+{"file":".trellis/tasks/08-12-research-pwsh-tooling/research/psresourceget-pester-610.md","reason":"复核 PSResourceGet 迁移未机械映射参数，Pester 结论符合 6.1.0 稳定版能力"}
+{"file":".trellis/spec/pwsh-scripts/package/pester-performance.md","reason":"检查版本单一来源、串并行等价、coverage 和三轮性能门禁"}
+{"file":".trellis/spec/psutils/package/index.md","reason":"检查模块安装边界、公共 API 与测试合同未漂移"}
+{"file":".trellis/spec/infra/test-report-artifacts.md","reason":"检查 NUnit、JaCoCo、duration artifact 唯一且默认路径兼容"}
+{"file":".trellis/spec/infra/install-orchestrator.md","reason":"检查 ShouldProcess、失败继续、输出和进程清理合同"}
+{"file":".trellis/tasks/archive/2026-08/08-11-optimize-pwsh-remaining-test-hotspots/research/pwsh-tools-and-config.md","reason":"检查 6.1.0 结果相对 5.7.1/6.0.1 历史基线没有误归因"}
+{"file":".trellis/tasks/08-12-design-pwsh-coverage-sharding/prd.md","reason":"检查外层分片任务状态与原生并行 coverage 实测结论一致"}

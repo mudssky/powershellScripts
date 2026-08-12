@@ -20,6 +20,7 @@
 * NestedModules 之间不共享彼此的私有 session state。模块调用另一个模块导出的函数时，必须在自身作用域按需导入直接依赖；不能只依赖调用方已经导入聚合 `psutils` manifest。
 * 修改 manifest、NestedModules、公共导出或兼容入口时，先阅读 [Module Entry Contract](./module-entry-contract.md)，并同步 `psutils/tests/moduleContract.Tests.ps1`。
 * 收紧公共 API、修改子模块 `Export-ModuleMember` 或模块级状态时，同时同步 `psutils/tests/apiBoundary.Tests.ps1`。
+* 模块安装统一通过 `modules/install.psm1` 的 PSResourceGet 包装边界；活动代码不得新增 `Install-Module` 双轨路径。精确版本使用 `-Version`，覆盖同版本仅在显式请求时使用 `-Reinstall`，安装后继续由 `Install-RequiredModule` 显式导入。
 
 ## Package Script Contract
 

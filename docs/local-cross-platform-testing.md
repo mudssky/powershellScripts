@@ -100,9 +100,10 @@ Host 和容器测试的输出隔离策略：
 
 - **Host 测试**输出到 `tests/reports/testResults.xml`，coverage 输出到 `tests/reports/coverage.xml`
 - **Linux 容器测试**输出到 Docker named volume `pester-results` 中的 `testResults-linux.xml`
-- 可通过环境变量 `PESTER_RESULT_PATH` 自定义 host 输出路径
+- 可通过环境变量 `PESTER_RESULT_PATH` 自定义 host NUnit 输出路径
+- 可通过环境变量 `PESTER_COVERAGE_PATH` 自定义 host JaCoCo 输出路径
 
-两者可安全并发运行，不会产生文件冲突。
+为连续采样或并行 PoC 同时设置两者，可避免 NUnit 与 coverage artifact 互相覆盖。
 
 ## Platform-Specific Coverage
 

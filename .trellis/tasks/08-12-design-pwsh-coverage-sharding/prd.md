@@ -25,9 +25,10 @@
 
 ## Background
 
-- Pester 6.0.1 在 CodeCoverage 开启时会强制退回串行，内置文件级并行无法承接 coverage 性能目标。
+- Pester 6.0.1 在 CodeCoverage 开启时会强制退回串行；Pester 6.1.0 已加入原生并行 coverage 合并，因此本任务当前作为原生方案未通过正确性或性能门禁时的备用设计保留。
+- 仓库新增 `test:pwsh:coverage:parallel:poc` 薄入口用于采集唯一 NUnit、JaCoCo 与 duration artifact；在自动、2、4 三档实测证据完成前，默认 `test:pwsh:full` 仍保持串行。
 - 使用实验性 WSL 串行标记时，assertions 并行 PoC throttle 2 可生成完整 NUnit，Run 196.65 秒，仅保留既有 WSL guest Windows 路径失败；该标记因 changed QA 合同未保留，后续设计需解决串行文件分类与既有失败隔离。
-- Pester 5.7.1 与 6.0.1 的单文件 coverage instruction 计数存在差异，合并方案必须验证语义等价，不能只比较百分比。
+- Pester 5.7.1 与 6.0.1 的单文件 coverage instruction 计数存在差异，任何原生或外层并行方案都必须与同版本串行基线验证计数等价，不能只比较百分比。
 
 ## Out of Scope
 
