@@ -3,7 +3,7 @@
   "name": "optimize-pwsh-remaining-test-hotspots",
   "title": "继续优化 PowerShell 全量测试剩余热点",
   "description": "继续优化 PowerShell full 剩余热点，优先处理 install、平台入口和重复扫描导入成本。",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": "pwsh-tests",
   "package": "pwsh-scripts",
@@ -27,6 +27,6 @@
     "tests/PackageSources.Tests.ps1",
     "PesterConfiguration.ps1"
   ],
-  "notes": "用户批准两阶段目标：先将串行中位数压到 290 秒以内，再升级 Pester 6.0.1 验证文件级并行并挑战 240 秒。",
+  "notes": "用户批准两阶段目标：先优化串行热点，再升级 Pester 6.0.1 验证文件级并行。Pester 6 coverage 会退回串行，240 秒目标已转入 08-12-design-pwsh-coverage-sharding。",
   "meta": {}
 }

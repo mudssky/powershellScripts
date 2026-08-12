@@ -15,10 +15,10 @@
 .NOTES
     配置包括：
     - 测试路径设置为./psutils目录
-    - 按当前 Pester 5.7.1 支持的串行 container 模式执行
+    - 默认按仓库固定 Pester 版本串行执行，显式开关可运行 Pester 6 assertions 并行 PoC
     - 启用代码覆盖率分析
     - 排除特定模块的覆盖率统计
-    - 输出格式为CoverageGutters
+    - coverage 输出格式为 JaCoCo，兼容 Pester 5.7.1 与 6.0.1
 #>
 
 [CmdletBinding()]
@@ -39,7 +39,8 @@ if (-not (Test-Path -LiteralPath $reportDirectory -PathType Container)) {
 $defaultCoveragePath = Join-Path $reportDirectory 'coverage.xml'
 $defaultTestResultPath = Join-Path $reportDirectory 'testResults.xml'
 
-$excludeTags = @('Slow')
+$includeSlow = $env:PWSH_TEST_INCLUDE_SLOW -in @('1', 'true', 'yes', 'on')
+$excludeTags = if ($includeSlow) { @() } else { @('Slow') }
 if ($IsLinux -or $IsMacOS) {
     $excludeTags += 'windowsOnly'
 }
@@ -52,6 +53,17 @@ $isFast = $testMode -in @('fast', 'serial', 'debug', 'qa')
 $isSerial = $testMode -eq 'serial'
 $isDebug = $testMode -eq 'debug'
 $isVerbose = -not [string]::IsNullOrWhiteSpace($env:PWSH_TEST_VERBOSE)
+$isParallel = $env:PWSH_TEST_PARALLEL -in @('1', 'true', 'yes', 'on')
+$parallelThrottle = if ([string]::IsNullOrWhiteSpace($env:PWSH_TEST_PARALLEL_THROTTLE)) {
+    0
+}
+else {
+    $parsedThrottle = 0
+    if (-not [int]::TryParse($env:PWSH_TEST_PARALLEL_THROTTLE, [ref]$parsedThrottle) -or $parsedThrottle -lt 0 -or $parsedThrottle -gt 128) {
+        throw "PWSH_TEST_PARALLEL_THROTTLE 必须为 0 到 128 的整数: $env:PWSH_TEST_PARALLEL_THROTTLE"
+    }
+    $parsedThrottle
+}
 $coverageOverride = if ([string]::IsNullOrWhiteSpace($env:PWSH_TEST_ENABLE_COVERAGE)) {
     $null
 }
@@ -127,7 +139,7 @@ $config = @{
         # 导致控制台输出与 OpenSpec 规范长期漂移。
         CoveragePercentTarget   = 50
         OutputPath              = $defaultCoveragePath
-        OutputFormat            = 'CoverageGutters'
+        OutputFormat            = 'JaCoCo'
         ExcludeFromCodeCoverage = @(
             './psutils/modules/error.psm1'
             './psutils/modules/linux.psm1'
@@ -156,6 +168,18 @@ $config = @{
         Enabled = $false
     }
 
+}
+
+if ($isParallel) {
+    $configurationProbe = New-PesterConfiguration
+    if ($isCoverageEnabled) {
+        throw 'Pester 6 在启用 CodeCoverage 时会把 Run.Parallel 退回串行；请关闭 coverage 运行并行 PoC。'
+    }
+    if ($configurationProbe.Run.PSObject.Properties.Name -notcontains 'Parallel') {
+        throw "当前 Pester 版本不支持 Run.Parallel，不能执行并行性能样本。"
+    }
+    $config.Run.Parallel = $true
+    $config.Run.ParallelThrottleLimit = $parallelThrottle
 }
 
 $newConfig = New-PesterConfiguration -Hashtable $config

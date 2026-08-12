@@ -5,10 +5,9 @@
 
 FROM mcr.microsoft.com/powershell:lts-ubuntu-22.04
 
-# Install Pester module (matches CI behavior)
-RUN pwsh -NoProfile -Command " \
-    Set-PSRepository -Name PSGallery -InstallationPolicy Trusted; \
-    Install-Module -Name Pester -Scope AllUsers -Force -SkipPublisherCheck -AllowClobber; \
-    "
+# Pester 版本与本机、CI 共用同一来源，避免 PSGallery latest 漂移。
+COPY .pester-version /workspace/.pester-version
+COPY scripts/pwsh/devops/Install-Pester.ps1 /workspace/scripts/pwsh/devops/Install-Pester.ps1
+RUN pwsh -NoProfile -File /workspace/scripts/pwsh/devops/Install-Pester.ps1 -Scope AllUsers
 
 WORKDIR /workspace

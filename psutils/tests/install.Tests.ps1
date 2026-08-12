@@ -8,9 +8,6 @@ Describe "Test-ModuleInstalled 函数测试" {
         InModuleScope install {
             $script:ModuleInstalledCache.Clear()
         }
-    }
-
-    BeforeEach {
         # 这些测试主要验证返回值与异常路径，不需要把提示类输出展开到 full 日志。
         Mock -ModuleName install Write-Host { }
         Mock -ModuleName install Write-Warning { }
@@ -307,7 +304,7 @@ Describe "Install-PackageManagerApps 函数测试" {
 }
 
 Describe "Select-PackageManagerApps 函数测试" {
-    BeforeAll {
+    BeforeEach {
         $script:SelectionApps = @(
             [PSCustomObject]@{ name = 'core-cli'; supportOs = @('macOS', 'Linux'); tag = @('core', 'cli') }
             [PSCustomObject]@{ name = 'full-gui'; supportOs = @('macOS'); tag = @('full', 'gui') }
@@ -486,33 +483,39 @@ Describe "受限安装命令解析测试" {
 }
 
 Describe "Install-RequiredModule 函数测试" {
-    BeforeEach {
-        Mock -ModuleName install Write-Host { }
-        Mock -ModuleName install Write-Warning { }
-    }
+    It "按顺序处理已安装、安装成功与安装失败模块并继续执行" {
+        InModuleScope install {
+            Mock Write-Host { }
+            Mock Write-Warning { }
+            Mock Test-ModuleInstalled { return $false }
+            Mock Test-ModuleInstalled { return $true } -ParameterFilter {
+                $ModuleName -eq 'AlreadyInstalled'
+            }
+            Mock Invoke-InstallModuleCommand { }
+            Mock Invoke-InstallModuleCommand { throw '安装失败' } -ParameterFilter {
+                $ModuleName -eq 'FailModule'
+            }
+            Mock Import-InstalledModule { }
 
-    It "应该跳过已安装的模块而不抛出错误" {
-        Mock -ModuleName install Test-ModuleInstalled { return $true }
-        Mock -ModuleName install Import-InstalledModule { }
+            $results = @(Install-RequiredModule -ModuleNames @('AlreadyInstalled', 'NewModule', 'FailModule'))
 
-        { Install-RequiredModule -ModuleNames @("AlreadyInstalled") } | Should -Not -Throw
-    }
-
-    It "应该尝试安装未安装的模块" {
-        Mock -ModuleName install Test-ModuleInstalled { return $false }
-        # 包装函数把外部 cmdlet 收口到模块内部，测试只验证控制流而不触发真实安装。
-        Mock -ModuleName install Invoke-InstallModuleCommand { }
-        Mock -ModuleName install Import-InstalledModule { }
-        Mock -ModuleName install Write-Host { }
-
-        { Install-RequiredModule -ModuleNames @("NewModule") } | Should -Not -Throw
-    }
-
-    It "应该在安装失败时发出警告而非抛出异常" {
-        Mock -ModuleName install Test-ModuleInstalled { return $false }
-        Mock -ModuleName install Invoke-InstallModuleCommand { throw "安装失败" }
-        Mock -ModuleName install Write-Host { }
-
-        { Install-RequiredModule -ModuleNames @("FailModule") } | Should -Not -Throw
+            @($results.Name) | Should -Be @('AlreadyInstalled', 'NewModule', 'FailModule')
+            @($results.Status) | Should -Be @('AlreadyPresent', 'Installed', 'Failed')
+            @($results.ExitCode) | Should -Be @(0, 0, 1)
+            $results[2].Message | Should -Be '安装失败'
+            Should -Invoke -CommandName Test-ModuleInstalled -Times 3 -Exactly
+            Should -Invoke -CommandName Invoke-InstallModuleCommand -Times 1 -Exactly -ParameterFilter {
+                $ModuleName -eq 'NewModule'
+            }
+            Should -Invoke -CommandName Invoke-InstallModuleCommand -Times 1 -Exactly -ParameterFilter {
+                $ModuleName -eq 'FailModule'
+            }
+            Should -Invoke -CommandName Import-InstalledModule -Times 1 -Exactly -ParameterFilter {
+                $ModuleName -eq 'AlreadyInstalled' -and $ImportErrorAction -eq 'SilentlyContinue'
+            }
+            Should -Invoke -CommandName Import-InstalledModule -Times 1 -Exactly -ParameterFilter {
+                $ModuleName -eq 'NewModule' -and $ImportErrorAction -eq 'Stop'
+            }
+        }
     }
 }

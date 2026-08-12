@@ -19,6 +19,9 @@
 .PARAMETER AsJson
     仅向 stdout 输出 JSON 报告。
 
+.PARAMETER TimeoutSeconds
+    每个 Pester 子进程的最长等待秒数。
+
 .EXAMPLE
     pnpm benchmark -- package-sources-test -Iterations 3 -AsJson
 #>
@@ -29,7 +32,9 @@ param(
     [int]$Iterations = 3,
     [string]$TestPath,
     [string]$OutputPath,
-    [switch]$AsJson
+    [switch]$AsJson,
+    [ValidateRange(1, 3600)]
+    [int]$TimeoutSeconds = 300
 )
 
 Set-StrictMode -Version Latest
@@ -66,6 +71,12 @@ function Invoke-PackageSourceTestBenchmarkSample {
     .PARAMETER PwshPath
         PowerShell 可执行文件路径。
 
+    .PARAMETER PesterVersion
+        子进程必须显式导入的 Pester 版本。
+
+    .PARAMETER TimeoutSeconds
+        子进程最长等待秒数。
+
     .OUTPUTS
         PSCustomObject。包含耗时与 Pester 通过、失败、跳过计数。
     #>
@@ -74,12 +85,27 @@ function Invoke-PackageSourceTestBenchmarkSample {
         [Parameter(Mandatory)]
         [string]$Path,
         [Parameter(Mandatory)]
-        [string]$PwshPath
+        [string]$PwshPath,
+        [Parameter(Mandatory)]
+        [string]$PesterVersion,
+        [Parameter(Mandatory)]
+        [int]$TimeoutSeconds
     )
 
     $escapedPath = $Path.Replace("'", "''")
+    $escapedPesterVersion = $PesterVersion.Replace("'", "''")
     $childScript = @"
 `$ErrorActionPreference = 'Stop'
+try {
+    Import-Module Pester -RequiredVersion '$escapedPesterVersion' -Force -ErrorAction Stop
+}
+catch {
+    `$pesterCandidate = Get-Module -ListAvailable -Name Pester |
+        Where-Object { `$_.Version.ToString() -eq '$escapedPesterVersion' } |
+        Select-Object -First 1
+    if (-not `$pesterCandidate) { throw }
+    Import-Module `$pesterCandidate.Path -Force -ErrorAction Stop
+}
 `$configuration = New-PesterConfiguration
 `$configuration.Run.Path = '$escapedPath'
 `$configuration.Run.PassThru = `$true
@@ -106,14 +132,28 @@ if (`$result.FailedCount -gt 0) { exit 1 }
     $process = [System.Diagnostics.Process]::new()
     $process.StartInfo = $startInfo
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-    $null = $process.Start()
-    $stdout = $process.StandardOutput.ReadToEnd()
-    $stderr = $process.StandardError.ReadToEnd()
-    $process.WaitForExit()
-    $stopwatch.Stop()
+    try {
+        $null = $process.Start()
+        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+        $stderrTask = $process.StandardError.ReadToEndAsync()
+        if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+            $process.Kill($true)
+            $null = $process.WaitForExit(5000)
+            throw "Pester benchmark 子进程超过 ${TimeoutSeconds}s，已终止进程树"
+        }
+        $stdout = $stdoutTask.GetAwaiter().GetResult()
+        $stderr = $stderrTask.GetAwaiter().GetResult()
+        $stopwatch.Stop()
 
-    if ($process.ExitCode -ne 0) {
-        throw "Pester benchmark 子进程失败: $stderr$stdout"
+        if ($process.ExitCode -ne 0) {
+            throw "Pester benchmark 子进程失败: $stderr$stdout"
+        }
+    }
+    finally {
+        if ($stopwatch.IsRunning) {
+            $stopwatch.Stop()
+        }
+        $process.Dispose()
     }
 
     $testResult = $stdout.Trim() | ConvertFrom-Json
@@ -172,9 +212,14 @@ if (-not (Test-Path -LiteralPath $effectiveTestPath -PathType Leaf)) {
 }
 
 $pwshPath = (Get-Process -Id $PID).Path
+$pesterVersion = (Get-Content -LiteralPath (Join-Path $repoRoot '.pester-version') -Raw).Trim()
 $samples = [System.Collections.Generic.List[object]]::new()
 for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
-    $samples.Add((Invoke-PackageSourceTestBenchmarkSample -Path $effectiveTestPath -PwshPath $pwshPath))
+    $samples.Add((Invoke-PackageSourceTestBenchmarkSample `
+                -Path $effectiveTestPath `
+                -PwshPath $pwshPath `
+                -PesterVersion $pesterVersion `
+                -TimeoutSeconds $TimeoutSeconds))
 }
 
 $stats = Get-PackageSourceTestBenchmarkStats -Samples @($samples | ForEach-Object { $_.DurationMs })
@@ -182,6 +227,7 @@ $report = [PSCustomObject]@{
     GeneratedAt = (Get-Date).ToString('o')
     Platform    = if ($IsWindows) { 'windows' } elseif ($IsMacOS) { 'macos' } else { 'linux' }
     PwshVersion = $PSVersionTable.PSVersion.ToString()
+    PesterVersion = $pesterVersion
     TestPath    = $effectiveTestPath
     Iterations  = $Iterations
     Passed      = $samples[-1].Passed

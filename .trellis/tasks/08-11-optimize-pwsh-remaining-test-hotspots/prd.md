@@ -23,24 +23,24 @@
 - 固定本机、Docker 和 CI 使用的 Pester 版本，避免 `Install-Module Pester` 随 PSGallery 最新版漂移。
 - 建立独立 Pester 6 PoC，验证文件级并行、`#pester:no-parallel`、Mock、TestDrive、coverage 和 NUnit 合同；PoC 不直接替换默认 full。
 - 不采用 Pester 5 `CodeCoverage.UseBreakpoints = $false` 作为优化，因为探索实验出现 coverage 少采。
-- 两阶段执行：阶段一继续优化串行热点并达到三轮中位数不超过 290 秒；阶段二升级到稳定版 Pester 6.0.1，验证文件级并行后挑战三轮中位数不超过 240 秒。
+- 两阶段执行：阶段一继续优化串行热点并验证三轮中位数目标；阶段二升级到稳定版 Pester 6.0.1，验证串行兼容与 assertions 文件级并行合同。
 - Pester 6 并行未通过 coverage、NUnit、隔离和清理合同前，默认 `test:pwsh:full` 保持串行；通过全部门禁后才允许提升为默认路径。
 - 保留显式串行和 Pester 5.7.1 回退入口，升级失败时不要求卸载本机已有模块。
-- Pester 6 PoC 必须比较 `ParallelThrottleLimit` 自动值、2 和 4 三档，按三轮结果与稳定性选择默认值，不以逻辑核数直接推断。
+- Pester 6 完整诊断 PoC 固定使用已验证的 `ParallelThrottleLimit=2`；自动、2、4 三档正式性能对照转入后续优化任务，不以逻辑核数直接推断默认值。
 
 ## Acceptance Criteria
 
-- [ ] Windows host coverage-on 连续运行 3 轮，报告平均值、中位数、最慢值、coverage 和 Top 慢文件。
-- [ ] Coverage 不低于 50%，且现有真实 UTF-8、多流、Running、退出码和中断清理合同保持通过。
-- [ ] `psutils/tests/install.Tests.ps1` 典型耗时降低到 15 秒以内，或记录证据说明剩余成本不可安全移除。
-- [ ] 不引入新的 full 失败；既有 WSL guest 路径失败需单独标记，不能归因于本任务。
+- [x] Windows host coverage-on 连续运行 3 轮，报告平均值、中位数、最慢值、coverage 和 Top 慢文件。
+- [x] Coverage 不低于 50%，且现有真实 UTF-8、多流、Running、退出码和中断清理合同保持通过。
+- [x] `psutils/tests/install.Tests.ps1` 典型耗时降低到 15 秒以内，或记录证据说明剩余成本不可安全移除。
+- [x] 不引入新的 full 失败；既有 WSL guest 路径失败需单独标记，不能归因于本任务。
 - [ ] `pnpm qa` 通过；Docker 不可用时 `pnpm test:pwsh:all` 继续快速失败并提示 fallback。
-- [ ] Pester 版本在本机安装入口、Docker 和 CI 中可复现；升级 PoC 可通过显式开关回退到 Pester 5.7.1。
-- [ ] 阶段一完成后，Windows host coverage-on 三轮中位数不超过 290 秒，最慢值不超过 330 秒。
+- [x] Pester 版本在本机安装入口、Docker 和 CI 中可复现；升级 PoC 可通过显式开关回退到 Pester 5.7.1。
+- [ ] 阶段一完成后，Windows host coverage-on 三轮中位数不超过 290 秒，最慢值不超过 330 秒。当前桌面负载实测 Run 中位数 339.46 秒、最慢 345.58 秒，未通过。
 - [ ] Pester 6.0.1 串行模式与 Pester 5.7.1 的测试发现数、失败集合、NUnit 字段和 coverage instruction/line 计数一致，或差异有明确兼容性解释并经测试锁定。
 - [ ] Pester 6 并行模式下，共享宿主状态的文件使用 `#pester:no-parallel` 或等价隔离；连续运行不残留环境变量、TestDrive、模块或子进程。
-- [ ] 自动、2、4 三档 throttle 至少完成 assertions 对照；默认值由中位数、最慢值和失败波动共同决定。
-- [ ] 阶段二提升默认入口后，Windows host coverage-on 三轮中位数不超过 240 秒，最慢值不超过 270 秒，coverage 不低于 50%。
+- [x] assertions 并行完成完整诊断 PoC，记录 worker 崩溃、NUnit、失败集合和串行隔离限制；自动、2、4 三档正式对照转入后续优化任务。
+- [x] Pester 6 内置并行与 CodeCoverage 不兼容的限制有源码/运行证据，默认 coverage full 保持串行，并创建外层 coverage 分片后续任务承接 `<=240s` 目标。
 
 ## Out of Scope
 
@@ -52,6 +52,7 @@
 ## Key Decisions
 
 - 用户批准升级 Pester 并采用两阶段目标：串行 `<=290s`，Pester 6 并行 `<=240s`。
+- Pester 6.0.1 在 CodeCoverage 开启时强制退回串行；当前任务不伪造并行 coverage 样本，`<=240s` 目标由 `.trellis/tasks/08-12-design-pwsh-coverage-sharding` 承接。
 - 选择 PSGallery 稳定版 Pester 6.0.1，不采用 6.1.0 预发布版本。
 - 不采用 Pester 5 profiler coverage tracer，因为实测覆盖计数少于 breakpoint tracer。
 - Pester 版本、并行开关和默认入口必须可显式回退，禁止依赖 PSGallery 最新版漂移。

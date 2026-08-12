@@ -36,16 +36,16 @@
 ## 6. Pester 6 文件级并行 PoC
 
 - 增加显式并行开关，只在 Pester 6 上设置受支持的 `Run.Parallel`。
-- 增加可选 throttle 配置，交替采样自动、2、4 三档 assertions，选择稳定默认值。
+- 增加可选 throttle 配置，完整诊断 PoC 固定使用已验证的 2；自动、2、4 三档正式性能采样转入后续优化任务。
 - 审计共享状态测试并添加 `#pester:no-parallel`。
 - 验证唯一报告路径、TestDrive、环境变量、模块和进程隔离。
 - 运行 assertions 并行样本，先解决随机失败再运行 coverage。
 
-## 7. 阶段二提升与验收
+## 7. 阶段二 PoC 验收与范围校正
 
-- 运行 Pester 6 并行 coverage-on 三轮。
-- 门禁：中位数 `<=240s`、最慢值 `<=270s`、coverage `>=50%`，NUnit 可解析且失败集合不扩大。
-- 通过后将默认 `test:pwsh:full` 切换到并行；保留 serial 和 Pester 5 回退入口。
+- 运行 Pester 6 assertions 文件级并行完整 PoC，验证 NUnit、失败集合、`#pester:no-parallel` 和清理合同。
+- 明确拒绝 `coverage + parallel`；默认 `test:pwsh:full` 保持串行，保留 Pester 5 回退入口。
+- 创建外层 coverage 分片后续任务，承接 `<=240s`、JaCoCo/NUnit 合并和 throttle/负载均衡实验。
 - Docker 可用时运行 `pnpm test:pwsh:all`；不可用时验证快速失败并注明 Linux 覆盖依赖 CI/WSL。
 
 ## 8. 最终检查

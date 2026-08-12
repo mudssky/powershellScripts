@@ -29,9 +29,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install pinned Pester
+        shell: pwsh
+        run: |
+          ./scripts/pwsh/devops/Install-Pester.ps1 -Scope CurrentUser
+
       - name: Run Pester
         shell: pwsh
         run: |
+          $env:PWSH_PESTER_VERSION = (Get-Content -LiteralPath ./.pester-version -Raw).Trim()
           $env:PWSH_TEST_MODE = 'full'
           if ('${{ matrix.os }}' -eq 'windows-latest') {
             $env:PWSH_TEST_ENABLE_COVERAGE = 'true'
@@ -39,9 +45,7 @@ jobs:
           else {
             $env:PWSH_TEST_ENABLE_COVERAGE = 'false'
           }
-          $config = ./PesterConfiguration.ps1
-          $config.Run.Exit = $true
-          Invoke-Pester -Configuration $config
+          ./scripts/pwsh/devops/Invoke-PesterMode.ps1 -Mode full
 
       # 测试图形化报告
       - name: Publish Test Report

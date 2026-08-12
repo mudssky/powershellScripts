@@ -25,6 +25,19 @@
     可选的单文件或子集测试路径，对应 `PWSH_TEST_PATH`。
     未显式传入时保留调用方已有环境变量，便于 QA 编排器注入 changed 测试集。
 
+.PARAMETER PesterVersion
+    要显式导入的 Pester 版本。未传入时依次读取 PWSH_PESTER_VERSION 和仓库
+    `.pester-version`，避免自动加载机器上的任意版本。
+
+.PARAMETER Parallel
+    显式启用 Pester 6 文件级并行。目标版本不支持时明确失败。
+
+.PARAMETER ParallelThrottle
+    可选并行上限。仅在启用 Parallel 时生效；0 表示使用 Pester 自动值。
+
+.PARAMETER IncludeSlow
+    包含默认被 Slow 标签排除的测试。
+
 .EXAMPLE
     pwsh -NoProfile -File ./scripts/pwsh/devops/Invoke-PesterMode.ps1 -Mode qa
 
@@ -45,7 +58,16 @@ param(
 
     [switch]$VerboseOutput,
 
-    [string]$Path
+    [string]$Path,
+
+    [string]$PesterVersion,
+
+    [switch]$Parallel,
+
+    [ValidateRange(0, 128)]
+    [int]$ParallelThrottle = 0,
+
+    [switch]$IncludeSlow
 )
 
 Set-StrictMode -Version Latest
@@ -53,12 +75,33 @@ $ErrorActionPreference = 'Stop'
 
 $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..' '..' '..'))
 $configPath = Join-Path $repoRoot 'PesterConfiguration.ps1'
+$versionPath = Join-Path $repoRoot '.pester-version'
+
+$effectivePesterVersion = if (-not [string]::IsNullOrWhiteSpace($PesterVersion)) {
+    $PesterVersion.Trim()
+}
+elseif (-not [string]::IsNullOrWhiteSpace($env:PWSH_PESTER_VERSION)) {
+    $env:PWSH_PESTER_VERSION.Trim()
+}
+elseif (Test-Path -LiteralPath $versionPath -PathType Leaf) {
+    (Get-Content -LiteralPath $versionPath -Raw).Trim()
+}
+else {
+    throw "缺少 Pester 版本配置: $versionPath"
+}
+
+if ($effectivePesterVersion -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$') {
+    throw "Pester 版本格式无效: $effectivePesterVersion"
+}
 
 $originalValues = @{
     PWSH_TEST_MODE            = [Environment]::GetEnvironmentVariable('PWSH_TEST_MODE', 'Process')
     PWSH_TEST_ENABLE_COVERAGE = [Environment]::GetEnvironmentVariable('PWSH_TEST_ENABLE_COVERAGE', 'Process')
     PWSH_TEST_VERBOSE         = [Environment]::GetEnvironmentVariable('PWSH_TEST_VERBOSE', 'Process')
     PWSH_TEST_PATH            = [Environment]::GetEnvironmentVariable('PWSH_TEST_PATH', 'Process')
+    PWSH_TEST_PARALLEL        = [Environment]::GetEnvironmentVariable('PWSH_TEST_PARALLEL', 'Process')
+    PWSH_TEST_PARALLEL_THROTTLE = [Environment]::GetEnvironmentVariable('PWSH_TEST_PARALLEL_THROTTLE', 'Process')
+    PWSH_TEST_INCLUDE_SLOW    = [Environment]::GetEnvironmentVariable('PWSH_TEST_INCLUDE_SLOW', 'Process')
 }
 
 function Restore-ProcessEnvironmentValue {
@@ -78,7 +121,50 @@ function Restore-ProcessEnvironmentValue {
     [Environment]::SetEnvironmentVariable($Name, $Value, 'Process')
 }
 
+function Import-PinnedPester {
+    <#
+    .SYNOPSIS
+        导入指定版本的 Pester。
+
+    .PARAMETER Version
+        必须精确匹配的 Pester 版本。
+
+    .OUTPUTS
+        System.Management.Automation.PSModuleInfo。已导入的 Pester 模块。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Version
+    )
+
+    $loadedPester = Get-Module -Name Pester
+    if ($loadedPester) {
+        if ($loadedPester.Version.ToString() -eq $Version) {
+            return $loadedPester
+        }
+        Remove-Module -Name Pester -Force
+    }
+
+    try {
+        Import-Module Pester -RequiredVersion $Version -Force -ErrorAction Stop
+    }
+    catch {
+        $candidate = Get-Module -ListAvailable -Name Pester |
+            Where-Object { $_.Version.ToString() -eq $Version } |
+            Select-Object -First 1
+        if (-not $candidate) {
+            throw "未安装 Pester $Version。请运行 pnpm pester:install -Version $Version。"
+        }
+        Import-Module $candidate.Path -Force -ErrorAction Stop
+    }
+
+    return Get-Module -Name Pester
+}
+
 try {
+    Import-PinnedPester -Version $effectivePesterVersion | Out-Null
+
     [Environment]::SetEnvironmentVariable('PWSH_TEST_MODE', $Mode, 'Process')
 
     switch ($Coverage) {
@@ -88,9 +174,7 @@ try {
         'Off' {
             [Environment]::SetEnvironmentVariable('PWSH_TEST_ENABLE_COVERAGE', 'false', 'Process')
         }
-        default {
-            Remove-Item Env:\PWSH_TEST_ENABLE_COVERAGE -ErrorAction SilentlyContinue
-        }
+        default { }
     }
 
     if ($VerboseOutput.IsPresent) {
@@ -107,6 +191,26 @@ try {
         else {
             [Environment]::SetEnvironmentVariable('PWSH_TEST_PATH', $Path, 'Process')
         }
+    }
+
+    if ($Parallel.IsPresent) {
+        $probe = New-PesterConfiguration
+        if ($probe.Run.PSObject.Properties.Name -notcontains 'Parallel') {
+            throw "Pester $effectivePesterVersion 不支持 Run.Parallel；请使用 Pester 6 或移除 -Parallel。"
+        }
+        [Environment]::SetEnvironmentVariable('PWSH_TEST_PARALLEL', 'true', 'Process')
+        [Environment]::SetEnvironmentVariable('PWSH_TEST_PARALLEL_THROTTLE', [string]$ParallelThrottle, 'Process')
+    }
+    else {
+        Remove-Item Env:\PWSH_TEST_PARALLEL -ErrorAction SilentlyContinue
+        Remove-Item Env:\PWSH_TEST_PARALLEL_THROTTLE -ErrorAction SilentlyContinue
+    }
+
+    if ($IncludeSlow.IsPresent) {
+        [Environment]::SetEnvironmentVariable('PWSH_TEST_INCLUDE_SLOW', 'true', 'Process')
+    }
+    else {
+        Remove-Item Env:\PWSH_TEST_INCLUDE_SLOW -ErrorAction SilentlyContinue
     }
 
     $configuration = & $configPath

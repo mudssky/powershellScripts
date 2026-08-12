@@ -4,6 +4,8 @@ import {
   parseArgs,
   parseConsoleDurations,
   parseNUnitDurations,
+  parsePesterVersion,
+  resolvePesterVersion,
   stripAnsi,
 } from './pester-duration-report.mjs'
 
@@ -30,6 +32,47 @@ describe('pester duration report', () => {
       lane: 'host',
       top: 5,
     })
+  })
+
+  it('优先解析被测命令显式指定的 Pester 版本', () => {
+    expect(
+      parsePesterVersion(
+        'pwsh -File ./Invoke-PesterMode.ps1 -PesterVersion 5.7.1',
+      ),
+    ).toBe('5.7.1')
+    expect(
+      parsePesterVersion("pwsh -PesterVersion '6.0.1' -File test.ps1"),
+    ).toBe('6.0.1')
+    expect(parsePesterVersion('pwsh -PesterVersion:"6.1.0"')).toBe('6.1.0')
+    expect(parsePesterVersion('pwsh -PesterVersion: 6.2.0')).toBe('6.2.0')
+    expect(parsePesterVersion('pwsh -pesterversion   "6.3.0"')).toBe('6.3.0')
+    expect(parsePesterVersion('pnpm test:pwsh:coverage')).toBeNull()
+    expect(parsePesterVersion('pwsh --PesterVersion 9.9.9')).toBeNull()
+    expect(
+      parsePesterVersion(`pwsh -Command "Write-Output '-PesterVersion 9.9.9'"`),
+    ).toBeNull()
+  })
+
+  it('按命令、环境和仓库固定版本顺序解析 Pester 版本', () => {
+    expect(
+      resolvePesterVersion(
+        'pwsh -PesterVersion 5.7.1',
+        '6.0.0',
+        '6.0.1\n',
+        '7.0.0',
+      ),
+    ).toBe('5.7.1')
+    expect(resolvePesterVersion('pnpm test', ' 6.0.0 ', '6.0.1', '7.0.0')).toBe(
+      '6.0.0',
+    )
+    expect(
+      resolvePesterVersion('pnpm test', undefined, '6.0.1\n', '7.0.0'),
+    ).toBe('6.0.1')
+    expect(resolvePesterVersion('pnpm test', undefined, null, '7.0.0')).toBe(
+      '7.0.0',
+    )
+    expect(resolvePesterVersion('pnpm test', '  ', '\n', '7.0.0')).toBe('7.0.0')
+    expect(resolvePesterVersion(null, undefined, null, null)).toBeNull()
   })
 
   it('移除 ANSI 并区分 host 与 linux 文件耗时', () => {

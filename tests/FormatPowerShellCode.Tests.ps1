@@ -43,6 +43,7 @@ Describe 'Format-PowerShellCode archive 排除' {
             & git init --quiet
             & git config user.email 'ci@example.com'
             & git config user.name 'ci'
+            & git config core.autocrlf false
             & git add .
             & git commit --quiet -m 'init'
 

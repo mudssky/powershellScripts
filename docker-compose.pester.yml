@@ -17,16 +17,9 @@ services:
     working_dir: /workspace
     environment:
       - PWSH_TEST_MODE=fast
+      - PESTER_RESULT_PATH=/workspace-output/testResults-linux.xml
       - CI=false
-    command: >
-      pwsh -NoProfile -Command "
-        $$outDir = '/workspace-output';
-        if (-not (Test-Path $$outDir)) { New-Item -ItemType Directory -Path $$outDir -Force | Out-Null };
-        $$config = ./PesterConfiguration.ps1;
-        $$config.TestResult.OutputPath = Join-Path $$outDir 'testResults-linux.xml';
-        $$config.Run.Exit = $$true;
-        Invoke-Pester -Configuration $$config
-      "
+    command: pwsh -NoProfile -File ./scripts/pwsh/devops/Invoke-PesterMode.ps1 -Mode fast
 
   pester-full:
     build:
@@ -43,16 +36,9 @@ services:
       # Linux 容器当前命中 Pester coverage 收尾异常，先保留 full 断言回归，
       # 将 coverage 责任收敛到 host full，避免聚合命令因为已知兼容性问题假红。
       - PWSH_TEST_ENABLE_COVERAGE=false
+      - PESTER_RESULT_PATH=/workspace-output/testResults-linux.xml
       - CI=false
-    command: >
-      pwsh -NoProfile -Command "
-        $$outDir = '/workspace-output';
-        if (-not (Test-Path $$outDir)) { New-Item -ItemType Directory -Path $$outDir -Force | Out-Null };
-        $$config = ./PesterConfiguration.ps1;
-        $$config.TestResult.OutputPath = Join-Path $$outDir 'testResults-linux.xml';
-        $$config.Run.Exit = $$true;
-        Invoke-Pester -Configuration $$config
-      "
+    command: pwsh -NoProfile -File ./scripts/pwsh/devops/Invoke-PesterMode.ps1 -Mode full -Coverage Off
 
 volumes:
   pester-results:

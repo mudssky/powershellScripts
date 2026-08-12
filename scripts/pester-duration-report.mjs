@@ -40,6 +40,75 @@ export function parseArgs(argv = process.argv.slice(2)) {
 }
 
 /**
+ * 从被测命令中读取显式指定的 Pester 版本。
+ *
+ * @param {string | null} command 被测命令文本
+ * @returns {string | null}
+ */
+export function parsePesterVersion(command) {
+  if (!command) return null
+
+  const tokens = [...command.matchAll(/"(?:[^"\\]|\\.)*"|'[^']*'|[^\s]+/g)].map(
+    (match) => match[0],
+  )
+  /**
+   * 去除单个命令参数外围的成对引号。
+   *
+   * @param {string} value 命令参数
+   * @returns {string}
+   */
+  const unquote = (value) => {
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      return value.slice(1, -1)
+    }
+    return value
+  }
+
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index]
+    const inlineMatch = token.match(/^-PesterVersion:(.*)$/i)
+    if (inlineMatch) {
+      return unquote(inlineMatch[1] || tokens[index + 1] || '') || null
+    }
+    if (/^-PesterVersion$/i.test(token)) {
+      return tokens[index + 1] ? unquote(tokens[index + 1]) : null
+    }
+  }
+  return null
+}
+
+/**
+ * 按 runner 的版本选择合同解析 artifact 中应记录的 Pester 版本。
+ *
+ * @param {string | null} command 被测命令文本
+ * @param {string | undefined} environmentVersion 环境变量指定版本
+ * @param {string | null} pinnedVersion 仓库固定版本
+ * @param {string | null} installedVersion 已安装版本探测结果
+ * @returns {string | null}
+ */
+export function resolvePesterVersion(
+  command,
+  environmentVersion,
+  pinnedVersion,
+  installedVersion,
+) {
+  const candidates = [
+    parsePesterVersion(command),
+    environmentVersion,
+    pinnedVersion,
+    installedVersion,
+  ]
+  for (const candidate of candidates) {
+    const normalized = candidate?.trim()
+    if (normalized) return normalized
+  }
+  return null
+}
+
+/**
  * 去除控制台 ANSI 转义码。
  *
  * @param {string} value 原始文本
@@ -284,6 +353,29 @@ export async function main(argv = process.argv.slice(2)) {
   }
   const endedAt = new Date()
 
+  let pinnedPesterVersion = null
+  try {
+    pinnedPesterVersion = await readFile(
+      path.resolve(cwd, '.pester-version'),
+      'utf8',
+    )
+  } catch {
+    // 非仓库目录中的独立 reporter 调用允许回退到已安装版本探测。
+  }
+  const requestedPesterVersion = resolvePesterVersion(
+    options.command,
+    process.env.PWSH_PESTER_VERSION,
+    pinnedPesterVersion,
+    null,
+  )
+  const installedPesterVersion = requestedPesterVersion
+    ? null
+    : readToolVersion('pwsh', [
+        '-NoProfile',
+        '-Command',
+        '(Get-Module -ListAvailable Pester | Sort-Object Version -Descending | Select-Object -First 1).Version.ToString()',
+      ])
+
   const consoleData = parseConsoleDurations(output)
   let nunitData = { files: [], testCases: [] }
   try {
@@ -294,9 +386,8 @@ export async function main(argv = process.argv.slice(2)) {
   } catch {
     // 失败命令或纯日志分析允许没有 NUnit 文件，artifact 仍保留控制台阶段信息。
   }
-  const hasMultipleConsoleLanes = new Set(
-    consoleData.files.map((file) => file.lane),
-  ).size > 1
+  const hasMultipleConsoleLanes =
+    new Set(consoleData.files.map((file) => file.lane)).size > 1
   const files = hasMultipleConsoleLanes
     ? consoleData.files
     : nunitData.files.length > 0
@@ -314,11 +405,12 @@ export async function main(argv = process.argv.slice(2)) {
       '-Command',
       '$PSVersionTable.PSVersion.ToString()',
     ]),
-    pesterVersion: readToolVersion('pwsh', [
-      '-NoProfile',
-      '-Command',
-      '(Get-Module -ListAvailable Pester | Sort-Object Version -Descending | Select-Object -First 1).Version.ToString()',
-    ]),
+    pesterVersion: resolvePesterVersion(
+      options.command,
+      process.env.PWSH_PESTER_VERSION,
+      pinnedPesterVersion,
+      installedPesterVersion,
+    ),
     startedAt: startedAt.toISOString(),
     endedAt: endedAt.toISOString(),
     elapsedMs: endedAt.getTime() - startedAt.getTime(),

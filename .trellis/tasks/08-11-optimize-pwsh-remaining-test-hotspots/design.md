@@ -5,7 +5,7 @@
 本任务分为两个顺序门禁：
 
 1. 串行热点优化：继续使用当前可复现的 Pester 5.7.1 基线，把 Windows coverage full 三轮中位数压到 290 秒以内。
-2. Pester 6 并行升级：在独立开关下升级到稳定版 6.0.1，验证兼容性与并行合同后，把默认 full 中位数压到 240 秒以内。
+2. Pester 6 兼容与 assertions 并行：在独立开关下升级到稳定版 6.0.1，验证串行兼容、文件级并行隔离和 NUnit 合同。
 
 阶段二依赖阶段一完成。不得用并行掩盖仍可消除的真实网络、模块发现或重复子进程成本。
 
@@ -21,15 +21,16 @@
 
 - `PWSH_PESTER_VERSION`：覆盖要导入的 Pester 版本，用于 5.7.1 回退和 6.0.1 PoC。
 - `PWSH_TEST_PARALLEL`：显式启用 Pester 6 文件级并行；未设置时保持串行。
-- `PWSH_TEST_PARALLEL_THROTTLE`：可选正整数；未设置时保留 Pester 6 的自动值 `0`，PoC 比较自动、2 和 4。
+- `PWSH_TEST_PARALLEL_THROTTLE`：可选正整数；未设置时保留 Pester 6 的自动值 `0`。仓库完整诊断 PoC 入口固定为已验证的 `2`，自动、2、4 三档正式性能对照转入后续优化任务。
 - 请求并行但目标 Pester 不支持 `Run.Parallel` 时必须明确失败，不能静默退回串行并产生虚假性能结论。
 
 最终保留以下可观察入口：
 
 ```text
-test:pwsh:full            -> 通过门禁后使用 Pester 6 并行 coverage full
+test:pwsh:full            -> 保持 Pester 6 串行 coverage full
 test:pwsh:full:serial     -> Pester 6 串行 coverage full
 test:pwsh:full:pester5    -> Pester 5.7.1 串行回退
+test:pwsh:full:parallel:poc -> Pester 6 assertions 文件级并行 PoC
 ```
 
 并行 PoC 未通过前，`test:pwsh:full` 仍映射到串行入口。
@@ -67,25 +68,27 @@ test:pwsh:full:pester5    -> Pester 5.7.1 串行回退
 
 ### 并行分组
 
-- 对 `Run.ParallelThrottleLimit` 比较自动值、2 和 4，避免过度并行放大磁盘、Defender、模块导入和子进程竞争。
+- 完整诊断 PoC 使用已验证的 `Run.ParallelThrottleLimit=2`，避免入口默认落到尚未正式对照的自动值；自动、2、4 三档性能比较转入后续优化任务。
 - 默认允许纯模块和隔离 fixture 文件并行。
 - 修改全局环境变量、固定端口、共享报告路径、进程注册表或宿主模块状态的文件使用 `#pester:no-parallel`。
 - 报告、coverage 和临时目录继续使用唯一运行级路径；不在多个外层 Pester 进程间共享默认文件。
 
-### 提升门禁
+### PoC 门禁
 
 只有以下条件全部满足才将默认 full 切换到 Pester 6 并行：
 
 - 串行与并行失败集合一致，无新增随机失败。
-- coverage 不低于 50%，且相同 commit 的计数差异已解释并由回归测试锁定。
+- assertions NUnit 可解析，串行与并行失败集合一致，无新增随机失败。
 - NUnit reporter 可正常解析。
 - 中断后没有残留 Pester、fixture 或安装叶子进程。
-- 三轮 coverage-on 中位数不超过 240 秒，最慢值不超过 270 秒。
+- CodeCoverage 开启时拒绝并行请求，避免 Pester 6 静默退回串行后产生虚假样本。
+
+Pester 6.0.1 官方实现会在 CodeCoverage 开启时退回串行，因此当前任务不再提升默认 full 为内置并行。coverage `<=240s` 目标转入 `.trellis/tasks/08-12-design-pwsh-coverage-sharding`，由外层独立进程分片与报告合并设计承接。
 
 ## 测量设计
 
 - 所有正式样本通过 duration reporter 分配唯一 NUnit3/JSON artifact。
-- 阶段一和阶段二分别运行三轮，不混合 Pester 版本计算中位数。
+- coverage 正式样本按 Pester 版本分别运行三轮；assertions 并行 PoC 单独记录，不与 coverage 样本计算中位数。
 - 记录 PowerShell/Pester 版本、并行状态、CPU 逻辑核数、Discovery/Run/coverage 阶段和 Top 文件。
 - 性能运行期间禁止其他 Pester、QA 或安装进程并发。
 

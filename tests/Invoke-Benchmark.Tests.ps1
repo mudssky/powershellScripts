@@ -313,6 +313,7 @@ Describe 'tiny benchmark fixture' {
         $report = $json | ConvertFrom-Json
 
         $report.Iterations | Should -Be 1
+        $report.PesterVersion | Should -Be ((Get-Content -LiteralPath (Join-Path $PWD '.pester-version') -Raw).Trim())
         $report.Passed | Should -Be 1
         $report.Failed | Should -Be 0
         $report.SamplesMs.Count | Should -Be 1
