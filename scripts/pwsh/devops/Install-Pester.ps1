@@ -44,4 +44,4 @@ if (Get-Module -ListAvailable -Name Pester | Where-Object { $_.Version.ToString(
     return
 }
 
-Install-PSResource -Name Pester -Version $pesterVersion -Scope $Scope -ErrorAction Stop
+Install-PSResource -Name Pester -Version $pesterVersion -Scope $Scope -TrustRepository -ErrorAction Stop

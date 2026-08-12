@@ -24,6 +24,7 @@
 - GitHub Actions 的生成命令和 reporter 必须读取同一路径。
 - `test:pwsh:full` 必须复用 `Invoke-PesterMode.ps1 -Mode full -Coverage On`，不能在 package script 中使用会被 Unix shell 展开的 `$env:` 命令字符串。
 - duration reporter 的一次运行必须生成同一时间戳配对的唯一 NUnit、JaCoCo 与 JSON；JSON 中的 `nunitPath`、`coveragePath` 和 `pesterVersion` 必须能反向核对对应 XML 与实际加载版本。
+- GitHub Actions 的 Pester reporter 必须使用 `always()` 保留“测试失败但报告已生成”的发布路径，同时以 `hashFiles('tests/reports/testResults.xml') != ''` 保护报告存在性；安装失败或测试未启动时不得因空报告制造第二个失败。
 
 ## 4. Validation & Error Matrix
 
@@ -35,6 +36,8 @@
 | `tests/reports/` 不存在 | 配置加载时自动创建 |
 | CI 运行 Pester/Vitest | reporter 能在统一目录找到 XML |
 | package script 包含双引号 `$env:` | Unix shell 可能提前展开并导致命令失败 |
+| Pester 安装失败或测试未生成 NUnit XML | reporter 跳过，不制造第二个空报告失败 |
+| Pester 测试失败但 NUnit XML 已生成 | reporter 仍运行并发布失败详情 |
 
 ## 5. Good / Base / Bad Cases
 

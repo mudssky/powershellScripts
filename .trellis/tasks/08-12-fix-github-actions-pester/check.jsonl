@@ -1,0 +1,3 @@
+{"file":".trellis/spec/psutils/package/index.md","reason":"复核安装参数没有机械映射 Force/Reinstall 或永久修改仓库信任。"}
+{"file":".trellis/spec/pwsh-scripts/package/pester-performance.md","reason":"复核固定 Pester 版本及 PowerShell 验证门禁。"}
+{"file":".trellis/spec/infra/test-report-artifacts.md","reason":"复核 GitHub Actions 报告发布合同。"}

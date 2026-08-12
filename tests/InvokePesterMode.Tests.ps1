@@ -161,6 +161,7 @@ Describe 'Install-Pester PSResourceGet bootstrap' {
             $Name -eq 'Pester' -and
             $Version -eq '6.1.0' -and
             $Scope -eq 'AllUsers' -and
+            $TrustRepository -eq $true -and
             -not $Reinstall -and
             $ErrorAction -eq 'Stop'
         }
@@ -185,6 +186,13 @@ Describe 'Pester 版本与 package scripts 合同' {
         $script:Package.scripts.'test:pwsh:full:serial' | Should -Match 'Invoke-PesterMode\.ps1 -Mode full -Coverage On$'
         $script:Package.scripts.'test:pwsh:coverage:parallel:poc' | Should -Match 'pester-duration-report\.mjs'
         $script:Package.scripts.'test:pwsh:coverage:parallel:poc' | Should -Match 'Invoke-PesterMode\.ps1 -Mode full -Coverage On -Parallel -ParallelThrottle 2'
+    }
+
+    It 'Pester 报告仅在 NUnit XML 存在时发布' {
+        $workflow = Get-Content -LiteralPath (Join-Path $script:RepoRoot '.github/workflows/test.yml') -Raw
+
+        $workflow | Should -Match "(?s)- name: Publish Test Report.*?if: \$\{\{ always\(\) && hashFiles\('tests/reports/testResults\.xml'\) != '' \}\}"
+        $workflow | Should -Match "(?s)- name: Publish Test Report.*?path: tests/reports/testResults\.xml"
     }
 }
 

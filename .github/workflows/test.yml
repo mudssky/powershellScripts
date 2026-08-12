@@ -50,7 +50,7 @@ jobs:
       # 测试图形化报告
       - name: Publish Test Report
         uses: dorny/test-reporter@v3
-        if: always() || failure()
+        if: ${{ always() && hashFiles('tests/reports/testResults.xml') != '' }}
         with:
           name: Pester Tests (${{ matrix.os }})
           path: tests/reports/testResults.xml

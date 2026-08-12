@@ -85,3 +85,4 @@ Get-WindowsInstallEnvironment -CommandAvailability $completeCommandAvailability
 - 原生并行候选一旦在首个固定 throttle 上失败测试集合、coverage 计数或性能门禁，后续 throttle 档位允许短路，不得用更多采样掩盖已失败的正确性合同；此时恢复外层进程分片任务作为备用方案。
 - 调用真实 Bash/WSL、修改进程环境或依赖共享宿主状态的测试必须显式隔离。Windows 调用 WSL guest 脚本时，应先把 Windows 路径规范为正斜杠并通过 `wsl.exe -- wslpath -a` 转换，再用 `wsl.exe -- env ... bash` 显式传递测试环境；不能混用 Git Bash `cygpath` 与 WSL `bash.exe`。
 - 统一 runner 在同进程被调用时，结束后必须恢复调用方原有测试环境变量；调用前没有加载 Pester 时不得留下目标版本模块。若当前进程已加载不同 Pester 版本，必须明确拒绝并要求独立 `pwsh`，不能尝试卸载后切换或恢复跨版本 DLL。
+- GitHub Actions 等非交互 runner 使用专用 `Install-Pester.ps1` 安装未预装的固定版本时，`Install-PSResource` 必须使用调用级 `-TrustRepository`；不得通过 `Set-PSResourceRepository` 永久修改 PSGallery 信任状态。测试必须同时锁定精确 `Version`、`Scope`、`ErrorAction Stop`、无隐式 `Reinstall` 与已安装版本幂等。
