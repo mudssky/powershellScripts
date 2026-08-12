@@ -14,7 +14,7 @@
 
 ```text
 browser-debug profile create <name> --browser chrome|edge [--cdp-port N] [--source-user-data-path PATH] [--without-extensions]
-browser-debug profile start <name> [--mode local|lan] [--listen-address IPv4] [--open-guide]
+browser-debug profile start <name> [--mode local|lan] [--listen-address IPv4] [--open-guide] [--yes]
 browser-debug profile shortcut <name> --mode local|lan [--shortcut-directory PATH]
 browser-debug profile status|stop <name>
 browser-debug ssh info <name> [--json]
@@ -30,7 +30,7 @@ playwright-cli attach --cdp=http://<host>:<port>
 - Windows Edge launcher 退出 `0` 不代表失败；返回 PID、端口、模式和监听地址必须来自 owned 进程与实际 CDP，不得回退到陈旧 registry 请求值。
 - `stop` 只处理 owned PID；根进程退出导致子进程并发消失时，只忽略 `NoProcessFoundForGivenId`，访问拒绝等错误继续抛出。
 - `profile create` 默认生成 Local 快捷方式；`profile shortcut --mode lan` 可幂等追加 LAN 快捷方式，未知同名文件不得覆盖。
-- `--open-guide` 对同模式已运行实例可复用；请求模式不同则拒绝。静态 HTML 使用实际启动快照，动态文本全部编码，不包含 Cookie、密码、Token、标签页或历史记录。
+- `--open-guide` 对同模式已运行实例可复用；请求模式或显式监听地址不同则进入切换流程。交互式命令默认展示当前 endpoint、当前/目标模式并确认，非交互调用必须显式传 `--yes`；Local/LAN 快捷方式携带 `--yes`，双击即确认。静态 HTML 使用实际启动快照，动态文本全部编码，不包含 Cookie、密码、Token、标签页或历史记录。
 - `0.0.0.0` LAN 快照必须列出全部候选 IPv4 endpoint，不得静默选择第一块网卡；显式监听地址只展示该地址。
 - HTML 生成或打开失败只返回 warning，不得把已经成功的浏览器启动改判为失败。
 - SSH 配置只引用 Profile；生成 SSH、Playwright 和 Agent Prompt 时使用当前实际 CDP 端口。浏览器命令不得隐式启动或停止 SSH。
@@ -43,8 +43,9 @@ playwright-cli attach --cdp=http://<host>:<port>
 | 目标 Profile 或 registry 已登记路径冲突 | 拒绝创建，不覆盖现有目录或快捷方式 |
 | Edge launcher 退出 `0`，owned 子进程随后接管 | 继续等待，owned 进程与 CDP 同时就绪后成功 |
 | launcher 非零退出且没有 owned/CDP 证据 | 立即返回可诊断错误 |
-| Local 实例运行时请求 LAN `--open-guide` | 拒绝并提示先 `profile stop` |
-| 同模式实例运行时请求 `--open-guide` | 复用实例并按当前实际参数重新生成快照 |
+| Local 实例运行时请求 LAN，未传 `--yes` 且不可交互 | 停止前拒绝并提示显式添加 `--yes` |
+| Local 实例运行时请求 LAN，交互确认或传入 `--yes` | 只停止该 Profile owned PID，以 LAN 重启并返回 `switched` 与 `stoppedProcessIds` |
+| 同模式实例运行时请求 `--open-guide` | 复用实例并按当前实际参数重新生成快照，不停止进程 |
 | `0.0.0.0` 监听且存在多个 IPv4 | 页面生成多个 endpoint/attach/prompt，不选唯一首地址 |
 | 快捷方式目标已由该 Profile 同模式登记 | 幂等返回，不写无意义 registry 备份 |
 | 快捷方式目标是未知文件 | 拒绝覆盖 |
@@ -54,9 +55,10 @@ playwright-cli attach --cdp=http://<host>:<port>
 ### 5. Good/Base/Bad Cases
 
 - Good: `profile start edge-debug --mode local --open-guide` 返回 owned PID、实际 `21229` 端口并生成 Local 快照。
-- Good: `profile shortcut edge-debug --mode lan` 保留 `edge-debug.lnk`，另建 `edge-debug-LAN.lnk`。
+- Good: `profile shortcut edge-debug --mode lan` 保留 `edge-debug.lnk`，另建携带 `--yes` 的 `edge-debug-LAN.lnk`。
+- Good: Local 实例运行时执行 `profile start edge-debug --mode lan --yes`，只停止 `edge-debug` owned PID 并返回 `switched=true`。
 - Good: LAN 通配监听页面分别列出物理网卡、VPN 或其他有效 IPv4 候选，由用户选择可达地址。
-- Base: 普通 `profile start` 遇到已运行实例继续报错；只有 `--open-guide` 提供同模式复用语义。
+- Base: 同模式普通 `profile start` 遇到已运行实例继续报错；`--open-guide` 提供同模式复用，模式变化则进入确认切换。
 - Bad: launcher 对象 `HasExited` 后立即报失败，即使 Edge 子进程和 CDP 已经正常运行。
 - Bad: 用 registry 的旧端口或 `lanAddresses[0]` 生成远端 Agent Prompt。
 - Bad: 为方便停止浏览器而终止所有 `msedge.exe`，这会误伤日常浏览器。
@@ -65,9 +67,9 @@ playwright-cli attach --cdp=http://<host>:<port>
 
 - CLI parser/help/completion 必须覆盖新增 action、必需参数、未知/重复选项和动态 Profile 名称。
 - 克隆测试必须覆盖运行来源、锁文件、扩展排除、`robocopy` 退出码、事务清理和 registry 不落脏记录。
-- 启动测试必须覆盖 Edge launcher `0` 接管、非零退出、实际端口/地址提取、同模式复用和不同模式拒绝。
+- 启动测试必须覆盖 Edge launcher `0` 接管、非零退出、实际端口/地址提取、同模式复用、交互确认接受/拒绝、非交互缺少 `--yes` 拒绝和确认后的模式切换。
 - stop 测试必须覆盖 owned 过滤、并发 PID 消失与 PermissionDenied 不吞。
-- 快捷方式测试必须覆盖 legacy `shortcutPath`、`shortcutPaths.local/lan`、幂等、未知冲突、回滚和精确 `--mode --open-guide` 参数。
+- 快捷方式测试必须覆盖 legacy `shortcutPath`、`shortcutPaths.local/lan`、参数合同升级重建、幂等、未知冲突、回滚和精确 `--mode --open-guide --yes` 参数。
 - guide 测试必须覆盖 HTML 编码、敏感字段排除、LAN 多候选、显式 IPv4、实际端口同步、SSH 信息、原子写入和打开失败 warning。
 - 至少运行 Browser Debug 专项 Pester、Profile Loading/Mode 窄测、严格格式、AST、Markdown、CLI smoke 和 `git diff --check`。
 

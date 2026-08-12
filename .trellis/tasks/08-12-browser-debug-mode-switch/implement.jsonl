@@ -1,0 +1,3 @@
+{"file":".trellis/spec/pwsh-scripts/package/index.md","reason":"PowerShell 脚本包开发与质量门禁"}
+{"file":".trellis/spec/pwsh-scripts/package/browser-debug-cli.md","reason":"browser-debug 启停、owned 进程、快捷方式和帮助页现有合同"}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"复用现有停止与启动模块，避免第二套切换逻辑"}

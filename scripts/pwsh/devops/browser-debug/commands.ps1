@@ -300,6 +300,76 @@ function Invoke-BrowserDebugProfileGet {
 
 <##
 .SYNOPSIS
+    判断当前 Host 是否可安全进行用户确认。
+.OUTPUTS
+    System.Boolean
+    标准输入未重定向且 Host UI 可用时返回 true。
+#>
+function Test-BrowserDebugInteractiveHost {
+    [CmdletBinding()]
+    param()
+    return -not [Console]::IsInputRedirected -and $null -ne $Host.UI
+}
+
+<##
+.SYNOPSIS
+    显示 Profile 模式切换确认提示。
+.PARAMETER Title
+    提示标题。
+.PARAMETER Message
+    包含当前与目标配置的提示正文。
+.OUTPUTS
+    System.Boolean
+    用户选择 Yes 时返回 true。
+#>
+function Read-BrowserDebugSwitchConfirmation {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Title, [Parameter(Mandatory)][string]$Message)
+    $yes = [System.Management.Automation.Host.ChoiceDescription]::new('&Yes', '停止当前实例并切换模式')
+    $no = [System.Management.Automation.Host.ChoiceDescription]::new('&No', '保留当前实例并取消')
+    return $Host.UI.PromptForChoice($Title, $Message, [System.Management.Automation.Host.ChoiceDescription[]]@($yes, $no), 1) -eq 0
+}
+
+<##
+.SYNOPSIS
+    确认是否切换正在运行的 Profile 模式。
+.PARAMETER Name
+    Profile 名称。
+.PARAMETER Status
+    当前实际运行状态。
+.PARAMETER TargetMode
+    目标模式。
+.PARAMETER TargetListenAddress
+    目标监听地址；未显式指定时为空。
+.PARAMETER Options
+    CLI 选项表。
+.OUTPUTS
+    None
+    用户确认或已传入 --yes 时正常返回，否则抛出取消或非交互错误。
+#>
+function Confirm-BrowserDebugProfileSwitch {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][object]$Status,
+        [Parameter(Mandatory)][ValidateSet('local', 'lan')][string]$TargetMode,
+        [string]$TargetListenAddress,
+        [Parameter(Mandatory)][System.Collections.IDictionary]$Options
+    )
+    if ([bool]$Options['yes']) { return }
+    if ([bool]$Options['json'] -or -not (Test-BrowserDebugInteractiveHost)) {
+        throw "切换 Profile $Name 会关闭当前浏览器会话；非交互调用请显式添加 --yes。"
+    }
+    $targetAddress = if ($TargetMode -eq 'local') { '127.0.0.1' } elseif ([string]::IsNullOrWhiteSpace($TargetListenAddress)) { '0.0.0.0' } else { $TargetListenAddress }
+    $title = "切换 browser-debug Profile: $Name"
+    $message = "当前模式: $($Status.mode)`n当前 endpoint: $($Status.endpoint)`n目标模式: $TargetMode`n目标监听: $targetAddress`n继续将关闭当前 Profile 的浏览器会话和 CDP endpoint。"
+    try { $confirmed = Read-BrowserDebugSwitchConfirmation -Title $title -Message $message }
+    catch { throw "当前终端无法交互确认；如确定要切换 Profile $Name，请显式添加 --yes。" }
+    if (-not $confirmed) { throw "已取消切换 Profile: $Name" }
+}
+
+<##
+.SYNOPSIS
     启动浏览器调试 Profile。
 .PARAMETER Name
     Profile 名称。
@@ -323,31 +393,40 @@ function Invoke-BrowserDebugProfileStart {
     $listenAddress = if ($Options.Contains('listen-address')) { Assert-BrowserDebugLanListenAddress -Address ([string]$Options['listen-address']) } else { $null }
     $openGuide = [bool]$Options['open-guide']
     $status = Get-BrowserDebugProfileRuntimeStatus -Profile $profile
+    $stoppedProcessIds = @()
+    $switched = $false
     if ($status.running) {
-        if (-not $openGuide) { throw "Profile 已在运行: $Name" }
-        if ([string]::IsNullOrWhiteSpace([string]$status.mode) -or [string]$status.mode -ne $mode) {
-            throw "Profile 当前以 $($status.mode) 模式运行，不能复用为 $mode；请先执行 profile stop $Name。"
+        $modeChanged = [string]::IsNullOrWhiteSpace([string]$status.mode) -or [string]$status.mode -ne $mode
+        $listenAddressChanged = $listenAddress -and [string]$status.listenAddress -ne $listenAddress
+        if ($modeChanged -or $listenAddressChanged) {
+            Confirm-BrowserDebugProfileSwitch -Name $Name -Status $status -TargetMode $mode -TargetListenAddress $listenAddress -Options $Options
+            $stoppedProcessIds = @(Stop-BrowserDebugProfileProcess -Profile $profile)
+            $startResult = Start-BrowserDebugProfileProcess -Profile $profile -Mode $mode -ListenAddress $listenAddress
+            $startResult | Add-Member -NotePropertyName reused -NotePropertyValue $false -Force
+            $switched = $true
         }
-        if ($listenAddress -and [string]$status.listenAddress -ne $listenAddress) {
-            throw "Profile 当前监听 $($status.listenAddress)，不能复用为 $listenAddress；请先执行 profile stop $Name。"
-        }
-        if (-not $status.cdpAvailable) { throw "Profile 进程正在运行，但 CDP 当前不可用: $($status.endpoint)" }
-        $startResult = [pscustomobject]@{
-            processId         = if ($status.PSObject.Properties['processId']) { $status.processId } elseif (@($status.processIds).Count -gt 0) { [int]$status.processIds[0] } else { $null }
-            processIds        = @($status.processIds)
-            launcherProcessId = $null
-            cdpPort           = [int]$status.cdpPort
-            mode              = [string]$status.mode
-            listenAddress     = [string]$status.listenAddress
-            endpoint          = [string]$status.endpoint
-            cdpVersion        = $status.cdpVersion
-            reused            = $true
+        else {
+            if (-not $openGuide) { throw "Profile 已在运行: $Name" }
+            if (-not $status.cdpAvailable) { throw "Profile 进程正在运行，但 CDP 当前不可用: $($status.endpoint)" }
+            $startResult = [pscustomobject]@{
+                processId         = if ($status.PSObject.Properties['processId']) { $status.processId } elseif (@($status.processIds).Count -gt 0) { [int]$status.processIds[0] } else { $null }
+                processIds        = @($status.processIds)
+                launcherProcessId = $null
+                cdpPort           = [int]$status.cdpPort
+                mode              = [string]$status.mode
+                listenAddress     = [string]$status.listenAddress
+                endpoint          = [string]$status.endpoint
+                cdpVersion        = $status.cdpVersion
+                reused            = $true
+            }
         }
     }
     else {
         $startResult = Start-BrowserDebugProfileProcess -Profile $profile -Mode $mode -ListenAddress $listenAddress
         $startResult | Add-Member -NotePropertyName reused -NotePropertyValue $false -Force
     }
+    $startResult | Add-Member -NotePropertyName switched -NotePropertyValue $switched -Force
+    $startResult | Add-Member -NotePropertyName stoppedProcessIds -NotePropertyValue @($stoppedProcessIds) -Force
     if ($openGuide) {
         $warnings = [System.Collections.Generic.List[string]]::new()
         try {

@@ -19,7 +19,7 @@ function Get-BrowserDebugCommandSchema {
                 set    = @{ Usage = 'profile set <name> [--cdp-port N] [--browser chrome|edge] [--shortcut-directory PATH]'; Options = @('--cdp-port', '--browser', '--shortcut-directory', '--registry-path', '--json'); Required = @(); Enums = @{ '--browser' = @('chrome', 'edge') } }
                 get    = @{ Usage = 'profile get [name] [--json]'; Options = @('--registry-path', '--json'); Required = @(); Enums = @{} }
                 list   = @{ Usage = 'profile list [--json]'; Options = @('--registry-path', '--json'); Required = @(); Enums = @{} }
-                start  = @{ Usage = 'profile start <name> [--mode local|lan] [--listen-address ADDRESS] [--open-guide]'; Options = @('--mode', '--listen-address', '--open-guide', '--registry-path', '--json'); Required = @(); Enums = @{ '--mode' = @('local', 'lan') } }
+                start  = @{ Usage = 'profile start <name> [--mode local|lan] [--listen-address ADDRESS] [--open-guide] [--yes]'; Options = @('--mode', '--listen-address', '--open-guide', '--yes', '--registry-path', '--json'); Required = @(); Enums = @{ '--mode' = @('local', 'lan') } }
                 status = @{ Usage = 'profile status <name> [--json]'; Options = @('--registry-path', '--json'); Required = @(); Enums = @{} }
                 stop   = @{ Usage = 'profile stop <name> [--json]'; Options = @('--registry-path', '--json'); Required = @(); Enums = @{} }
                 shortcut = @{ Usage = 'profile shortcut <name> --mode local|lan [--shortcut-directory PATH]'; Options = @('--mode', '--shortcut-directory', '--registry-path', '--json'); Required = @('--mode'); Enums = @{ '--mode' = @('local', 'lan') } }
@@ -64,7 +64,7 @@ function ConvertFrom-BrowserDebugArguments {
             $options['help'] = $true
             continue
         }
-        if ($token -eq '--json' -or $token -eq '--verbose' -or $token -eq '--no-verbose' -or $token -eq '--without-extensions' -or $token -eq '--open-guide') {
+        if ($token -eq '--json' -or $token -eq '--verbose' -or $token -eq '--no-verbose' -or $token -eq '--without-extensions' -or $token -eq '--open-guide' -or $token -eq '--yes') {
             $optionName = $token.Substring(2)
             if ($options.Contains($optionName)) { throw "选项重复: $token" }
             $options[$optionName] = $true

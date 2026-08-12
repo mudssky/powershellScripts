@@ -1,0 +1,3 @@
+{"file":".trellis/spec/pwsh-scripts/package/index.md","reason":"核对 PowerShell 专项与仓库门禁"}
+{"file":".trellis/spec/pwsh-scripts/package/browser-debug-cli.md","reason":"核对 CLI、owned PID、快捷方式和实际 CDP 合同"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"核对 schema、command、runtime、测试和桌面入口数据流"}

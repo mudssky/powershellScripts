@@ -25,7 +25,7 @@ Describe 'browser-debug manifest 与 CLI schema' {
         (Get-BrowserDebugHelpText -Resource profile -Action create) | Should -Match '--source-user-data-path'
         (Get-BrowserDebugHelpText -Resource profile -Action create) | Should -Match '--without-extensions'
         (Get-BrowserDebugHelpText -Resource profile -Action shortcut) | Should -Match 'profile shortcut <name> --mode local\|lan'
-        (Get-BrowserDebugHelpText -Resource profile -Action start) | Should -Match '--open-guide'
+        (Get-BrowserDebugHelpText -Resource profile -Action start) | Should -Match '--open-guide.*--yes'
         Get-BrowserDebugCompletionCandidates -Line 'browser-debug profile st' -Position 24 | Should -Be @('start', 'status', 'stop')
         Get-BrowserDebugCompletionCandidates -Line 'browser-debug profile start demo --mode l' -Position 41 | Should -Be @('lan', 'local')
         Get-BrowserDebugCompletionCandidates -Line 'browser-debug profile create demo --with' -Position 40 | Should -Contain '--without-extensions'
@@ -35,7 +35,7 @@ Describe 'browser-debug manifest 与 CLI schema' {
         $parsed = ConvertFrom-BrowserDebugArguments -Arguments @('profile', 'start', 'demo', '--mode', 'lan', '--json')
         $parsed.Name | Should -Be 'demo'
         $parsed.Options['mode'] | Should -Be 'lan'
-        (ConvertFrom-BrowserDebugArguments -Arguments @('profile', 'start', 'demo', '--open-guide')).Options['open-guide'] | Should -BeTrue
+        (ConvertFrom-BrowserDebugArguments -Arguments @('profile', 'start', 'demo', '--open-guide', '--yes')).Options['yes'] | Should -BeTrue
         $result = Invoke-BrowserDebugCli -Arguments @('unknown', '--json')
         $result.ExitCode | Should -Be 1
         ($result.Output | ConvertFrom-Json).schemaVersion | Should -Be 1
@@ -262,7 +262,7 @@ Describe 'browser-debug Profile 生命周期' {
         Should -Invoke Get-BrowserDebugProfileRuntimeStatus -Times 0
     }
 
-    It 'open-guide 对同模式运行实例复用，对不同模式明确拒绝' {
+    It 'open-guide 对同模式运行实例复用且不停止进程' {
         Invoke-BrowserDebugProfileCreate -Name demo -Options ([ordered]@{ browser = 'edge' }) -RegistryPath $script:RegistryPath | Out-Null
         Mock Get-BrowserDebugProfileRuntimeStatus {
             [pscustomobject]@{
@@ -270,14 +270,73 @@ Describe 'browser-debug Profile 生命周期' {
                 endpoint = 'http://127.0.0.1:9222'; cdpPort = 9222; processIds = @(321); cdpVersion = [pscustomobject]@{ Browser = 'Edge/1' }
             }
         }
+        Mock Stop-BrowserDebugProfileProcess { throw '不应停止' }
         Mock New-BrowserDebugGuideSnapshot { [pscustomobject]@{ name = 'demo'; mode = 'local' } }
         Mock Write-BrowserDebugGuide { Join-Path $TestDrive 'guides/demo-local.html' }
         Mock Open-BrowserDebugGuide {}
         $reused = Invoke-BrowserDebugProfileStart -Name demo -Options ([ordered]@{ mode = 'local'; 'open-guide' = $true }) -RegistryPath $script:RegistryPath
         $reused.reused | Should -BeTrue
+        $reused.switched | Should -BeFalse
+        $reused.stoppedProcessIds | Should -BeNullOrEmpty
         $reused.processId | Should -Be 321
         $reused.guidePath | Should -Match 'demo-local\.html$'
-        { Invoke-BrowserDebugProfileStart -Name demo -Options ([ordered]@{ mode = 'lan'; 'open-guide' = $true }) -RegistryPath $script:RegistryPath } | Should -Throw '*不能复用为 lan*profile stop demo*'
+        Should -Invoke Stop-BrowserDebugProfileProcess -Times 0
+    }
+
+    It '不同模式在非交互调用缺少 yes 时拒绝且保留旧实例' {
+        Invoke-BrowserDebugProfileCreate -Name demo -Options ([ordered]@{ browser = 'edge' }) -RegistryPath $script:RegistryPath | Out-Null
+        Mock Get-BrowserDebugProfileRuntimeStatus { [pscustomobject]@{ running = $true; mode = 'local'; listenAddress = '127.0.0.1'; endpoint = 'http://127.0.0.1:9222' } }
+        Mock Stop-BrowserDebugProfileProcess { throw '不应停止' }
+        { Invoke-BrowserDebugProfileStart -Name demo -Options ([ordered]@{ mode = 'lan'; json = $true }) -RegistryPath $script:RegistryPath } | Should -Throw '*--yes*'
+        Should -Invoke Stop-BrowserDebugProfileProcess -Times 0
+    }
+
+    It '确认切换后只停止 owned 进程并以目标模式重新启动' {
+        Invoke-BrowserDebugProfileCreate -Name demo -Options ([ordered]@{ browser = 'edge' }) -RegistryPath $script:RegistryPath | Out-Null
+        Mock Get-BrowserDebugProfileRuntimeStatus { [pscustomobject]@{ running = $true; mode = 'local'; listenAddress = '127.0.0.1'; endpoint = 'http://127.0.0.1:9222' } }
+        Mock Stop-BrowserDebugProfileProcess { @(321, 322) }
+        Mock Start-BrowserDebugProfileProcess { [pscustomobject]@{ processId = 654; processIds = @(654); mode = $Mode; listenAddress = '0.0.0.0'; endpoint = 'http://127.0.0.1:9222'; cdpPort = 9222 } }
+        $switched = Invoke-BrowserDebugProfileStart -Name demo -Options ([ordered]@{ mode = 'lan'; yes = $true }) -RegistryPath $script:RegistryPath
+        $switched.reused | Should -BeFalse
+        $switched.switched | Should -BeTrue
+        $switched.stoppedProcessIds | Should -Be @(321, 322)
+        $switched.mode | Should -Be 'lan'
+        Should -Invoke Stop-BrowserDebugProfileProcess -Times 1
+        Should -Invoke Start-BrowserDebugProfileProcess -Times 1 -ParameterFilter { $Mode -eq 'lan' }
+    }
+
+    It '交互确认拒绝时保留旧实例并展示切换上下文' {
+        Invoke-BrowserDebugProfileCreate -Name demo -Options ([ordered]@{ browser = 'edge' }) -RegistryPath $script:RegistryPath | Out-Null
+        Mock Get-BrowserDebugProfileRuntimeStatus { [pscustomobject]@{ running = $true; mode = 'local'; listenAddress = '127.0.0.1'; endpoint = 'http://127.0.0.1:9222' } }
+        Mock Test-BrowserDebugInteractiveHost { $true }
+        Mock Read-BrowserDebugSwitchConfirmation { $false }
+        Mock Stop-BrowserDebugProfileProcess { throw '不应停止' }
+        { Invoke-BrowserDebugProfileStart -Name demo -Options ([ordered]@{ mode = 'lan' }) -RegistryPath $script:RegistryPath } | Should -Throw '*已取消切换*'
+        Should -Invoke Read-BrowserDebugSwitchConfirmation -Times 1 -ParameterFilter {
+            $Message -match '当前模式: local' -and $Message -match 'http://127\.0\.0\.1:9222' -and $Message -match '目标模式: lan'
+        }
+        Should -Invoke Stop-BrowserDebugProfileProcess -Times 0
+    }
+
+    It '交互确认接受时执行模式切换' {
+        Invoke-BrowserDebugProfileCreate -Name demo -Options ([ordered]@{ browser = 'edge' }) -RegistryPath $script:RegistryPath | Out-Null
+        Mock Get-BrowserDebugProfileRuntimeStatus { [pscustomobject]@{ running = $true; mode = 'local'; listenAddress = '127.0.0.1'; endpoint = 'http://127.0.0.1:9222' } }
+        Mock Test-BrowserDebugInteractiveHost { $true }
+        Mock Read-BrowserDebugSwitchConfirmation { $true }
+        Mock Stop-BrowserDebugProfileProcess { @(321) }
+        Mock Start-BrowserDebugProfileProcess { [pscustomobject]@{ processId = 654; processIds = @(654); mode = $Mode; listenAddress = '0.0.0.0'; endpoint = 'http://127.0.0.1:9222'; cdpPort = 9222 } }
+        $switched = Invoke-BrowserDebugProfileStart -Name demo -Options ([ordered]@{ mode = 'lan' }) -RegistryPath $script:RegistryPath
+        $switched.switched | Should -BeTrue
+        $switched.stoppedProcessIds | Should -Be @(321)
+    }
+
+    It '停止后目标模式启动失败时传播错误且不报告成功' {
+        Invoke-BrowserDebugProfileCreate -Name demo -Options ([ordered]@{ browser = 'edge' }) -RegistryPath $script:RegistryPath | Out-Null
+        Mock Get-BrowserDebugProfileRuntimeStatus { [pscustomobject]@{ running = $true; mode = 'lan'; listenAddress = '0.0.0.0'; endpoint = 'http://127.0.0.1:9222' } }
+        Mock Stop-BrowserDebugProfileProcess { @(321) }
+        Mock Start-BrowserDebugProfileProcess { throw 'target start failed' }
+        { Invoke-BrowserDebugProfileStart -Name demo -Options ([ordered]@{ mode = 'local'; yes = $true }) -RegistryPath $script:RegistryPath } | Should -Throw '*target start failed*'
+        Should -Invoke Stop-BrowserDebugProfileProcess -Times 1
     }
 
     It '帮助页生成或打开失败只返回 warning，不改变浏览器成功结果' {
@@ -501,20 +560,20 @@ Describe 'browser-debug User Data 克隆' {
 }
 
 Describe 'browser-debug 快捷方式' {
-    It 'Local 与 LAN 快捷方式只引用 Profile 名称、显式模式并打开指南' {
+    It 'Local 与 LAN 快捷方式只引用 Profile 名称、显式模式并确认切换' {
         $pwshPath = (Get-Command pwsh.exe -ErrorAction Stop).Source
         $profile = [pscustomobject]@{ name = 'demo'; browserPath = $pwshPath; cdpPort = 9333 }
         $shortcutPath = New-BrowserDebugShortcut -Profile $profile -ShortcutDirectory (Join-Path $TestDrive 'Desktop') -RepoRoot $script:RepoRoot
         Test-Path -LiteralPath $shortcutPath -PathType Leaf | Should -BeTrue
         $shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut($shortcutPath)
         $shortcut.Arguments | Should -Match 'profile start `?"?demo'
-        $shortcut.Arguments | Should -Match '--mode local --open-guide'
+        $shortcut.Arguments | Should -Match '--mode local --open-guide --yes'
         $shortcut.Arguments | Should -Not -Match '9333|--mode lan|ssh'
 
         $lanPath = New-BrowserDebugShortcut -Profile $profile -ShortcutDirectory (Join-Path $TestDrive 'Desktop') -RepoRoot $script:RepoRoot -Mode lan
         $lanPath | Should -Match 'demo-LAN\.lnk$'
         $lanShortcut = (New-Object -ComObject WScript.Shell).CreateShortcut($lanPath)
-        $lanShortcut.Arguments | Should -Match '--mode lan --open-guide'
+        $lanShortcut.Arguments | Should -Match '--mode lan --open-guide --yes'
     }
 
     It '同目录同模式幂等，未知同名文件拒绝覆盖' {
@@ -524,6 +583,7 @@ Describe 'browser-debug 快捷方式' {
             New-Item -ItemType File -Path $ShortcutPath -Force | Out-Null
             $ShortcutPath
         }
+        Mock Test-BrowserDebugShortcutCurrent { $true }
         $path = Add-BrowserDebugProfileShortcut -Profile $profile -Mode lan -ShortcutDirectory $directory -RepoRoot $script:RepoRoot -PersistScriptBlock {
             param($shortcutPath)
             $profile.shortcutPaths.lan = $shortcutPath
@@ -534,6 +594,28 @@ Describe 'browser-debug 快捷方式' {
 
         $unknownProfile = [pscustomobject]@{ name = 'demo'; browserPath = 'C:\Browser\edge.exe'; shortcutPath = $null; shortcutPaths = [pscustomobject]@{ local = $null; lan = $null } }
         { Add-BrowserDebugProfileShortcut -Profile $unknownProfile -Mode lan -ShortcutDirectory $directory -RepoRoot $script:RepoRoot -PersistScriptBlock {} } | Should -Throw '*未由该 Profile 登记*'
+    }
+
+    It '已登记快捷方式参数过期时原地重建' {
+        $directory = Join-Path $TestDrive 'stale-shortcuts'
+        New-Item -ItemType Directory -Path $directory -Force | Out-Null
+        $path = Join-Path $directory 'demo.lnk'
+        Set-Content -LiteralPath $path -Value 'stale shortcut'
+        $profile = [pscustomobject]@{ name = 'demo'; browserPath = 'C:\Browser\edge.exe'; shortcutPath = $path; shortcutPaths = [pscustomobject]@{ local = $path; lan = $null } }
+        Mock Test-BrowserDebugShortcutCurrent { $false }
+        Mock New-BrowserDebugShortcut {
+            Set-Content -LiteralPath $ShortcutPath -Value 'current shortcut'
+            $ShortcutPath
+        }
+        $script:PersistCount = 0
+        $result = Add-BrowserDebugProfileShortcut -Profile $profile -Mode local -ShortcutDirectory $directory -RepoRoot $script:RepoRoot -PersistScriptBlock {
+            param($shortcutPath)
+            $script:PersistCount++
+        }
+        $result | Should -Be $path
+        Get-Content -LiteralPath $path | Should -Be 'current shortcut'
+        $script:PersistCount | Should -Be 1
+        Should -Invoke New-BrowserDebugShortcut -Times 1
     }
 
     It '迁移快捷方式时 registry 持久化失败会恢复旧文件' {

@@ -603,7 +603,7 @@ function New-BrowserDebugShortcut {
         $shortcutName = if ($Mode -eq 'lan') { "$($Profile.name)-LAN.lnk" } else { "$($Profile.name).lnk" }
         $ShortcutPath = Join-Path $ShortcutDirectory $shortcutName
     }
-    $arguments = "-NoProfile -File `"$entryPath`" profile start `"$($Profile.name)`" --mode $Mode --open-guide"
+    $arguments = "-NoProfile -File `"$entryPath`" profile start `"$($Profile.name)`" --mode $Mode --open-guide --yes"
     New-Shortcut -TargetPath $pwshPath -ShortcutPath $ShortcutPath -Arguments $arguments -WorkingDirectory $RepoRoot -IconLocation $Profile.browserPath
     return $ShortcutPath
 }
@@ -635,6 +635,40 @@ function Get-BrowserDebugRegisteredShortcutPath {
         if ($legacyProperty -and -not [string]::IsNullOrWhiteSpace([string]$legacyProperty.Value)) { return [string]$legacyProperty.Value }
     }
     return $null
+}
+
+<##
+.SYNOPSIS
+    检查已登记快捷方式是否符合当前启动合同。
+.PARAMETER ShortcutPath
+    快捷方式绝对路径。
+.PARAMETER Profile
+    Profile 注册对象。
+.PARAMETER Mode
+    快捷方式模式 local 或 lan。
+.OUTPUTS
+    System.Boolean
+    参数包含目标 Profile、模式、帮助页和免确认切换选项时返回 true。
+#>
+function Test-BrowserDebugShortcutCurrent {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$ShortcutPath,
+        [Parameter(Mandatory)][object]$Profile,
+        [Parameter(Mandatory)][ValidateSet('local', 'lan')][string]$Mode
+    )
+    if (-not (Test-Path -LiteralPath $ShortcutPath -PathType Leaf)) { return $false }
+    try {
+        $shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut($ShortcutPath)
+        $arguments = [string]$shortcut.Arguments
+        $profilePattern = [regex]::Escape([string]$Profile.name)
+        $modePattern = [regex]::Escape($Mode)
+        return $arguments -match ('profile start\s+"?' + $profilePattern + '"?(?:\s|$)') -and
+            $arguments -match ('--mode\s+' + $modePattern + '(?:\s|$)') -and
+            $arguments -match '(?:^|\s)--open-guide(?:\s|$)' -and
+            $arguments -match '(?:^|\s)--yes(?:\s|$)'
+    }
+    catch { return $false }
 }
 
 <##
@@ -680,7 +714,7 @@ function Add-BrowserDebugProfileShortcut {
             $hasStructuredRegistration = $modeProperty -and -not [string]::IsNullOrWhiteSpace([string]$modeProperty.Value)
         }
     }
-    if ($registeredMatches -and (Test-Path -LiteralPath $finalPath -PathType Leaf) -and $hasStructuredRegistration) { return $finalPath }
+    if ($registeredMatches -and $hasStructuredRegistration -and (Test-BrowserDebugShortcutCurrent -ShortcutPath $finalPath -Profile $Profile -Mode $Mode)) { return $finalPath }
     if ((Test-Path -LiteralPath $finalPath -PathType Leaf) -and -not $registeredMatches) { throw "目标快捷方式已存在但未由该 Profile 登记: $finalPath" }
 
     New-Item -ItemType Directory -Path $directory -Force | Out-Null
