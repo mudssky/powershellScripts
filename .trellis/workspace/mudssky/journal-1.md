@@ -1761,3 +1761,33 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Status
 
 [OK] **Completed**
+
+
+## Session 60: 完善 Node 脚本 Trellis 规范
+
+**Date**: 2026-08-12
+**Task**: 完善 Node 脚本 Trellis 规范
+**Branch**: `master`
+
+### Summary
+
+基于 scripts/node 真实 CLI 架构重建 node-script 规范，移除不适用的前端模板，补齐构建、模块契约、类型错误、测试质量与代码示例，并完成 bootstrap 任务归档。
+
+### Main Changes
+
+- 将 node-script 规范从前端模板改为 Node.js CLI 包级规范
+- 新增架构构建、模块契约、类型错误、测试质量和代码示例文档
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `81509266` | (see git log) |
+
+### Testing
+
+- [OK] rumdl、相对链接、模板占位符和 git diff 检查通过；纯文档改动按仓库规则跳过 pnpm qa
+
+### Status
+
+[OK] **Completed**
