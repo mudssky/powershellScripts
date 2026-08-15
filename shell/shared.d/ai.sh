@@ -26,3 +26,202 @@ function win_notify() {
 function invoke_bell(){
      echo -e "\a"
 }
+
+# ----------------------------------------------------------------------
+# agent-task — 以进程级配置启动支持的 AI 宿主。
+#
+# 参数：$1 — 宿主（omp 或 codex）；$2 — profile（fast、slow 或 max）；
+#       后续可选 --show-command、--dry-run、--，其余参数完整转发给宿主。
+# 副作用：向 stderr 输出不含用户参数内容的路由摘要；除 --dry-run 外启动宿主进程。
+# 返回码：帮助与 dry-run 返回 0；参数错误返回 64；否则原样返回宿主退出码。
+# ----------------------------------------------------------------------
+function agent-task() {
+    if [ "${1-}" = "--help" ] || [ "${1-}" = "-h" ]; then
+        printf '%s\n' \
+            '用法：agent-task <host> <profile> [--show-command|--dry-run] [--] [args...]' \
+            '' \
+            '支持矩阵：' \
+            '  omp   fast|slow|max  使用 $HOME/.omp/overlays/task-<profile>.yml' \
+            '  codex fast|slow|max  仅覆盖当前进程的默认 subagent 模型与推理强度' \
+            '  pi                  仅支持持久化 worker_fast/worker_slow/worker_max' \
+            '  claude              仅支持持久化 worker-fast' \
+            '' \
+            '快捷命令：' \
+            '  omp-taskfast / omp-taskslow / omp-taskmax' \
+            '  codex-taskfast / codex-taskslow / codex-taskmax' \
+            '' \
+            '参数转发：' \
+            '  dispatcher 选项应放在 host/profile 后、首个宿主参数前。' \
+            '  使用 -- 结束 dispatcher 选项解析；其后参数会逐项原样转发。' \
+            '  日志只显示用户参数数量，不会回显参数内容。' \
+            '' \
+            '命令显示：' \
+            '  --show-command  打印安全的固定命令前缀，然后正常启动宿主。' \
+            '  --dry-run       打印相同信息并返回 0，不启动宿主；与前者并用时优先。' \
+            '' \
+            '排错示例：' \
+            '  agent-task omp fast --dry-run' \
+            '  agent-task codex max --show-command -- --help' \
+            '  agent-task pi fast  # 返回非零并提示改用 worker_fast'
+        return 0
+    fi
+
+    if [ "$#" -lt 2 ]; then
+        printf '%s\n' 'agent-task: 需要 host 和 profile；请运行 agent-task --help。' >&2
+        return 64
+    fi
+
+    local host="$1"
+    local profile="$2"
+    local show_command=0
+    local dry_run=0
+    local overlay=''
+    local model=''
+    local effort=''
+    local argument_count
+    local -a user_args
+    shift 2
+
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            --show-command)
+                show_command=1
+                shift
+                ;;
+            --dry-run)
+                dry_run=1
+                shift
+                ;;
+            --)
+                shift
+                break
+                ;;
+            *)
+                break
+                ;;
+        esac
+    done
+    user_args=("$@")
+    argument_count="${#user_args[@]}"
+
+    case "$profile" in
+        fast|slow|max) ;;
+        *)
+            printf 'agent-task: 未知 profile：%s（支持 fast、slow、max）；请运行 agent-task --help。\n' "$profile" >&2
+            return 64
+            ;;
+    esac
+
+    case "$host" in
+        omp)
+            overlay="$HOME/.omp/overlays/task-$profile.yml"
+            printf 'agent-task: host=%s profile=%s overlay=%s (+%s user args)\n' \
+                "$host" "$profile" "$overlay" "$argument_count" >&2
+            if [ "$show_command" -eq 1 ] || [ "$dry_run" -eq 1 ]; then
+                printf 'agent-task command: omp --config "$HOME/.omp/overlays/task-%s.yml" (+%s user args)\n' \
+                    "$profile" "$argument_count" >&2
+            fi
+            if [ "$dry_run" -eq 1 ]; then
+                return 0
+            fi
+            command omp --config "$overlay" "${user_args[@]}"
+            return $?
+            ;;
+        codex)
+            case "$profile" in
+                fast)
+                    model='gpt-5.6-luna'
+                    effort='xhigh'
+                    ;;
+                slow)
+                    model='gpt-5.6-luna'
+                    effort='max'
+                    ;;
+                max)
+                    model='gpt-5.6-sol'
+                    effort='medium'
+                    ;;
+            esac
+            printf 'agent-task: host=%s profile=%s model=%s:%s (+%s user args)\n' \
+                "$host" "$profile" "$model" "$effort" "$argument_count" >&2
+            if [ "$show_command" -eq 1 ] || [ "$dry_run" -eq 1 ]; then
+                printf 'agent-task command: codex -c agents.default_subagent_model="%s" -c agents.default_subagent_reasoning_effort="%s" (+%s user args)\n' \
+                    "$model" "$effort" "$argument_count" >&2
+            fi
+            if [ "$dry_run" -eq 1 ]; then
+                return 0
+            fi
+            command codex \
+                -c "agents.default_subagent_model=\"$model\"" \
+                -c "agents.default_subagent_reasoning_effort=\"$effort\"" \
+                "${user_args[@]}"
+            return $?
+            ;;
+        pi)
+            printf '%s\n' 'agent-task: pi 仅支持持久化 Agent；请显式派发 worker_fast、worker_slow 或 worker_max。' >&2
+            return 64
+            ;;
+        claude)
+            printf '%s\n' 'agent-task: claude 仅支持持久化 Agent；请显式派发 worker-fast。' >&2
+            return 64
+            ;;
+        *)
+            printf 'agent-task: 未知 host：%s（支持 omp、codex）；请运行 agent-task --help。\n' "$host" >&2
+            return 64
+            ;;
+    esac
+}
+
+# ----------------------------------------------------------------------
+# omp-taskfast — 使用 OMP fast task overlay 启动当前进程。
+# 参数：全部参数原样转发给 agent-task；返回码：agent-task 的返回码。
+# 副作用：输出安全路由摘要，并在非 dry-run 时启动 OMP。
+# ----------------------------------------------------------------------
+function omp-taskfast() {
+    agent-task omp fast "$@"
+}
+
+# ----------------------------------------------------------------------
+# omp-taskslow — 使用 OMP slow task overlay 启动当前进程。
+# 参数：全部参数原样转发给 agent-task；返回码：agent-task 的返回码。
+# 副作用：输出安全路由摘要，并在非 dry-run 时启动 OMP。
+# ----------------------------------------------------------------------
+function omp-taskslow() {
+    agent-task omp slow "$@"
+}
+
+# ----------------------------------------------------------------------
+# omp-taskmax — 使用 OMP max task overlay 启动当前进程。
+# 参数：全部参数原样转发给 agent-task；返回码：agent-task 的返回码。
+# 副作用：输出安全路由摘要，并在非 dry-run 时启动 OMP。
+# ----------------------------------------------------------------------
+function omp-taskmax() {
+    agent-task omp max "$@"
+}
+
+# ----------------------------------------------------------------------
+# codex-taskfast — 使用 Codex fast subagent 覆盖启动当前进程。
+# 参数：全部参数原样转发给 agent-task；返回码：agent-task 的返回码。
+# 副作用：输出安全路由摘要，并在非 dry-run 时启动 Codex。
+# ----------------------------------------------------------------------
+function codex-taskfast() {
+    agent-task codex fast "$@"
+}
+
+# ----------------------------------------------------------------------
+# codex-taskslow — 使用 Codex slow subagent 覆盖启动当前进程。
+# 参数：全部参数原样转发给 agent-task；返回码：agent-task 的返回码。
+# 副作用：输出安全路由摘要，并在非 dry-run 时启动 Codex。
+# ----------------------------------------------------------------------
+function codex-taskslow() {
+    agent-task codex slow "$@"
+}
+
+# ----------------------------------------------------------------------
+# codex-taskmax — 使用 Codex max subagent 覆盖启动当前进程。
+# 参数：全部参数原样转发给 agent-task；返回码：agent-task 的返回码。
+# 副作用：输出安全路由摘要，并在非 dry-run 时启动 Codex。
+# ----------------------------------------------------------------------
+function codex-taskmax() {
+    agent-task codex max "$@"
+}
