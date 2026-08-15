@@ -1853,3 +1853,25 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Status
 
 [OK] **Completed**
+
+
+## Session 63: 统一 Shell 配置注释规范
+
+**Date**: 2026-08-15
+**Task**: 统一 Shell 配置注释规范
+**Branch**: `master`
+
+### Summary
+
+建立四层 Shell 注释规范，迁移 shell/ 下 32 个活跃脚本，补齐 pnpm 用户目录配置，并应用 zsh 配置链接。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `6243db9` | (see git log) |
+| `a806a1f` | (see git log) |
+
+### Status
+
+[OK] **Completed**
