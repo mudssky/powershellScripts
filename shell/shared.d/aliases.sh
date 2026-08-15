@@ -1,16 +1,19 @@
-### 1. 🛡️ 安全与人性化 (Safety & Human Readable)
+# ======================================================================
+# 文件：aliases.sh
+# 作用：提供安全、导航、网络、系统、Git 与历史相关的交互别名。
+# 兼容性：Bash / Zsh。
+# ======================================================================
 
-
-# 防止ai agent操作时还要人工确认，所以禁用
-# 操作文件时询问确认 (防止 rm -rf * 误删)
+# -- safety and readable output ----------------------------------------
+# 禁用需要人工确认的 rm/cp/mv alias，避免 agent 操作时改变交互合同。
 # alias rm='rm -i'
 # alias cp='cp -i'
 # alias mv='mv -i'
 
-# 创建目录时自动把父目录也创建了，并显示过程
+# 创建目录时自动建立父目录并显示过程。
 alias mkdir='mkdir -pv'
 
-# df 和 du 默认显示人类可读单位 (KB, MB, GB) 而不是字节
+# df 与 du 默认显示人类可读单位；优先使用现代实现，否则保留系统回退。
 if command -v duf &> /dev/null; then
     alias df='duf'
 else
@@ -25,15 +28,11 @@ fi
 
 alias free='free -h'
 
-# grep 搜索自动高亮关键字
+# grep 保留原有语法，仅开启交互高亮。
 alias grep='grep --color=auto'
 alias egrep='egrep --color=auto'
 
-
-### 2. 📂 目录导航与列表 (Navigation)
-
-
-# 快速列出文件
+# -- navigation ---------------------------------------------------------
 if command -v eza &> /dev/null; then
     alias ll='eza --long --header --icons --git --all --time-style=iso'
     alias tree='eza --tree --git --icons --git-ignore'
@@ -55,50 +54,24 @@ else
     alias l='ls -CF --color=auto'    # 简单列表
 fi
 
-
-### 3. 🌐 网络与代理 (Network & Proxy)
-
-
-# 查看本机公网 IP (需要 curl)
+# -- network ------------------------------------------------------------
 alias myip='curl ifconfig.me'
-
-# 查看当前占用端口的进程 (经常用来查 7890 或者是谁占用了 8080)
 alias ports='netstat -tulanp'
 
-
-### 4. 🛠️ 系统管理与进程 (System & Process)
-
-
-# 快速查找进程 (ps aux | grep 的缩写)
-# 用法: psg nginx
+# -- system and process -------------------------------------------------
 alias psg='ps aux | grep -v grep | grep'
-
-# 实时查看系统资源 (如果安装了 htop 优先用 htop，否则用 top)
 if command -v htop &> /dev/null; then
     alias top='htop'
 fi
 
-
-# 重新加载 bash/zsh 配置 (修改配置后立生效)
+# 重新加载当前 Bash/Zsh 配置，使修改立即生效。
 alias reload='source "$HOME/.${SHELL##*/}"rc && echo "✅ Config reloaded."'
 
-### 5. 📦 Git 专用 (DevOps 必备)
-
-# 🚀 酷炫的 Git Log (在一行显示提交树，带颜色)
+# -- git ----------------------------------------------------------------
 alias gl='git log --graph --pretty=format:"%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset" --abbrev-commit'
 
-
-### 6. 🕒 时间与历史 (History)
-
-# 默认的 `history` 只有命令没有时间，排查问题很麻烦。
-
-
-# 让 history 命令显示时间戳 (格式: 2023-12-13 12:00:00 command)
+# -- history ------------------------------------------------------------
+# 为 history 增加时间戳，并扩大可保留的历史范围。
 export HISTTIMEFORMAT="%F %T "
-
-# 增加历史记录条数 (默认 1000 太少)
 export HISTSIZE=10000
 export HISTFILESIZE=20000
-
-
-

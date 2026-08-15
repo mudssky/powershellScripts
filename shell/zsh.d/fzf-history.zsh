@@ -1,15 +1,21 @@
 #!/bin/zsh
+# ======================================================================
+# 文件：fzf-history.zsh
+# 作用：提供 Zsh 的 fzf 历史检索 widget，并绑定 Alt+h。
+# 兼容性：仅 Zsh 交互式 shell。
+# ======================================================================
 
-# fzf 智能历史检索（Zsh）
-# 快捷键: Alt+h
-# 功能:
-# - Enter  : 放入命令行（不立即执行）
-# - Ctrl-e : 立即执行
-# - Ctrl-y : 复制到剪贴板
-
+# -- history widget -----------------------------------------------------
 if [[ -n "$ZSH_VERSION" ]] && command -v fzf >/dev/null 2>&1; then
+  # ----------------------------------------------------------------------
+  # __fzf_history_smart_widget — 选择历史命令并放回、执行或复制。
+  #
+  # 参数：无。
+  # 副作用：修改 ZLE 缓冲区，或执行命令、写入系统剪贴板。
+  # 返回码：ZLE widget 的执行状态；取消选择时刷新命令行并返回。
+  # ----------------------------------------------------------------------
   __fzf_history_smart_widget() {
-    # 读取 Zsh 历史并按最近优先去重
+    # 读取 Zsh 历史并按最近优先去重。
     local selected
     selected=$(fc -l 1 | sed 's/^ *[0-9]*[* ]*//' | tac | awk '!seen[$0]++' | \
       fzf --no-sort --height=40% --reverse \
@@ -26,7 +32,7 @@ if [[ -n "$ZSH_VERSION" ]] && command -v fzf >/dev/null 2>&1; then
     key=$(printf '%s\n' "$selected" | sed -n '1p')
     cmd=$(printf '%s\n' "$selected" | sed -n '2p')
 
-    # 未按 expect 键时，fzf 只返回一行（即命令本身）
+    # Enter 不返回 expect 行，因此将第一行当作命令。
     if [[ -z "$cmd" ]]; then
       cmd="$key"
       key=''

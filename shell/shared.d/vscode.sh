@@ -1,28 +1,31 @@
-# ========================================================================
-# 文件: vscode.sh
-# 作用: 在 VS Code Remote-SSH 远程机上，通过 remote-cli + 存活 IPC，
-#       把 code-host 调用直接送到客户端 VS Code 打开文件/目录。
-# 兼容: Bash / Zsh（shared.d 双 shell 共用）
-# 语义: 单次启动，不 export、不改 PATH、不覆盖系统 code。
-# ========================================================================
+# ======================================================================
+# 文件：vscode.sh
+# 作用：通过 remote-cli 与存活 IPC，让 code-host 在客户端 VS Code 打开路径。
+# 兼容性：Bash / Zsh；不 export、不改 PATH、不覆盖系统 code。
+# ======================================================================
 
-# 输出 code-host 错误信息。
-# 参数：$@ 为错误消息。
-# 返回值：总是返回 0。
+# _code_host_error — 输出 code-host 错误信息。
+# 参数：$@ — 错误消息。
+# 返回码：printf 的退出码。
 _code_host_error() {
   printf '[code-host] %s\n' "$*" >&2
 }
 
-# 返回 VS Code IPC 所在 runtime 目录。
+# _code_host_runtime_dir — 返回 VS Code IPC 所在 runtime 目录。
 # 参数：无。
-# 返回值：输出目录路径并返回 0。
+# 输出：stdout — runtime 目录路径。
+# 返回码：printf 的退出码。
 _code_host_runtime_dir() {
   printf '%s\n' "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 }
 
-# 查找最新可用的 Stable remote-cli/code。
+# ----------------------------------------------------------------------
+# _code_host_find_cli — 查找最新可用的 Stable remote-cli/code。
+#
 # 参数：无。
-# 返回值：成功时 stdout 输出可执行路径并返回 0；否则返回 1。
+# 输出：stdout — 可执行 remote-cli 路径。
+# 返回码：0 — 找到路径；1 — 未找到可执行路径。
+# ----------------------------------------------------------------------
 _code_host_find_cli() {
   local candidate
 
@@ -37,9 +40,15 @@ _code_host_find_cli() {
   return 1
 }
 
-# 在给定 remote-cli 下查找存活的 VSCODE_IPC_HOOK_CLI socket。
-# 参数：$1 为 remote-cli/code 可执行路径。
-# 返回值：成功时 stdout 输出 sock 路径并返回 0；否则返回 1。
+# ----------------------------------------------------------------------
+# _code_host_find_ipc — 查找存活的 VSCODE_IPC_HOOK_CLI socket。
+#
+# 设计意图：优先复用当前环境注入的存活 socket，再按 mtime 探测其它候选。
+#
+# 参数：$1 — remote-cli/code 可执行路径。
+# 输出：stdout — 存活 socket 路径。
+# 返回码：0 — 找到 socket；1 — 未找到存活会话。
+# ----------------------------------------------------------------------
 _code_host_find_ipc() {
   local code_bin="$1"
   local runtime_dir sock
@@ -68,9 +77,13 @@ _code_host_find_ipc() {
   return 1
 }
 
-# 在客户端 VS Code 打开路径或执行 remote-cli 子命令（单次启动，无 shell 副作用）。
-# 参数：$@ 透传给 remote-cli/code（如 .、file、-g path:line）。
-# 返回值：成功时为 remote-cli 退出码；探测失败返回 1。
+# ----------------------------------------------------------------------
+# code-host — 在客户端 VS Code 打开路径或执行 remote-cli 子命令。
+#
+# 参数：$@ — 原样透传给 remote-cli/code。
+# 副作用：前缀赋值仅影响本次 remote-cli 调用，不修改当前 shell。
+# 返回码：remote-cli 退出码；探测失败返回 1。
+# ----------------------------------------------------------------------
 code-host() {
   local code_bin ipc
 

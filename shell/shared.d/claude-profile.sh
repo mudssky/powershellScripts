@@ -1,9 +1,12 @@
-# Claude Code profile switcher for Bash/Zsh.
-# Profile files live in ~/.claude/profiles/<name>.json and must contain an env object.
+# ======================================================================
+# 文件：claude-profile.sh
+# 作用：管理 Claude Code profile 的校验、切换、查看与编辑。
+# 兼容性：Bash / Zsh；需要 jq 才能处理 JSON。
+# ======================================================================
 
-# 输出 claude-profile 的帮助信息。
+# _claude_profile_help — 输出 claude-profile 帮助信息。
 # 参数：无。
-# 返回值：总是返回 0。
+# 返回码：cat 的退出码。
 _claude_profile_help() {
     cat <<'EOF'
 Usage:
@@ -30,23 +33,24 @@ Environment:
 EOF
 }
 
-# 输出带工具名前缀的错误信息。
-# 参数：$@ 为错误消息。
-# 返回值：总是返回 0。
+# _claude_profile_error — 输出带工具名前缀的错误信息。
+# 参数：$@ — 错误消息。
+# 返回码：printf 的退出码。
 _claude_profile_error() {
     printf '[claude-profile] %s\n' "$*" >&2
 }
 
-# 返回 profile 目录路径。
+# _claude_profile_dir — 输出 profile 目录路径。
 # 参数：无。
-# 返回值：成功输出 profile 目录路径。
+# 输出：stdout — profile 目录路径。
+# 返回码：printf 的退出码。
 _claude_profile_dir() {
     printf '%s\n' "${CLAUDE_PROFILE_DIR:-$HOME/.claude/profiles}"
 }
 
-# 校验 profile 名称，避免路径穿越或意外文件名。
-# 参数：$1 为 profile 名称。
-# 返回值：名称合法返回 0，否则返回 1。
+# _claude_profile_validate_name — 校验 profile 名称，避免路径穿越。
+# 参数：$1 — profile 名称。
+# 返回码：名称合法返回 0，否则返回 1。
 _claude_profile_validate_name() {
     local profile_name="${1:-}"
 
@@ -61,9 +65,10 @@ _claude_profile_validate_name() {
     fi
 }
 
-# 根据 profile 名称输出对应 JSON 文件路径。
-# 参数：$1 为 profile 名称。
-# 返回值：名称合法时输出文件路径并返回 0，否则返回 1。
+# _claude_profile_path — 根据 profile 名称输出 JSON 文件路径。
+# 参数：$1 — profile 名称。
+# 输出：stdout — profile JSON 路径。
+# 返回码：名称合法返回 0，否则返回 1。
 _claude_profile_path() {
     local profile_name="$1"
     local profiles_dir
@@ -73,9 +78,9 @@ _claude_profile_path() {
     printf '%s/%s.json\n' "$profiles_dir" "$profile_name"
 }
 
-# 检查 jq 是否可用。
+# _claude_profile_require_jq — 检查 jq 是否可用。
 # 参数：无。
-# 返回值：jq 存在返回 0，否则返回 1。
+# 返回码：jq 存在返回 0，否则返回 1。
 _claude_profile_require_jq() {
     if command -v jq >/dev/null 2>&1; then
         return 0
@@ -85,9 +90,9 @@ _claude_profile_require_jq() {
     return 1
 }
 
-# 校验 profile 文件结构，确保 env 是字符串键值对象。
-# 参数：$1 为 profile 文件路径。
-# 返回值：结构合法返回 0，否则返回 1。
+# _claude_profile_validate_file — 校验 profile 文件结构，确保 env 为字符串键值对象。
+# 参数：$1 — profile 文件路径。
+# 返回码：结构合法返回 0，否则返回 1。
 _claude_profile_validate_file() {
     local profile_path="$1"
 
@@ -113,9 +118,10 @@ _claude_profile_validate_file() {
     fi
 }
 
-# 根据 profile 文件生成只包含 env 的 Claude Code 会话 settings JSON。
-# 参数：$1 为 profile 文件路径，$2 为 profile 名称。
-# 返回值：成功输出压缩 JSON，失败返回 1。
+# _claude_profile_settings_json — 生成只包含 env 的 Claude Code settings JSON。
+# 参数：$1 — profile 文件路径；$2 — profile 名称。
+# 输出：stdout — 压缩 JSON。
+# 返回码：成功返回 0，生成失败返回 1。
 _claude_profile_settings_json() {
     local profile_path="$1"
     local profile_name="$2"
@@ -125,9 +131,10 @@ _claude_profile_settings_json() {
     ' "$profile_path"
 }
 
-# 把 profile env 转成 env 命令可接受的 KEY=VALUE 列表。
-# 参数：$1 为 profile 文件路径，$2 为 profile 名称。
-# 返回值：成功逐行输出 KEY=VALUE，失败返回 1。
+# _claude_profile_env_lines — 把 profile env 转成 env 命令接受的 KEY=VALUE 列表。
+# 参数：$1 — profile 文件路径；$2 — profile 名称。
+# 输出：stdout — 逐行 KEY=VALUE。
+# 返回码：jq 成功返回 0，失败返回 1。
 _claude_profile_env_lines() {
     local profile_path="$1"
     local profile_name="$2"
@@ -139,9 +146,10 @@ _claude_profile_env_lines() {
     ' "$profile_path"
 }
 
-# 脱敏显示密钥，只保留头尾少量字符。
-# 参数：$1 为原始密钥值。
-# 返回值：成功输出脱敏后的文本。
+# _claude_profile_mask_secret — 脱敏显示密钥，只保留头尾少量字符。
+# 参数：$1 — 原始密钥值。
+# 输出：stdout — 脱敏文本。
+# 返回码：printf 的退出码。
 _claude_profile_mask_secret() {
     local secret_value="${1:-}"
     local secret_length
@@ -164,9 +172,13 @@ _claude_profile_mask_secret() {
     printf '%s...%s\n' "$prefix" "$suffix"
 }
 
-# 临时使用指定 profile 启动 Claude Code。
-# 参数：$1 为 profile 名称，后续参数原样传给 claude。
-# 返回值：返回 claude 进程的退出码；参数或 profile 非法时返回 1。
+# ----------------------------------------------------------------------
+# _claude_profile_run — 临时使用指定 profile 启动 Claude Code。
+#
+# 参数：$1 — profile 名称；后续参数原样传给 claude。
+# 副作用：创建并删除临时 settings 文件，启动 claude 进程。
+# 返回码：透传 claude 进程退出码；参数或 profile 非法返回 1。
+# ----------------------------------------------------------------------
 _claude_profile_run() {
     local profile_name="${1:-}"
     local profile_path
@@ -212,9 +224,13 @@ _claude_profile_run() {
     return "$claude_exit_code"
 }
 
-# 将指定 profile 合并到当前目录 .claude/settings.local.json。
-# 参数：$1 为 profile 名称。
-# 返回值：写入成功返回 0；参数、JSON 或文件写入失败返回 1。
+# ----------------------------------------------------------------------
+# _claude_profile_use — 将指定 profile 合并到当前目录 settings.local.json。
+#
+# 参数：$1 — profile 名称。
+# 副作用：创建或替换当前目录的 .claude/settings.local.json。
+# 返回码：写入成功返回 0；参数、JSON 或文件写入失败返回 1。
+# ----------------------------------------------------------------------
 _claude_profile_use() {
     local profile_name="${1:-}"
     local profile_path
@@ -282,9 +298,10 @@ _claude_profile_use() {
     printf '[claude-profile] 已使用 profile "%s" 更新 %s\n' "$profile_name" "$settings_path"
 }
 
-# 显示当前项目 Claude local settings 中的 profile 与关键 env 摘要。
+# _claude_profile_current — 显示当前项目 settings 中的 profile 与关键 env 摘要。
 # 参数：无。
-# 返回值：settings 存在且可解析时返回 0；JSON 非法返回 1。
+# 输出：stdout — settings 路径、profile 和允许展示的 env 摘要。
+# 返回码：可解析返回 0；JSON 非法返回 1。
 _claude_profile_current() {
     local settings_path="$PWD/.claude/settings.local.json"
     local profile_name
@@ -330,9 +347,10 @@ _claude_profile_current() {
     printf 'ANTHROPIC_API_KEY: %s\n' "$api_key_masked"
 }
 
-# 列出 profile 目录中的可用 profile，并显示关键摘要。
+# _claude_profile_list — 列出 profile 目录中的可用 profile 与关键摘要。
 # 参数：无。
-# 返回值：成功返回 0；jq 缺失返回 1。
+# 输出：stdout — profile 摘要列表。
+# 返回码：成功返回 0；jq 缺失返回 1。
 _claude_profile_list() {
     local profiles_dir
     local profile_path
@@ -373,9 +391,9 @@ _claude_profile_list() {
     fi
 }
 
-# 通过 VISUAL、EDITOR 或常见编辑器打开文件。
-# 参数：$1 为要打开的文件路径。
-# 返回值：编辑器成功启动返回其退出码；找不到编辑器返回 1。
+# _claude_profile_open_editor — 通过 VISUAL、EDITOR 或常见编辑器打开文件。
+# 参数：$1 — 要打开的文件路径。
+# 返回码：编辑器退出码；找不到编辑器返回 1。
 _claude_profile_open_editor() {
     local target_path="$1"
     local editor_command="${VISUAL:-${EDITOR:-}}"
@@ -397,9 +415,10 @@ _claude_profile_open_editor() {
     return 1
 }
 
-# 创建 profile 模板，并立即打开编辑器。
-# 参数：$1 为 profile 名称。
-# 返回值：模板存在或创建成功且编辑器退出成功返回 0；失败返回 1。
+# _claude_profile_add — 创建 profile 模板并立即打开编辑器。
+# 参数：$1 — profile 名称。
+# 副作用：可能创建 profile 文件并启动编辑器。
+# 返回码：模板存在或创建成功且编辑器退出成功返回 0；失败返回 1。
 _claude_profile_add() {
     local profile_name="${1:-}"
     local profile_path
@@ -442,9 +461,12 @@ EOF
     _claude_profile_open_editor "$profile_path"
 }
 
-# claude-profile 主入口，分发子命令。
-# 参数：$1 为子命令，后续参数传给子命令。
-# 返回值：返回对应子命令退出码；未知子命令返回 1。
+# ----------------------------------------------------------------------
+# claude-profile — 分发 claude-profile 子命令。
+#
+# 参数：$1 — 子命令；后续参数传给对应子命令。
+# 返回码：返回对应子命令退出码；未知子命令返回 1。
+# ----------------------------------------------------------------------
 claude-profile() {
     local command_name="${1:-help}"
 

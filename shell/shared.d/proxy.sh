@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# =============================================================================
-# Proxy Manager (All-in-One)
-# 兼容 Bash 和 Zsh
-# =============================================================================
+# ======================================================================
+# 文件：proxy.sh
+# 作用：管理主机、Docker daemon 与容器代理，并提供连通性探测。
+# 兼容性：Bash / Zsh；支持自动检测与补全。
+# ======================================================================
 
-# --- 内部配置 (只读，不暴露) ---
-# 优先使用通用环境变量 PROXY_DEFAULT_HOST/PORT
+# -- defaults -----------------------------------------------------------
 _PM_DEFAULT_HOST="${PROXY_DEFAULT_HOST:-${_PM_DEFAULT_HOST:-127.0.0.1}}"
 _PM_DEFAULT_PORT="${PROXY_DEFAULT_PORT:-${_PM_DEFAULT_PORT:-7890}}"
 
@@ -15,8 +15,10 @@ if [ -z "${_PM_NO_PROXY:-}" ]; then
     readonly _PM_NO_PROXY="localhost,127.0.0.1,::1,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,macmini,.ts.net,100.64.0.0/10"
 fi
 
-# --- 自动开启配置 ---
-# 参数: 无；返回值: 0 表示允许自动探测并开启代理，1 表示跳过自动开启。
+# -- auto-enable --------------------------------------------------------
+# _pm_auto_enable_enabled — 判断是否允许自动探测并开启代理。
+# 参数：无。
+# 返回码：允许返回 0，禁用返回 1。
 _pm_auto_enable_enabled() {
     case "${PROXY_AUTO_ENABLE:-1}" in
         0|false|FALSE|False|off|OFF|Off|no|NO|No|n|N)
@@ -28,8 +30,11 @@ _pm_auto_enable_enabled() {
     esac
 }
 
-# --- 代理地址解析 ---
-# 参数: $1 为端口、主机或完整代理 URL，$2 为可选端口；返回值: 成功时输出 host|port|url。
+# -- endpoint -----------------------------------------------------------
+# _pm_resolve_endpoint — 解析端口、主机或完整代理 URL。
+# 参数：$1 — 端口、主机或完整 URL；$2 — 可选端口。
+# 输出：stdout — host|port|url。
+# 返回码：格式无效返回 1，否则返回 0。
 _pm_resolve_endpoint() {
     local target="${1:-}"
     local input_port="${2:-}"
@@ -73,9 +78,10 @@ _pm_resolve_endpoint() {
     printf '%s|%s|%s\n' "$host" "$port" "$url"
 }
 
-# --- 跨 shell 端口连通性检测 ---
-# /dev/tcp 是 Bash 专属特性，Zsh 不支持
-# 优先使用 nc -z，fallback 到 curl，最后 fallback 到 bash /dev/tcp
+# -- connectivity ------------------------------------------------------
+# _pm_check_port — 使用 nc、curl 或 Bash fallback 检测端口连通性。
+# 参数：$1 — 主机；$2 — 端口。
+# 返回码：端口可达返回 0，否则返回 1。
 _pm_check_port() {
     local host="$1"
     local port="$2"
@@ -98,7 +104,16 @@ _pm_check_port() {
     fi
 }
 
-# --- 主函数: proxy ---
+# ----------------------------------------------------------------------
+# proxy — 管理主机、Docker daemon、容器代理，或执行连接测试。
+#
+# 设计意图：解析与连通性探测集中在辅助函数；自动开启路径直接设置环境变量，
+# 避免启动阶段输出干扰 scp 等非交互命令。
+#
+# 参数：$1 — 子命令，默认 status；后续参数按子命令解释。
+# 副作用：可能修改代理环境变量、Docker 配置文件或 systemd 服务。
+# 返回码：成功返回 0；参数、工具或外部命令失败返回 1。
+# ----------------------------------------------------------------------
 proxy() {
     local cmd="${1:-status}"  # 默认执行 status
     if [[ $# -gt 0 ]]; then
@@ -335,10 +350,13 @@ proxy() {
     esac
 }
 
-# --- 自动补全 ---
-# Bash: 使用 complete 内建命令
-# Zsh: 使用 compctl 或 compadd
+# -- completion --------------------------------------------------------
+# Bash 与 Zsh 分别注册 proxy 的子命令补全。
 if [ -n "$BASH_VERSION" ]; then
+    # _proxy_completion — 生成 Bash proxy 子命令补全候选。
+    # 参数：无（读取 COMP_WORDS/COMP_CWORD）。
+    # 副作用：设置 COMPREPLY。
+    # 返回码：始终返回 0。
     _proxy_completion() {
         local cur=${COMP_WORDS[COMP_CWORD]}
         local commands="on off status test help docker container"
@@ -346,6 +364,10 @@ if [ -n "$BASH_VERSION" ]; then
     }
     complete -F _proxy_completion proxy
 elif [ -n "$ZSH_VERSION" ]; then
+    # _proxy_completion — 生成 Zsh proxy 子命令补全候选。
+    # 参数：无。
+    # 副作用：通过 compadd 写入补全候选。
+    # 返回码：始终返回 0。
     _proxy_completion() {
         local commands=(on off status test help docker container)
         compadd -a commands
@@ -353,8 +375,8 @@ elif [ -n "$ZSH_VERSION" ]; then
     compdef _proxy_completion proxy
 fi
 
-# --- 自动检测 (静默启动) ---
-# 如果默认端口通了，且当前没有设置代理，则自动开启；可用 PROXY_AUTO_ENABLE=0 关闭。
+# -- auto-detection -----------------------------------------------------
+# 默认端口可达且当前未设置代理时静默开启；PROXY_AUTO_ENABLE=0 可关闭。
 if _pm_auto_enable_enabled && [ -z "$http_proxy" ] && _pm_check_port "$_PM_DEFAULT_HOST" "$_PM_DEFAULT_PORT"; then
     # 直接设置变量，不调用 proxy on 以避免输出文字干扰 scp
     export http_proxy="http://${_PM_DEFAULT_HOST}:${_PM_DEFAULT_PORT}"

@@ -1,4 +1,10 @@
-# Zsh Syntax Highlighting：必须位于其它 widget 与 prompt 初始化之后。
+# ======================================================================
+# 文件：zzz-zsh-syntax-highlighting.zsh
+# 作用：在其它 widget 与 prompt 初始化后加载 zsh-syntax-highlighting。
+# 兼容性：仅 Zsh 交互式 shell。
+# ======================================================================
+
+# -- plugin guard -------------------------------------------------------
 if [[ -z ${ZSH_VERSION:-} || ! -o interactive ]]; then
   return 0
 fi
@@ -11,6 +17,7 @@ if (( ${+functions[_zsh_highlight]} )); then
   return 0
 fi
 
+# -- plugin discovery ---------------------------------------------------
 for _powershell_scripts_zsh_plugin_prefix in \
   "${POWERSHELL_SCRIPTS_HOMEBREW_PREFIX:-}" \
   "${HOMEBREW_PREFIX:-}" \

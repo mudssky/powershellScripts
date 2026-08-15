@@ -1,31 +1,31 @@
 #!/bin/bash
 
-# ========================================================
-
+# ======================================================================
+# 文件：deploy.sh
+# 作用：同步 shared.d 与 shell 专属片段，并确保 bashrc/zshrc 加载器存在。
+# 兼容性：Bash；支持 dry-run、shell 选择和文件排除。
+# ======================================================================
 set -euo pipefail
-# 脚本名称: deploy.sh
-# 作用: 管理 ~/.bashrc.d/ 下的配置片段，并确保主 bashrc/zshrc 能加载它们
-#       自动同步 shared.d/ + bash.d/ 或 zsh.d/ 的配置片段
-# ========================================================
 
-# 配置
+# -- paths and defaults -------------------------------------------------
 CONFIG_DIR="$HOME/.bashrc.d"
 SCRIPT_NAME=$(basename "$0")
 
-# 颜色定义
+# -- colors -------------------------------------------------------------
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# 默认参数
+# -- options ------------------------------------------------------------
 DRY_RUN=false
 EXCLUDE_LIST=()
 EXCLUDE_COUNT=0
 SHELL_TYPE=""
 
-# 获取脚本所在目录 (兼容软链接)
+# -- source directories -------------------------------------------------
+# 解析脚本真实路径，兼容通过软链接调用。
 SOURCE="${BASH_SOURCE[0]}"
 while [ -h "$SOURCE" ]; do
   DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
@@ -37,9 +37,14 @@ SHARED_DIR="$SCRIPT_DIR/shared.d"
 BASH_SPECIFIC_DIR="$SCRIPT_DIR/bash.d"
 ZSH_SPECIFIC_DIR="$SCRIPT_DIR/zsh.d"
 
-# --------------------------------------------------------
-# 帮助文档
-# --------------------------------------------------------
+# -- help ---------------------------------------------------------------
+# ----------------------------------------------------------------------
+# usage — 输出 deploy.sh 的命令行帮助。
+#
+# 参数：无。
+# 输出：stdout — 选项与示例。
+# 返回码：echo 的退出码。
+# ----------------------------------------------------------------------
 usage() {
     echo -e "${BLUE}Usage:${NC} $SCRIPT_NAME [OPTIONS]"
     echo
@@ -61,18 +66,32 @@ usage() {
     echo
 }
 
-# --------------------------------------------------------
-# 日志函数
-# --------------------------------------------------------
+# -- logging ------------------------------------------------------------
+# log_info — 输出信息日志。
+# 参数：$1 — 日志消息。
+# 返回码：echo 的退出码。
 log_info() { echo -e "${GREEN}[INFO]${NC} $1" >&2; }
+# log_warn — 输出警告日志。
+# 参数：$1 — 日志消息。
+# 返回码：echo 的退出码。
 log_warn() { echo -e "${YELLOW}[WARN]${NC} $1" >&2; }
+# log_err — 输出错误日志。
+# 参数：$1 — 日志消息。
+# 返回码：echo 的退出码。
 log_err()  { echo -e "${RED}[ERROR]${NC} $1" >&2; }
+# log_dry — 输出 dry-run 日志。
+# 参数：$1 — 日志消息。
+# 返回码：echo 的退出码。
 log_dry()  { echo -e "${BLUE}[DRY]${NC}  $1" >&2; }
 
-# --------------------------------------------------------
-# 功能函数
-# --------------------------------------------------------
-
+# -- functions ----------------------------------------------------------
+# ----------------------------------------------------------------------
+# detect_shell — 解析目标 shell，必要时回退到 Bash。
+#
+# 参数：无。
+# 副作用：设置 SHELL_TYPE。
+# 返回码：始终返回 0。
+# ----------------------------------------------------------------------
 detect_shell() {
     if [ -n "$SHELL_TYPE" ]; then
         return
@@ -84,6 +103,13 @@ detect_shell() {
     fi
 }
 
+# ----------------------------------------------------------------------
+# ensure_dir — 确保配置目录存在，或在 dry-run 中输出将执行的动作。
+#
+# 参数：无。
+# 副作用：非 dry-run 时创建 CONFIG_DIR。
+# 返回码：mkdir 或日志命令的退出码。
+# ----------------------------------------------------------------------
 ensure_dir() {
     if [ ! -d "$CONFIG_DIR" ]; then
         if [ "$DRY_RUN" = true ]; then
@@ -95,6 +121,13 @@ ensure_dir() {
     fi
 }
 
+# ----------------------------------------------------------------------
+# ensure_loader — 确保目标 rc 文件包含模块加载器，必要时创建备份。
+#
+# 参数：$1 — rc 文件路径；$2 — 文件不存在时是否创建。
+# 副作用：可能创建 rc 文件、备份文件并追加加载器。
+# 返回码：成功返回 0；文件操作失败时透传失败状态。
+# ----------------------------------------------------------------------
 ensure_loader() {
     local RC_FILE="$1"
     local CREATE_IF_MISSING="$2"
@@ -149,13 +182,16 @@ EOF
     log_info "加载逻辑已添加至 $RC_FILE。"
 }
 
+# is_excluded — 判断文件名是否命中排除模式。
+# 参数：$1 — 文件名。
+# 返回码：命中返回 0，未命中返回 1。
 is_excluded() {
     local filename="$1"
     if [ "$EXCLUDE_COUNT" -eq 0 ]; then
         return 1
     fi
     for pattern in "${EXCLUDE_LIST[@]}"; do
-        # 使用 bash 的 [[ string == pattern ]] 进行通配符匹配
+        # 使用 Bash [[ string == pattern ]] 保留 glob 模式匹配语义。
         if [[ "$filename" == $pattern ]]; then
             return 0 # true, excluded
         fi
@@ -163,7 +199,13 @@ is_excluded() {
     return 1 # false, not excluded
 }
 
-# 清理 ~/.bashrc.d/ 中指向不存在路径的旧 symlink
+# ----------------------------------------------------------------------
+# cleanup_stale_symlinks — 清理配置目录中指向不存在路径的软链接。
+#
+# 参数：无。
+# 副作用：非 dry-run 时删除失效软链接。
+# 返回码：成功返回 0。
+# ----------------------------------------------------------------------
 cleanup_stale_symlinks() {
     if [ ! -d "$CONFIG_DIR" ]; then
         return
@@ -189,10 +231,14 @@ cleanup_stale_symlinks() {
     fi
 }
 
-# 同步指定目录中的片段到 ~/.bashrc.d/
-# $1: 源目录
-# $2: 文件扩展名 (sh 或 zsh)
-# $3: 是否将 .zsh 重命名为 .sh (true/false)
+# ----------------------------------------------------------------------
+# sync_dir — 同步指定目录中的配置片段到 CONFIG_DIR。
+#
+# 参数：$1 — 源目录；$2 — 文件扩展名；$3 — 是否把 .zsh 重命名为 .sh。
+# 输出：stdout — 已处理文件数量。
+# 副作用：创建或更新配置片段软链接，并临时修改 nullglob 状态。
+# 返回码：成功返回 0。
+# ----------------------------------------------------------------------
 sync_dir() {
     local source_dir="$1"
     local ext="$2"
@@ -217,7 +263,7 @@ sync_dir() {
 
             local target_name="$filename"
             if [ "$rename_to_sh" = true ]; then
-                # .zsh -> .sh，使 ~/.bashrc.d/ loader 能加载
+                # 统一改用 .sh 后缀，使 ~/.bashrc.d/ loader 能加载 Zsh 专属片段。
                 target_name="${filename%.zsh}.sh"
             fi
             local target_path="$CONFIG_DIR/$target_name"
@@ -238,6 +284,13 @@ sync_dir() {
     echo "$count"
 }
 
+# ----------------------------------------------------------------------
+# sync_snippets — 按目标 shell 同步 shared.d 与专属片段。
+#
+# 参数：无。
+# 副作用：创建或更新配置片段软链接。
+# 返回码：成功返回 0。
+# ----------------------------------------------------------------------
 sync_snippets() {
     log_info "开始同步配置片段 (shell: $SHELL_TYPE)..."
     if [ "$EXCLUDE_COUNT" -gt 0 ]; then
@@ -246,7 +299,7 @@ sync_snippets() {
 
     local total=0
 
-    # 1. 同步 shared.d/
+    # 先同步共享片段；源目录缺失时停止本次同步。
     if [ ! -d "$SHARED_DIR" ]; then
         log_warn "未找到源配置目录: $SHARED_DIR"
         return
@@ -256,7 +309,7 @@ sync_snippets() {
     shared_count=$(sync_dir "$SHARED_DIR" "sh" false)
     total=$((total + shared_count))
 
-    # 2. 根据 shell 类型同步专属片段
+    # 再按目标 shell 同步对应的专属片段。
     if [ "$SHELL_TYPE" = "zsh" ]; then
         if [ -d "$ZSH_SPECIFIC_DIR" ]; then
             log_info "同步 zsh.d/ (Zsh 专属片段)..."
@@ -284,11 +337,8 @@ sync_snippets() {
     fi
 }
 
-# --------------------------------------------------------
-# 主逻辑
-# --------------------------------------------------------
-
-# 参数解析
+# -- main ---------------------------------------------------------------
+# 解析命令行参数后执行目录准备、旧链接清理、加载器维护和片段同步。
 while [[ $# -gt 0 ]]; do
     case $1 in
         -h|--help)
@@ -335,17 +385,15 @@ log_info "检测到目标 shell: $SHELL_TYPE"
 
 ensure_dir
 
-# 清理旧的失效 symlink
 cleanup_stale_symlinks
 
-# 根据 shell 类型确保对应的 rc 文件有 loader
 if [ "$SHELL_TYPE" = "zsh" ]; then
     ensure_loader "$HOME/.zshrc" true
-    # 也处理 .bashrc（如果存在）
+    # 保持 Bash rc 在切换默认 shell 后仍可加载共享片段。
     ensure_loader "$HOME/.bashrc" false
 else
     ensure_loader "$HOME/.bashrc" true
-    # 也处理 .zshrc（如果存在）
+    # 保持 Zsh rc 在切换默认 shell 后仍可加载共享片段。
     ensure_loader "$HOME/.zshrc" false
 fi
 

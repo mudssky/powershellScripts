@@ -1,8 +1,18 @@
 #!/usr/bin/env sh
-
-# 功能：从受管 package source env 文件加载严格的 HTTPS 环境变量。
-# 参数：$1 可选 env 文件路径；默认使用 XDG_CONFIG_HOME 或 ~/.config。
-# 返回：始终返回 0；非法行被忽略，避免 shell 初始化因本机文件损坏而中断。
+# ======================================================================
+# 文件：package-sources.sh
+# 作用：从受管 package source env 文件加载严格白名单内的 HTTPS 变量。
+# 兼容性：POSIX sh；仅导入明确允许的变量。
+# ======================================================================
+# ----------------------------------------------------------------------
+# _load_package_sources_env — 读取并导出受管 package source 环境变量。
+#
+# 设计意图：只接受白名单变量、双引号值与 HTTPS 地址，避免 source 任意本机内容。
+#
+# 参数：$1 — 可选 env 文件路径；默认使用 XDG_CONFIG_HOME 或 ~/.config。
+# 副作用：导出通过校验的 package source 环境变量。
+# 返回码：始终返回 0；非法行被忽略，避免本机文件损坏中断 shell 初始化。
+# ----------------------------------------------------------------------
 _load_package_sources_env() {
     local config_root package_source_file line assignment name quoted_value value
 

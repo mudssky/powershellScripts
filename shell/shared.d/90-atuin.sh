@@ -1,4 +1,10 @@
-# Atuin 历史记录：接管 Ctrl+r，保留原生 Up 与仓库现有 Alt+h。
+# ======================================================================
+# 文件：90-atuin.sh
+# 作用：在交互式 Bash/Zsh 中初始化 Atuin 历史，并保留原生 Up 键。
+# 兼容性：Bash / Zsh 交互式 shell。
+# ======================================================================
+
+# -- interactive guard --------------------------------------------------
 case $- in
   *i*) ;;
   *) return 0 2>/dev/null || exit 0 ;;
@@ -9,6 +15,7 @@ if [ "${__powershell_scripts_atuin_initialized:-0}" = "1" ]; then
 fi
 command -v atuin >/dev/null 2>&1 || return 0 2>/dev/null || exit 0
 
+# -- shell-specific initialization --------------------------------------
 if [ -n "${BASH_VERSION:-}" ]; then
   __powershell_scripts_atuin_shell='bash'
 elif [ -n "${ZSH_VERSION:-}" ]; then

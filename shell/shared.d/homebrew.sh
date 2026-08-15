@@ -1,10 +1,15 @@
-# Homebrew 只从已知安装前缀恢复 PATH，避免执行或持久化外部 source 配置。
-# 候选顺序与 linux/01installHomeBrew.sh 的 find_linuxbrew 保持一致：
-# 系统级 /home/linuxbrew/.linuxbrew 优先于用户级 $HOME/.linuxbrew。
+# ======================================================================
+# 文件：homebrew.sh
+# 作用：从已知安装前缀恢复 Homebrew 环境变量与 PATH。
+# 兼容性：Bash / Zsh；macOS 与 Linux。
+# 设计意图：显式测试覆盖优先，避免执行或持久化外部 source 配置。
+# ======================================================================
+
+# -- brew prefix --------------------------------------------------------
+# 候选顺序与 linux/01installHomeBrew.sh 的 find_linuxbrew 保持一致。
 _powershell_scripts_brew_prefix=''
 
-# 测试/沙盒覆盖：显式指定 prefix 时直接采用，跳过所有路径探测，
-# 避免 CI（如 ubuntu-latest 预装的系统级 Linuxbrew）干扰隔离 fixture。
+# 显式 prefix 用于测试或沙盒时跳过其它路径探测。
 if [ -n "${POWERSHELL_SCRIPTS_HOMEBREW_PREFIX:-}" ]; then
     if [ -x "${POWERSHELL_SCRIPTS_HOMEBREW_PREFIX}/bin/brew" ]; then
         _powershell_scripts_brew_prefix="$POWERSHELL_SCRIPTS_HOMEBREW_PREFIX"
@@ -22,6 +27,7 @@ else
     done
 fi
 
+# -- brew environment ---------------------------------------------------
 if [ -n "$_powershell_scripts_brew_prefix" ]; then
     export HOMEBREW_PREFIX="$_powershell_scripts_brew_prefix"
     export HOMEBREW_CELLAR="$_powershell_scripts_brew_prefix/Cellar"

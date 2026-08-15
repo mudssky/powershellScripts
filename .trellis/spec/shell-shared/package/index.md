@@ -18,6 +18,7 @@
 - [ ] **解析 CLI 输出前先找机器可读选项**：优先使用 `--json`、`--porcelain`、`--format`/`-F`、`--short`、`--no-formatting` 等无样式/结构化输出；展示列可以丰富，但真实参数必须从稳定字段解析，避免 ANSI 颜色或展示文案混入真实参数。
 - [ ] **package source env**：修改 `package-sources.sh` 前阅读 [Package Source Transactions](../../infra/package-sources.md)，只加载明确白名单的 HTTPS 变量。
 - [ ] **加任何 init 前，先全局 grep**：`eval "$(zoxide init ...)"`、`eval "$(starship init ...)"` 等初始化代码极易跨文件重复。新增前先 `grep -r "<tool>" shell/` 确认未被别处初始化（见下方 Anti-pattern）。
+- [ ] **注释规范**：按 [活跃脚本注释规范](./comment-conventions.md) 组织文件头、配置章节、函数契约与局部说明。
 
 ## Interactive Command Lifecycle（交互命令必读）
 
@@ -52,10 +53,10 @@
 
 ## Quality Check
 
-- 代码逻辑改动：在 bash 与 zsh 下 `source` 后验证关键路径（降级/空列表/取消/正常选中）。
 - 只改文案/注释：无需验证。
 - `pnpm qa` 不覆盖 `shared.d`（无自动化测试），靠手工验证。
 - 公共接口必须带规范中文注释（功能/入参/返回值/非直观设计意图），符合 AGENTS.md。
+- 注释迁移按 [活跃脚本注释规范](./comment-conventions.md) 审查四层结构、字段和反模式。
 
 ## Anti-Patterns
 
