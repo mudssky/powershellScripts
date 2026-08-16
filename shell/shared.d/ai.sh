@@ -30,7 +30,7 @@ function invoke_bell(){
 # ----------------------------------------------------------------------
 # agent-task — 以进程级配置启动支持的 AI 宿主。
 #
-# 参数：$1 — 宿主（omp 或 codex）；$2 — profile（fast、slow 或 max）；
+# 参数：$1 — 宿主（omp、codex 或 pi）；$2 — profile（fast、slow 或 max）；
 #       后续可选 --show-command、--dry-run、--，其余参数完整转发给宿主。
 # 副作用：向 stderr 输出不含用户参数内容的路由摘要；除 --dry-run 外启动宿主进程。
 # 返回码：帮助与 dry-run 返回 0；参数错误返回 64；否则原样返回宿主退出码。
@@ -43,12 +43,13 @@ function agent-task() {
             '支持矩阵：' \
             '  omp   fast|slow|max  使用 $HOME/.omp/overlays/task-<profile>.yml' \
             '  codex fast|slow|max  仅覆盖当前进程的默认 subagent 模型与推理强度' \
-            '  pi                  仅支持持久化 worker_fast/worker_slow/worker_max' \
+            '  pi    fast|slow|max  设置当前进程的 PI_PROFILED_TASK_PROFILE' \
             '  claude              仅支持持久化 worker-fast' \
             '' \
             '快捷命令：' \
             '  omp-taskfast / omp-taskslow / omp-taskmax' \
             '  codex-taskfast / codex-taskslow / codex-taskmax' \
+            '  pi-taskfast / pi-taskslow / pi-taskmax' \
             '' \
             '参数转发：' \
             '  dispatcher 选项应放在 host/profile 后、首个宿主参数前。' \
@@ -62,7 +63,7 @@ function agent-task() {
             '排错示例：' \
             '  agent-task omp fast --dry-run' \
             '  agent-task codex max --show-command -- --help' \
-            '  agent-task pi fast  # 返回非零并提示改用 worker_fast'
+            '  agent-task pi fast -- --foo "two words"'
         return 0
     fi
 
@@ -158,15 +159,24 @@ function agent-task() {
             return $?
             ;;
         pi)
-            printf '%s\n' 'agent-task: pi 仅支持持久化 Agent；请显式派发 worker_fast、worker_slow 或 worker_max。' >&2
-            return 64
+            printf 'agent-task: host=%s profile=%s source-agent=worker_%s (+%s user args)\n' \
+                "$host" "$profile" "$profile" "$argument_count" >&2
+            if [ "$show_command" -eq 1 ] || [ "$dry_run" -eq 1 ]; then
+                printf 'agent-task command: PI_PROFILED_TASK_PROFILE=%s pi (+%s user args)\n' \
+                    "$profile" "$argument_count" >&2
+            fi
+            if [ "$dry_run" -eq 1 ]; then
+                return 0
+            fi
+            PI_PROFILED_TASK_PROFILE="$profile" command pi "${user_args[@]}"
+            return $?
             ;;
         claude)
             printf '%s\n' 'agent-task: claude 仅支持持久化 Agent；请显式派发 worker-fast。' >&2
             return 64
             ;;
         *)
-            printf 'agent-task: 未知 host：%s（支持 omp、codex）；请运行 agent-task --help。\n' "$host" >&2
+            printf 'agent-task: 未知 host：%s（支持 omp、codex、pi）；请运行 agent-task --help。\n' "$host" >&2
             return 64
             ;;
     esac
@@ -224,4 +234,31 @@ function codex-taskslow() {
 # ----------------------------------------------------------------------
 function codex-taskmax() {
     agent-task codex max "$@"
+}
+
+# ----------------------------------------------------------------------
+# pi-taskfast — 使用 Pi fast process profile 启动当前进程。
+# 参数：全部参数原样转发给 agent-task；返回码：agent-task 的返回码。
+# 副作用：输出安全路由摘要，并在非 dry-run 时启动 Pi。
+# ----------------------------------------------------------------------
+function pi-taskfast() {
+    agent-task pi fast "$@"
+}
+
+# ----------------------------------------------------------------------
+# pi-taskslow — 使用 Pi slow process profile 启动当前进程。
+# 参数：全部参数原样转发给 agent-task；返回码：agent-task 的返回码。
+# 副作用：输出安全路由摘要，并在非 dry-run 时启动 Pi。
+# ----------------------------------------------------------------------
+function pi-taskslow() {
+    agent-task pi slow "$@"
+}
+
+# ----------------------------------------------------------------------
+# pi-taskmax — 使用 Pi max process profile 启动当前进程。
+# 参数：全部参数原样转发给 agent-task；返回码：agent-task 的返回码。
+# 副作用：输出安全路由摘要，并在非 dry-run 时启动 Pi。
+# ----------------------------------------------------------------------
+function pi-taskmax() {
+    agent-task pi max "$@"
 }
