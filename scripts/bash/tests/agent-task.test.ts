@@ -207,7 +207,7 @@ describe('shell/shared.d/ai.sh agent-task', () => {
       ].join('\n'))
     })
 
-    for (const profile of ['fast', 'slow', 'max'] as const) {
+    for (const profile of ['fast', 'medium', 'slow', 'max'] as const) {
       it(`${shellName} 为 Pi ${profile} 设置进程级 profile`, async () => {
         const workspace = createWorkspace()
         writeFakeHost(workspace, 'pi')
@@ -248,76 +248,77 @@ describe('shell/shared.d/ai.sh agent-task', () => {
       ].join('\n'))
     })
 
-    for (const profile of ['fast', 'slow', 'max'] as const) {
-      it(`${shellName} pi-task${profile} 精确路由 ${profile} profile`, async () => {
+    for (const profile of ['fast', 'medium', 'slow', 'max'] as const) {
+      it(`${shellName} 保持 OMP ${profile} 参数形态和转发语义`, async () => {
         const workspace = createWorkspace()
-        writeFakeHost(workspace, 'pi')
+        writeFakeHost(workspace, 'omp')
+        const overlays = path.join(workspace.home, '.omp/overlays')
+        fs.mkdirSync(overlays, { recursive: true })
+        fs.writeFileSync(path.join(overlays, `task-${profile}.yml`), `modelRoles:\n  task: "@worker_${profile}"\n`)
 
         const result = await runShell(
           shell,
           workspace,
-          `pi-task${profile} -- --profile-argument ${shellQuote('kept together')}`,
+          `agent-task omp ${profile} -- --flag ${shellQuote('two words')}`,
         )
 
         expect(result.exitCode).toBe(0)
         expect(readLog(workspace)).toBe([
-          'command=pi',
-          `profile=${profile}`,
-          'argc=2',
-          'arg[0]=<--profile-argument>',
-          'arg[1]=<kept together>',
+          'command=omp',
+          'profile=',
+          'argc=4',
+          'arg[0]=<--config>',
+          `arg[1]=<${path.join(workspace.home, `.omp/overlays/task-${profile}.yml`)}>`,
+          'arg[2]=<--flag>',
+          'arg[3]=<two words>',
           '',
         ].join('\n'))
       })
     }
 
-    it(`${shellName} 保持 OMP 参数形态和转发语义`, async () => {
+    it(`${shellName} 在 OMP overlay 缺失时不启动宿主`, async () => {
       const workspace = createWorkspace()
       writeFakeHost(workspace, 'omp')
 
-      const result = await runShell(
-        shell,
-        workspace,
-        `agent-task omp fast -- --flag ${shellQuote('two words')}`,
-      )
+      const result = await runShell(shell, workspace, 'agent-task omp medium')
 
-      expect(result.exitCode).toBe(0)
-      expect(readLog(workspace)).toBe([
-        'command=omp',
-        'profile=',
-        'argc=4',
-        'arg[0]=<--config>',
-        `arg[1]=<${path.join(workspace.home, '.omp/overlays/task-fast.yml')}>`,
-        'arg[2]=<--flag>',
-        'arg[3]=<two words>',
-        '',
-      ].join('\n'))
+      expect(result.exitCode).toBe(66)
+      expect(result.stderr).toContain('OMP overlay 不存在或不可读')
+      expect(result.stderr).toContain('task-medium.yml')
+      expect(readLog(workspace)).toBe('')
     })
 
-    it(`${shellName} 保持 Codex 覆盖参数和转发语义`, async () => {
-      const workspace = createWorkspace()
-      writeFakeHost(workspace, 'codex')
+    for (const [profile, model, effort] of [
+      ['fast', 'gpt-5.6-luna', 'high'],
+      ['medium', 'gpt-5.6-luna', 'xhigh'],
+      ['slow', 'gpt-5.6-luna', 'max'],
+      ['max', 'gpt-5.6-sol', 'medium'],
+    ] as const) {
+      it(`${shellName} 保持 Codex ${profile} 覆盖参数和转发语义`, async () => {
+        const workspace = createWorkspace()
+        writeFakeHost(workspace, 'codex')
 
-      const result = await runShell(
-        shell,
-        workspace,
-        `agent-task codex max -- --flag ${shellQuote('two words')}`,
-      )
+        const result = await runShell(
+          shell,
+          workspace,
+          `agent-task codex ${profile} -- --flag ${shellQuote('two words')}`,
+        )
 
-      expect(result.exitCode).toBe(0)
-      expect(readLog(workspace)).toBe([
-        'command=codex',
-        'profile=',
-        'argc=6',
-        'arg[0]=<-c>',
-        'arg[1]=<agents.default_subagent_model="gpt-5.6-sol">',
-        'arg[2]=<-c>',
-        'arg[3]=<agents.default_subagent_reasoning_effort="medium">',
-        'arg[4]=<--flag>',
-        'arg[5]=<two words>',
-        '',
-      ].join('\n'))
-    })
+        expect(result.exitCode).toBe(0)
+        expect(readLog(workspace)).toBe([
+          'command=codex',
+          'profile=',
+          'argc=6',
+          'arg[0]=<-c>',
+          `arg[1]=<agents.default_subagent_model="${model}">`,
+          'arg[2]=<-c>',
+          `arg[3]=<agents.default_subagent_reasoning_effort="${effort}">`,
+          'arg[4]=<--flag>',
+          'arg[5]=<two words>',
+          '',
+        ].join('\n'))
+      })
+    }
 
     it(`${shellName} 对未知 host、未知 profile 和 Claude 保持启动前失败`, async () => {
       const workspace = createWorkspace()
@@ -339,15 +340,15 @@ describe('shell/shared.d/ai.sh agent-task', () => {
       expect(readLog(workspace)).toBe('')
     })
 
-    it(`${shellName} help 展示 Pi 支持和快捷命令`, async () => {
+    it(`${shellName} help 展示四档唯一入口`, async () => {
       const workspace = createWorkspace()
 
       const result = await runShell(shell, workspace, 'agent-task --help')
 
       expect(result.exitCode).toBe(0)
-      expect(result.stdout).toContain('pi    fast|slow|max')
-      expect(result.stdout).toContain('pi-taskfast / pi-taskslow / pi-taskmax')
-      expect(result.stdout).toContain('claude              仅支持持久化 worker-fast')
+      expect(result.stdout).toContain('pi    fast|medium|slow|max')
+      expect(result.stdout).not.toContain('快捷命令')
+      expect(result.stdout).toContain('claude                     仅支持持久化 worker-fast')
     })
   }
 })
