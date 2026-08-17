@@ -73,6 +73,31 @@ function invoke_bell(){
 #             native-model-search、openviking。
 #   pi-mcp-adapter 当前在 settings 中过滤了 extensions/skills，不计入插件组。
 
+# -- OMP capability mode 上下文参考 -----------------------------------
+#
+# 测量口径（2026-08-17）：OMP 17.3.0，thinking=off，与 Pi 使用相同 cwd、
+# 固定首轮消息和模型。`full` 是当前 49 个可见 Skills 的安装快照；
+# `no-skill` 使用现有 `omp-mode no-skill`（即 `omp --no-skills`）。
+# OMP 当前没有原生或包装层 `project` 模式，因此不构造不可复现的数据。
+#
+# 实际 provider input tokens：
+# 模式        DeepSeek Flash     Luna（Codex 订阅）
+#   full         31,340 tokens       31,467 tokens
+#   no-skill     26,637 tokens       26,678 tokens
+#
+# 可见请求结构的 JavaScript 字符长度：OMP system prompt 是有序 `string[]`，
+# prompt chars 按 `blocks.join("\n").length` 统计；tool schema chars 仍按
+# `JSON.stringify(payload.tools).length` 统计。
+#
+# 模式        DS prompt chars   Luna prompt chars   DS schema chars   Luna schema chars
+#   full             55,888              54,702            34,286              38,449；49 Skills。
+#   no-skill         39,706              38,520            34,286              38,449；无 Skills。
+#
+# 相同模型、相同模式下，OMP 相对 Pi 的完整首轮输入增量：
+#   full      DeepSeek +6,728 tokens；Luna +5,142 tokens。
+#   no-skill  DeepSeek +7,801 tokens；Luna +6,367 tokens。
+# OMP 的 active tools 受模型/provider 能力投影影响：本次 DeepSeek 为 38，Luna 为 37。
+
 # ----------------------------------------------------------------------
 # _pi_mode_help — 输出 Pi 父会话 capability mode 帮助。
 #
