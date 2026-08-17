@@ -30,11 +30,14 @@ function invoke_bell(){
 # -- Pi capability mode 上下文参考 ------------------------------------
 #
 # 测量口径（2026-08-17）：Pi 0.84.2，`local/gpt-5.6-luna`，thinking=off，
-# 在本仓根目录以固定首轮消息测量；token 为模型 usage 的
-# `input + cacheRead + cacheWrite`。探针不注册工具、不修改 system prompt。
+# 在本仓根目录以固定首轮消息测量。provider input usage 取模型返回的
+# `input + cacheRead + cacheWrite`，包含可见 system prompt、tool definitions
+# 及 provider 侧其它输入开销；探针不注册工具、不修改 system prompt。
+# `/supi-context` 的 System prompt 只估算可见提示词，tool definitions 单列，
+# 因而不能与这里的 provider input usage 直接比较。
 # 实际值会随模型/provider、项目 context、Skill 与插件版本变化，只用于档位比较。
 #
-# 首轮上下文（tokens；system prompt chars / provider tool schema chars）：
+# provider 首轮 input usage（tokens；system prompt chars / tool schema chars）：
 #   full       未测；完整插件与全局/package/settings/project Skills 均会动态变化。
 #   project    22,039；27,590 / 39,503；15 个 project Skills；完整插件组。
 #   no-skill   20,311；20,454 / 39,503；无 Skills；完整插件组。
@@ -42,6 +45,8 @@ function invoke_bell(){
 #   read        8,686； 4,639 / 12,252；无 Skills；仅 pi-web-access 插件。
 #   chat        7,017；   299 /  9,489；无 Skills；仅 pi-web-access 插件。
 #   offline     4,821；   195 /      2；无 Skills、插件、工具与项目 context。
+# `offline` 仍报告 4,821 tokens，而可见 prompt 仅 195 chars 且无 tools；这说明
+# 当前 local provider 的 usage 还包含约 4.8k 的服务端隐藏前缀或等价计量开销。
 #
 # 当前完整插件组：
 #   package — pi-web-access、pi-statusline、rpiv-todo、pi-subagents、
