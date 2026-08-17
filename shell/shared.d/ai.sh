@@ -29,7 +29,7 @@ function invoke_bell(){
 
 # -- Pi capability mode 上下文参考 ------------------------------------
 #
-# 测量口径（2026-08-17）：Pi 0.84.2，`local/gpt-5.6-luna`，thinking=off，
+# 测量口径（2026-08-17）：Pi 0.84.2，`local/deepseek-v4-flash`，thinking=off，
 # 在本仓根目录以固定首轮消息测量。provider input usage 取模型返回的
 # `input + cacheRead + cacheWrite`，包含可见 system prompt、tool definitions
 # 及 provider 侧其它输入开销；探针不注册工具、不修改 system prompt。
@@ -42,14 +42,14 @@ function invoke_bell(){
 #
 # 模式        provider input     system prompt      tool schema
 #   full      未测；完整插件与全局/package/settings/project Skills 均会动态变化。
-#   project   22,039 tokens       27,590 chars       39,503 chars；15 project Skills；完整插件组。
-#   no-skill  20,311 tokens       20,454 chars       39,503 chars；无 Skills；完整插件组。
-#   core       8,813 tokens        5,374 chars       12,276 chars；无 Skills；仅 pi-web-access。
-#   read       8,686 tokens        4,639 chars       12,252 chars；无 Skills；仅 pi-web-access。
-#   chat       7,017 tokens          299 chars        9,489 chars；无 Skills；仅 pi-web-access。
-#   offline    4,821 tokens          195 chars            2 chars；无 Skills、插件、工具与项目 context。
-# `offline` 仍报告 4,821 tokens，而可见 prompt 仅 195 chars 且无 tools；这说明
-# 当前 local provider 的 usage 还包含约 4.8k 的服务端隐藏前缀或等价计量开销。
+#   project   20,675 tokens       28,016 chars       39,503 chars；15 project Skills；完整插件组。
+#   no-skill  18,836 tokens       20,880 chars       39,503 chars；无 Skills；完整插件组。
+#   core       5,053 tokens        5,374 chars       12,276 chars；无 Skills；仅 pi-web-access。
+#   read       4,933 tokens        4,639 chars       12,252 chars；无 Skills；仅 pi-web-access。
+#   chat       3,005 tokens          299 chars        9,489 chars；无 Skills；仅 pi-web-access。
+#   offline      131 tokens          195 chars            2 chars；无 Skills、插件、工具与项目 context。
+# DeepSeek Flash 的 offline 基线仅 131 tokens；此前 Luna 报告 4,821 tokens，
+# 明显包含额外 provider 侧计量开销，因此不再用 Luna 数据作为模式本体参考。
 #
 # 当前完整插件组：
 #   package — pi-web-access、pi-statusline、rpiv-todo、pi-subagents、
