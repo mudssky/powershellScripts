@@ -1875,3 +1875,31 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Status
 
 [OK] **Completed**
+
+
+## Session 64: 测量并拆分 Pi 本地与搜索模式
+
+**Date**: 2026-08-17
+**Task**: 测量并拆分 Pi 本地与搜索模式
+**Branch**: `master`
+
+### Summary
+
+完成 Pi/OMP 上下文成本测量，确认 Output Style 主要开销；将 Pi 轻量父会话重构为 core/read/chat 本地档与显式 *-search 档，补齐 Bash/Zsh 契约测试和真实双模型数据。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1416e74` | (see git log) |
+| `65cc3c5` | (see git log) |
+| `53af585` | (see git log) |
+| `56b80ca` | (see git log) |
+| `2e0ca27` | (see git log) |
+| `c2ae836` | (see git log) |
+| `d8c1036` | (see git log) |
+| `205b5b2` | (see git log) |
+
+### Status
+
+[OK] **Completed**

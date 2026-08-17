@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 63
-- **Last Active**: 2026-08-15
+- **Total Sessions**: 64
+- **Last Active**: 2026-08-17
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1877 | Active |
+| `journal-1.md` | ~1905 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -30,6 +30,7 @@
 
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 64 | 2026-08-17 | 测量并拆分 Pi 本地与搜索模式 | `1416e74`, `65cc3c5`, `53af585`, `56b80ca`, `2e0ca27`, `c2ae836`, `d8c1036`, `205b5b2` | `master` |
 | 63 | 2026-08-15 | 统一 Shell 配置注释规范 | `6243db9`, `a806a1f` | `master` |
 | 62 | 2026-08-12 | 修复 GitHub Actions Pester 三平台失败 | `ce6b476b`, `8fb1eb88`, `f5fa262b`, `77e54d2c` | `master` |
 | 61 | 2026-08-12 | 迁移 PSResourceGet 并升级 Pester 6.1.0 | `d29de83e` | `master` |
