@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/shell-shared/package/index.md", "reason": "共享 Bash/Zsh 模式函数规范与质量门禁"}
+{"file": ".trellis/spec/shell-shared/package/comment-conventions.md", "reason": "ai.sh 注释与函数契约规范"}
+{"file": ".trellis/tasks/08-17-agent-local-web-modes/research/current-mode-contract.md", "reason": "现有模式参数、调用方和测量迁移证据"}
