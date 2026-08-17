@@ -33,18 +33,21 @@ function invoke_bell(){
 # 在本仓根目录以固定首轮消息测量。provider input usage 取模型返回的
 # `input + cacheRead + cacheWrite`，包含可见 system prompt、tool definitions
 # 及 provider 侧其它输入开销；探针不注册工具、不修改 system prompt。
-# `/supi-context` 的 System prompt 只估算可见提示词，tool definitions 单列，
-# 因而不能与这里的 provider input usage 直接比较。
-# 实际值会随模型/provider、项目 context、Skill 与插件版本变化，只用于档位比较。
+# `/supi-context` 的组成明细先读取 JavaScript `text.length`，再以
+# `Math.ceil(chars / 4)` 标为估算 tokens；这不是模型 tokenizer 的精确结果。
+# `/4` 更接近英文文本，中文常见约 1–2 个汉字/token，中文较多时会明显低估。
+# 下表保留原始 chars，避免把字符估算伪装成精确 token。三列依次是：
+#   1. provider 实际 input tokens；2. system prompt chars；3. tool schema chars。
+# 它们不能直接相加；实际值也会随模型/provider、项目 context、Skill 与插件变化。
 #
-# provider 首轮 input usage（tokens；system prompt chars / tool schema chars）：
-#   full       未测；完整插件与全局/package/settings/project Skills 均会动态变化。
-#   project    22,039；27,590 / 39,503；15 个 project Skills；完整插件组。
-#   no-skill   20,311；20,454 / 39,503；无 Skills；完整插件组。
-#   core        8,813； 5,374 / 12,276；无 Skills；仅 pi-web-access 插件。
-#   read        8,686； 4,639 / 12,252；无 Skills；仅 pi-web-access 插件。
-#   chat        7,017；   299 /  9,489；无 Skills；仅 pi-web-access 插件。
-#   offline     4,821；   195 /      2；无 Skills、插件、工具与项目 context。
+# 模式        provider input     system prompt      tool schema
+#   full      未测；完整插件与全局/package/settings/project Skills 均会动态变化。
+#   project   22,039 tokens       27,590 chars       39,503 chars；15 project Skills；完整插件组。
+#   no-skill  20,311 tokens       20,454 chars       39,503 chars；无 Skills；完整插件组。
+#   core       8,813 tokens        5,374 chars       12,276 chars；无 Skills；仅 pi-web-access。
+#   read       8,686 tokens        4,639 chars       12,252 chars；无 Skills；仅 pi-web-access。
+#   chat       7,017 tokens          299 chars        9,489 chars；无 Skills；仅 pi-web-access。
+#   offline    4,821 tokens          195 chars            2 chars；无 Skills、插件、工具与项目 context。
 # `offline` 仍报告 4,821 tokens，而可见 prompt 仅 195 chars 且无 tools；这说明
 # 当前 local provider 的 usage 还包含约 4.8k 的服务端隐藏前缀或等价计量开销。
 #
