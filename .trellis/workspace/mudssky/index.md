@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 65
+- **Total Sessions**: 66
 - **Last Active**: 2026-08-17
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1926 | Active |
+| `journal-1.md` | ~1947 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -30,6 +30,7 @@
 
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 66 | 2026-08-17 | 修复 Shell 环境模板误加载 | `5ba6122` | `master` |
 | 65 | 2026-08-17 | 提交 selfhosted SkillHub 快捷入口 | `eaeb7f3` | `master` |
 | 64 | 2026-08-17 | 测量并拆分 Pi 本地与搜索模式 | `1416e74`, `65cc3c5`, `53af585`, `56b80ca`, `2e0ca27`, `c2ae836`, `d8c1036`, `205b5b2` | `master` |
 | 63 | 2026-08-15 | 统一 Shell 配置注释规范 | `6243db9`, `a806a1f` | `master` |

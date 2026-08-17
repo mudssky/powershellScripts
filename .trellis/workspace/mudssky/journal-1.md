@@ -1924,3 +1924,24 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Status
 
 [OK] **Completed**
+
+
+## Session 66: 修复 Shell 环境模板误加载
+
+**Date**: 2026-08-17
+**Task**: 修复 Shell 环境模板误加载
+**Branch**: `master`
+
+### Summary
+
+将环境模板改名为 env.local.sh.example，部署层排除 example/sample 脚本，新增隔离 HOME 的部署行为测试并记录共享 Shell 规范。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5ba6122` | (see git log) |
+
+### Status
+
+[OK] **Completed**
