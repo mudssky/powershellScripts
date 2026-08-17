@@ -27,6 +27,30 @@ function invoke_bell(){
      echo -e "\a"
 }
 
+# -- Pi capability mode 上下文参考 ------------------------------------
+#
+# 测量口径（2026-08-17）：Pi 0.84.2，`local/gpt-5.6-luna`，thinking=off，
+# 在本仓根目录以固定首轮消息测量；token 为模型 usage 的
+# `input + cacheRead + cacheWrite`。探针不注册工具、不修改 system prompt。
+# 实际值会随模型/provider、项目 context、Skill 与插件版本变化，只用于档位比较。
+#
+# 首轮上下文（tokens；system prompt chars / provider tool schema chars）：
+#   full       未测；完整插件与全局/package/settings/project Skills 均会动态变化。
+#   project    22,039；27,590 / 39,503；15 个 project Skills；完整插件组。
+#   no-skill   20,311；20,454 / 39,503；无 Skills；完整插件组。
+#   core        8,813； 5,374 / 12,276；无 Skills；仅 pi-web-access 插件。
+#   read        8,686； 4,639 / 12,252；无 Skills；仅 pi-web-access 插件。
+#   chat        7,017；   299 /  9,489；无 Skills；仅 pi-web-access 插件。
+#   offline     4,821；   195 /      2；无 Skills、插件、工具与项目 context。
+#
+# 当前完整插件组：
+#   package — pi-web-access、pi-statusline、rpiv-todo、pi-subagents、
+#             supi-context、rpiv-ask-user-question、pi-permission-system。
+#   local   — output-style、orca-agent-status、orca-prefill、
+#             orca-titlebar-spinner、profiled-task-dispatcher、model-fallback、
+#             native-model-search、openviking。
+#   pi-mcp-adapter 当前在 settings 中过滤了 extensions/skills，不计入插件组。
+
 # ----------------------------------------------------------------------
 # _pi_mode_help — 输出 Pi 父会话 capability mode 帮助。
 #
