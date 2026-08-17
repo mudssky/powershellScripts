@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/08-17-fix-selfhosted-skillhub-remove/research/package-release-findings.md", "reason": "检查发布结果必须符合已验证的隔离与无破坏性边界"}
+{"file": "scripts/prepare-release-pr.test.mjs", "reason": "验证 changesets-release 分支、source-tip gate 与 PR 去重契约"}
+{"file": ".woodpecker/release.yml", "reason": "验证 clean --ignore-scripts 环境先生成 Astro workspace dist，并保留完整 verify、smoke 与独立 Git/npm publish 门禁"}
+{"file": "registry/generated/registry.normalized.json", "reason": "确认 generated sync 只包含已有 agent-config-manager 描述变更"}

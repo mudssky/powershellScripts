@@ -1,0 +1,6 @@
+{"file": ".trellis/tasks/08-17-fix-selfhosted-skillhub-remove/research/package-release-findings.md", "reason": "已验证的版本差异、Changesets 隔离机制和仓库安全边界"}
+{"file": "scripts/prepare-release-pr.mjs", "reason": "修复与长期 release 分支冲突的 Changesets release PR 默认分支"}
+{"file": "scripts/prepare-release-pr.test.mjs", "reason": "迁移 release PR 分支契约并保持 source-tip 与 PR 去重覆盖"}
+{"file": "registry/generated/registry.normalized.json", "reason": "同步 CI 已检测到的 agent-config-manager deterministic generated drift"}
+{"file": "README.md", "reason": "只更新发布流程中的 release PR 分支名，保留并隔离既有未提交 hunk"}
+{"file": ".woodpecker/release.yml", "reason": "在全 workspace typecheck 前预构建 Astro Content Studio workspace export，不改变版本或发布范围"}
