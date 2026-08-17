@@ -29,27 +29,39 @@ function invoke_bell(){
 
 # -- Pi capability mode 上下文参考 ------------------------------------
 #
-# 测量口径（2026-08-17）：Pi 0.84.2，`local/deepseek-v4-flash`，thinking=off，
-# 在本仓根目录以固定首轮消息测量。provider input usage 取模型返回的
-# `input + cacheRead + cacheWrite`，包含可见 system prompt、tool definitions
-# 及 provider 侧其它输入开销；探针不注册工具、不修改 system prompt。
-# `/supi-context` 的组成明细先读取 JavaScript `text.length`，再以
+# 测量口径（2026-08-17）：Pi 0.84.2，thinking=off，在本仓根目录以固定首轮
+# 消息测量；模型为 `local/deepseek-v4-flash` 与 `local/gpt-5.6-luna`。
+# Luna 走 Codex 订阅链路，其 provider usage 可能包含订阅侧注入的额外上下文。
+# 探针不注册工具、不修改 system prompt；`full` 因 Skills 动态变化而不测。
+#
+# 表一：实际 provider input tokens。
+#   - DeepSeek/Luna 两列均为模型返回的 `input + cacheRead + cacheWrite`。
+#   - 这是完整首轮输入 token，包含可见 prompt、tool definitions 与 provider 开销。
+#
+# 模式        DeepSeek Flash     Luna（Codex 订阅）
+#   project      20,675 tokens       22,039 tokens
+#   no-skill     18,836 tokens       20,311 tokens
+#   core          5,053 tokens        8,813 tokens
+#   read          4,933 tokens        8,686 tokens
+#   chat          3,005 tokens        7,017 tokens
+#   offline         131 tokens        4,821 tokens
+#
+# 表二：可见请求结构的 JavaScript 字符长度，不是 token。
+#   - DS prompt chars / Luna prompt chars：各模型最终 `systemPrompt.length`。
+#   - tool schema chars：provider 请求中 `JSON.stringify(payload.tools).length`。
+#   - 三个 chars 列不能与表一 token 相加；仅用于定位 prompt/schema 的体积来源。
+#
+# 模式        DS prompt chars   Luna prompt chars   tool schema chars
+#   project          28,016              27,590              39,503；15 project Skills；完整插件组。
+#   no-skill         20,880              20,454              39,503；无 Skills；完整插件组。
+#   core              5,374               5,374              12,276；无 Skills；仅 pi-web-access。
+#   read              4,639               4,639              12,252；无 Skills；仅 pi-web-access。
+#   chat                299                 299               9,489；无 Skills；仅 pi-web-access。
+#   offline             195                 195                   2；无 Skills、插件、工具与项目 context。
+#
+# `/supi-context` 的组成明细读取 JavaScript `text.length`，再以
 # `Math.ceil(chars / 4)` 标为估算 tokens；这不是模型 tokenizer 的精确结果。
 # `/4` 更接近英文文本，中文常见约 1–2 个汉字/token，中文较多时会明显低估。
-# 下表保留原始 chars，避免把字符估算伪装成精确 token。三列依次是：
-#   1. provider 实际 input tokens；2. system prompt chars；3. tool schema chars。
-# 它们不能直接相加；实际值也会随模型/provider、项目 context、Skill 与插件变化。
-#
-# 模式        provider input     system prompt      tool schema
-#   full      未测；完整插件与全局/package/settings/project Skills 均会动态变化。
-#   project   20,675 tokens       28,016 chars       39,503 chars；15 project Skills；完整插件组。
-#   no-skill  18,836 tokens       20,880 chars       39,503 chars；无 Skills；完整插件组。
-#   core       5,053 tokens        5,374 chars       12,276 chars；无 Skills；仅 pi-web-access。
-#   read       4,933 tokens        4,639 chars       12,252 chars；无 Skills；仅 pi-web-access。
-#   chat       3,005 tokens          299 chars        9,489 chars；无 Skills；仅 pi-web-access。
-#   offline      131 tokens          195 chars            2 chars；无 Skills、插件、工具与项目 context。
-# DeepSeek Flash 的 offline 基线仅 131 tokens；此前 Luna 报告 4,821 tokens，
-# 明显包含额外 provider 侧计量开销，因此不再用 Luna 数据作为模式本体参考。
 #
 # 当前完整插件组：
 #   package — pi-web-access、pi-statusline、rpiv-todo、pi-subagents、
