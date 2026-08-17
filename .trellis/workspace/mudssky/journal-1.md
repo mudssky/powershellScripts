@@ -1945,3 +1945,32 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Status
 
 [OK] **Completed**
+
+
+## Session 67: 发布 Skillhub CLI remove 与修复 release CI
+
+**Date**: 2026-08-17
+**Task**: 发布 Skillhub CLI remove 与修复 release CI
+**Branch**: `master`
+
+### Summary
+
+隔离发布 CLI 0.1.3，修复 Changesets 分支、生成物、workspace 预构建、发布容器与 lifecycle 门禁；Woodpecker #64 全绿，Bash/Zsh wrapper dry-run 验证通过，Astro major 保持待发布。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b530dcc` | (see git log) |
+| `65d29f8` | (see git log) |
+| `a4e31d5` | (see git log) |
+| `948d590` | (see git log) |
+| `514867d` | (see git log) |
+| `890edfc` | (see git log) |
+| `69d695c` | (see git log) |
+| `b381e3a` | (see git log) |
+| `b5a3712` | (see git log) |
+
+### Status
+
+[OK] **Completed**
