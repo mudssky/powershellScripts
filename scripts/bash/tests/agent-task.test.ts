@@ -518,25 +518,45 @@ describe('shell/shared.d/ai.sh agent-task', () => {
       'full',
       'no-skill',
       'core',
+      'core-search',
       'read',
+      'read-search',
       'chat',
-      'offline',
+      'chat-search',
     ] as const) {
       it(`${shellName} 为 pi-mode ${mode} 组装稳定参数`, async () => {
         const workspace = createWorkspace()
         writeFakeHost(workspace, 'pi')
-        const webExtension = writeWebExtension(workspace)
+        const webExtension = path.join(
+          workspace.home,
+          '.pi/agent/npm/node_modules/pi-web-access/index.ts',
+        )
+        if (mode.endsWith('-search')) {
+          writeWebExtension(workspace)
+        }
         const webTools =
           'web_search,source_check,fetch_content,get_search_content'
-        const chatPrompt =
-          "You are a concise, helpful conversational assistant with web search and page-fetching tools. Answer directly, use tools when current or source-backed information is needed, and reply in the user's language unless asked otherwise."
-        const offlinePrompt =
+        const localChatPrompt =
           "You are a concise, helpful conversational assistant. Answer directly and reply in the user's language unless asked otherwise."
+        const searchChatPrompt =
+          "You are a concise, helpful conversational assistant with web search and page-fetching tools. Answer directly, use tools when current or source-backed information is needed, and reply in the user's language unless asked otherwise."
         const fixedArgsByMode: Record<string, string[]> = {
           full: [],
           'no-skill': ['--no-skills'],
-          core: ['--no-skills', '--no-extensions', '-e', webExtension],
+          core: ['--no-skills', '--no-extensions'],
+          'core-search': [
+            '--no-skills',
+            '--no-extensions',
+            '-e',
+            webExtension,
+          ],
           read: [
+            '--no-skills',
+            '--no-extensions',
+            '--tools',
+            'read,grep,find,ls',
+          ],
+          'read-search': [
             '--no-skills',
             '--no-extensions',
             '-e',
@@ -547,20 +567,20 @@ describe('shell/shared.d/ai.sh agent-task', () => {
           chat: [
             '--no-skills',
             '--no-extensions',
+            '--no-context-files',
+            '--no-tools',
+            '--system-prompt',
+            localChatPrompt,
+          ],
+          'chat-search': [
+            '--no-skills',
+            '--no-extensions',
             '-e',
             webExtension,
             '--no-context-files',
             '--no-builtin-tools',
             '--system-prompt',
-            chatPrompt,
-          ],
-          offline: [
-            '--no-skills',
-            '--no-extensions',
-            '--no-context-files',
-            '--no-tools',
-            '--system-prompt',
-            offlinePrompt,
+            searchChatPrompt,
           ],
         }
         const userArgs = ['--', '--flag', 'two words', '']
@@ -598,7 +618,7 @@ describe('shell/shared.d/ai.sh agent-task', () => {
       )
     })
 
-    it(`${shellName} mode 函数帮助别名一致并拒绝未知模式`, async () => {
+    it(`${shellName} mode 函数帮助别名一致并拒绝未知及旧模式`, async () => {
       const workspace = createWorkspace()
       writeFakeHost(workspace, 'pi')
       writeFakeHost(workspace, 'omp')
@@ -610,6 +630,7 @@ describe('shell/shared.d/ai.sh agent-task', () => {
       const ompLongHelp = await runShell(shell, workspace, 'omp-mode --help')
       const ompShortHelp = await runShell(shell, workspace, 'omp-mode -h')
       const unknownPi = await runShell(shell, workspace, 'pi-mode unknown')
+      const offlinePi = await runShell(shell, workspace, 'pi-mode offline')
       const unknownOmp = await runShell(shell, workspace, 'omp-mode full')
 
       expect(piHelp.exitCode).toBe(0)
@@ -618,12 +639,13 @@ describe('shell/shared.d/ai.sh agent-task', () => {
       expect(piLongHelp.stdout).toBe(piHelp.stdout)
       expect(piShortHelp.stdout).toBe(piHelp.stdout)
       expect(piHelp.stdout).toContain(
-        'pi-mode <full|project|no-skill|core|read|chat|offline>',
+        'pi-mode <full|project|no-skill|core|core-search|read|read-search|chat|chat-search>',
       )
       expect(piHelp.stdout).toContain('移除 global/package/settings Skills')
       expect(piHelp.stdout).toContain('不受自动 project trust gate 控制')
-      expect(piHelp.stdout).toContain('从 full 到 chat 默认保留 Web')
-      expect(piHelp.stdout).toContain('不保证模型或进程级断网')
+      expect(piHelp.stdout).toContain('*-search 模式显式加载 pi-web-access')
+      expect(piHelp.stdout).toContain('不是模型或进程级断网沙箱')
+      expect(piHelp.stdout).not.toContain('offline')
       expect(ompHelp.exitCode).toBe(0)
       expect(ompLongHelp.exitCode).toBe(0)
       expect(ompShortHelp.exitCode).toBe(0)
@@ -632,12 +654,14 @@ describe('shell/shared.d/ai.sh agent-task', () => {
       expect(ompHelp.stdout).toContain('omp-mode no-skill')
       expect(unknownPi.exitCode).toBe(64)
       expect(unknownPi.stderr).toContain('未知 mode')
+      expect(offlinePi.exitCode).toBe(64)
+      expect(offlinePi.stderr).toContain('未知 mode')
       expect(unknownOmp.exitCode).toBe(64)
       expect(unknownOmp.stderr).toContain('未知 mode')
       expect(readLog(workspace)).toBe('')
     })
 
-    for (const mode of ['core', 'read', 'chat'] as const) {
+    for (const mode of ['core-search', 'read-search', 'chat-search'] as const) {
       it(`${shellName} pi-mode ${mode} 在 Web 扩展缺失时 fail closed`, async () => {
         const workspace = createWorkspace()
         writeFakeHost(workspace, 'pi')
@@ -650,28 +674,81 @@ describe('shell/shared.d/ai.sh agent-task', () => {
       })
     }
 
-    it(`${shellName} 支持 Pi agentDir 与 Web 工具名称覆盖`, async () => {
+    it(`${shellName} Pi Web 环境覆盖只影响约定的搜索分支`, async () => {
       const workspace = createWorkspace()
       writeFakeHost(workspace, 'pi')
       const agentDir = path.join(workspace.root, 'custom agent dir')
       const webExtension = writeWebExtension(workspace, agentDir)
-
-      const result = await runShell(shell, workspace, 'pi-mode read --flag', {
+      const env = {
         PI_CODING_AGENT_DIR: agentDir,
         PI_MODE_WEB_TOOLS: 'search_custom,fetch_custom',
-      })
+      }
+      const searchChatPrompt =
+        "You are a concise, helpful conversational assistant with web search and page-fetching tools. Answer directly, use tools when current or source-backed information is needed, and reply in the user's language unless asked otherwise."
 
-      expect(result.exitCode).toBe(0)
+      const localRead = await runShell(
+        shell,
+        workspace,
+        'pi-mode read --flag',
+        env,
+      )
+      const coreSearch = await runShell(
+        shell,
+        workspace,
+        'pi-mode core-search --flag',
+        env,
+      )
+      const readSearch = await runShell(
+        shell,
+        workspace,
+        'pi-mode read-search --flag',
+        env,
+      )
+      const chatSearch = await runShell(
+        shell,
+        workspace,
+        'pi-mode chat-search --flag',
+        env,
+      )
+
+      for (const result of [localRead, coreSearch, readSearch, chatSearch]) {
+        expect(result.exitCode).toBe(0)
+      }
       expect(readLog(workspace)).toBe(
         formatFakeHostLog('pi', '', [
           '--no-skills',
           '--no-extensions',
-          '-e',
-          webExtension,
           '--tools',
-          'read,grep,find,ls,search_custom,fetch_custom',
+          'read,grep,find,ls',
           '--flag',
-        ]),
+        ]) +
+          formatFakeHostLog('pi', '', [
+            '--no-skills',
+            '--no-extensions',
+            '-e',
+            webExtension,
+            '--flag',
+          ]) +
+          formatFakeHostLog('pi', '', [
+            '--no-skills',
+            '--no-extensions',
+            '-e',
+            webExtension,
+            '--tools',
+            'read,grep,find,ls,search_custom,fetch_custom',
+            '--flag',
+          ]) +
+          formatFakeHostLog('pi', '', [
+            '--no-skills',
+            '--no-extensions',
+            '-e',
+            webExtension,
+            '--no-context-files',
+            '--no-builtin-tools',
+            '--system-prompt',
+            searchChatPrompt,
+            '--flag',
+          ]),
       )
     })
 
@@ -681,7 +758,7 @@ describe('shell/shared.d/ai.sh agent-task', () => {
       const webExtension = path.join(workspace.root, 'custom web extension.ts')
       fs.writeFileSync(webExtension, 'export default function () {}\n')
 
-      const result = await runShell(shell, workspace, 'pi-mode core', {
+      const result = await runShell(shell, workspace, 'pi-mode core-search', {
         PI_MODE_WEB_EXTENSION: webExtension,
       })
 

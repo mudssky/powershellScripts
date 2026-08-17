@@ -32,34 +32,44 @@ function invoke_bell(){
 # 测量口径（2026-08-17）：Pi 0.84.2，thinking=off，在本仓根目录以固定首轮
 # 消息测量；模型为 `local/deepseek-v4-flash` 与 `local/gpt-5.6-luna`。
 # Luna 走 Codex 订阅链路，其 provider usage 可能包含订阅侧注入的额外上下文。
-# 探针不注册工具、不修改 system prompt；`full` 是当前 43 Skills、19 tools 的安装快照。
+# 探针本身不额外注册工具，也不覆盖 mode 组装后的 system prompt；`full` 是当前 43 Skills、19 tools 的安装快照。
+# 旧行为测量已按新矩阵迁移：core→core-search、read→read-search、chat→chat-search、offline→chat。
+# 新增本地 `core` 与 `read` 同样使用真实 provider usage 与探针字符统计；
+# 不使用字符长度估算 token，也不编造占位数值。
 #
 # 表一：实际 provider input tokens。
 #   - DeepSeek/Luna 两列均为模型返回的 `input + cacheRead + cacheWrite`。
 #   - 这是完整首轮输入 token，包含可见 prompt、tool definitions 与 provider 开销。
 #
-# 模式        DeepSeek Flash     Luna（Codex 订阅）
-#   full         24,612 tokens       26,325 tokens
-#   project      20,675 tokens       22,039 tokens
-#   no-skill     18,836 tokens       20,311 tokens
-#   core          5,053 tokens        8,813 tokens
-#   read          4,933 tokens        8,686 tokens
-#   chat          3,005 tokens        7,017 tokens
-#   offline         131 tokens        4,821 tokens
+# 模式              DeepSeek Flash     Luna（Codex 订阅）
+#   full               24,612 tokens       26,325 tokens
+#   project            20,675 tokens       22,039 tokens
+#   no-skill           18,836 tokens       20,311 tokens
+#   core                2,291 tokens        6,525 tokens
+#   core-search         5,053 tokens        8,813 tokens
+#   read                2,171 tokens        6,398 tokens
+#   read-search         4,933 tokens        8,686 tokens
+#   chat                131 tokens          4,821 tokens
+#   chat-search         3,005 tokens        7,017 tokens
 #
 # 表二：可见请求结构的 JavaScript 字符长度，不是 token。
 #   - DS prompt chars / Luna prompt chars：各模型最终 `systemPrompt.length`。
 #   - tool schema chars：provider 请求中 `JSON.stringify(payload.tools).length`。
 #   - 三个 chars 列不能与表一 token 相加；仅用于定位 prompt/schema 的体积来源。
 #
-# 模式        DS prompt chars   Luna prompt chars   tool schema chars
-#   full             39,507              39,507              39,503；43 Skills；19 tools；完整插件组。
-#   project          28,016              27,590              39,503；15 project Skills；完整插件组。
-#   no-skill         20,880              20,454              39,503；无 Skills；完整插件组。
-#   core              5,374               5,374              12,276；无 Skills；仅 pi-web-access。
-#   read              4,639               4,639              12,252；无 Skills；仅 pi-web-access。
-#   chat                299                 299               9,489；无 Skills；仅 pi-web-access。
-#   offline             195                 195                   2；无 Skills、插件、工具与项目 context。
+# 模式              DS prompt chars   Luna prompt chars   tool schema chars
+#   full                   39,507              39,507              39,503；43 Skills；19 tools；完整插件组。
+#   project                28,016              27,590              39,503；15 project Skills；完整插件组。
+#   no-skill               20,880              20,454              39,503；无 Skills；完整插件组。
+#   core                    4,730               4,730               2,788；无 Skills、无 extensions；4 个内置编码工具。
+#   core-search            5,374               5,374              12,276；无 Skills；仅 pi-web-access。
+#   read                    3,995               3,995               2,764；无 Skills、无 extensions；read/grep/find/ls。
+#   read-search            4,639               4,639              12,252；无 Skills；仅 pi-web-access。
+#   chat                     195                 195                   2；无 Skills、插件、工具与项目 context。
+#   chat-search              299                 299               9,489；无 Skills；仅 pi-web-access。
+# 相比对应 *-search 模式，本地模式的首轮 input 减少：
+#   core/read：DeepSeek Flash 2,762 tokens；Luna（Codex 订阅）2,288 tokens。
+#   chat：DeepSeek Flash 2,874 tokens；Luna（Codex 订阅）2,196 tokens。
 #
 # `/supi-context` 的组成明细读取 JavaScript `text.length`，再以
 # `Math.ceil(chars / 4)` 标为估算 tokens；这不是模型 tokenizer 的精确结果。
@@ -107,31 +117,36 @@ function invoke_bell(){
 # ----------------------------------------------------------------------
 function _pi_mode_help() {
     cat <<'EOF'
-用法：pi-mode <full|project|no-skill|core|read|chat|offline> [pi args...]
+用法：pi-mode <full|project|no-skill|core|core-search|read|read-search|chat|chat-search> [pi args...]
 
 模式：
-  full       完整 Pi 默认能力。
-  project    仅显式加载 cwd 的 .pi/skills 与 cwd 到 Git 根（非 Git 到文件系统根）的 .agents/skills。
-             移除 global/package/settings Skills；显式路径不受自动 project trust gate 控制。
-  no-skill   不加载任何 Skill；保留 extensions、context、工具与 Web。
-  core       保留 Pi 内置编码工具、项目 context 与 Web；移除其它 extensions。
-  read       仅保留 read/grep/find/ls 与 Web，禁止默认执行和写入。
-  chat       使用中性聊天 prompt，只保留 Web extension tools。
-  offline    使用中性聊天 prompt，不保留任何工具或项目 context。
+  full         完整 Pi 默认能力。
+  project      仅显式加载 cwd 的 .pi/skills 与 cwd 到 Git 根（非 Git 到文件系统根）的 .agents/skills。
+               移除 global/package/settings Skills；显式路径不受自动 project trust gate 控制。
+  no-skill     不加载任何 Skill；保留 extensions、context、工具与 Web。
+  core         本地编码模式：无 Skills、无 extensions，保留项目 context 与 Pi 内置编码工具。
+  core-search  在 core 基础上显式加载 pi-web-access，增加联网搜索能力。
+  read         本地只读模式：仅保留 read/grep/find/ls，不加载 Web extension。
+  read-search  在 read 基础上显式加载 pi-web-access，并使用可覆盖的搜索工具名。
+  chat         本地中性聊天：无 Skills、extensions、tools 或项目 context。
+  chat-search  在 chat 基础上显式加载 pi-web-access，只保留搜索 extension tools。
 
 联网边界：
-  从 full 到 chat 默认保留 Web；offline 仅表示无联网工具，不保证模型或进程级断网。
+  full、project、no-skill 保持默认联网行为；只有 *-search 模式显式加载 pi-web-access。
+  core、read、chat 不加载 Web extension；任何 mode 都不是模型或进程级断网沙箱。
   mode 是启动默认值，不是安全沙箱；后续原生 Pi 参数可以显式覆盖资源或工具选择。
 
 环境覆盖：
   PI_CODING_AGENT_DIR     覆盖 Pi agentDir，默认 $HOME/.pi/agent。
-  PI_MODE_WEB_EXTENSION   覆盖已安装 pi-web-access 的 index.ts 路径。
-  PI_MODE_WEB_TOOLS       覆盖 read mode 的逗号分隔 Web 工具名。
+  PI_MODE_WEB_EXTENSION   覆盖 *-search 模式使用的 pi-web-access index.ts 路径。
+  PI_MODE_WEB_TOOLS       覆盖 read-search 的逗号分隔搜索工具名。
 
 示例：
   pi-mode no-skill
   pi-mode project --help
-  pi-mode read
+  pi-mode core
+  pi-mode core-search
+  pi-mode read-search
   pi-mode chat
 EOF
 }
@@ -161,13 +176,13 @@ EOF
 #
 # 设计意图：
 #   pi-mode 与 agent-task 共享 project/no-skill 的唯一 argv 组装路径，避免
-#   项目 Skill 发现和 profile 组合长期漂移。
+#   项目 Skill 发现和 profile 组合长期漂移；本地与 *-search 模式保持显式分界。
 #
 # 参数：$1 — mode；$2 — 可选 task profile，空字符串表示普通启动；
 #       $3 — 是否显示安全命令摘要；$4 — 是否 dry-run；其余为 Pi 原生参数。
-# 输出：stderr — profile 启动摘要或参数/资源错误；普通 pi-mode 启动不输出摘要。
+# 输出：stderr — profile 启动摘要、mode 错误或搜索扩展资源错误；普通 pi-mode 启动不输出摘要。
 # 副作用：除 dry-run 外启动 Pi；profile 仅注入被启动进程，不修改父 Shell。
-# 返回码：0 — help/dry-run/宿主成功；64 — mode 非法；69 — Web 扩展不可读；
+# 返回码：0 — dry-run/宿主成功；64 — mode 非法；69 — *-search Web 扩展不可读；
 #         其它 — 原样透传 Pi 退出码。
 # ----------------------------------------------------------------------
 function _pi_mode_run() {
@@ -178,11 +193,11 @@ function _pi_mode_run() {
     local current
     local parent
     local git_root=''
-    local agent_dir="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
-    local web_extension="${PI_MODE_WEB_EXTENSION:-$agent_dir/npm/node_modules/pi-web-access/index.ts}"
-    local web_tools="${PI_MODE_WEB_TOOLS:-web_search,source_check,fetch_content,get_search_content}"
-    local chat_prompt="You are a concise, helpful conversational assistant with web search and page-fetching tools. Answer directly, use tools when current or source-backed information is needed, and reply in the user's language unless asked otherwise."
-    local offline_prompt="You are a concise, helpful conversational assistant. Answer directly and reply in the user's language unless asked otherwise."
+    local agent_dir=''
+    local search_extension=''
+    local search_tools=''
+    local local_chat_prompt="You are a concise, helpful conversational assistant. Answer directly and reply in the user's language unless asked otherwise."
+    local search_chat_prompt="You are a concise, helpful conversational assistant with web search and page-fetching tools. Answer directly, use tools when current or source-backed information is needed, and reply in the user's language unless asked otherwise."
     local argument_count
     local -a fixed_args
     local -a user_args
@@ -219,34 +234,55 @@ function _pi_mode_run() {
         no-skill)
             fixed_args+=(--no-skills)
             ;;
-        core|read|chat)
-            if [ ! -f "$web_extension" ] || [ ! -r "$web_extension" ]; then
-                printf 'pi-mode: pi-web-access 不存在或不可读：%s\n' "$web_extension" >&2
+        core)
+            fixed_args+=(--no-skills --no-extensions)
+            ;;
+        core-search)
+            agent_dir="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
+            search_extension="${PI_MODE_WEB_EXTENSION:-$agent_dir/npm/node_modules/pi-web-access/index.ts}"
+            if [ ! -f "$search_extension" ] || [ ! -r "$search_extension" ]; then
+                printf 'pi-mode: pi-web-access 不存在或不可读：%s\n' "$search_extension" >&2
                 return 69
             fi
-            fixed_args+=(--no-skills --no-extensions -e "$web_extension")
-            case "$mode" in
-                core)
-                    ;;
-                read)
-                    fixed_args+=(--tools "read,grep,find,ls,$web_tools")
-                    ;;
-                chat)
-                    fixed_args+=(
-                        --no-context-files
-                        --no-builtin-tools
-                        --system-prompt "$chat_prompt"
-                    )
-                    ;;
-            esac
+            fixed_args+=(--no-skills --no-extensions -e "$search_extension")
             ;;
-        offline)
+        read)
+            fixed_args+=(--no-skills --no-extensions --tools 'read,grep,find,ls')
+            ;;
+        read-search)
+            agent_dir="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
+            search_extension="${PI_MODE_WEB_EXTENSION:-$agent_dir/npm/node_modules/pi-web-access/index.ts}"
+            if [ ! -f "$search_extension" ] || [ ! -r "$search_extension" ]; then
+                printf 'pi-mode: pi-web-access 不存在或不可读：%s\n' "$search_extension" >&2
+                return 69
+            fi
+            search_tools="${PI_MODE_WEB_TOOLS:-web_search,source_check,fetch_content,get_search_content}"
+            fixed_args+=(--no-skills --no-extensions -e "$search_extension")
+            fixed_args+=(--tools "read,grep,find,ls,$search_tools")
+            ;;
+        chat)
             fixed_args+=(
                 --no-skills
                 --no-extensions
                 --no-context-files
                 --no-tools
-                --system-prompt "$offline_prompt"
+                --system-prompt "$local_chat_prompt"
+            )
+            ;;
+        chat-search)
+            agent_dir="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
+            search_extension="${PI_MODE_WEB_EXTENSION:-$agent_dir/npm/node_modules/pi-web-access/index.ts}"
+            if [ ! -f "$search_extension" ] || [ ! -r "$search_extension" ]; then
+                printf 'pi-mode: pi-web-access 不存在或不可读：%s\n' "$search_extension" >&2
+                return 69
+            fi
+            fixed_args+=(
+                --no-skills
+                --no-extensions
+                -e "$search_extension"
+                --no-context-files
+                --no-builtin-tools
+                --system-prompt "$search_chat_prompt"
             )
             ;;
         *)
@@ -285,11 +321,11 @@ function _pi_mode_run() {
 # ----------------------------------------------------------------------
 # pi-mode — 按 capability mode 启动 Pi 父会话。
 #
-# 参数：$1 — full、project、no-skill、core、read、chat、offline 或 help；
+# 参数：$1 — full、project、no-skill、core、core-search、read、read-search、chat、chat-search 或 help；
 #       其余参数逐项原样转发给 Pi。
-# 输出：help 写入 stdout；参数或资源错误写入 stderr。
+# 输出：help 写入 stdout；参数或搜索扩展资源错误写入 stderr。
 # 副作用：除 help/参数错误外启动 Pi；不修改持久配置或父 Shell 环境。
-# 返回码：help 返回 0；mode 错误返回 64；Web 扩展错误返回 69；
+# 返回码：help 返回 0；mode 错误返回 64；*-search Web 扩展错误返回 69；
 #         其它原样透传 Pi 退出码。
 # ----------------------------------------------------------------------
 function pi-mode() {
