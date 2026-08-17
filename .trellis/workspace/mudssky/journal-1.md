@@ -1903,3 +1903,24 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Status
 
 [OK] **Completed**
+
+
+## Session 65: 提交 selfhosted SkillHub 快捷入口
+
+**Date**: 2026-08-17
+**Task**: 提交 selfhosted SkillHub 快捷入口
+**Branch**: `master`
+
+### Summary
+
+独立提交 selfhosted.sh，为 Bash/Zsh 提供使用公共 npm 与内网 Forgejo scope registry 的 skillhub 快捷入口；双 Shell 语法和暂存差异检查通过。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `eaeb7f3` | (see git log) |
+
+### Status
+
+[OK] **Completed**
