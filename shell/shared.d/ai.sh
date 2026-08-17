@@ -32,13 +32,14 @@ function invoke_bell(){
 # 测量口径（2026-08-17）：Pi 0.84.2，thinking=off，在本仓根目录以固定首轮
 # 消息测量；模型为 `local/deepseek-v4-flash` 与 `local/gpt-5.6-luna`。
 # Luna 走 Codex 订阅链路，其 provider usage 可能包含订阅侧注入的额外上下文。
-# 探针不注册工具、不修改 system prompt；`full` 因 Skills 动态变化而不测。
+# 探针不注册工具、不修改 system prompt；`full` 是当前 43 Skills、19 tools 的安装快照。
 #
 # 表一：实际 provider input tokens。
 #   - DeepSeek/Luna 两列均为模型返回的 `input + cacheRead + cacheWrite`。
 #   - 这是完整首轮输入 token，包含可见 prompt、tool definitions 与 provider 开销。
 #
 # 模式        DeepSeek Flash     Luna（Codex 订阅）
+#   full         24,612 tokens       26,325 tokens
 #   project      20,675 tokens       22,039 tokens
 #   no-skill     18,836 tokens       20,311 tokens
 #   core          5,053 tokens        8,813 tokens
@@ -52,6 +53,7 @@ function invoke_bell(){
 #   - 三个 chars 列不能与表一 token 相加；仅用于定位 prompt/schema 的体积来源。
 #
 # 模式        DS prompt chars   Luna prompt chars   tool schema chars
+#   full             39,507              39,507              39,503；43 Skills；19 tools；完整插件组。
 #   project          28,016              27,590              39,503；15 project Skills；完整插件组。
 #   no-skill         20,880              20,454              39,503；无 Skills；完整插件组。
 #   core              5,374               5,374              12,276；无 Skills；仅 pi-web-access。
