@@ -58,6 +58,51 @@
 - 公共接口必须带规范中文注释（功能/入参/返回值/非直观设计意图），符合 AGENTS.md。
 - 注释迁移按 [活跃脚本注释规范](./comment-conventions.md) 审查四层结构、字段和反模式。
 
+## Scenario: 可提交环境模板不得进入 Shell Loader
+
+### 1. Scope / Trigger
+
+- 在 `shell/shared.d` 新增或重命名环境变量模板时适用；目标是阻止占位值被部署并 source。
+
+### 2. Signatures
+
+- 活动私有配置：`shell/shared.d/env.local.sh`。
+- 可提交模板：`shell/shared.d/env.local.sh.example`。
+- 部署入口：`bash shell/deploy.sh [--dry-run] [--shell bash|zsh]`。
+
+### 3. Contracts
+
+- `sync_dir "$SHARED_DIR" "sh" false` 只部署活动 `*.sh` 文件。
+- `*.example.sh` 与 `*.sample.sh` 即使误以 `.sh` 结尾，也必须被显式跳过。
+- 模板不得包含真实 secret；真实 `*.local.sh` 必须保持 gitignore。
+
+### 4. Validation & Error Matrix
+
+- `env.local.sh.example`：不匹配 `*.sh`，不创建软链接。
+- `foo.example.sh` / `foo.sample.sh`：匹配 glob 但由模板过滤规则跳过。
+- `env.local.sh`：正常创建 `~/.bashrc.d/env.local.sh` 软链接。
+- 旧模板重命名后留下 dangling symlink：由 `cleanup_stale_symlinks` 删除。
+
+### 5. Good / Base / Bad Cases
+
+- Good：模板命名为 `env.local.sh.example`，用户复制为 `env.local.sh` 后部署。
+- Base：普通共享脚本仍按原有 `*.sh` 规则部署。
+- Bad：模板命名为 `env.local.example.sh`，仅依赖 glob 会把占位值载入 shell。
+
+### 6. Tests Required
+
+- 使用临时仓库和临时 `HOME` 执行复制后的 `deploy.sh`。
+- 断言真实 `env.local.sh` 的链接存在，模板链接不存在，旧 dangling symlink 被清理。
+- macOS 比较 symlink 目标时使用 `realpath`，避免 `/var` 与 `/private/var` 别名造成假失败。
+- 子进程环境仅传测试所需键，禁止继承宿主 API key/token。
+
+### 7. Wrong vs Correct
+
+```text
+Wrong:   env.local.example.sh  # 会命中 *.sh
+Correct: env.local.sh.example  # 仅作为模板，不参与部署
+```
+
 ## Anti-Patterns
 
 ### ❌ 重复初始化（`eval "$(tool init)"` 跨文件重复）

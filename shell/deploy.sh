@@ -256,6 +256,13 @@ sync_dir() {
             local filename
             filename=$(basename "$file")
 
+            case "$filename" in
+                *.example.sh|*.sample.sh)
+                    log_info "跳过 (模板): $filename"
+                    continue
+                    ;;
+            esac
+
             if is_excluded "$filename"; then
                 log_info "跳过 (已排除): $filename"
                 continue
