@@ -49,6 +49,12 @@
 - Minimal：同步核心模块保持立即可用；不读取用户别名配置，不执行工具/包管理器探测、工具初始化或安装提示。
 - UltraMinimal：不加载 psutils、loaders 或完整 Environment；保留 UTF-8、`POWERSHELL_SCRIPTS_ROOT`、仓库 `bin` PATH，以及 `Show-MyProfileHelp`、`Initialize-Environment`、`Set-PowerShellProfile` 公共函数。
 
+#### Local private environment
+
+- `profile/env.ps1` 只保存本机环境变量与私有配置，保持 Git 忽略；它不是共享函数或别名的版本化入口。
+- 在函数作用域内 dot-source 该文件时，普通函数声明只存在于当前函数作用域；确需本机交互式命令时必须显式声明 `function global:<name>`，不得为此扩大整个文件的 dot-source 作用域。
+- 修改前创建的时间戳备份必须通过 `.git/info/exclude` 等本地规则忽略；验证只输出布尔值、计数或摘要，禁止打印文件内容、匹配上下文、私有地址或凭据。
+
 #### OnIdle state
 
 - Profile 使用 `$Global:__PowerShellProfileOnIdleState` 标识当前会话已注册延迟任务。
@@ -86,6 +92,8 @@
 | Minimal 启动 | `Find-ExecutableCommand` 不得执行，核心命令仍立即可用 |
 | 重复加载 Profile | Profile OnIdle 订阅最多一个 |
 | 性能诊断请求模式与最终模式不一致 | 诊断样本失败，禁止把 fallback 数字计入目标模式 |
+| 本机 `env.ps1` 备份未被 Git 忽略 | 在继续验证前添加本地 ignore 规则，禁止让备份出现在未跟踪文件列表 |
+| 敏感配置验证可能展开源码上下文 | 改用进程内断言、归一化比较或哈希，只输出布尔值/计数；不得使用会回显匹配行的搜索 |
 
 ### 5. Good / Base / Bad Cases
 
@@ -96,6 +104,8 @@
 - Bad：为“详细计时”复制 `Initialize-Environment`、模块列表或平台分支。
 - Bad：用 `SkipTools -and SkipAliases` 推断 Minimal；Full 用户可能显式同时传入两个开关。
 - Bad：把单机绝对毫秒门槛写进 CI。
+- Good：验证 `profile/env.ps1` 时用进程内命令替身捕获参数，只输出通过状态与计数。
+- Bad：对 `profile/env.ps1` 或其备份执行会展开匹配上下文的搜索、diff 或完整文件读取并把结果写入日志。
 
 ### 6. Tests Required
 
@@ -115,10 +125,11 @@
   - 同步路径禁止引用非核心 psutils 函数。
   - OnIdle 使用稳定字面量路径且禁止 `.GetNewClosure()`。
 - 运行态验证：macOS 宿主与 Linux Docker 都运行 Profile 窄测；Windows 由平台矩阵和 CI 覆盖。
+- 本机私有配置不增加包含真实值的 fixture；目标 smoke 使用命令替身，断言函数可见性、调用次数和参数顺序，并确认备份已被本地 Git 规则忽略。
 
 ### 7. Wrong vs Correct
 
-#### Wrong
+#### Wrong：复制运行时实现
 
 ```powershell
 # 诊断脚本复制一份模块加载与工具初始化，最终必然漂移。
@@ -126,7 +137,7 @@
 $availableTools = Find-ExecutableCommand -Name @('starship', 'zoxide')
 ```
 
-#### Correct
+#### Correct：采样真实入口
 
 ```powershell
 # 真实入口写出结构化计时，诊断器只负责新进程采样与统计。
@@ -135,3 +146,21 @@ pwsh -NoProfile -NoLogo -File ./profile/profile.ps1 `
 ```
 
 理由：模式分流、平台策略、失败降级和计时都只有一个事实来源，测试与性能报告观察的是用户真正执行的代码路径。
+
+#### Wrong：搜索敏感配置正文
+
+```powershell
+# 搜索工具可能把匹配行及上下文写入持久化日志。
+Select-String -Path ./profile/env.ps1 -Pattern 'function' -Context 2,2
+```
+
+#### Correct：只输出结构化断言
+
+```powershell
+$visibleCount = @($names | Where-Object {
+    Get-Command $_ -CommandType Function -ErrorAction SilentlyContinue
+}).Count
+[PSCustomObject]@{ AllVisible = ($visibleCount -eq $names.Count) }
+```
+
+理由：本机私有配置的验证目标是行为与结构，不是正文；持久化输出必须限制为不含敏感数据的布尔值、计数或摘要。
