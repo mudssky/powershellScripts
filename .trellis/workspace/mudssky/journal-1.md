@@ -1974,3 +1974,25 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Status
 
 [OK] **Completed**
+
+
+## Session 68: 修复 PowerShell 函数别名作用域
+<!-- trellis-session: v=2 fp=af86045e6d92b1d0 -->
+
+**Date**: 2026-08-31
+**Task**: 修复 PowerShell 函数别名作用域
+**Branch**: `fix/pwsh-function-alias-scope`
+
+### Summary
+
+备份并将 profile/env.ps1 四个本机命令包装改为显式 Global 函数；通过独立 Full Profile 无网络 smoke 验证函数可见性与参数透传；补充敏感本机配置验证和备份忽略规范。验证历史曾意外展开敏感上下文，用户明确接受残余风险且未轮换凭据。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `2ff25310f55067291212f57688dcdb15568d311b` | fix(profile): 修复本机函数别名作用域 |
+
+### Status
+
+[OK] **Completed**
