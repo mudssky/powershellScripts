@@ -71,6 +71,7 @@ pwsh windows/99verifyInstall.ps1 `
 - Pester：Windows 11/10/ARM64/Server 平台矩阵、Core 精确 13 项（包含 Delta、不包含 Tealdeer）、Full/GUI 边界、退出优先级。
 - Pester：应用清单 bucket 字段校验、Extras Preview/幂等/失败停止、nerd-fonts 回归、manifest hash、PS5 parser、03 单文档 JSON、05/06/08/09/WSL WhatIf 零写入、99 JSON。
 - Pester：WSL build 过滤、相同内容幂等、变化备份、禁止自动 shutdown。
+- Pester：WSL 配置生成器使用自包含的 synthetic catalog 验证 build 过滤、section 首次出现顺序和 section 内声明顺序；禁止断言个人模板的具体键值或与模板全文相等，避免配置偏好变化造成无意义测试耦合。
 - 实机/回归：`wsl --list --quiet` 输出含 NUL 时，发行版名解析不得使用 `.Replace([char]0, '')`；`Initialize-WslHost -WhatIf` 对已注册发行版应 AlreadyPresent/exit 0。
 - Windows CI：fake winget/MSI/EXE/WSL 与一次提升 plan；不得执行真实 UAC、安装、字体、COM、Startup 或重启。
 - Gates：`pnpm qa`、`pnpm test:pwsh:all`、`git diff --check`。

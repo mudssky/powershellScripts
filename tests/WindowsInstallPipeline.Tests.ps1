@@ -391,20 +391,28 @@ Describe 'Windows 声明式 package catalog' {
 
 Describe 'Windows WSL 配置合同' {
     BeforeAll {
-        $script:WindowsCatalog = Import-WindowsPackageCatalog -Path (Join-Path $script:RepoRoot 'config/install/windows-packages.psd1')
+        $script:WslConfigFixture = @{
+            Wsl = @{
+                Settings = @(
+                    @{ Section = 'wsl2'; Name = 'baseOption'; Value = 'base'; MinimumBuild = 19045 }
+                    @{ Section = 'experimental'; Name = 'experimentalOption'; Value = 'enabled'; MinimumBuild = 22621 }
+                    @{ Section = 'wsl2'; Name = 'modernOption'; Value = 'modern'; MinimumBuild = 22621 }
+                    @{ Section = 'wsl2'; Name = 'futureOption'; Value = 'future'; MinimumBuild = 26000 }
+                )
+            }
+        }
     }
 
-    It 'Windows 10 配置不包含 mirrored networking' {
-        $content = ConvertTo-WindowsWslConfigContent -Catalog $script:WindowsCatalog -BuildNumber 19045
-        $content | Should -Match 'memory=16GB'
-        $content | Should -Not -Match 'networkingMode=mirrored'
-        $content | Should -Not -Match '\[experimental\]'
+    It '按 Windows build 过滤不受支持的设置和空 section' {
+        $content = ConvertTo-WindowsWslConfigContent -Catalog $script:WslConfigFixture -BuildNumber 19045
+
+        $content | Should -BeExactly "[wsl2]`nbaseOption=base`n"
     }
 
-    It 'Windows 11 22H2 配置与仓库模板一致' {
-        $content = ConvertTo-WindowsWslConfigContent -Catalog $script:WindowsCatalog -BuildNumber 22621
-        $template = Get-Content -LiteralPath (Join-Path $script:RepoRoot 'windows/wsl/.wslconfig') -Raw
-        $content | Should -BeExactly $template
+    It '按 section 首次出现顺序和 section 内声明顺序生成配置' {
+        $content = ConvertTo-WindowsWslConfigContent -Catalog $script:WslConfigFixture -BuildNumber 22621
+
+        $content | Should -BeExactly "[wsl2]`nbaseOption=base`nmodernOption=modern`n`n[experimental]`nexperimentalOption=enabled`n"
     }
 
     It '配置相同不备份，变化时先创建可读时间戳备份' {

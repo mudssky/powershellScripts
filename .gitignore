@@ -38,6 +38,7 @@ node_modules/
 .vs/
 profile/fonts/*
 fstab
+windows/wsl/.wslconfig.*.bak
 
 # 生成目录与本地脚本映射
 bin/
