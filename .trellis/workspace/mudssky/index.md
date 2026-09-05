@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 67
-- **Last Active**: 2026-08-17
+- **Total Sessions**: 68
+- **Last Active**: 2026-09-05
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1976 | Active |
+| `journal-1.md` | ~1997 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -30,6 +30,7 @@
 
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 68 | 2026-09-05 | 优化 WSL 全局配置 | `ecbd04e0` | `master` |
 | 67 | 2026-08-17 | 发布 Skillhub CLI remove 与修复 release CI | `b530dcc`, `65d29f8`, `a4e31d5`, `948d590`, `514867d`, `890edfc`, `69d695c`, `b381e3a`, `b5a3712` | `master` |
 | 66 | 2026-08-17 | 修复 Shell 环境模板误加载 | `5ba6122` | `master` |
 | 65 | 2026-08-17 | 提交 selfhosted SkillHub 快捷入口 | `eaeb7f3` | `master` |
