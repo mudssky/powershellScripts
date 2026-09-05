@@ -309,7 +309,7 @@ describe('shell/shared.d/ai.sh agent-task', () => {
       )
     })
 
-    for (const profile of ['fast', 'medium', 'slow', 'max'] as const) {
+    for (const profile of ['fast', 'medium', 'slow', 'max', 'ultra'] as const) {
       it(`${shellName} 为 Pi ${profile} 设置进程级 profile`, async () => {
         const workspace = createWorkspace()
         writeFakeHost(workspace, 'pi')
@@ -352,7 +352,7 @@ describe('shell/shared.d/ai.sh agent-task', () => {
       )
     })
 
-    for (const profile of ['fast', 'medium', 'slow', 'max'] as const) {
+    for (const profile of ['fast', 'medium', 'slow', 'max', 'ultra'] as const) {
       it(`${shellName} 保持 OMP ${profile} 参数形态和转发语义`, async () => {
         const workspace = createWorkspace()
         writeFakeHost(workspace, 'omp')
@@ -402,6 +402,7 @@ describe('shell/shared.d/ai.sh agent-task', () => {
       ['medium', 'gpt-5.6-luna', 'xhigh'],
       ['slow', 'gpt-5.6-luna', 'max'],
       ['max', 'gpt-5.6-sol', 'medium'],
+      ['ultra', 'gpt-6-astra', 'low'],
     ] as const) {
       it(`${shellName} 保持 Codex ${profile} 覆盖参数和转发语义`, async () => {
         const workspace = createWorkspace()
@@ -459,13 +460,17 @@ describe('shell/shared.d/ai.sh agent-task', () => {
       expect(readLog(workspace)).toBe('')
     })
 
-    it(`${shellName} help 展示四档唯一入口`, async () => {
+    it(`${shellName} help 展示五档唯一入口与 Ultra 资格门禁`, async () => {
       const workspace = createWorkspace()
 
       const result = await runShell(shell, workspace, 'agent-task --help')
 
       expect(result.exitCode).toBe(0)
-      expect(result.stdout).toContain('pi    fast|medium|slow|max')
+      expect(result.stdout).toContain('pi    fast|medium|slow|max|ultra')
+      expect(result.stdout).toContain('ultra 是成本最高的 worker')
+      expect(result.stdout).toContain('日常任务通常使用 worker_max 就已足够')
+      expect(result.stdout).toContain('只有主模型能力大于或等于该 worker 时才可派发')
+      expect(result.stdout).toContain('主模型与 worker 同档是常见且允许的用法')
       expect(result.stdout).not.toContain('快捷命令')
       expect(result.stdout).toContain(
         'claude                     仅支持持久化 worker-fast',
@@ -821,7 +826,7 @@ describe('shell/shared.d/ai.sh agent-task', () => {
       )
     })
 
-    for (const profile of ['fast', 'medium', 'slow', 'max'] as const) {
+    for (const profile of ['fast', 'medium', 'slow', 'max', 'ultra'] as const) {
       for (const mode of ['project', 'no-skill'] as const) {
         it(`${shellName} 组合 Pi ${profile} profile 与 ${mode} mode`, async () => {
           const workspace = createWorkspace()
@@ -851,7 +856,7 @@ describe('shell/shared.d/ai.sh agent-task', () => {
       }
     }
 
-    for (const profile of ['fast', 'medium', 'slow', 'max'] as const) {
+    for (const profile of ['fast', 'medium', 'slow', 'max', 'ultra'] as const) {
       it(`${shellName} 组合 OMP ${profile} profile 与 no-skill mode`, async () => {
         const workspace = createWorkspace()
         writeFakeHost(workspace, 'omp')
