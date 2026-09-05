@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/infra/index.md", "reason": "核对基础设施规范范围"}
+{"file": ".trellis/spec/infra/windows-install-pipeline.md", "reason": "检查 WSL 配置与 Windows 流水线质量门槛"}
