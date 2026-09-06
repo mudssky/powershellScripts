@@ -23,6 +23,21 @@
 |------|---------|
 | `fbc8dce3` | (see git log) |
 | `0b2384d2` | (see git log) |
+## Session 69: browser-debug 支持 macOS/Linux 与平台快捷方式
+
+**Date**: 2026-09-06
+**Task**: browser-debug 支持 macOS/Linux 与平台快捷方式
+**Branch**: `master`
+
+### Summary
+
+browser-debug CLI 扩展为三平台：local 模式全链路（create/start/status/stop/guide/快捷方式）支持 macOS/Linux，lan 与 ssh 保持仅 Windows。新增平台分派层（浏览器发现、User Data 定位、ditto/cp -a 克隆、ps 进程解析 + argv[0] 前缀所有权、.command/.desktop 快捷方式）。macOS 实机验收发现并修复三个问题：Unix detached 启动 SIGHUP 级联关闭浏览器（改 nohup）、Homebrew 裸 apphost 在干净环境双击失败（env -i 探测可用 pwsh）、默认端口与本机常驻 Chromium 冲突（默认统一 21229）。全量 942 测试与 qa 全绿，coverage 61.43%。Linux 分支依赖 CI/WSL 执行 pnpm test:pwsh:all 覆盖。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c6b3b637` | (see git log) |
 
 ### Status
 

@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 69
+- **Total Sessions**: 70
 - **Last Active**: 2026-09-06
 <!-- @@@/auto:current-status -->
 
@@ -31,6 +31,7 @@
 
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 70 | 2026-09-06 | browser-debug 支持 macOS/Linux 与平台快捷方式 | `c6b3b637` | `master` |
 | 69 | 2026-09-06 | WSL 内 browser-debug 互操作：快捷方式生成与调试 Profile 启动 | `fbc8dce3`, `0b2384d2` | `master` |
 | 68 | 2026-09-05 | 优化 WSL 全局配置 | `ecbd04e0` | `master` |
 | 67 | 2026-08-17 | 发布 Skillhub CLI remove 与修复 release CI | `b530dcc`, `65d29f8`, `a4e31d5`, `948d590`, `514867d`, `890edfc`, `69d695c`, `b381e3a`, `b5a3712` | `master` |
