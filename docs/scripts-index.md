@@ -182,6 +182,8 @@ browser-debug profile stop work
 
 `local` 仅监听 `127.0.0.1`。`lan` 必须每次显式指定，会警告 CDP 没有认证且可完全控制浏览器；工具不会自动修改防火墙。同一模式快捷方式再次运行时会复用已拥有的浏览器进程并刷新指南；不同模式不会静默复用，必须先执行 `profile stop`。
 
+WSL 内可交互调用：`shell/shared.d/browser-debug.sh` 经 `shell/deploy.sh` 部署后提供 `browser-debug` 函数，通过 Windows pwsh 直调 UNC 入口（自动携带 `-ExecutionPolicy Bypass` 与 UTF-8 输出编码，`/mnt/c/...` 形态参数自动转 Windows 路径），命令树与 Windows 侧一致；WSL 侧经 mirrored 网络 `localhost:<cdpPort>` 直连 CDP。AI agent 非交互直调契约见 `.agents/skills/repo-ops/references/wsl-windows-interop.md`。
+
 指南写入 registry 同级的 `guides/` 目录，包含本次实际监听模式、CDP endpoint、`/json/version`、`playwright-cli attach`、当前 LAN IPv4、关联 SSH 配置和中文 Agent Prompt。`0.0.0.0` 通配监听会为每个候选 LAN IPv4 分别列出 endpoint、探测、attach 和 Prompt，不把 Tailscale、虚拟网卡或排序首项当成唯一地址；显式 `--listen-address` 则只突出该接口。页面中的动态文本全部经过 HTML 编码，不读取 Cookie、密码、Token、浏览历史或页面标题；指南生成或打开失败只返回 warning，不改变浏览器已启动成功的结果。
 
 Edge 的 Windows launcher 可能在把 Profile 交给子进程后正常退出 0。`profile start` 不把 launcher 退出视为浏览器失败，而是等待命令行明确拥有目标 Profile 的 Edge 进程与 CDP endpoint 同时就绪；非零退出且没有接管证据时仍会立即返回诊断错误。

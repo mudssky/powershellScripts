@@ -593,6 +593,59 @@ Describe 'browser-debug 快捷方式' -Tag 'windowsOnly' {
         $lanShortcut.Arguments.Replace('--mode lan', '--mode local') | Should -Be $shortcut.Arguments
     }
 
+    It 'UNC 入口快捷方式自带 ExecutionPolicy Bypass，本地入口保持原参数' {
+        $pwshPath = (Get-Command pwsh.exe -ErrorAction Stop).Source
+        $profile = [pscustomobject]@{ name = 'wsl-demo'; browserPath = $pwshPath; cdpPort = 9333 }
+        $script:capturedShortcutArguments = @()
+        Mock Import-Module { }
+        Mock New-Shortcut {
+            $script:capturedShortcutArguments += $Arguments
+            $ShortcutPath
+        }
+        $uncRoot = '\\wsl.localhost\FakeDistro\repo'
+        New-BrowserDebugShortcut -Profile $profile -ShortcutDirectory (Join-Path $TestDrive 'unc-desktop') -RepoRoot $uncRoot | Out-Null
+        # 显式构造本地根，不依赖运行环境（经 UNC 执行测试时 $script:RepoRoot 本身就是 UNC）。
+        $localRoot = Join-Path $env:SystemDrive 'fake-local-repo'
+        New-BrowserDebugShortcut -Profile $profile -ShortcutDirectory (Join-Path $TestDrive 'local-desktop') -RepoRoot $localRoot | Out-Null
+        $uncArguments = $script:capturedShortcutArguments[0]
+        $localArguments = $script:capturedShortcutArguments[1]
+        $uncArguments | Should -Match '-ExecutionPolicy Bypass '
+        $uncArguments | Should -Match '--mode local --open-guide --yes'
+        $uncArguments | Should -Match ([regex]::Escape($uncRoot))
+        $localArguments | Should -Not -Match 'ExecutionPolicy'
+        $localArguments | Should -Match '--mode local --open-guide --yes'
+        $localArguments | Should -Match ([regex]::Escape($localRoot))
+    }
+
+    It '幂等检查要求 UNC 入口快捷方式携带 Bypass，本地入口不受影响' {
+        $directory = Join-Path $TestDrive 'currency'
+        New-Item -ItemType Directory -Path $directory -Force | Out-Null
+        $profile = [pscustomobject]@{ name = 'demo' }
+        $shell = New-Object -ComObject WScript.Shell
+
+        $newUncPath = Join-Path $directory 'new-unc.lnk'
+        $newUncShortcut = $shell.CreateShortcut($newUncPath)
+        $newUncShortcut.TargetPath = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
+        $newUncShortcut.Arguments = '-NoProfile -ExecutionPolicy Bypass -File "\\wsl.localhost\D\repo\bin\browser-debug.ps1" profile start "demo" --mode local --open-guide --yes'
+        $newUncShortcut.Save()
+
+        $staleUncPath = Join-Path $directory 'stale-unc.lnk'
+        $staleUncShortcut = $shell.CreateShortcut($staleUncPath)
+        $staleUncShortcut.TargetPath = $newUncShortcut.TargetPath
+        $staleUncShortcut.Arguments = '-NoProfile -File "\\wsl.localhost\D\repo\bin\browser-debug.ps1" profile start "demo" --mode local --open-guide --yes'
+        $staleUncShortcut.Save()
+
+        $localPath = Join-Path $directory 'local.lnk'
+        $localShortcut = $shell.CreateShortcut($localPath)
+        $localShortcut.TargetPath = $newUncShortcut.TargetPath
+        $localShortcut.Arguments = '-NoProfile -File "C:\repo\bin\browser-debug.ps1" profile start "demo" --mode local --open-guide --yes'
+        $localShortcut.Save()
+
+        Test-BrowserDebugShortcutCurrent -ShortcutPath $newUncPath -Profile $profile -Mode local | Should -BeTrue
+        Test-BrowserDebugShortcutCurrent -ShortcutPath $staleUncPath -Profile $profile -Mode local | Should -BeFalse
+        Test-BrowserDebugShortcutCurrent -ShortcutPath $localPath -Profile $profile -Mode local | Should -BeTrue
+    }
+
     It '同目录同模式幂等，未知同名文件拒绝覆盖' {
         $directory = Join-Path $TestDrive 'shortcuts'
         $profile = [pscustomobject]@{ name = 'demo'; browserPath = 'C:\Browser\edge.exe'; shortcutPath = $null; shortcutPaths = [pscustomobject]@{ local = $null; lan = $null } }

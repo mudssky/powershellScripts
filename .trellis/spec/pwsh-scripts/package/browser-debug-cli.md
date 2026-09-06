@@ -30,6 +30,7 @@ playwright-cli attach --cdp=http://<host>:<port>
 - Windows Edge launcher 退出 `0` 不代表失败；返回 PID、端口、模式和监听地址必须来自 owned 进程与实际 CDP，不得回退到陈旧 registry 请求值。
 - `stop` 只处理 owned PID；根进程退出导致子进程并发消失时，只忽略 `NoProcessFoundForGivenId`，访问拒绝等错误继续抛出。
 - `profile create` 默认生成 Local 快捷方式；`profile shortcut --mode lan` 可幂等追加 LAN 快捷方式，未知同名文件不得覆盖。
+- 快捷方式入口路径为 UNC（仓库位于 WSL 文件系统，经 `Resolve-Path` 会带 `FileSystem::` 前缀且不折叠 `..`，必须归一化）时，Arguments 必须携带 `-ExecutionPolicy Bypass`；幂等检查把"引用 UNC 入口但缺 Bypass"视为参数过期并原地重建。本地路径 Arguments 合同保持不变。
 - `--open-guide` 对同模式已运行实例可复用；请求模式或显式监听地址不同则进入切换流程。交互式命令默认展示当前 endpoint、当前/目标模式并确认，非交互调用必须显式传 `--yes`；Local/LAN 快捷方式携带 `--yes`，双击即确认。
 - 静态 HTML 的完整页面骨架、CSS、SVG 与 JavaScript 固定存放在 `scripts/pwsh/devops/browser-debug/browser-debug-guide.template.html`；运行时必须通过 `$PSScriptRoot` 定位，以唯一占位符注入已编码片段。模板缺失、占位符重复/缺失或渲染后残留占位符必须返回可诊断错误，guide 失败仍只追加 warning。
 - 指南只把实际可探测的 `127.0.0.1:<actualPort>` 标为原生 CDP Ready endpoint；`mode` 与 `listenAddress` 只是启动请求元数据，不得作为 LAN listener 或远程可达性的证明。动态文本全部 HTML 编码，不包含 Cookie、密码、Token、标签页或历史记录。

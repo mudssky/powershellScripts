@@ -603,7 +603,9 @@ function New-BrowserDebugShortcut {
         $shortcutName = if ($Mode -eq 'lan') { "$($Profile.name)-LAN.lnk" } else { "$($Profile.name).lnk" }
         $ShortcutPath = Join-Path $ShortcutDirectory $shortcutName
     }
-    $arguments = "-NoProfile -File `"$entryPath`" profile start `"$($Profile.name)`" --mode $Mode --open-guide --yes"
+    # 入口位于 UNC（仓库在 WSL 文件系统）时受 RemoteSigned 执行策略拦截，快捷方式必须自带 Bypass 才能双击运行。
+    $executionPolicyArgument = if ($entryPath.StartsWith('\\', [System.StringComparison]::Ordinal)) { '-ExecutionPolicy Bypass ' } else { '' }
+    $arguments = "-NoProfile ${executionPolicyArgument}-File `"$entryPath`" profile start `"$($Profile.name)`" --mode $Mode --open-guide --yes"
     New-Shortcut -TargetPath $pwshPath -ShortcutPath $ShortcutPath -Arguments $arguments -WorkingDirectory $RepoRoot -IconLocation $Profile.browserPath
     return $ShortcutPath
 }
@@ -663,10 +665,14 @@ function Test-BrowserDebugShortcutCurrent {
         $arguments = [string]$shortcut.Arguments
         $profilePattern = [regex]::Escape([string]$Profile.name)
         $modePattern = [regex]::Escape($Mode)
+        # UNC 入口受 RemoteSigned 拦截；连续两个反斜杠只会出现在 UNC 路径中（Profile 名禁止 `\`），兼容带 FileSystem:: 前缀的旧路径。
+        $referencesUncEntry = $arguments.Contains('\\')
+        $hasBypass = $arguments -match '(?:^|\s)-ExecutionPolicy Bypass(?:\s|$)'
         return $arguments -match ('profile start\s+"?' + $profilePattern + '"?(?:\s|$)') -and
             $arguments -match ('--mode\s+' + $modePattern + '(?:\s|$)') -and
             $arguments -match '(?:^|\s)--open-guide(?:\s|$)' -and
-            $arguments -match '(?:^|\s)--yes(?:\s|$)'
+            $arguments -match '(?:^|\s)--yes(?:\s|$)' -and
+            (-not $referencesUncEntry -or $hasBypass)
     }
     catch { return $false }
 }

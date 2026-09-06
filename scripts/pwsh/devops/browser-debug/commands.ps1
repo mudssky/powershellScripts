@@ -28,7 +28,13 @@ function Get-BrowserDebugRequiredOption {
 function Get-BrowserDebugRepoRoot {
     [CmdletBinding()]
     param()
-    return (Resolve-Path (Join-Path $PSScriptRoot '..' '..' '..' '..')).Path
+    $resolvedPath = (Resolve-Path (Join-Path $PSScriptRoot '..' '..' '..' '..')).Path
+    # WSL UNC 路径经 Resolve-Path 会保留 FileSystem:: 前缀且不折叠 ..，必须归一化后才能用于 Join-Path 与执行策略判断。
+    $providerPrefix = 'Microsoft.PowerShell.Core\FileSystem::'
+    if ($resolvedPath.StartsWith($providerPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+        $resolvedPath = $resolvedPath.Substring($providerPrefix.Length)
+    }
+    return [System.IO.Path]::GetFullPath($resolvedPath)
 }
 
 <##
