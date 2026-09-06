@@ -1,5 +1,8 @@
 Set-StrictMode -Version Latest
 
+# 平台判定必须在 Discovery 阶段可用的文件作用域完成，供 -Skip 守卫使用。
+$script:BrowserDebugPlatform = if ($IsWindows) { 'windows' } elseif ($IsMacOS) { 'macos' } else { 'linux' }
+
 BeforeAll {
     $script:RepoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
     $script:ToolRoot = Join-Path $script:RepoRoot 'scripts/pwsh/devops/browser-debug'
@@ -493,10 +496,11 @@ Describe 'browser-debug User Data 克隆' {
         New-Item -ItemType Directory -Path $script:SourceUserData -Force | Out-Null
         Set-Content -LiteralPath (Join-Path $script:SourceUserData 'Local State') -Value '{}'
         Mock Get-BrowserDebugChromiumProcesses { @() }
-        Mock Invoke-BrowserDebugRobocopy {
+        Mock Invoke-BrowserDebugClone {
             New-Item -ItemType Directory -Path $DestinationPath -Force | Out-Null
             Copy-Item -LiteralPath (Join-Path $SourcePath 'Local State') -Destination $DestinationPath
-            1
+            # Windows robocopy 语义 1 仍为成功；Unix 克隆工具 0 才是成功。
+            if ($IsWindows) { 1 } else { 0 }
         }
     }
 
@@ -504,7 +508,7 @@ Describe 'browser-debug User Data 克隆' {
         $result = Copy-BrowserDebugUserData -BrowserPath $script:BrowserPath -SourcePath $script:SourceUserData -DestinationPath $script:CloneTarget -DefaultSourcePath $script:SourceUserData
         $result.extensionsCopied | Should -BeTrue
         Test-Path -LiteralPath (Join-Path $script:CloneTarget 'Local State') | Should -BeTrue
-        Should -Invoke Invoke-BrowserDebugRobocopy -ParameterFilter {
+        Should -Invoke Invoke-BrowserDebugClone -ParameterFilter {
             $ExcludedFiles -contains 'SingletonLock' -and
             $ExcludedFiles -contains 'LOCK' -and
             $ExcludedDirectories -notcontains 'Extensions'
@@ -514,7 +518,7 @@ Describe 'browser-debug User Data 克隆' {
     It 'without-extensions 排除扩展本体和扩展状态目录' {
         $result = Copy-BrowserDebugUserData -BrowserPath $script:BrowserPath -SourcePath $script:SourceUserData -DestinationPath $script:CloneTarget -DefaultSourcePath $script:SourceUserData -WithoutExtensions
         $result.extensionsCopied | Should -BeFalse
-        Should -Invoke Invoke-BrowserDebugRobocopy -ParameterFilter {
+        Should -Invoke Invoke-BrowserDebugClone -ParameterFilter {
             $ExcludedDirectories -contains 'Extensions' -and
             $ExcludedDirectories -contains 'Local Extension Settings' -and
             $ExcludedDirectories -contains 'Sync Extension Settings'
@@ -526,7 +530,7 @@ Describe 'browser-debug User Data 克隆' {
             @([pscustomobject]@{ ExecutablePath = $script:BrowserPath; CommandLine = 'browser.exe' })
         }
         { Copy-BrowserDebugUserData -BrowserPath $script:BrowserPath -SourcePath $script:SourceUserData -DestinationPath $script:CloneTarget -DefaultSourcePath $script:SourceUserData } | Should -Throw '*完全关闭浏览器后重试*'
-        Should -Invoke Invoke-BrowserDebugRobocopy -Times 0
+        Should -Invoke Invoke-BrowserDebugClone -Times 0
     }
 
     It '自定义来源只拒绝实际引用该 user-data-dir 的进程' {
@@ -549,11 +553,11 @@ Describe 'browser-debug User Data 克隆' {
         Set-Content -LiteralPath (Join-Path $script:SourceUserData 'SingletonLock') -Value 'locked'
         { Copy-BrowserDebugUserData -BrowserPath $script:BrowserPath -SourcePath $script:SourceUserData -DestinationPath $script:CloneTarget -DefaultSourcePath $script:SourceUserData } | Should -Throw '*锁文件*完全关闭浏览器后重试*'
         Test-Path -LiteralPath $script:CloneTarget | Should -BeFalse
-        Should -Invoke Invoke-BrowserDebugRobocopy -Times 0
+        Should -Invoke Invoke-BrowserDebugClone -Times 0
     }
 
-    It 'robocopy 失败时不留下最终 Profile 或临时克隆目录' {
-        Mock Invoke-BrowserDebugRobocopy {
+    It '克隆失败时不留下最终 Profile 或临时克隆目录' {
+        Mock Invoke-BrowserDebugClone {
             New-Item -ItemType Directory -Path $DestinationPath -Force | Out-Null
             8
         }
@@ -904,5 +908,215 @@ Describe 'browser-debug SSH 交接与生命周期' {
         Test-BrowserDebugSshProcessOwnership -Process ([pscustomobject]@{ CommandLine = $ownedCommandLine }) -Info $info | Should -BeTrue
         Test-BrowserDebugSshProcessOwnership -Process ([pscustomobject]@{ CommandLine = $ownedCommandLine.Replace('-N ', '') }) -Info $info | Should -BeFalse
         Test-BrowserDebugSshProcessOwnership -Process ([pscustomobject]@{ CommandLine = $ownedCommandLine.Replace('agent-host', 'other-host') }) -Info $info | Should -BeFalse
+    }
+}
+
+Describe 'browser-debug 平台能力' {
+    It '平台判定与当前操作系统一致' {
+        $expected = if ($IsWindows) { 'windows' } elseif ($IsMacOS) { 'macos' } else { 'linux' }
+        Get-BrowserDebugPlatform | Should -Be $expected
+    }
+
+    It '能力门禁放行全平台 local 并在非 Windows 拒绝 lan 与 ssh' {
+        Assert-BrowserDebugCommandSupport -Resource profile -Action create -Platform windows
+        Assert-BrowserDebugCommandSupport -Resource ssh -Action list -Platform windows
+        Assert-BrowserDebugCommandSupport -Resource profile -Action list -Platform linux
+        Assert-BrowserDebugCommandSupport -Resource profile -Action get -Platform macos
+        Assert-BrowserDebugCommandSupport -Resource profile -Action start -Mode local -Platform macos
+        { Assert-BrowserDebugCommandSupport -Resource profile -Action start -Mode lan -Platform macos } | Should -Throw '*lan*仅支持 Windows*'
+        { Assert-BrowserDebugCommandSupport -Resource profile -Action shortcut -Mode lan -Platform linux } | Should -Throw '*lan*仅支持 Windows*'
+        { Assert-BrowserDebugCommandSupport -Resource ssh -Action info -Platform linux } | Should -Throw '*ssh*仅支持 Windows*'
+    }
+
+    It '快捷方式文件名按平台取扩展名' {
+        Get-BrowserDebugShortcutFileName -Name demo -Mode local -Platform windows | Should -Be 'demo.lnk'
+        Get-BrowserDebugShortcutFileName -Name demo -Mode lan -Platform windows | Should -Be 'demo-LAN.lnk'
+        Get-BrowserDebugShortcutFileName -Name demo -Mode local -Platform macos | Should -Be 'demo.command'
+        Get-BrowserDebugShortcutFileName -Name demo -Mode lan -Platform macos | Should -Be 'demo-LAN.command'
+        Get-BrowserDebugShortcutFileName -Name demo -Mode local -Platform linux | Should -Be 'demo.desktop'
+    }
+
+    It '路径比较语义按平台区分大小写' {
+        Test-BrowserDebugSamePath -PathA '/tmp/Demo' -PathB '/tmp/demo' -Platform macos | Should -BeTrue
+        Test-BrowserDebugSamePath -PathA '/tmp/Demo' -PathB '/tmp/demo' -Platform linux | Should -BeFalse
+    }
+
+    It '缺少 ExecutablePath 时按命令行前缀判定可执行匹配' {
+        $chromePath = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+        $matchProcess = [pscustomobject]@{ ProcessId = 1; ExecutablePath = $null; CommandLine = "$chromePath --user-data-dir=/tmp/demo" }
+        Test-BrowserDebugProcessExecutableMatch -Process $matchProcess -ExecutablePath $chromePath -Platform macos | Should -BeTrue
+        Test-BrowserDebugProcessExecutableMatch -Process $matchProcess -ExecutablePath '/usr/bin/google-chrome' -Platform macos | Should -BeFalse
+        $helperProcess = [pscustomobject]@{ ProcessId = 2; ExecutablePath = $null; CommandLine = "${chromePath}Helper (Renderer) --flag" }
+        Test-BrowserDebugProcessExecutableMatch -Process $helperProcess -ExecutablePath $chromePath -Platform macos | Should -BeFalse
+    }
+
+    It 'Unix 形状进程通过前缀匹配确认 Profile 所有权' {
+        $profile = [pscustomobject]@{ name = 'demo'; browserPath = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'; profilePath = '/tmp/profiles/demo' }
+        $owned = [pscustomobject]@{ ProcessId = 10; ExecutablePath = $null; CommandLine = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --user-data-dir=/tmp/profiles/demo --remote-debugging-port=9333' }
+        $foreign = [pscustomobject]@{ ProcessId = 11; ExecutablePath = $null; CommandLine = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --user-data-dir=/tmp/profiles/other --remote-debugging-port=9333' }
+        Test-BrowserDebugProcessOwnership -Process $owned -Profile $profile | Should -BeTrue
+        Test-BrowserDebugProcessOwnership -Process $foreign -Profile $profile | Should -BeFalse
+    }
+}
+
+Describe 'browser-debug Unix 浏览器定位' {
+    It 'macOS 可执行候选指向应用包' -Skip:($script:BrowserDebugPlatform -eq 'windows') {
+        $candidates = Get-BrowserDebugUnixExecutableCandidates -Browser chrome -Platform macos -HomePath '/Users/demo'
+        $candidates[0] | Should -Be '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+        $candidates[1] | Should -Be '/Users/demo/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+        (Get-BrowserDebugUnixExecutableCandidates -Browser edge -Platform macos)[0] | Should -Be '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge'
+    }
+
+    It 'Linux 可执行候选包含 stable 变体' -Skip:($script:BrowserDebugPlatform -eq 'windows') {
+        Get-BrowserDebugUnixExecutableCandidates -Browser chrome -Platform linux | Should -Be @('/usr/bin/google-chrome', '/usr/bin/google-chrome-stable')
+        Get-BrowserDebugUnixExecutableCandidates -Browser edge -Platform linux | Should -Be @('/usr/bin/microsoft-edge', '/usr/bin/microsoft-edge-stable')
+    }
+
+    It 'macOS User Data 位于 Application Support' -Skip:($script:BrowserDebugPlatform -eq 'windows') {
+        Get-BrowserDebugUnixUserDataPath -Browser chrome -Platform macos -HomePath '/Users/demo' | Should -Be '/Users/demo/Library/Application Support/Google/Chrome'
+        Get-BrowserDebugUnixUserDataPath -Browser edge -Platform macos -HomePath '/Users/demo' | Should -Be '/Users/demo/Library/Application Support/Microsoft Edge'
+    }
+
+    It 'Linux User Data 遵循 XDG 配置根' -Skip:($script:BrowserDebugPlatform -eq 'windows') {
+        Get-BrowserDebugUnixUserDataPath -Browser chrome -Platform linux -HomePath '/home/demo' | Should -Be '/home/demo/.config/google-chrome'
+        Get-BrowserDebugUnixUserDataPath -Browser edge -Platform linux -HomePath '/home/demo' -ConfigRoot '/xdg' | Should -Be '/xdg/microsoft-edge'
+    }
+
+    It 'Unix 默认注册表路径位于用户数据目录' -Skip:($script:BrowserDebugPlatform -eq 'windows') {
+        $saved = $env:BROWSER_DEBUG_REGISTRY_PATH
+        $env:BROWSER_DEBUG_REGISTRY_PATH = $null
+        try {
+            $path = Resolve-BrowserDebugRegistryPath
+            $path | Should -Match '[/\\]browser-debug-profiles[/\\]registry\.json$'
+        }
+        finally { $env:BROWSER_DEBUG_REGISTRY_PATH = $saved }
+    }
+
+    It 'Windows 默认注册表路径保持 D 盘约定' -Skip:($script:BrowserDebugPlatform -ne 'windows') {
+        $saved = $env:BROWSER_DEBUG_REGISTRY_PATH
+        $env:BROWSER_DEBUG_REGISTRY_PATH = $null
+        try { Resolve-BrowserDebugRegistryPath | Should -Be 'D:\browser-debug-profiles\registry.json' }
+        finally { $env:BROWSER_DEBUG_REGISTRY_PATH = $saved }
+    }
+}
+
+Describe 'browser-debug Unix 进程解析' {
+    It '解析 ps 输出并过滤非 Chromium 进程' {
+        $lines = @(
+            '    1 /sbin/launchd',
+            '  1234 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --type=renderer --user-data-dir=/tmp/p',
+            '  2345 /usr/bin/google-chrome --user-data-dir=/tmp/p --remote-debugging-port=9333',
+            '   34 /Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge --flag',
+            'junk-line'
+        )
+        $processes = ConvertFrom-BrowserDebugPsProcesses -Lines $lines
+        $processes.Count | Should -Be 3
+        $processes[0].ProcessId | Should -Be 1234
+        $processes[0].ExecutablePath | Should -BeNullOrEmpty
+        $processes[0].CommandLine | Should -Be '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --type=renderer --user-data-dir=/tmp/p'
+        $processes[1].ProcessId | Should -Be 2345
+        $processes[2].CommandLine | Should -Match 'Microsoft Edge'
+    }
+
+    It '空输入返回空数组' {
+        ConvertFrom-BrowserDebugPsProcesses -Lines @() | Should -Be @()
+    }
+}
+
+Describe 'browser-debug Unix 快捷方式' -Skip:($script:BrowserDebugPlatform -eq 'windows') {
+    It '生成可执行 .command 且合同校验通过' -Skip:($script:BrowserDebugPlatform -ne 'macos') {
+        $directory = Join-Path $TestDrive 'mac-shortcuts'
+        $profile = [pscustomobject]@{ name = 'demo'; browser = 'chrome'; browserPath = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' }
+        $shortcutPath = New-BrowserDebugShortcut -Profile $profile -ShortcutDirectory $directory -RepoRoot $script:RepoRoot
+        $shortcutPath | Should -Match 'demo\.command$'
+        $content = Get-Content -LiteralPath $shortcutPath -Raw
+        $content | Should -Match '^#!/bin/sh'
+        $content | Should -Match 'profile start .demo. --mode local --open-guide --yes'
+        $content | Should -Match '-NoProfile -File'
+        $content | Should -Not -Match '9333'
+        ((Get-Item -LiteralPath $shortcutPath).UnixFileMode -band [System.IO.UnixFileMode]::UserExecute) -ne 0 | Should -BeTrue
+        $checker = [pscustomobject]@{ name = 'demo' }
+        Test-BrowserDebugShortcutCurrent -ShortcutPath $shortcutPath -Profile $checker -Mode local | Should -BeTrue
+        Set-Content -LiteralPath $shortcutPath -Value $content.Replace('--yes', '--no') -Encoding utf8NoBOM
+        Test-BrowserDebugShortcutCurrent -ShortcutPath $shortcutPath -Profile $checker -Mode local | Should -BeFalse
+    }
+
+    It '生成 .desktop 且 Exec 行携带合同参数' -Skip:($script:BrowserDebugPlatform -ne 'linux') {
+        $directory = Join-Path $TestDrive 'linux-shortcuts'
+        $profile = [pscustomobject]@{ name = 'demo'; browser = 'edge'; browserPath = '/usr/bin/microsoft-edge' }
+        $shortcutPath = New-BrowserDebugShortcut -Profile $profile -ShortcutDirectory $directory -RepoRoot $script:RepoRoot
+        $shortcutPath | Should -Match 'demo\.desktop$'
+        $content = Get-Content -LiteralPath $shortcutPath -Raw
+        $content | Should -Match '^\[Desktop Entry\]'
+        $content | Should -Match 'Type=Application'
+        $content | Should -Match 'Terminal=false'
+        $content | Should -Match 'Icon=microsoft-edge'
+        $execLine = ($content -split "`n" | Where-Object { $_ -like 'Exec=*' }) -join ''
+        $execLine | Should -Match 'profile start demo --mode local --open-guide --yes$'
+        $execLine | Should -Match '-NoProfile -File'
+        $checker = [pscustomobject]@{ name = 'demo' }
+        Test-BrowserDebugShortcutCurrent -ShortcutPath $shortcutPath -Profile $checker -Mode local | Should -BeTrue
+    }
+
+    It '事务幂等：登记后不重建，未登记的未知同名文件拒绝覆盖' {
+        $directory = Join-Path $TestDrive 'unix-shortcut-tx'
+        $profile = [pscustomobject]@{ name = 'demo'; browser = 'chrome'; browserPath = '/x/chrome'; shortcutPath = $null; shortcutPaths = [pscustomobject]@{ local = $null; lan = $null } }
+        $path = Add-BrowserDebugProfileShortcut -Profile $profile -Mode local -ShortcutDirectory $directory -RepoRoot $script:RepoRoot -PersistScriptBlock {
+            param($shortcutPath)
+            $profile.shortcutPaths.local = $shortcutPath
+            $profile.shortcutPath = $shortcutPath
+        }
+        $path | Should -Match 'demo\.(command|desktop)$'
+        $secondPath = Add-BrowserDebugProfileShortcut -Profile $profile -Mode local -ShortcutDirectory $directory -RepoRoot $script:RepoRoot -PersistScriptBlock { throw '不应重复持久化' }
+        $secondPath | Should -Be $path
+        $unknownProfile = [pscustomobject]@{ name = 'demo'; browser = 'chrome'; browserPath = '/x/chrome'; shortcutPath = $null; shortcutPaths = [pscustomobject]@{ local = $null; lan = $null } }
+        { Add-BrowserDebugProfileShortcut -Profile $unknownProfile -Mode local -ShortcutDirectory $directory -RepoRoot $script:RepoRoot -PersistScriptBlock {} } | Should -Throw '*未由该 Profile 登记*'
+    }
+}
+
+Describe 'browser-debug Unix 克隆修剪' -Skip:($script:BrowserDebugPlatform -eq 'windows') {
+    It '整体克隆后修剪排除目录与排除文件' {
+        $source = Join-Path $TestDrive 'unix-source'
+        $destination = Join-Path $TestDrive 'unix-dest'
+        New-Item -ItemType Directory -Path (Join-Path $source 'Default/Extensions') -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $source 'Local State') -Value '{}'
+        Set-Content -LiteralPath (Join-Path $source 'Default/Extensions/manifest.json') -Value '{}'
+        Set-Content -LiteralPath (Join-Path $source 'scratch.tmp') -Value 'tmp'
+        $exitCode = Invoke-BrowserDebugClone -SourcePath $source -DestinationPath $destination -ExcludedFiles @('*.tmp') -ExcludedDirectories @('Extensions')
+        $exitCode | Should -Be 0
+        Test-Path -LiteralPath (Join-Path $destination 'Local State') | Should -BeTrue
+        Test-Path -LiteralPath (Join-Path $destination 'Default/Extensions') | Should -BeFalse
+        Test-Path -LiteralPath (Join-Path $destination 'scratch.tmp') | Should -BeFalse
+    }
+}
+
+Describe 'browser-debug Windows 克隆与注册表回退' -Tag 'windowsOnly' {
+    It 'Windows 平台把克隆参数转发给 robocopy' {
+        Mock Invoke-BrowserDebugRobocopy { 3 }
+        Invoke-BrowserDebugClone -SourcePath 'C:\src' -DestinationPath 'C:\dst' -ExcludedFiles @('LOCK') -ExcludedDirectories @('Crashpad') | Should -Be 3
+        Should -Invoke Invoke-BrowserDebugRobocopy -ParameterFilter { $SourcePath -eq 'C:\src' -and $ExcludedFiles -contains 'LOCK' -and $ExcludedDirectories -contains 'Crashpad' }
+    }
+
+    It '默认注册表路径保持 D 盘约定' {
+        Get-BrowserDebugDefaultRegistryPath | Should -Be 'D:\browser-debug-profiles\registry.json'
+    }
+}
+
+Describe 'browser-debug CLI 平台门禁集成' -Skip:($script:BrowserDebugPlatform -eq 'windows') {
+    It '非 Windows CLI 拒绝 ssh 与 lan 并放行 profile list' {
+        $savedSkip = $env:PWSH_TEST_SKIP_BROWSER_DEBUG_MAIN
+        Remove-Item Env:\PWSH_TEST_SKIP_BROWSER_DEBUG_MAIN -ErrorAction SilentlyContinue
+        try {
+            $sshResult = Invoke-BrowserDebugCli -Arguments @('ssh', 'list', '--json')
+            $sshResult.ExitCode | Should -Be 1
+            ($sshResult.Output | ConvertFrom-Json).error.message | Should -Match 'ssh 子命令当前仅支持 Windows'
+            $lanResult = Invoke-BrowserDebugCli -Arguments @('profile', 'start', 'demo', '--mode', 'lan', '--json')
+            $lanResult.ExitCode | Should -Be 1
+            ($lanResult.Output | ConvertFrom-Json).error.message | Should -Match '仅支持 Windows'
+            $listResult = Invoke-BrowserDebugCli -Arguments @('profile', 'list', '--registry-path', (Join-Path $TestDrive 'empty.json'), '--json')
+            $listResult.ExitCode | Should -Be 0
+            ($listResult.Output | ConvertFrom-Json).data.Count | Should -Be 0
+        }
+        finally { $env:PWSH_TEST_SKIP_BROWSER_DEBUG_MAIN = $savedSkip }
     }
 }

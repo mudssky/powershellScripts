@@ -21,6 +21,20 @@ function Import-BrowserDebugConfigDependency {
 
 <##
 .SYNOPSIS
+    返回当前平台的默认注册表路径。
+.OUTPUTS
+    System.String
+    Windows 返回 D 盘默认路径，macOS/Linux 返回用户数据目录下的默认路径。
+#>
+function Get-BrowserDebugDefaultRegistryPath {
+    [CmdletBinding()]
+    param()
+    if ((Get-BrowserDebugPlatform) -eq 'windows') { return [System.IO.Path]::GetFullPath('D:\browser-debug-profiles\registry.json') }
+    return [System.IO.Path]::GetFullPath((Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)) 'browser-debug-profiles/registry.json'))
+}
+
+<##
+.SYNOPSIS
     解析默认或显式注册表路径。
 .PARAMETER RegistryPath
     可选注册表覆盖路径。
@@ -34,7 +48,7 @@ function Resolve-BrowserDebugRegistryPath {
 
     $candidate = $RegistryPath
     if ([string]::IsNullOrWhiteSpace($candidate)) { $candidate = $env:BROWSER_DEBUG_REGISTRY_PATH }
-    if ([string]::IsNullOrWhiteSpace($candidate)) { $candidate = 'D:\browser-debug-profiles\registry.json' }
+    if ([string]::IsNullOrWhiteSpace($candidate)) { $candidate = Get-BrowserDebugDefaultRegistryPath }
     return [System.IO.Path]::GetFullPath($candidate)
 }
 
@@ -99,7 +113,7 @@ function Write-BrowserDebugRegistry {
 
     $directory = Split-Path -Parent $RegistryPath
     if (-not (Test-Path -LiteralPath $directory -PathType Container)) {
-        if ($RegistryPath.StartsWith('D:\', [System.StringComparison]::OrdinalIgnoreCase) -and -not (Test-Path 'D:\')) {
+        if ((Get-BrowserDebugPlatform) -eq 'windows' -and $RegistryPath.StartsWith('D:\', [System.StringComparison]::OrdinalIgnoreCase) -and -not (Test-Path 'D:\')) {
             throw '默认 D 盘不存在；请使用 --profile-path 和 --registry-path 显式指定可用位置。'
         }
         New-Item -ItemType Directory -Path $directory -Force | Out-Null

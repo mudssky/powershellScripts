@@ -50,8 +50,7 @@ function Resolve-BrowserDebugProfileRoot {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$RegistryPath)
     if (-not [string]::IsNullOrWhiteSpace($env:BROWSER_DEBUG_ROOT_PATH)) { return [System.IO.Path]::GetFullPath($env:BROWSER_DEBUG_ROOT_PATH) }
-    if ($RegistryPath -ne [System.IO.Path]::GetFullPath('D:\browser-debug-profiles\registry.json')) { return Split-Path -Parent $RegistryPath }
-    return 'D:\browser-debug-profiles'
+    return Split-Path -Parent ([System.IO.Path]::GetFullPath($RegistryPath))
 }
 
 <##
@@ -121,7 +120,8 @@ function Invoke-BrowserDebugProfileCreate {
     if (Find-BrowserDebugProfile -Registry $registry -Name $Name) { throw "Profile 已存在: $Name" }
     $browser = [string](Get-BrowserDebugRequiredOption -Options $Options -Name 'browser')
     if ($browser -notin 'chrome', 'edge') { throw "不支持的浏览器: $browser" }
-    $port = if ($Options.Contains('cdp-port')) { [int]$Options['cdp-port'] } else { 9222 }
+    # 默认 CDP 端口三平台统一 21229；9222 常与本机常驻 Chromium 冲突。
+    $port = if ($Options.Contains('cdp-port')) { [int]$Options['cdp-port'] } else { 21229 }
     Assert-BrowserDebugPort -Port $port | Out-Null
     if (@($registry.profiles | Where-Object { [int]$_.cdpPort -eq $port }).Count -gt 0) { throw "CDP 端口已被其他 Profile 登记: $port" }
     $browserPath = Resolve-BrowserDebugExecutable -Browser $browser
@@ -132,26 +132,20 @@ function Invoke-BrowserDebugProfileCreate {
     $profilePath = [System.IO.Path]::GetFullPath($profilePath)
     foreach ($registeredProfile in @($registry.profiles)) {
         if ([string]::IsNullOrWhiteSpace([string]$registeredProfile.profilePath)) { continue }
-        if ([System.IO.Path]::GetFullPath([string]$registeredProfile.profilePath).Equals($profilePath, [System.StringComparison]::OrdinalIgnoreCase)) {
+        if (Test-BrowserDebugSamePath -PathA [string]$registeredProfile.profilePath -PathB $profilePath) {
             throw "目标 Profile 路径已被登记到 Profile $($registeredProfile.name): $profilePath"
         }
     }
-    $defaultDataRoots = @(
-        if ($browser -eq 'chrome') { Join-Path $env:LOCALAPPDATA 'Google\Chrome\User Data' }
-        if ($browser -eq 'edge') { Join-Path $env:LOCALAPPDATA 'Microsoft\Edge\User Data' }
-    ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
-    foreach ($defaultRoot in $defaultDataRoots) {
-        if ([System.IO.Path]::GetFullPath($profilePath).TrimEnd('\').Equals([System.IO.Path]::GetFullPath($defaultRoot).TrimEnd('\'), [System.StringComparison]::OrdinalIgnoreCase)) {
-            throw '禁止使用浏览器默认用户数据目录，必须使用独立 Profile 路径。'
-        }
+    if (Test-BrowserDebugSamePath -PathA $profilePath -PathB (Resolve-BrowserDebugDefaultUserDataPath -Browser $browser)) {
+        throw '禁止使用浏览器默认用户数据目录，必须使用独立 Profile 路径。'
     }
-    if ($profilePath.StartsWith('D:\', [System.StringComparison]::OrdinalIgnoreCase) -and -not (Test-Path -LiteralPath 'D:\' -PathType Container)) {
+    if ((Get-BrowserDebugPlatform) -eq 'windows' -and $profilePath.StartsWith('D:\', [System.StringComparison]::OrdinalIgnoreCase) -and -not (Test-Path -LiteralPath 'D:\' -PathType Container)) {
         throw '默认 D 盘不存在；请使用 --profile-path 和 --registry-path 显式指定可用位置。'
     }
     if (Test-BrowserDebugPortOpen -Port $port) { throw "CDP 端口当前已被占用: $port" }
     $shortcutDirectory = if ($Options.Contains('shortcut-directory')) { [string]$Options['shortcut-directory'] } else { Resolve-BrowserDebugDesktopPath }
     $shortcutDirectory = [System.IO.Path]::GetFullPath($shortcutDirectory)
-    $expectedShortcutPath = Join-Path $shortcutDirectory "$Name.lnk"
+    $expectedShortcutPath = Join-Path $shortcutDirectory (Get-BrowserDebugShortcutFileName -Name $Name -Mode local)
     if (Test-Path -LiteralPath $expectedShortcutPath) { throw "目标快捷方式已存在: $expectedShortcutPath" }
 
     $cloneCompleted = $false

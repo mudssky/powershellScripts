@@ -71,12 +71,13 @@ function Register-BrowserDebugCompletion {
     $registeredPath = Get-Variable -Name __BrowserDebugCompletionCommandPath -Scope Global -ErrorAction SilentlyContinue
     if ($registrationMarker -and [bool]$registrationMarker.Value -and $registeredPath -and [string]$registeredPath.Value -eq $CommandPath) { return }
     $completionCommandPath = $CommandPath
-    $pwshPath = (Get-Command pwsh -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
+    # 注册时不固定 pwsh 的 Source：PATH 上可能存在需要 DOTNET_ROOT 的裸 apphost，
+    # 调用时按当前会话 PATH 解析 pwsh 才与用户实际使用的解释器一致。
     Register-ArgumentCompleter -Native -CommandName browser-debug, browser-debug.ps1 -ScriptBlock {
         param($wordToComplete, $commandAst, $cursorPosition)
         try {
             # 公开入口会调用 exit 映射 CLI 退出码，必须放在子进程中，不能终止当前交互式会话。
-            & $pwshPath -NoLogo -NoProfile -File $completionCommandPath __complete --line $commandAst.ToString() --position $cursorPosition 2>$null
+            & pwsh -NoLogo -NoProfile -File $completionCommandPath __complete --line $commandAst.ToString() --position $cursorPosition 2>$null
         }
         catch { @() }
     }.GetNewClosure()

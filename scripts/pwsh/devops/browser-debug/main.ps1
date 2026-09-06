@@ -1,8 +1,9 @@
 #!/usr/bin/env pwsh
 <##
 .SYNOPSIS
-    管理 Windows Chromium 独立 CDP 调试 Profile 与 SSH 转发配置。
+    管理独立 Chromium 独立 CDP 调试 Profile 与 SSH 转发配置。
 .DESCRIPTION
+    local 模式支持 Windows/macOS/Linux；lan 模式与 ssh 交接当前仅支持 Windows。
     提供传统 CLI 命令树、稳定 JSON 输出、PowerShell Native Completion 和安全的进程所有权判断。
 #>
 
@@ -75,7 +76,7 @@ function Invoke-BrowserDebugCli {
         $parsed = ConvertFrom-BrowserDebugArguments -Arguments $tokens
         if ($parsed.Help) { return [pscustomobject]@{ ExitCode = 0; Output = Get-BrowserDebugHelpText -Resource $parsed.Resource -Action $parsed.Action } }
         if ($parsed.Action -notin 'list', 'get' -and [string]::IsNullOrWhiteSpace($parsed.Name)) { throw "缺少名称参数: $($parsed.Resource) $($parsed.Action) <name>" }
-        if ($env:PWSH_TEST_SKIP_BROWSER_DEBUG_MAIN -ne '1') { Assert-BrowserDebugWindowsPlatform }
+        if ($env:PWSH_TEST_SKIP_BROWSER_DEBUG_MAIN -ne '1') { Assert-BrowserDebugCommandSupport -Resource $parsed.Resource -Action $parsed.Action -Mode ([string]$parsed.Options['mode']) }
         if ($parsed.Resource -eq 'profile' -and $parsed.Action -eq 'start' -and [string]$parsed.Options['mode'] -eq 'lan') {
             Write-Warning 'LAN CDP 无认证，可完全控制浏览器。请只在受控网络中显式使用，并自行配置防火墙。'
         }

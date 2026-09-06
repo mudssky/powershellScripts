@@ -164,7 +164,7 @@ browser-debug completion powershell
 browser-debug help
 ```
 
-Profile 默认登记到 `D:\browser-debug-profiles\registry.json`，数据目录为 `D:\browser-debug-profiles\<name>`。`create` 默认从所选浏览器当前用户的标准 User Data 目录克隆登录状态、Profile 数据和扩展，再创建注册记录与 `<name>.lnk` Local 桌面快捷方式，但不启动浏览器。可用 `profile shortcut` 追加 `<name>-LAN.lnk`，两种模式互不替换；快捷方式启动成功后会在同一浏览器 Profile 中打开静态连接指南。停止后可持久修改端口，快捷方式和 SSH 配置会在使用时解析新端口：
+Profile 默认登记到平台数据目录（Windows `D:\browser-debug-profiles\registry.json`，macOS/Linux 用户本地数据目录下 `browser-debug-profiles\registry.json`），数据目录为 Profile root 下的 `<name>`。`create` 默认从所选浏览器当前用户的标准 User Data 目录克隆登录状态、Profile 数据和扩展，再创建注册记录与桌面快捷方式（Windows `<name>.lnk`、macOS `<name>.command`、Linux `<name>.desktop`），但不启动浏览器。`local` 模式全链路支持 Windows/macOS/Linux；LAN 快捷方式（`<name>-LAN.lnk`）、`--mode lan` 与 `ssh` 交接仅支持 Windows，两种模式互不替换；快捷方式启动成功后会在同一浏览器 Profile 中打开静态连接指南。停止后可持久修改端口，快捷方式和 SSH 配置会在使用时解析新端口：
 
 ```powershell
 browser-debug profile create work --browser chrome --cdp-port 9333
