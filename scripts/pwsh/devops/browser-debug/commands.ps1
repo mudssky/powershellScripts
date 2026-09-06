@@ -132,7 +132,8 @@ function Invoke-BrowserDebugProfileCreate {
     $profilePath = [System.IO.Path]::GetFullPath($profilePath)
     foreach ($registeredProfile in @($registry.profiles)) {
         if ([string]::IsNullOrWhiteSpace([string]$registeredProfile.profilePath)) { continue }
-        if (Test-BrowserDebugSamePath -PathA [string]$registeredProfile.profilePath -PathB $profilePath) {
+        # 参数模式下裸 token 以 `[` 开头会被当成可展开字符串而非类型转换，必须加括号进表达式模式。
+        if (Test-BrowserDebugSamePath -PathA ([string]$registeredProfile.profilePath) -PathB $profilePath) {
             throw "目标 Profile 路径已被登记到 Profile $($registeredProfile.name): $profilePath"
         }
     }

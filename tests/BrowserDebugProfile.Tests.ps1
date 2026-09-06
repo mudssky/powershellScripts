@@ -941,7 +941,8 @@ Describe 'browser-debug 平台能力' {
         Test-BrowserDebugSamePath -PathA '/tmp/Demo' -PathB '/tmp/demo' -Platform linux | Should -BeFalse
     }
 
-    It '缺少 ExecutablePath 时按命令行前缀判定可执行匹配' {
+    It '缺少 ExecutablePath 时按命令行前缀判定可执行匹配' -Skip:($script:BrowserDebugPlatform -eq 'windows') {
+        # 测试用 Unix 风格合成路径；Windows 上 GetFullPath 会补盘符导致语义漂移，该分支仅 Unix 生产路径可达。
         $chromePath = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
         $matchProcess = [pscustomobject]@{ ProcessId = 1; ExecutablePath = $null; CommandLine = "$chromePath --user-data-dir=/tmp/demo" }
         Test-BrowserDebugProcessExecutableMatch -Process $matchProcess -ExecutablePath $chromePath -Platform macos | Should -BeTrue
@@ -950,7 +951,7 @@ Describe 'browser-debug 平台能力' {
         Test-BrowserDebugProcessExecutableMatch -Process $helperProcess -ExecutablePath $chromePath -Platform macos | Should -BeFalse
     }
 
-    It 'Unix 形状进程通过前缀匹配确认 Profile 所有权' {
+    It 'Unix 形状进程通过前缀匹配确认 Profile 所有权' -Skip:($script:BrowserDebugPlatform -eq 'windows') {
         $profile = [pscustomobject]@{ name = 'demo'; browserPath = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'; profilePath = '/tmp/profiles/demo' }
         $owned = [pscustomobject]@{ ProcessId = 10; ExecutablePath = $null; CommandLine = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --user-data-dir=/tmp/profiles/demo --remote-debugging-port=9333' }
         $foreign = [pscustomobject]@{ ProcessId = 11; ExecutablePath = $null; CommandLine = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --user-data-dir=/tmp/profiles/other --remote-debugging-port=9333' }
