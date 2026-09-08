@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 70
-- **Last Active**: 2026-09-06
+- **Total Sessions**: 71
+- **Last Active**: 2026-09-09
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~29 | Active |
+| `journal-2.md` | ~68 | Active |
 | `journal-1.md` | ~1997 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -31,6 +31,7 @@
 
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 71 | 2026-09-09 | ser8 新机装机排障与 Linux 安装流水线四项修复 | `fc8c7dcb`, `849533f2`, `6dea7a41`, `9f730fb6` | `master` |
 | 70 | 2026-09-06 | browser-debug 支持 macOS/Linux 与平台快捷方式 | `c6b3b637` | `master` |
 | 69 | 2026-09-06 | WSL 内 browser-debug 互操作：快捷方式生成与调试 Profile 启动 | `fbc8dce3`, `0b2384d2` | `master` |
 | 68 | 2026-09-05 | 优化 WSL 全局配置 | `ecbd04e0` | `master` |

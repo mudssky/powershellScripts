@@ -42,3 +42,27 @@ browser-debug CLI 扩展为三平台：local 模式全链路（create/start/stat
 ### Status
 
 [OK] **Completed**
+
+
+## Session 71: ser8 新机装机排障与 Linux 安装流水线四项修复
+
+**Date**: 2026-09-09
+**Task**: ser8 新机装机排障与 Linux 安装流水线四项修复
+**Branch**: `master`
+
+### Summary
+
+在 ser8（Ubuntu 26.04 新机）装机过程中定位并修复 Linux 安装流水线四个缺陷：1) verify 对 JSON 配置调用 ContainsKey 崩溃 + 99verifyInstall.ps1 缺失 -NonInteractive/-Unattended 声明；2) brew shellenv 不落盘 + ProfileTools 依赖继承 PATH，新机 07 误报 fnm/uv Blocked（01 持久化 shellenv + ProfileTools 自解析）；3) pester 容器 /tmp tmpfs 默认 noexec 导致 scoop shim 用例必败（tmpfs 改 :exec）；4) RcloneOps 用例写仓库真实 .runtime 路径，与容器 root lane 属主冲突（改 $TestDrive 隔离）。全部经 trellis-implement/trellis-check 子代理流程，pnpm test:pwsh:all 双 lane 全绿（host 945/0，linux 943/0）。ser8 侧同步：PSGallery 信任、brew shellenv 临时补丁、Docker Engine 装机。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `fc8c7dcb` | (see git log) |
+| `849533f2` | (see git log) |
+| `6dea7a41` | (see git log) |
+| `9f730fb6` | (see git log) |
+
+### Status
+
+[OK] **Completed**
