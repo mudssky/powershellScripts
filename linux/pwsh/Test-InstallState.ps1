@@ -262,8 +262,10 @@ foreach ($stepId in $selectedSteps) {
             $sourceCatalog = (Resolve-ConfigSources -Sources @(
                     @{ Type = 'JsonFile'; Name = 'PackageSources'; Path = (Join-Path $repoRoot 'config/network/package-sources.json') }
                 ) -BasePath $repoRoot -ErrorOnMissing).Values
-            $targetAvailable = $platform.SourceTarget -and $sourceCatalog.targets.ContainsKey($platform.SourceTarget)
-            $brewSupportsLinux = $sourceCatalog.targets.brew.platforms -contains 'linux'
+            # JsonFile 来源反序列化为 PSCustomObject，需按 spec 转成 hashtable 才能按键查找
+            $sourceTargets = ConvertTo-ConfigHashtable -InputObject $sourceCatalog.targets
+            $targetAvailable = $platform.SourceTarget -and $sourceTargets.ContainsKey($platform.SourceTarget)
+            $brewSupportsLinux = @($sourceTargets['brew'].platforms) -contains 'linux'
             Add-LinuxInstallCheck `
                 -Step sources `
                 -Name catalog `

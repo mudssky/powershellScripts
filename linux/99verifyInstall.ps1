@@ -16,6 +16,12 @@
 .PARAMETER WslConfigTargetPath
     WSL 客体配置路径，测试可传临时路径。
 
+.PARAMETER Unattended
+    接受根编排器公共交互开关；本脚本只读，无交互行为。
+
+.PARAMETER NonInteractive
+    接受根编排器公共交互开关；本脚本只读，无交互行为。
+
 .OUTPUTS
     文本汇总或单文档 JSON；Fail 退出 1，Blocked 退出 10。
 #>
@@ -29,7 +35,11 @@ param(
     [ValidateSet('Text', 'Json')]
     [string]$OutputFormat = 'Text',
 
-    [string]$WslConfigTargetPath = '/etc/wsl.conf'
+    [string]$WslConfigTargetPath = '/etc/wsl.conf',
+
+    [switch]$Unattended,
+
+    [switch]$NonInteractive
 )
 
 Set-StrictMode -Version Latest
