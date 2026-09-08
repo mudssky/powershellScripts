@@ -79,7 +79,7 @@ pwsh ./install.ps1 -Preset Core -FromStep profile-tools
 | 编号 | 入口 | 职责 |
 |---|---|---|
 | 00 | `linux/00quickstart.sh` | Stage 0、shallow clone 与 Stage 1 移交 |
-| 01 | `linux/01installHomeBrew.sh` | Linuxbrew |
+| 01 | `linux/01installHomeBrew.sh` | Linuxbrew；安装或检测成功后把 brew shellenv 持久化到登录 profile（bash: `~/.profile`，zsh: `~/.zprofile`，幂等、写前带时间戳 `.bak` 备份） |
 | 02 | `linux/02installPowerShell.sh` | amd64 PowerShell 7 |
 | 03 | `linux/03configureSources.sh` | package source 事务 |
 | 04 | `linux/04deployShellConfig.sh` | bash/zsh 配置 |

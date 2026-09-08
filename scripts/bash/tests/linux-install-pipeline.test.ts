@@ -77,6 +77,35 @@ function linuxEnv(
   }
 }
 
+/**
+ * 在临时 HOME 下创建响应 shellenv 与 --prefix 的伪 brew 可执行文件。
+ *
+ * @param workspace 临时平台夹具。
+ * @returns 伪 brew 的安装前缀目录。
+ */
+function createFakeBrew(workspace: Workspace): string {
+  const prefix = path.join(workspace.home, '.linuxbrew')
+  writeText(
+    path.join(prefix, 'bin/brew'),
+    [
+      '#!/usr/bin/env bash',
+      `prefix='${prefix}'`,
+      'case "$1" in',
+      '  shellenv)',
+      '    printf \'export HOMEBREW_PREFIX="%s"\\n\' "$prefix"',
+      '    printf \'export PATH="%s/bin:%s/sbin:$PATH"\\n\' "$prefix" "$prefix"',
+      '    ;;',
+      '  --prefix)',
+      '    printf \'%s\\n\' "$prefix"',
+      '    ;;',
+      'esac',
+      '',
+    ].join('\n'),
+  )
+  fs.chmodSync(path.join(prefix, 'bin/brew'), 0o755)
+  return prefix
+}
+
 afterEach(() => {
   while (workspaces.length > 0) {
     const workspace = workspaces.pop()
@@ -270,6 +299,87 @@ describe('Linux Stage 0 pipeline', () => {
     )
     expect(result.stdout).toContain('aur.archlinux.org/yay.git')
     expect(result.stdout).toContain('makepkg -si --needed --noconfirm')
+  })
+})
+
+describe('Linux Homebrew shellenv persistence', () => {
+  /**
+   * 以伪 brew 创建隔离环境并把其 bin 目录前置到 PATH。
+   *
+   * @returns workspace、伪 brew 前缀、脚本路径与环境变量。
+   */
+  function createBrewWorkspace(): { workspace: Workspace; prefix: string; script: string; env: ReturnType<typeof linuxEnv> } {
+    const workspace = createWorkspace()
+    const prefix = createFakeBrew(workspace)
+    return {
+      workspace,
+      prefix,
+      script: path.join(repoRoot, 'linux/01installHomeBrew.sh'),
+      // 前置伪 brew，避免宿主机预装的 /home/linuxbrew 干扰隔离 fixture。
+      env: linuxEnv(workspace, { PATH: `${prefix}/bin:${process.env.PATH ?? ''}` }),
+    }
+  }
+
+  it('persists the brew shellenv into the bash login profile after detection', async () => {
+    const { prefix, script, workspace, env } = createBrewWorkspace()
+
+    const result = await execa('bash', [script], { env, reject: false })
+
+    expect(result.exitCode).toBe(0)
+    const profile = fs.readFileSync(path.join(workspace.home, '.profile'), 'utf8')
+    expect(profile).toContain(`eval "$(${prefix}/bin/brew shellenv)"`)
+  })
+
+  it('is idempotent: rerunning does not duplicate the shellenv line or add backups', async () => {
+    const { script, workspace, env } = createBrewWorkspace()
+
+    await execa('bash', [script], { env, reject: false })
+    const second = await execa('bash', [script], { env, reject: false })
+
+    expect(second.exitCode).toBe(0)
+    expect(second.stdout).toContain('跳过持久化')
+    const profile = fs.readFileSync(path.join(workspace.home, '.profile'), 'utf8')
+    expect(profile.split('\n').filter((line) => line.includes('brew shellenv)"'))).toHaveLength(1)
+    expect(fs.readdirSync(workspace.home).filter((file) => file.endsWith('.bak'))).toHaveLength(0)
+  })
+
+  it('backs up an existing login profile with a timestamped .bak before appending', async () => {
+    const { script, workspace, env } = createBrewWorkspace()
+    writeText(path.join(workspace.home, '.profile'), '# user profile\nexport EDITOR=vim\n')
+
+    const result = await execa('bash', [script], { env, reject: false })
+
+    expect(result.exitCode).toBe(0)
+    const backups = fs
+      .readdirSync(workspace.home)
+      .filter((file) => /^\.profile\.\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.bak$/.test(file))
+    expect(backups).toHaveLength(1)
+    expect(fs.readFileSync(path.join(workspace.home, backups[0]), 'utf8')).toBe(
+      '# user profile\nexport EDITOR=vim\n',
+    )
+    expect(fs.readFileSync(path.join(workspace.home, '.profile'), 'utf8')).toContain('brew shellenv')
+  })
+
+  it('persists into ~/.zprofile when the login shell is zsh', async () => {
+    const { prefix, script, workspace, env } = createBrewWorkspace()
+    const zshEnv = { ...env, SHELL: '/usr/bin/zsh' }
+
+    const result = await execa('bash', [script], { env: zshEnv, reject: false })
+
+    expect(result.exitCode).toBe(0)
+    expect(fs.existsSync(path.join(workspace.home, '.profile'))).toBe(false)
+    const zprofile = fs.readFileSync(path.join(workspace.home, '.zprofile'), 'utf8')
+    expect(zprofile).toContain(`eval "$(${prefix}/bin/brew shellenv)"`)
+  })
+
+  it('only prints the persistence plan in dry-run mode', async () => {
+    const { script, workspace, env } = createBrewWorkspace()
+
+    const result = await execa('bash', [script, '--dry-run'], { env, reject: false })
+
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout).toMatch(/\[DRY\].*写入 Homebrew shellenv/)
+    expect(fs.existsSync(path.join(workspace.home, '.profile'))).toBe(false)
   })
 })
 
