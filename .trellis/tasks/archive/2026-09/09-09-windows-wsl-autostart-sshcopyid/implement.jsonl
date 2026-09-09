@@ -1,0 +1,5 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": "windows/wsl/WslSshAccess.psm1", "reason": "机制层真源：计划任务 AtStartup+S4U、portproxy 2222→2223、verify 能力均在此，叶子只做薄封装"}
+{"file": "windows/INSTALL.md", "reason": "现有手动入口命令（143-167 行）与参数样例，叶子参数默认值以此对齐"}
+{"file": "config/install/steps.psd1", "reason": "windows 10 login-items 激活点与相邻步骤的 Presets/字段样例"}
+{"file": "profile/installer/apps-config.json", "reason": "winget 段既有条目字段结构（autohotkey/eartrumpet）为 SSHCopyID 条目样例"}
