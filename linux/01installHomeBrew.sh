@@ -18,8 +18,8 @@ usage() {
     cat <<'EOF'
 Usage: 01installHomeBrew.sh [options]
 
-安装或检测成功后会把 brew shellenv 持久化到登录 profile
-（bash: ~/.profile，zsh: ~/.zprofile），已存在时跳过。
+登录 profile（bash: ~/.profile，zsh: ~/.zprofile）的 brew/fnm 环境
+由 shell/deploy.sh 的受管块负责，本步骤不写 profile。
 
 Options:
   --network-mode Direct|China|Auto  Stage 0 网络模式，默认 Direct
@@ -55,46 +55,6 @@ load_linuxbrew_environment() {
     local brew_path="$1"
     eval "$("$brew_path" shellenv)"
     brew --prefix >/dev/null
-}
-
-# 功能：把 brew shellenv 持久化到登录 profile，保证新登录 shell 与安装流水线
-#       子进程能看到 Linuxbrew 工具；bash 登录路径为 ~/.profile，zsh 为 ~/.zprofile。
-#       幂等：目标文件已包含 shellenv 行时跳过；写前按仓库约定生成带可读时间戳的
-#       .bak 备份；dry-run 只打印计划。
-# 参数：$1 brew 可执行文件。
-# 返回：0 已持久化、已存在或 dry-run；备份或写文件失败时非零。
-persist_linuxbrew_shellenv() {
-    local brew_path="$1"
-    local shell_name target_file
-    shell_name="$(basename -- "${SHELL:-bash}")"
-    case "$shell_name" in
-        zsh) target_file="$HOME/.zprofile" ;;
-        *) target_file="$HOME/.profile" ;;
-    esac
-
-    if grep -Fq 'brew shellenv' "$target_file" 2>/dev/null; then
-        printf '%s 已包含 Homebrew shellenv，跳过持久化\n' "$target_file"
-        return 0
-    fi
-
-    if [ "$DRY_RUN" = true ]; then
-        printf '[DRY] 向 %s 写入 Homebrew shellenv\n' "$target_file"
-        return 0
-    fi
-
-    if [ -e "$target_file" ]; then
-        local timestamp backup_path
-        timestamp="$(date '+%Y-%m-%d_%H-%M-%S')"
-        backup_path="${target_file}.${timestamp}.bak"
-        cp -p "$target_file" "$backup_path"
-        printf '已备份现有配置: %s\n' "$backup_path"
-    fi
-    {
-        printf '\n'
-        printf '# Load Homebrew shellenv (managed by powershellScripts)\n'
-        printf 'eval "$(%s shellenv)"\n' "$brew_path"
-    } >> "$target_file"
-    printf '已将 Homebrew shellenv 写入 %s\n' "$target_file"
 }
 
 while [ "$#" -gt 0 ]; do
@@ -133,7 +93,6 @@ linux_install_detect_platform || linux_install_fail 'Linuxbrew 步骤只能在 L
 
 if brew_path="$(find_linuxbrew)"; then
     load_linuxbrew_environment "$brew_path"
-    persist_linuxbrew_shellenv "$brew_path"
     printf 'Linuxbrew 已就绪: %s\n' "$(brew --prefix)"
     exit 0
 fi
@@ -164,5 +123,4 @@ bash "$bootstrap_helper" --mode "$NETWORK_MODE" --target brew -- "${install_comm
 
 brew_path="$(find_linuxbrew)" || linux_install_fail 'Homebrew 安装完成后仍找不到 brew'
 load_linuxbrew_environment "$brew_path"
-persist_linuxbrew_shellenv "$brew_path"
 printf 'Linuxbrew 安装完成: %s\n' "$(brew --prefix)"
