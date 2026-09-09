@@ -87,3 +87,24 @@ browser-debug CLI 扩展为三平台：local 模式全链路（create/start/stat
 ### Status
 
 [OK] **Completed**
+
+
+## Session 73: Windows WSL 自启接入流水线与 SSHCopyID 安装
+
+**Date**: 2026-09-09
+**Task**: Windows WSL 自启接入流水线与 SSHCopyID 安装
+**Branch**: `master`
+
+### Summary
+
+brainstorm 勘察确认 WSL 自启机制层已存在（windows/wsl AtStartup+S4U 计划任务、portproxy 2222→sshd 2223、relay keepalive、mirrored 网络），缺口是未接入流水线与缺 SSHCopyID。激活 steps.psd1 windows 10 login-items → 新叶子 10deployWslAutostart.ps1（薄封装、幂等、前置不足 Blocked/10、WhatIf 零落盘）；apps-config winget 段新增 axeprpr.SSHCopyID 并实机确认 portable 作用域后补齐 08 Full winget 消费方（Invoke-WindowsWingetCatalogInstall，镜像 scoop 包装）；99 新增 login-items 只读检查。trellis-implement/check 子代理流程含两轮顺序回归修复（WhatIf 契约、Blocked 优先于参数错误，附静态顺序守卫）。pnpm test:pwsh:all 双 lane 全绿（host 956/0，linux 954/0）。RustDesk Windows 单独任务待开。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5a996894` | (see git log) |
+
+### Status
+
+[OK] **Completed**

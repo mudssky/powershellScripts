@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 72
+- **Total Sessions**: 73
 - **Last Active**: 2026-09-09
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~89 | Active |
+| `journal-2.md` | ~110 | Active |
 | `journal-1.md` | ~1997 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -31,6 +31,7 @@
 
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 73 | 2026-09-09 | Windows WSL 自启接入流水线与 SSHCopyID 安装 | `5a996894` | `master` |
 | 72 | 2026-09-09 | shell 层接管登录 profile：受管块替代 01 直写 | `fde35788` | `master` |
 | 71 | 2026-09-09 | ser8 新机装机排障与 Linux 安装流水线四项修复 | `fc8c7dcb`, `849533f2`, `6dea7a41`, `9f730fb6` | `master` |
 | 70 | 2026-09-06 | browser-debug 支持 macOS/Linux 与平台快捷方式 | `c6b3b637` | `master` |
