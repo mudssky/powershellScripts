@@ -66,3 +66,24 @@ browser-debug CLI 扩展为三平台：local 模式全链路（create/start/stat
 ### Status
 
 [OK] **Completed**
+
+
+## Session 72: shell 层接管登录 profile：受管块替代 01 直写
+
+**Date**: 2026-09-09
+**Task**: shell 层接管登录 profile：受管块替代 01 直写
+**Branch**: `master`
+
+### Summary
+
+评审发现 849533f2 让 01 直写 .profile 越界且追加位置在 .bashrc source 之后：非交互登录 shell（bash -lc/ssh/cron）的 .bashrc 早退导致 fnm env 不加载，node/pnpm 不可见（ser8 实测）。按用户设计意见改为 shell 层统一接管：shell/deploy.sh 新增 marker 受管块（先 brew prefix 探测去重、后 fnm env，幂等原位替换、时间戳 .bak、dry-run、bash/zprofile 分派），01 撤销直写，交互 shared.d 片段零改动，spec 三层职责校准。trellis-implement/trellis-check 子代理流程，check 8 组边界实测通过；pnpm test:pwsh:all 双 lane 全绿（host 945/0，linux 943/0）；ser8 回归清理手工痕迹后仅受管块即三命令全可见、幂等复跑无重复。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `fde35788` | (see git log) |
+
+### Status
+
+[OK] **Completed**
