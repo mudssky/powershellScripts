@@ -570,6 +570,71 @@ function Invoke-WindowsScoopCatalogInstall {
     return $results.ToArray()
 }
 
+function Invoke-WindowsWingetCatalogInstall {
+    <#
+    .SYNOPSIS
+        从统一应用清单安装 Windows WinGet 应用子集。
+
+    .PARAMETER RepoRoot
+        仓库根目录。
+
+    .PARAMETER RequiredTag
+        必须全部命中的应用标签。
+
+    .PARAMETER Preview
+        只返回安装计划。
+
+    .OUTPUTS
+        PSCustomObject[]。逐应用安装结果；skipInstall 条目只产出 Skipped 结果。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [Parameter(Mandatory)]
+        [string[]]$RequiredTag,
+
+        [switch]$Preview
+    )
+
+    $resolvedRepoRoot = [System.IO.Path]::GetFullPath($RepoRoot)
+    if (-not (Get-Command Resolve-ConfigSources -ErrorAction SilentlyContinue) -or
+        -not (Get-Command Test-PackageManagerAppCatalog -ErrorAction SilentlyContinue) -or
+        -not (Get-Command Select-PackageManagerApps -ErrorAction SilentlyContinue) -or
+        -not (Get-Command Install-PackageManagerApps -ErrorAction SilentlyContinue)) {
+        Import-Module (Join-Path $resolvedRepoRoot 'psutils') -Force -Global
+    }
+    $configPath = Join-Path $resolvedRepoRoot 'profile/installer/apps-config.json'
+    $config = (Resolve-ConfigSources -Sources @(
+            @{ Type = 'JsonFile'; Name = 'AppsConfig'; Path = $configPath }
+        ) -BasePath $resolvedRepoRoot -ErrorOnMissing).Values
+    $null = Test-PackageManagerAppCatalog -ConfigObject $config
+    $packageManagers = ConvertTo-ConfigHashtable -InputObject $config.packageManagers
+    $selected = @(Select-PackageManagerApps `
+            -Apps @($packageManagers.winget) `
+            -TargetOS Windows `
+            -RequiredTag $RequiredTag)
+    if ($selected.Count -eq 0) {
+        return @(New-WindowsInstallResult -Name winget -Status Failed -Message ("没有匹配标签: {0}" -f ($RequiredTag -join ', ')) -ExitCode 1)
+    }
+    if (-not $Preview -and -not (Get-Command winget -ErrorAction SilentlyContinue)) {
+        return @(New-WindowsInstallResult -Name winget -Status Blocked -Message '缺少 winget，请先完成 00 quickstart 或安装 App Installer' -ExitCode 10)
+    }
+
+    $results = [System.Collections.Generic.List[object]]::new()
+    foreach ($appResult in @(Install-PackageManagerApps `
+                -PackageManager winget `
+                -ConfigObject $config `
+                -TargetOS Windows `
+                -RequiredTag $RequiredTag `
+                -Required `
+                -WhatIf:$Preview)) {
+        $results.Add($appResult)
+    }
+    return $results.ToArray()
+}
+
 function Test-WindowsScoopListContains {
     <#
     .SYNOPSIS
@@ -939,6 +1004,89 @@ function Set-WindowsManagedContent {
     return New-WindowsInstallResult -Name managed-config -Status RestartRequired -Message $message -ExitCode 10
 }
 
+function Get-WindowsWslSshLoginItemsState {
+    <#
+    .SYNOPSIS
+        读取 WSL SSH 开机自启受管资源的只读验证状态。
+
+    .DESCRIPTION
+        发现机制层 runtime 目录下的发行版配置，按 WslSshAccess.psm1 的资源命名定位计划任务，
+        并按该模块 Get-WslSshAccessHostState 的 Trigger/Principal 断言判定匹配；监听判定复用
+        相同的 LocalAddress 规则。全程只读，不启动、不修改任何资源，也不触碰 WSL 客体。
+
+    .PARAMETER RuntimeRoot
+        机制层 runtime 目录；测试可传临时目录。
+
+    .OUTPUTS
+        PSCustomObject。Configured 表示是否发现 runtime config；Items 为逐发行版状态快照。
+    #>
+    [CmdletBinding()]
+    param(
+        [string]$RuntimeRoot = $(if ($env:ProgramData) { Join-Path $env:ProgramData 'powershellScripts\wsl-ssh' } else { '' })
+    )
+
+    $state = [pscustomobject]@{
+        RuntimeRoot = $RuntimeRoot
+        Configured  = $false
+        Items       = @()
+    }
+    if ([string]::IsNullOrWhiteSpace($RuntimeRoot) -or -not (Test-Path -LiteralPath $RuntimeRoot -PathType Container)) {
+        return $state
+    }
+    $configFiles = @(Get-ChildItem -LiteralPath $RuntimeRoot -Filter '*.json' -File |
+        Where-Object { $_.Name -notlike '*.status.json' } | Sort-Object Name)
+    if ($configFiles.Count -eq 0) {
+        return $state
+    }
+    if (-not (Get-Command Get-WslSshAccessResourceNames -ErrorAction SilentlyContinue)) {
+        Import-Module (Join-Path $script:RepoRoot 'windows/wsl/WslSshAccess.psm1') -Force -Global
+    }
+    $items = [System.Collections.Generic.List[object]]::new()
+    foreach ($configFile in $configFiles) {
+        $item = [pscustomobject]@{
+            Distribution      = ''
+            TaskName          = ''
+            ListenPort        = 0
+            ConfigValid       = $false
+            TaskExists        = $false
+            TaskMatches       = $false
+            ListenerListening = $false
+        }
+        $listenAddress = ''
+        try {
+            $config = Get-Content -LiteralPath $configFile.FullName -Raw | ConvertFrom-Json
+            $item.Distribution = [string]$config.distribution
+            $item.ListenPort = [int]$config.listenPort
+            $listenAddress = [string]$config.listenAddress
+            $item.ConfigValid = -not [string]::IsNullOrWhiteSpace($item.Distribution) -and $item.ListenPort -gt 0
+        }
+        catch {
+            $item.ConfigValid = $false
+        }
+        if (-not $item.ConfigValid) {
+            $items.Add($item)
+            continue
+        }
+        $names = Get-WslSshAccessResourceNames -Distribution $item.Distribution
+        $item.TaskName = [string]$names.TaskName
+        $task = Get-ScheduledTask -TaskName $names.TaskName -ErrorAction SilentlyContinue
+        $item.TaskExists = $null -ne $task
+        $item.TaskMatches = $item.TaskExists -and
+            [string]$task.Principal.LogonType -eq 'S4U' -and
+            [string]$task.Principal.RunLevel -eq 'Highest' -and
+            @($task.Triggers).Count -eq 1 -and
+            [string]$task.Triggers[0].CimClass.CimClassName -eq 'MSFT_TaskBootTrigger'
+        $listenerConnection = @(Get-NetTCPConnection -LocalPort $item.ListenPort -State Listen -ErrorAction SilentlyContinue |
+            Where-Object { $null -ne $_ -and $_.LocalAddress -in @($listenAddress, '0.0.0.0') } |
+            Select-Object -First 1)
+        $item.ListenerListening = $listenerConnection.Count -gt 0
+        $items.Add($item)
+    }
+    $state.Configured = $true
+    $state.Items = $items.ToArray()
+    return $state
+}
+
 Export-ModuleMember -Function @(
     'ConvertTo-WindowsArchitecture',
     'Get-WindowsCommandAvailability',
@@ -951,6 +1099,7 @@ Export-ModuleMember -Function @(
     'Import-WindowsPackageCatalog',
     'Invoke-WindowsNativeCommand',
     'Invoke-WindowsScoopCatalogInstall',
+    'Invoke-WindowsWingetCatalogInstall',
     'Test-WindowsScoopListContains',
     'Initialize-WindowsScoopBucket',
     'Test-WindowsUserStageContext',
@@ -959,5 +1108,6 @@ Export-ModuleMember -Function @(
     'Update-WindowsProcessPath',
     'Add-WindowsUserPathEntry',
     'ConvertTo-WindowsWslConfigContent',
+    'Get-WindowsWslSshLoginItemsState',
     'Set-WindowsManagedContent'
 )

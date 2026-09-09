@@ -29,7 +29,7 @@ pwsh windows/99verifyInstall.ps1 `
 - 普通用户进程在提升前预检 Git、PowerShell、Full/AutoHotkey 和 IncludeWsl；一次 00 调用最多启动一个 allowlist UAC 子进程。
 - 提升 executor 只接受 `WingetInstall`、`MsiInstall`、`ExeInstaller`、`WslInstall`，参数由代码生成；禁止配置或 plan 注入任意脚本文本。
 - Scoop、Profile、用户 PATH、AHK Startup 和 `.wslconfig` 不得在提升进程中执行。提升后的 Stage 1 必须返回 Blocked/10。
-- Core Scoop 真源为 `Windows + core + cli`，当前精确 13 项并包含 Delta；Tealdeer 不进入原生 Windows Core/Full。Full 只追加 `Windows + cli + terminal-extras` 和 AutoHotkey，不默认安装 GUI。
+- Core Scoop 真源为 `Windows + core + cli`，当前精确 13 项并包含 Delta；Tealdeer 不进入原生 Windows Core/Full。Full 只追加 `Windows + cli + terminal-extras` 和 AutoHotkey，不默认安装 GUI。08 消费 Scoop 与 winget 两个 catalog：Scoop 用 `cli + terminal-extras` 标签，winget 用 `full + platform` 标签（AutoHotkey 与 SSHCopyID；skipInstall 条目保持 Skipped，08 与 09 的 AutoHotkey 安装通过已安装检测天然幂等）。
 - 共享应用安装器解析命令后必须把参数数组赋给变量并使用真正的 splatting；禁止写 `@($arguments)` 作为调用参数，否则 Windows Scoop 会把 `install eza` 合并为单个参数。
 - 共享应用安装器必须有界捕获原生命令的全部 PowerShell 输出流，并把文本同步写回 Host，使直接运行叶子仍可观察安装进度；成功流仍只返回退出码，失败消息包含命令、退出码和最近输出尾部。Scoop 单项失败后继续后续应用，不自动重试。
 - Scoop 应用可通过清单 `bucket` 字段声明前置 bucket；统一 catalog 安装必须先调用通用幂等 helper，兼容新版对象和旧版文本输出。任一必需 bucket 添加失败时停止本批应用安装。字体安装复用同一 helper，不维护第二套 bucket 检测。

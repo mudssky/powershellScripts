@@ -86,7 +86,7 @@
             Platforms = @{
                 macos   = @{ Supported = $true; Path = 'macos/10configureLoginItems.zsh'; Runner = 'zsh'; PreviewArgument = '--dry-run' }
                 linux   = @{ Supported = $false }
-                windows = @{ Supported = $false }
+                windows = @{ Supported = $true; Path = 'windows/10deployWslAutostart.ps1'; Runner = 'pwsh'; PreviewArgument = '-WhatIf' }
             }
         }
         @{

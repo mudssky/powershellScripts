@@ -477,6 +477,14 @@
         "description": "替代win10的音量调节",
         "command": "winget install eartrumpet",
         "skipInstall": true
+      },
+      {
+        "name": "sshcopyid",
+        "cliName": "ssh-copy-id",
+        "description": "Windows 侧 ssh-copy-id 公钥分发工具，配合 WSL SSH 链路使用",
+        "command": "winget install --id axeprpr.SSHCopyID -e --accept-package-agreements --accept-source-agreements",
+        "supportOs": ["Windows"],
+        "tag": ["full", "platform"]
       }
     ],
     "cargo": [

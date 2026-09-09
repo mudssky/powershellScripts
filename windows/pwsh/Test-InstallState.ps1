@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    为 Windows 99 提供只读平台、catalog、Profile、AutoHotkey 和 WSL 检查。
+    为 Windows 99 提供只读平台、catalog、Profile、AutoHotkey、login-items 和 WSL 检查。
 
 .PARAMETER Step
     要检查的逻辑步骤数组。
@@ -41,14 +41,14 @@ $ErrorActionPreference = 'Stop'
 
 $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 Import-Module (Join-Path $repoRoot 'windows/pwsh/WindowsInstall.psm1') -Force
-$psutilsSteps = @('sources', 'core-cli', 'full-apps')
+$psutilsSteps = @('sources', 'core-cli', 'full-apps', 'login-items')
 if (@($Step | Where-Object { $_ -in $psutilsSteps }).Count -gt 0 -and
     (-not (Get-Command Resolve-ConfigSources -ErrorAction SilentlyContinue) -or
         -not (Get-Command Select-PackageManagerApps -ErrorAction SilentlyContinue) -or
         -not (Get-Command Test-ApplicationInstalled -ErrorAction SilentlyContinue))) {
     Import-Module (Join-Path $repoRoot 'psutils') -Force -Global
 }
-$platformSteps = @('platform', 'package-manager', 'pwsh', 'fonts', 'profile-tools', 'platform-automation', 'wsl-host')
+$platformSteps = @('platform', 'package-manager', 'pwsh', 'fonts', 'profile-tools', 'platform-automation', 'login-items', 'wsl-host')
 $platform = if (@($Step | Where-Object { $_ -in $platformSteps }).Count -gt 0) {
     Get-WindowsInstallEnvironment
 }
@@ -206,6 +206,38 @@ foreach ($stepName in $Step) {
             $expected = ConvertTo-WindowsWslConfigContent -Catalog $packageCatalog -BuildNumber ([int]$platform.BuildNumber)
             $matches = $WslConfigTargetPath -and (Test-Path -LiteralPath $WslConfigTargetPath -PathType Leaf) -and ((Get-Content -LiteralPath $WslConfigTargetPath -Raw) -ceq $expected)
             Add-WindowsInstallCheck -StepName wsl-host -Name .wslconfig -Status $(if ($matches) { 'Pass' } else { 'Fail' }) -Message $WslConfigTargetPath
+        }
+        'login-items' {
+            if ($Preset -ne 'Full') {
+                Add-WindowsInstallCheck -StepName login-items -Name preset -Status Skipped -Message 'Core 不包含 login-items'
+                break
+            }
+            $sshCopyIdInstalled = Test-ApplicationInstalled -AppName 'ssh-copy-id'
+            Add-WindowsInstallCheck -StepName login-items -Name sshcopyid `
+                -Status $(if ($sshCopyIdInstalled) { 'Pass' } else { 'Warn' }) `
+                -Message $(if ($sshCopyIdInstalled) {
+                    '已安装'
+                }
+                else {
+                    '未检测到 ssh-copy-id；可执行 winget install --id axeprpr.SSHCopyID -e --accept-package-agreements --accept-source-agreements'
+                })
+            if (-not $platform.HasWsl) {
+                Add-WindowsInstallCheck -StepName login-items -Name wsl-ssh-task -Status Skipped -Message 'WSL 未安装，跳过 WSL SSH 自启检查'
+                break
+            }
+            $loginItems = Get-WindowsWslSshLoginItemsState
+            if (-not $loginItems.Configured) {
+                Add-WindowsInstallCheck -StepName login-items -Name wsl-ssh-task -Status Skipped -Message '尚未发现 WSL SSH runtime 配置，步骤 10 未在此机执行过'
+                break
+            }
+            foreach ($loginItem in @($loginItems.Items)) {
+                $taskStatus = if ($loginItem.ConfigValid -and $loginItem.TaskExists -and $loginItem.TaskMatches) { 'Pass' } else { 'Fail' }
+                Add-WindowsInstallCheck -StepName login-items -Name "wsl-ssh-task:$($loginItem.Distribution)" `
+                    -Status $taskStatus -Message "AtStartup+S4U 计划任务 $($loginItem.TaskName)"
+                $listenerStatus = if ($loginItem.ListenerListening) { 'Pass' } else { 'Fail' }
+                Add-WindowsInstallCheck -StepName login-items -Name "wsl-ssh-listener:$($loginItem.Distribution)" `
+                    -Status $listenerStatus -Message "端口 $($loginItem.ListenPort) 监听"
+            }
         }
     }
 }

@@ -211,9 +211,18 @@ Describe 'Windows 声明式 package catalog' {
         @($extras.tag | ForEach-Object { $_ }) | Should -Not -Contain 'gui'
     }
 
-    It 'AutoHotkey 是唯一默认 Full 平台 winget 条目' {
+    It '默认 Full 平台 winget 条目为 AutoHotkey 与 SSHCopyID' {
         $platformApps = @(Select-PackageManagerApps -Apps @($script:PackageManagers.winget) -TargetOS Windows -RequiredTag @('full', 'platform'))
-        @($platformApps.name) | Should -Be @('autohotkey')
+        @($platformApps.name) | Should -Be @('autohotkey', 'sshcopyid')
+    }
+
+    It '应用清单通过统一 catalog 校验且 SSHCopyID 满足 winget 条目契约' {
+        { Test-PackageManagerAppCatalog -ConfigObject $script:AppsConfig } | Should -Not -Throw
+        $sshCopyId = @($script:PackageManagers.winget | Where-Object { $_.name -eq 'sshcopyid' })
+        $sshCopyId.Count | Should -Be 1
+        $sshCopyId[0].cliName | Should -Be 'ssh-copy-id'
+        $sshCopyId[0].command | Should -Be 'winget install --id axeprpr.SSHCopyID -e --accept-package-agreements --accept-source-agreements'
+        @($sshCopyId[0].supportOs) | Should -Be @('Windows')
     }
 
     It 'Windows package catalog schema 和字体清单稳定' {
@@ -270,6 +279,51 @@ Describe 'Windows 声明式 package catalog' {
             $result[0].Status | Should -Be 'Failed'
             Should -Invoke Install-PackageManagerApps -Times 0 -Exactly
         }
+    }
+
+    It 'winget 包装 Preview 按 full/platform 产出安装计划并透传 WhatIf' {
+        $result = @(Invoke-WindowsWingetCatalogInstall `
+                -RepoRoot $script:RepoRoot `
+                -RequiredTag @('full', 'platform') `
+                -Preview)
+
+        $sshCopyId = @($result | Where-Object Name -eq 'sshcopyid')
+        $sshCopyId.Count | Should -Be 1
+        $sshCopyId[0].PackageManager | Should -Be 'winget'
+        $sshCopyId[0].Command | Should -Be 'winget install --id axeprpr.SSHCopyID -e --accept-package-agreements --accept-source-agreements'
+        $autoHotkey = @($result | Where-Object Name -eq 'autohotkey')
+        $autoHotkey[0].Command | Should -Be 'winget install --id AutoHotkey.AutoHotkey --exact'
+
+        # skipInstall 且无标签的 eartrumpet 不进入统一安装结果。
+        @($result | Where-Object Name -eq 'eartrumpet').Count | Should -Be 0
+
+        # Preview 透传后最多产出 Preview/AlreadyPresent，不产生真实安装或失败。
+        @($result | Where-Object { $_.Status -in @('Installed', 'Failed', 'Blocked') }).Count | Should -Be 0
+        @($result | Where-Object Name -in @('autohotkey', 'sshcopyid') | Where-Object Status -notin @('Preview', 'AlreadyPresent')).Count | Should -Be 0
+    }
+
+    It 'winget 包装按 RequiredTag 过滤且无匹配条目时返回 Failed' {
+        $result = @(Invoke-WindowsWingetCatalogInstall `
+                -RepoRoot $script:RepoRoot `
+                -RequiredTag @('core', 'cli') `
+                -Preview)
+
+        $result.Count | Should -Be 1
+        $result[0].Name | Should -Be 'winget'
+        $result[0].Status | Should -Be 'Failed'
+        $result[0].ExitCode | Should -Be 1
+        $result[0].Message | Should -Be '没有匹配标签: core, cli'
+    }
+
+    It '缺少 winget 时真实执行返回 Blocked/10' -Skip:$IsWindows {
+        $result = @(Invoke-WindowsWingetCatalogInstall `
+                -RepoRoot $script:RepoRoot `
+                -RequiredTag @('full', 'platform'))
+
+        $result.Count | Should -Be 1
+        $result[0].Status | Should -Be 'Blocked'
+        $result[0].ExitCode | Should -Be 10
+        $result[0].Message | Should -Match 'winget'
     }
 
     It '应用清单只允许 Scoop 条目声明合法 bucket' {
@@ -429,6 +483,149 @@ Describe 'Windows WSL 配置合同' {
     }
 }
 
+Describe 'Windows 步骤 10 login-items 接线' {
+    It '叶子 -WhatIf 输出委托计划且零落盘退出 0' {
+        $result = Invoke-WindowsTestProcess `
+            -ScriptPath (Join-Path $script:RepoRoot 'windows/10deployWslAutostart.ps1') `
+            -ArgumentList @('-WhatIf')
+
+        $result.ExitCode | Should -Be 0 -Because $result.Stderr
+        $result.Stdout | Should -Match '\[Preview\]'
+        $result.Stdout | Should -Match 'Initialize-WslSshAccess'
+        $result.Stdout | Should -Match '-ListenPort 2222'
+        $result.Stdout | Should -Match '-GuestPort 2223'
+
+        # 无 USER/USERNAME 环境同样零落盘退出 0，以占位符呈现并附注意项。
+        $anonymousResult = Invoke-WindowsTestProcess `
+            -ScriptPath (Join-Path $script:RepoRoot 'windows/10deployWslAutostart.ps1') `
+            -ArgumentList @('-WhatIf') `
+            -Environment @{ USER = ''; USERNAME = '' }
+        $anonymousResult.ExitCode | Should -Be 0 -Because $anonymousResult.Stderr
+        $anonymousResult.Stdout | Should -Match '\(当前用户\)'
+
+        # 显式公钥路径按原值回显，与真实透传参数一致。
+        $keyPath = Join-Path $TestDrive 'controller.pub'
+        Set-Content -LiteralPath $keyPath -Value 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE0U+v3dbT3bF7l6b3Vq7Z1W8pQ0jY8+YqjQ2YyK0fX fixture' -NoNewline
+        $explicitResult = Invoke-WindowsTestProcess `
+            -ScriptPath (Join-Path $script:RepoRoot 'windows/10deployWslAutostart.ps1') `
+            -ArgumentList @('-WhatIf', '-AuthorizedKeyPath', $keyPath)
+        $explicitResult.ExitCode | Should -Be 0 -Because $explicitResult.Stderr
+        $explicitResult.Stdout | Should -Match ([regex]::Escape($keyPath))
+    }
+
+    It 'WSL 缺席时叶子真实执行返回 Blocked/10 且不做任何修改' -Skip:$IsWindows {
+        # 顺序契约：WSL/build 前置不足必须优先于用户参数校验返回 Blocked/10（否则无 USER 容器误报 exit 2）。
+        $leafContent = Get-Content -LiteralPath (Join-Path $script:RepoRoot 'windows/10deployWslAutostart.ps1') -Raw
+        $leafContent.IndexOf('前置条件不足，未做任何修改') |
+            Should -BeLessThan $leafContent.IndexOf('无法解析当前 Windows/WSL 用户')
+
+        $result = Invoke-WindowsTestProcess `
+            -ScriptPath (Join-Path $script:RepoRoot 'windows/10deployWslAutostart.ps1') `
+            -ArgumentList @()
+
+        $result.ExitCode | Should -Be 10
+        $result.Stdout | Should -Match '\[Blocked\]'
+        $result.Stderr | Should -Not -BeNullOrEmpty
+    }
+
+    It 'runtime config 缺失时报告未配置' {
+        InModuleScope WindowsInstall -Parameters @{ TestRoot = $TestDrive } {
+            param($TestRoot)
+            $emptyRoot = Join-Path $TestRoot 'wsl-ssh-empty'
+            New-Item -ItemType Directory -Path $emptyRoot -Force | Out-Null
+
+            $state = Get-WindowsWslSshLoginItemsState -RuntimeRoot $emptyRoot
+            $state.Configured | Should -BeFalse
+            @($state.Items).Count | Should -Be 0
+
+            $state = Get-WindowsWslSshLoginItemsState -RuntimeRoot (Join-Path $TestRoot 'wsl-ssh-missing')
+            $state.Configured | Should -BeFalse
+        }
+    }
+
+    It '计划任务 Trigger/Principal 匹配与监听判定复用机制层资源命名' {
+        InModuleScope WindowsInstall -Parameters @{ TestRoot = $TestDrive } {
+            param($TestRoot)
+            $runtimeRoot = Join-Path $TestRoot 'wsl-ssh'
+            New-Item -ItemType Directory -Path $runtimeRoot -Force | Out-Null
+            Set-Content -LiteralPath (Join-Path $runtimeRoot 'ubuntu-24-04.json') `
+                -Value '{"schemaVersion":1,"distribution":"Ubuntu-24.04","listenAddress":"0.0.0.0","listenPort":2222,"guestPort":2223}' `
+                -Encoding utf8NoBOM
+            Set-Content -LiteralPath (Join-Path $runtimeRoot 'ubuntu-24-04.status.json') `
+                -Value '{"wslIPv4":"100.100.1.1"}' -Encoding utf8NoBOM
+
+            # Linux CI 没有 ScheduledTasks/NetTCPIP 模块，先定义同名空实现供 Pester 拦截。
+            function Get-ScheduledTask { }
+            function Get-NetTCPConnection { }
+            Mock Get-ScheduledTask {
+                [pscustomobject]@{
+                    Principal = [pscustomobject]@{ LogonType = 'S4U'; RunLevel = 'Highest'; UserId = 'fixture-user' }
+                    Triggers  = @([pscustomobject]@{ CimClass = [pscustomobject]@{ CimClassName = 'MSFT_TaskBootTrigger' } })
+                }
+            }
+            Mock Get-NetTCPConnection {
+                [pscustomobject]@{ LocalAddress = '0.0.0.0'; LocalPort = 2222; State = 'Listen' }
+            }
+
+            $state = Get-WindowsWslSshLoginItemsState -RuntimeRoot $runtimeRoot
+            $state.Configured | Should -BeTrue
+            @($state.Items).Count | Should -Be 1
+            $item = @($state.Items)[0]
+            $item.Distribution | Should -Be 'Ubuntu-24.04'
+            $item.TaskName | Should -Be 'powershellScripts-WSL-SSH-ubuntu-24-04'
+            $item.TaskExists | Should -BeTrue
+            $item.TaskMatches | Should -BeTrue
+            $item.ListenerListening | Should -BeTrue
+        }
+    }
+
+    It 'Principal 非 S4U 或监听缺失时判定为不匹配' {
+        InModuleScope WindowsInstall -Parameters @{ TestRoot = $TestDrive } {
+            param($TestRoot)
+            $runtimeRoot = Join-Path $TestRoot 'wsl-ssh-mismatch'
+            New-Item -ItemType Directory -Path $runtimeRoot -Force | Out-Null
+            Set-Content -LiteralPath (Join-Path $runtimeRoot 'ubuntu-24-04.json') `
+                -Value '{"schemaVersion":1,"distribution":"Ubuntu-24.04","listenAddress":"0.0.0.0","listenPort":2222,"guestPort":2223}' `
+                -Encoding utf8NoBOM
+
+            # Linux CI 没有 ScheduledTasks/NetTCPIP 模块，先定义同名空实现供 Pester 拦截。
+            function Get-ScheduledTask { }
+            function Get-NetTCPConnection { }
+            Mock Get-ScheduledTask {
+                [pscustomobject]@{
+                    Principal = [pscustomobject]@{ LogonType = 'Interactive'; RunLevel = 'Limited'; UserId = 'fixture-user' }
+                    Triggers  = @([pscustomobject]@{ CimClass = [pscustomobject]@{ CimClassName = 'MSFT_TaskLogonTrigger' } })
+                }
+            }
+            Mock Get-NetTCPConnection { $null }
+
+            $state = Get-WindowsWslSshLoginItemsState -RuntimeRoot $runtimeRoot
+            $item = @($state.Items)[0]
+            $item.TaskExists | Should -BeTrue
+            $item.TaskMatches | Should -BeFalse
+            $item.ListenerListening | Should -BeFalse
+        }
+    }
+
+    It '99 对 login-items 输出单文档 JSON 且未配置场景不失败' {
+        $result = Invoke-WindowsTestProcess `
+            -ScriptPath (Join-Path $script:RepoRoot 'windows/99verifyInstall.ps1') `
+            -ArgumentList @('-Preset', 'Full', '-Step', 'login-items', '-OutputFormat', 'Json')
+
+        $result.ExitCode | Should -Be 0 -Because $result.Stderr
+        $document = $result.Stdout | ConvertFrom-Json
+        $document.SchemaVersion | Should -Be 1
+        $loginResults = @($document.Results | Where-Object Step -eq 'login-items')
+        $loginResults.Count | Should -BeGreaterOrEqual 2
+        @($loginResults.Name) | Should -Contain 'sshcopyid'
+        $sshCopyIdResult = @($loginResults | Where-Object Name -eq 'sshcopyid')[0]
+        $sshCopyIdResult.Status | Should -BeIn @('Pass', 'Warn')
+        $wslTaskResults = @($loginResults | Where-Object { $_.Name -like 'wsl-ssh-task*' })
+        $wslTaskResults.Count | Should -Be 1
+        $wslTaskResults[0].Status | Should -BeIn @('Pass', 'Skipped')
+    }
+}
+
 Describe 'Windows Stage 0 与叶子入口' {
     It '远程 bootstrap manifest 覆盖最小资产且 hash 全部匹配' {
         $manifest = Import-PowerShellDataFile -LiteralPath (Join-Path $script:RepoRoot 'windows/bootstrap/bootstrap-manifest.psd1')
@@ -467,11 +664,32 @@ Describe 'Windows Stage 0 与叶子入口' {
         $executor | Should -Match '拒绝资产树之外的 source helper'
     }
 
-    It '根步骤注册表启用 Windows 03/05/06/07/08/09/99 且保持 04/10/11 unsupported' {
+    It '根步骤注册表启用 Windows 03/05/06/07/08/09/10/99 且保持 04/11 unsupported' {
         Import-Module (Join-Path $script:RepoRoot 'scripts/pwsh/install/InstallOrchestrator.psm1') -Force
         $registry = Import-InstallStepRegistry -Path (Join-Path $script:RepoRoot 'config/install/steps.psd1')
         $catalog = @(Get-InstallStepCatalog -Registry $registry -Platform windows)
-        @($catalog | Where-Object Supported | ForEach-Object Number) | Should -Be @('03', '05', '06', '07', '08', '09', '99')
-        @($catalog | Where-Object { -not $_.Supported } | ForEach-Object Number) | Should -Be @('04', '10', '11')
+        @($catalog | Where-Object Supported | ForEach-Object Number) | Should -Be @('03', '05', '06', '07', '08', '09', '10', '99')
+        @($catalog | Where-Object { -not $_.Supported } | ForEach-Object Number) | Should -Be @('04', '11')
+        $loginItemsStep = @($catalog | Where-Object Number -eq '10')[0]
+        $loginItemsStep.Id | Should -Be 'login-items'
+        $loginItemsStep.Path | Should -Be 'windows/10deployWslAutostart.ps1'
+        $loginItemsStep.Runner | Should -Be 'pwsh'
+        $loginItemsRegistryEntry = @($registry.Steps | Where-Object { [string]$_.Id -eq 'login-items' })[0]
+        [string]$loginItemsRegistryEntry.Platforms['windows'].PreviewArgument | Should -Be '-WhatIf'
+    }
+
+    It '08 -WhatIf 同时输出 Scoop 与 WinGet 安装计划且零副作用退出 0' {
+        $result = Invoke-WindowsTestProcess `
+            -ScriptPath (Join-Path $script:RepoRoot 'windows/08installFullApps.ps1') `
+            -ArgumentList @('-WhatIf')
+
+        $result.ExitCode | Should -Be 0 -Because $result.Stderr
+        # Scoop terminal-extras 计划仍在，且追加的 winget 段覆盖 sshcopyid。
+        $result.Stdout | Should -Match 'ast-grep'
+        $result.Stdout | Should -Match 'sshcopyid'
+        # winget 段两行：autohotkey/sshcopyid 为 Preview（宿主已装则 AlreadyPresent）；eartrumpet 被标签过滤排除。
+        $wingetLines = @($result.Stdout -split "`n" | Where-Object { $_ -match '^\[[A-Za-z]+\] (autohotkey|eartrumpet|sshcopyid)' })
+        $wingetLines.Count | Should -Be 2
+        @($wingetLines | Where-Object { $_ -match '^\[(Preview|AlreadyPresent)\] (autohotkey|sshcopyid)' }).Count | Should -Be 2
     }
 }
