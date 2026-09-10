@@ -108,3 +108,24 @@ brainstorm 勘察确认 WSL 自启机制层已存在（windows/wsl AtStartup+S4U
 ### Status
 
 [OK] **Completed**
+
+
+## Session 74: browser-debug LAN 指南自动探测 Tailscale 地址
+
+**Date**: 2026-09-10
+**Task**: browser-debug LAN 指南自动探测 Tailscale 地址
+**Branch**: `master`
+
+### Summary
+
+为 browser-debug LAN 启动指南增加 Tailscale 地址自动探测：新增 Resolve-BrowserDebugTailscaleAddress 只读解析 tailscale status --json（3s 超时，全失败静默回退），Tailnet endpoint/探测/attach/Agent Prompt 改用真实 100.64/10 IPv4 并渲染主机名与 MagicDNS 别名可复制字段；未检测到时保持占位符加提示。同步 spec 合同、docs 索引与 6 个新 Pester 用例；pnpm test:pwsh:all 双车道全绿，qa 格式化步骤因本机缺 cargo 未跑（需 CI/WSL 补跑 format:pwsh）。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `40138881` | (see git log) |
+
+### Status
+
+[OK] **Completed**
