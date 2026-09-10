@@ -1169,6 +1169,116 @@ function Add-BrowserDebugProfileShortcut {
 
 <##
 .SYNOPSIS
+    判断 IPv4 字符串是否落在 Tailscale CGNAT 网段。
+.PARAMETER Value
+    待校验的 IPv4 字符串。
+.OUTPUTS
+    System.Boolean
+    返回该地址是否属于 100.64.0.0/10（100.64.0.0-100.127.255.255）。
+#>
+function Test-BrowserDebugCgnatIpv4 {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Value)
+    if ($Value -notmatch '^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$') { return $false }
+    foreach ($octetText in @($Matches[1], $Matches[2], $Matches[3], $Matches[4])) {
+        if ([int]$octetText -gt 255) { return $false }
+    }
+    $secondOctet = [int]$Matches[2]
+    return ([int]$Matches[1] -eq 100) -and ($secondOctet -ge 64) -and ($secondOctet -le 127)
+}
+
+<##
+.SYNOPSIS
+    运行 tailscale status --json 并返回标准输出。
+.PARAMETER ExecutablePath
+    tailscale 可执行文件绝对路径。
+.OUTPUTS
+    System.String
+    返回 JSON 文本；不可执行、非零退出或 3 秒超时返回 $null。
+#>
+function Invoke-BrowserDebugTailscaleStatus {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$ExecutablePath)
+    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = $ExecutablePath
+    $startInfo.Arguments = 'status --json'
+    $startInfo.UseShellExecute = $false
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    $startInfo.CreateNoWindow = $true
+    $process = [System.Diagnostics.Process]::Start($startInfo)
+    if (-not $process) { return $null }
+    # 先异步读满 stdout，避免管道缓冲写满导致子进程阻塞到超时。
+    $outputTask = $process.StandardOutput.ReadToEndAsync()
+    if (-not $process.WaitForExit(3000)) {
+        $process.Kill()
+        return $null
+    }
+    if ($process.ExitCode -ne 0) { return $null }
+    return $outputTask.GetAwaiter().GetResult()
+}
+
+<##
+.SYNOPSIS
+    只读探测本机 Tailscale 地址信息。
+.PARAMETER StatusInvoker
+    测试注入点：接收返回 `tailscale status --json` JSON 文本的脚本块；提供后跳过可执行文件定位与进程执行。
+.OUTPUTS
+    System.Management.Automation.PSCustomObject
+    返回 ipv4、magicDnsName、hostName；tailscale 缺失、未登录、超时或解析失败返回 $null。
+#>
+function Resolve-BrowserDebugTailscaleAddress {
+    [CmdletBinding()]
+    param([scriptblock]$StatusInvoker)
+
+    try {
+        $statusJson = $null
+        if ($StatusInvoker) {
+            # 脚本块可能按行输出，合并为单字符串后再解析。
+            $statusJson = @(& $StatusInvoker) -join "`n"
+        }
+        else {
+            $command = Get-Command tailscale.exe, tailscale -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+            if (-not $command) { return $null }
+            $statusJson = Invoke-BrowserDebugTailscaleStatus -ExecutablePath $command.Source
+        }
+        if ([string]::IsNullOrWhiteSpace([string]$statusJson)) { return $null }
+        $parsed = ([string]$statusJson) | ConvertFrom-Json
+        $selfProperty = $parsed.PSObject.Properties['Self']
+        if (-not $selfProperty) { return $null }
+        $self = $selfProperty.Value
+        $ipv4 = $null
+        $ipsProperty = $self.PSObject.Properties['TailscaleIPs']
+        if ($ipsProperty) {
+            foreach ($candidate in @($ipsProperty.Value)) {
+                if (Test-BrowserDebugCgnatIpv4 -Value ([string]$candidate)) { $ipv4 = [string]$candidate; break }
+            }
+        }
+        if (-not $ipv4) { return $null }
+        $magicDnsName = $null
+        $dnsNameProperty = $self.PSObject.Properties['DNSName']
+        if ($dnsNameProperty) {
+            $candidate = ([string]$dnsNameProperty.Value).Trim().TrimEnd('.')
+            if ($candidate) { $magicDnsName = $candidate }
+        }
+        $hostName = $null
+        $hostNameProperty = $self.PSObject.Properties['HostName']
+        if ($hostNameProperty) { $hostName = ([string]$hostNameProperty.Value).Trim() }
+        if (-not $hostName -and $magicDnsName) { $hostName = $magicDnsName.Split('.')[0] }
+        if ($hostName -and $hostName -notmatch '^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?$') { $hostName = $null }
+        return [pscustomobject]@{
+            ipv4         = $ipv4
+            magicDnsName = $magicDnsName
+            hostName     = if ($hostName) { $hostName } else { $null }
+        }
+    }
+    catch {
+        return $null
+    }
+}
+
+<##
+.SYNOPSIS
     构造启动帮助页使用的不可变快照。
 .PARAMETER Profile
     Profile 注册对象。
@@ -1201,12 +1311,17 @@ function New-BrowserDebugGuideSnapshot {
     $tailscale = $null
     $sshLocalForward = $null
     if ([string]$StartResult.mode -eq 'lan') {
-        $tailscaleEndpoint = "http://<本机 MagicDNS 或 Tailscale IP>:$actualPort"
+        $tailscaleAddress = Resolve-BrowserDebugTailscaleAddress
+        $tailscaleHost = if ($tailscaleAddress) { $tailscaleAddress.ipv4 } else { '<本机 MagicDNS 或 Tailscale IP>' }
+        $tailscaleEndpoint = "http://${tailscaleHost}:$actualPort"
         $tailscale = [pscustomobject]@{
             enableCommand     = "tailscale serve --bg --yes --tcp=$actualPort tcp://127.0.0.1:$actualPort"
             statusCommand     = 'tailscale serve status'
             disableCommand    = "tailscale serve --tcp=$actualPort off"
             endpoint          = $tailscaleEndpoint
+            hostnameEndpoint  = if ($tailscaleAddress -and $tailscaleAddress.hostName) { "http://$($tailscaleAddress.hostName):$actualPort" } else { $null }
+            aliasEndpoint     = if ($tailscaleAddress -and $tailscaleAddress.magicDnsName) { "http://$($tailscaleAddress.magicDnsName):$actualPort" } else { $null }
+            detected          = [bool]$tailscaleAddress
             probeUrl          = "$tailscaleEndpoint/json/version"
             playwrightCommand = "playwright-cli attach --cdp=$tailscaleEndpoint"
             agentPrompt       = "请通过 Tailnet 连接现有浏览器，不要创建新的浏览器实例。先确认 $tailscaleEndpoint/json/version 可访问，然后执行 ``playwright-cli attach --cdp=$tailscaleEndpoint``；访问权限受 Tailscale ACL/Grants 控制。"
@@ -1292,7 +1407,18 @@ function ConvertTo-BrowserDebugGuideHtml {
     $metadataSection = "<aside class=`"tool-panel metadata-panel`"><div class=`"panel-heading`"><div><span class=`"section-kicker`">运行上下文</span><h2>Profile metadata</h2></div></div><dl class=`"metadata-grid`"><div class=`"meta-row`"><dt class=`"meta-label`">Profile 路径</dt><dd class=`"meta-value`">$(& $encode $Snapshot.profilePath)</dd></div><div class=`"meta-row`"><dt class=`"meta-label`">浏览器</dt><dd class=`"meta-value`">$(& $encode $Snapshot.browser)</dd></div><div class=`"meta-row`"><dt class=`"meta-label`">请求监听地址</dt><dd class=`"meta-value`">$(& $encode $Snapshot.listenAddress)</dd></div><div class=`"meta-row`"><dt class=`"meta-label`">请求模式</dt><dd class=`"meta-value`">$(& $encode $Snapshot.mode)</dd></div></dl></aside>"
     $remoteGuidance = ''
     if ([string]$Snapshot.mode -eq 'lan') {
-        $remoteGuidance = "<aside class=`"risk-notice unavailable`" role=`"note`"><div class=`"risk-icon`" aria-hidden=`"true`">!</div><div><strong>远程 CDP 直连当前不生效</strong><p>当前 Windows Chrome/Edge 实际只监听 127.0.0.1；LAN 模式与请求监听地址不代表存在真实 LAN listener。请选择 Tailscale Serve 或 ssh -L。</p></div></aside><div class=`"scenario-stack`"><section class=`"scenario-section lan-section`"><div class=`"section-heading`"><div><span class=`"section-kicker`">推荐 · 多设备共享</span><h2>Tailscale Serve</h2></div><span class=`"semantic-tag tag-lan`">Tailnet</span></div><p class=`"connection-note`">只在 Tailnet 内提供访问，权限仍受 Tailscale ACL/Grants 控制；关闭示例只关闭当前 CDP TCP 端口。</p>$(& $copyField '启用 TCP forwarder' ([string]$Snapshot.tailscale.enableCommand) 'ssh')$(& $copyField '查看 Serve 状态' ([string]$Snapshot.tailscale.statusCommand))$(& $copyField '关闭当前 CDP 端口' ([string]$Snapshot.tailscale.disableCommand))$(& $copyField 'Tailnet endpoint' ([string]$Snapshot.tailscale.endpoint) 'connect')$(& $copyField '探测地址' ([string]$Snapshot.tailscale.probeUrl))$(& $copyField 'Playwright attach' ([string]$Snapshot.tailscale.playwrightCommand))</section><section class=`"scenario-section ssh-section`"><div class=`"section-heading`"><div><span class=`"section-kicker`">单设备 · 临时连接</span><h2>SSH local forward</h2></div><span class=`"semantic-tag tag-ssh`">远端执行</span></div>$(& $copyField 'ssh -L 命令' ([string]$Snapshot.sshLocalForward.sshCommand) 'ssh')$(& $copyField '远端本地 endpoint' ([string]$Snapshot.sshLocalForward.endpoint) 'connect')$(& $copyField '探测地址' ([string]$Snapshot.sshLocalForward.probeUrl))$(& $copyField 'Playwright attach' ([string]$Snapshot.sshLocalForward.playwrightCommand))</section></div>"
+        $tailscaleDetectedProperty = $Snapshot.tailscale.PSObject.Properties['detected']
+        $tailscaleDetected = $tailscaleDetectedProperty -and [bool]$tailscaleDetectedProperty.Value
+        $tailscaleAliasFields = ''
+        foreach ($aliasField in @(@('hostnameEndpoint', '主机名别名 endpoint'), @('aliasEndpoint', 'MagicDNS 别名 endpoint'))) {
+            $aliasProperty = $Snapshot.tailscale.PSObject.Properties[$aliasField[0]]
+            if ($aliasProperty -and -not [string]::IsNullOrWhiteSpace([string]$aliasProperty.Value)) {
+                $tailscaleAliasFields += $(& $copyField $aliasField[1] ([string]$aliasProperty.Value) 'connect')
+            }
+        }
+        $lanNote = '只在 Tailnet 内提供访问，权限仍受 Tailscale ACL/Grants 控制；关闭示例只关闭当前 CDP TCP 端口。'
+        if (-not $tailscaleDetected) { $lanNote += '未在本机检测到可用的 Tailscale（未安装或未登录），endpoint 为占位符，请自行替换。' }
+        $remoteGuidance = "<aside class=`"risk-notice unavailable`" role=`"note`"><div class=`"risk-icon`" aria-hidden=`"true`">!</div><div><strong>远程 CDP 直连当前不生效</strong><p>当前 Windows Chrome/Edge 实际只监听 127.0.0.1；LAN 模式与请求监听地址不代表存在真实 LAN listener。请选择 Tailscale Serve 或 ssh -L。</p></div></aside><div class=`"scenario-stack`"><section class=`"scenario-section lan-section`"><div class=`"section-heading`"><div><span class=`"section-kicker`">推荐 · 多设备共享</span><h2>Tailscale Serve</h2></div><span class=`"semantic-tag tag-lan`">Tailnet</span></div><p class=`"connection-note`">$lanNote</p>$(& $copyField '启用 TCP forwarder' ([string]$Snapshot.tailscale.enableCommand) 'ssh')$(& $copyField '查看 Serve 状态' ([string]$Snapshot.tailscale.statusCommand))$(& $copyField '关闭当前 CDP 端口' ([string]$Snapshot.tailscale.disableCommand))$(& $copyField 'Tailnet endpoint' ([string]$Snapshot.tailscale.endpoint) 'connect')$tailscaleAliasFields$(& $copyField '探测地址' ([string]$Snapshot.tailscale.probeUrl))$(& $copyField 'Playwright attach' ([string]$Snapshot.tailscale.playwrightCommand))</section><section class=`"scenario-section ssh-section`"><div class=`"section-heading`"><div><span class=`"section-kicker`">单设备 · 临时连接</span><h2>SSH local forward</h2></div><span class=`"semantic-tag tag-ssh`">远端执行</span></div>$(& $copyField 'ssh -L 命令' ([string]$Snapshot.sshLocalForward.sshCommand) 'ssh')$(& $copyField '远端本地 endpoint' ([string]$Snapshot.sshLocalForward.endpoint) 'connect')$(& $copyField '探测地址' ([string]$Snapshot.sshLocalForward.probeUrl))$(& $copyField 'Playwright attach' ([string]$Snapshot.sshLocalForward.playwrightCommand))</section></div>"
     }
     $registeredSshSection = if ($sshRows.Count -gt 0) { "<section class=`"scenario-section registered-ssh-section`"><div class=`"section-heading`"><div><span class=`"section-kicker`">已登记高级配置</span><h2>SSH configurations</h2></div><span class=`"section-count`">$($sshRows.Count) 个配置</span></div><div class=`"connection-list`">$($sshRows -join [Environment]::NewLine)</div></section>" } else { '' }
     $agentSection = "<section class=`"scenario-section agent-section`"><div class=`"section-heading`"><div><span class=`"section-kicker`">Agent 交接</span><h2>Agent Prompts</h2></div></div><div class=`"connection-list`">$($promptRows -join [Environment]::NewLine)</div></section>"

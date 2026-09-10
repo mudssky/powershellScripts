@@ -709,8 +709,48 @@ Describe 'browser-debug 快捷方式' -Tag 'windowsOnly' {
     }
 }
 
+Describe 'browser-debug Tailscale 地址探测' {
+    It 'CGNAT 网段判定只放行 100.64.0.0/10' {
+        Test-BrowserDebugCgnatIpv4 -Value '100.64.0.1' | Should -BeTrue
+        Test-BrowserDebugCgnatIpv4 -Value '100.127.255.254' | Should -BeTrue
+        Test-BrowserDebugCgnatIpv4 -Value '100.63.255.254' | Should -BeFalse
+        Test-BrowserDebugCgnatIpv4 -Value '100.128.0.1' | Should -BeFalse
+        Test-BrowserDebugCgnatIpv4 -Value '192.168.1.1' | Should -BeFalse
+        Test-BrowserDebugCgnatIpv4 -Value '100.101.7.256' | Should -BeFalse
+        Test-BrowserDebugCgnatIpv4 -Value 'not-an-ip' | Should -BeFalse
+    }
+
+    It '从 status --json 解析 CGNAT IPv4、MagicDNS 域名与主机名' {
+        $json = '{"Self":{"HostName":"ser6pro","DNSName":"ser6pro.tail9c3f.ts.net.","TailscaleIPs":["fd7a:115c:a1e0:ab12:4843:cd96:626d:2c9f","100.101.7.31"]}}'
+        $address = Resolve-BrowserDebugTailscaleAddress -StatusInvoker { $json }
+        $address.ipv4 | Should -Be '100.101.7.31'
+        $address.magicDnsName | Should -Be 'ser6pro.tail9c3f.ts.net'
+        $address.hostName | Should -Be 'ser6pro'
+    }
+
+    It 'HostName 缺失时回退 MagicDNS 首段且过滤非法主机名字符' {
+        $derived = Resolve-BrowserDebugTailscaleAddress -StatusInvoker { '{"Self":{"DNSName":"macmini.tail9c3f.ts.net.","TailscaleIPs":["100.64.0.1"]}}' }
+        $derived.hostName | Should -Be 'macmini'
+        $sanitized = Resolve-BrowserDebugTailscaleAddress -StatusInvoker { '{"Self":{"HostName":"bad_host!","TailscaleIPs":["100.64.0.1"]}}' }
+        $sanitized.ipv4 | Should -Be '100.64.0.1'
+        $sanitized.hostName | Should -BeNullOrEmpty
+        $sanitized.magicDnsName | Should -BeNullOrEmpty
+    }
+
+    It '无 CGNAT IPv4、空输出、垃圾 JSON、invoker 异常与缺少可执行文件均返回空' {
+        Resolve-BrowserDebugTailscaleAddress -StatusInvoker { '{"Self":{"TailscaleIPs":["fd7a:115c:a1e0:ab12:4843:cd96:626d:2c9f","100.63.0.1"]}}' } | Should -BeNullOrEmpty
+        Resolve-BrowserDebugTailscaleAddress -StatusInvoker { '   ' } | Should -BeNullOrEmpty
+        Resolve-BrowserDebugTailscaleAddress -StatusInvoker { 'not-json' } | Should -BeNullOrEmpty
+        Resolve-BrowserDebugTailscaleAddress -StatusInvoker { throw 'tailscale down' } | Should -BeNullOrEmpty
+        Resolve-BrowserDebugTailscaleAddress -StatusInvoker { '{"NoSelfHere":1}' } | Should -BeNullOrEmpty
+        Mock Get-Command { $null } -ParameterFilter { $Name -like 'tailscale*' }
+        Resolve-BrowserDebugTailscaleAddress | Should -BeNullOrEmpty
+    }
+}
+
 Describe 'browser-debug 启动帮助页' {
     It 'LAN 快照只将实际回环端口标为原生 Ready 并生成两种远程方案' {
+        Mock Resolve-BrowserDebugTailscaleAddress { $null }
         $profile = [pscustomobject]@{ name = 'demo'; browser = 'edge'; profilePath = 'C:\Profiles\demo'; cdpPort = 9222 }
         $registry = [pscustomobject]@{ sshConfigurations = @([pscustomobject]@{ name = 'remote'; profile = 'demo'; direction = 'local-forward'; target = 'windows-host'; agentPort = 9555; sshConfigPath = $null; verboseLogging = $false }) }
         $startResult = [pscustomobject]@{ mode = 'lan'; listenAddress = '0.0.0.0'; cdpPort = 9444; cdpVersion = [pscustomobject]@{ Browser = 'Edge/1' } }
@@ -721,10 +761,29 @@ Describe 'browser-debug 启动帮助页' {
         $snapshot.tailscale.enableCommand | Should -Be 'tailscale serve --bg --yes --tcp=9444 tcp://127.0.0.1:9444'
         $snapshot.tailscale.statusCommand | Should -Be 'tailscale serve status'
         $snapshot.tailscale.disableCommand | Should -Be 'tailscale serve --tcp=9444 off'
+        $snapshot.tailscale.endpoint | Should -Be 'http://<本机 MagicDNS 或 Tailscale IP>:9444'
+        $snapshot.tailscale.hostnameEndpoint | Should -BeNullOrEmpty
+        $snapshot.tailscale.aliasEndpoint | Should -BeNullOrEmpty
+        $snapshot.tailscale.detected | Should -BeFalse
         $snapshot.sshLocalForward.sshCommand | Should -Be 'ssh -N -o ExitOnForwardFailure=yes -L 9444:127.0.0.1:9444 <windows-user>@<windows-host>'
         $snapshot.sshLocalForward.probeUrl | Should -Be 'http://127.0.0.1:9444/json/version'
         $snapshot.sshLocalForward.playwrightCommand | Should -Be 'playwright-cli attach --cdp=http://127.0.0.1:9444'
         $snapshot.sshConfigurations[0].sshCommand | Should -Match '127\.0\.0\.1:9444'
+    }
+
+    It 'LAN 快照检测到 Tailscale 时以 CGNAT IPv4 生成 endpoint 并携带主机名与 MagicDNS 别名' {
+        Mock Resolve-BrowserDebugTailscaleAddress { [pscustomobject]@{ ipv4 = '100.101.7.31'; magicDnsName = 'ser6pro.tail9c3f.ts.net'; hostName = 'ser6pro' } }
+        $snapshot = New-BrowserDebugGuideSnapshot -Profile ([pscustomobject]@{ name = 'demo'; browser = 'edge'; profilePath = 'C:\Profiles\demo'; cdpPort = 9222 }) -StartResult ([pscustomobject]@{ mode = 'lan'; listenAddress = '0.0.0.0'; cdpPort = 9444; cdpVersion = $null }) -Registry ([pscustomobject]@{ sshConfigurations = @() })
+        $snapshot.tailscale.detected | Should -BeTrue
+        $snapshot.tailscale.endpoint | Should -Be 'http://100.101.7.31:9444'
+        $snapshot.tailscale.probeUrl | Should -Be 'http://100.101.7.31:9444/json/version'
+        $snapshot.tailscale.playwrightCommand | Should -Be 'playwright-cli attach --cdp=http://100.101.7.31:9444'
+        $snapshot.tailscale.agentPrompt | Should -Match '100\.101\.7\.31:9444'
+        $snapshot.tailscale.hostnameEndpoint | Should -Be 'http://ser6pro:9444'
+        $snapshot.tailscale.aliasEndpoint | Should -Be 'http://ser6pro.tail9c3f.ts.net:9444'
+        $snapshot.tailscale.enableCommand | Should -Be 'tailscale serve --bg --yes --tcp=9444 tcp://127.0.0.1:9444'
+        $snapshot.endpoint | Should -Be 'http://127.0.0.1:9444'
+        $snapshot.sshLocalForward.endpoint | Should -Be 'http://127.0.0.1:9444'
     }
 
     It 'Local 快照不生成通用远程方案且保留已登记 SSH' {
@@ -746,17 +805,17 @@ Describe 'browser-debug 启动帮助页' {
             cdpPort = 9333; mode = 'lan'; listenAddress = '0.0.0.0'; nativeLanReachable = $false; endpoint = 'http://127.0.0.1:9333/" onfocus="alert(2)'
             probeUrl = 'http://127.0.0.1:9333/json/version'; playwrightCommand = 'playwright-cli attach --cdp=http://127.0.0.1:9333'
             cdpVersion = 'Edge/<1>'; agentPrompt = '连接 </script><script>alert(3)</script><现有> 浏览器'
-            tailscale = [pscustomobject]@{ enableCommand = 'tailscale serve --bg --yes --tcp=9333 tcp://127.0.0.1:9333'; statusCommand = 'tailscale serve status'; disableCommand = 'tailscale serve --tcp=9333 off'; endpoint = 'http://<tailscale-host>:9333'; probeUrl = 'http://<tailscale-host>:9333/json/version'; playwrightCommand = 'playwright-cli attach --cdp=http://<tailscale-host>:9333'; agentPrompt = 'Tailnet <prompt>' }
+            tailscale = [pscustomobject]@{ enableCommand = 'tailscale serve --bg --yes --tcp=9333 tcp://127.0.0.1:9333'; statusCommand = 'tailscale serve status'; disableCommand = 'tailscale serve --tcp=9333 off'; endpoint = 'http://<tailscale-host>:9333'; hostnameEndpoint = 'http://<macmini>:9333'; aliasEndpoint = 'http://<macmini>.tail9c3f.ts.net:9333'; detected = $true; probeUrl = 'http://<tailscale-host>:9333/json/version'; playwrightCommand = 'playwright-cli attach --cdp=http://<tailscale-host>:9333'; agentPrompt = 'Tailnet <prompt>' }
             sshLocalForward = [pscustomobject]@{ sshCommand = 'ssh -N -L 9333:127.0.0.1:9333 <user>@<host>'; endpoint = 'http://127.0.0.1:9333'; probeUrl = 'http://127.0.0.1:9333/json/version'; playwrightCommand = 'playwright-cli attach --cdp=http://127.0.0.1:9333'; agentPrompt = 'SSH <prompt>' }
             sshConfigurations = @([pscustomobject]@{ name = '"><ssh>'; sshCommand = 'ssh host'; agentPrompt = '不要创建 <new>' })
             Cookie = 'cookie-secret'; password = 'password-secret'; token = 'token-secret'; history = 'history-secret'; tabTitle = 'tab-secret'
         }
         $html = ConvertTo-BrowserDebugGuideHtml -Snapshot $snapshot
-        $html | Should -Match '&lt;demo&gt;|&lt;tailscale-host&gt;'
+        $html | Should -Match '&lt;demo&gt;|&lt;tailscale-host&gt;|&lt;macmini&gt;'
         $html | Should -Match 'data-copy='
         $html | Should -Match "execCommand\('copy'\)"
         $html | Should -Match '远程 CDP 直连当前不生效'
-        $html | Should -Not -Match '<demo>|<现有>|<ssh>|<new>|<tailscale-host>'
+        $html | Should -Not -Match '<demo>|<现有>|<ssh>|<new>|<tailscale-host>|<macmini>'
         $html | Should -Not -Match '<script>alert|onfocus="alert'
         ([regex]::Matches($html, '<script>')).Count | Should -Be 1
         $html | Should -Not -Match 'cookie-secret|password-secret|token-secret|history-secret|tab-secret'
@@ -793,6 +852,7 @@ Describe 'browser-debug 启动帮助页' {
     }
 
     It '渲染专业运维布局、语义状态与无外部依赖的可访问复制控件' {
+        Mock Resolve-BrowserDebugTailscaleAddress { $null }
         $profile = [pscustomobject]@{ name = 'edge-debug'; browser = 'edge'; profilePath = 'D:\browser-debug-profiles\edge-debug'; cdpPort = 21229 }
         $snapshot = New-BrowserDebugGuideSnapshot -Profile $profile -StartResult ([pscustomobject]@{ mode = 'lan'; listenAddress = '0.0.0.0'; cdpPort = 21229; cdpVersion = [pscustomobject]@{ Browser = 'Edg/140.0' } }) -Registry ([pscustomobject]@{ sshConfigurations = @() })
         $html = ConvertTo-BrowserDebugGuideHtml -Snapshot $snapshot
@@ -802,7 +862,29 @@ Describe 'browser-debug 启动帮助页' {
         $html | Should -Match ':focus-visible|prefers-reduced-motion:reduce|@media\(max-width:720px\)|overflow-wrap:anywhere'
         $html | Should -Not -Match 'gradient|@import|<(?:link|script)[^>]+(?:href|src)='
         $html | Should -Match 'window\.isSecureContext|execCommand\(''copy''\)'
-        $html | Should -Not -Match 'http://(?:100\.|172\.|192\.168\.)[^< ]*:21229'
+        # 原生直连只允许回环；私网网段与 CGNAT 之外的 100.x 不得作为 endpoint，Tailnet CGNAT 段仅属于 Tailscale Serve 方案。
+        $html | Should -Not -Match 'http://(?:172\.|192\.168\.|10\.|100\.(?:[0-9]|[1-5][0-9]|6[0-3])\.)[^< ]*:21229'
+    }
+
+    It 'LAN 页面渲染探测到的主机名与 MagicDNS 别名并在未检测到时提示' {
+        $profile = [pscustomobject]@{ name = 'demo'; browser = 'edge'; profilePath = 'C:\Profiles\demo'; cdpPort = 9444 }
+        Mock Resolve-BrowserDebugTailscaleAddress { [pscustomobject]@{ ipv4 = '100.101.7.31'; magicDnsName = 'ser6pro.tail9c3f.ts.net'; hostName = 'ser6pro' } }
+        $detectedSnapshot = New-BrowserDebugGuideSnapshot -Profile $profile -StartResult ([pscustomobject]@{ mode = 'lan'; listenAddress = '0.0.0.0'; cdpPort = 9444; cdpVersion = $null }) -Registry ([pscustomobject]@{ sshConfigurations = @() })
+        $detectedHtml = ConvertTo-BrowserDebugGuideHtml -Snapshot $detectedSnapshot
+        $detectedHtml | Should -Match 'data-copy="http://100\.101\.7\.31:9444"'
+        $detectedHtml | Should -Match 'data-copy="http://ser6pro:9444"'
+        $detectedHtml | Should -Match 'data-copy="http://ser6pro\.tail9c3f\.ts\.net:9444"'
+        $detectedHtml | Should -Not -Match '未在本机检测到可用的 Tailscale'
+        $detectedHtml.IndexOf('Tailnet endpoint') | Should -BeGreaterThan -1
+        $detectedHtml.IndexOf('主机名别名 endpoint') | Should -BeGreaterThan $detectedHtml.IndexOf('Tailnet endpoint')
+        $detectedHtml.IndexOf('MagicDNS 别名 endpoint') | Should -BeGreaterThan $detectedHtml.IndexOf('主机名别名 endpoint')
+
+        Mock Resolve-BrowserDebugTailscaleAddress { $null }
+        $fallbackSnapshot = New-BrowserDebugGuideSnapshot -Profile $profile -StartResult ([pscustomobject]@{ mode = 'lan'; listenAddress = '0.0.0.0'; cdpPort = 9444; cdpVersion = $null }) -Registry ([pscustomobject]@{ sshConfigurations = @() })
+        $fallbackHtml = ConvertTo-BrowserDebugGuideHtml -Snapshot $fallbackSnapshot
+        $fallbackHtml | Should -Match '未在本机检测到可用的 Tailscale（未安装或未登录）'
+        $fallbackHtml | Should -Not -Match '主机名别名 endpoint|MagicDNS 别名 endpoint'
+        $fallbackHtml | Should -Match '&lt;本机 MagicDNS 或 Tailscale IP&gt;'
     }
 
     It '将模板渲染结果原子写入 registry 同级 guides 目录' {
