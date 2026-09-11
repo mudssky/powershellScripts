@@ -1,0 +1,15 @@
+{
+  "$comment": "复制为同目录的 gitconfig.local.json 并填入真实值；该文件已被 .gitignore 的 *.local.json 规则忽略，不会提交。",
+  "profiles": {
+    "personal": {
+      "name": "<个人平台显示名>",
+      "email": "<个人邮箱>"
+    },
+    "company": {
+      "name": "<真实姓名>",
+      "email": "<企业邮箱>",
+      "hosts": ["<公司 git 域名>"]
+    }
+  },
+  "default": "personal"
+}

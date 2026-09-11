@@ -122,7 +122,7 @@ renameLegal.ps1 -reverse
 | losslessToAdaptiveAudio.ps1 | 无损音频转码脚本（qaac 不存在时回退 libopus） | audio, aac, opus, lossless, qaac, ffmpeg |
 | lrc-maker.ps1 | 歌词文件制作脚本 | lrc, lyrics, maker |
 | jupyconvert.ps1 | Jupyter转换脚本 | jupyter, convert, notebook |
-| gitconfig_personal.ps1 | 个人Git配置脚本 | git, config, personal |
+| gitconfig_personal.ps1 | 按 profile 管理 Git 提交身份：安装 includeIf 规则、审计生效身份、清理仓库级覆盖 | git, config, identity, includeif |
 | get-SnippetsBody.ps1 | 获取代码片段内容脚本 | snippets, code, extract |
 | findLostNum.ps1 | 查找丢失数字脚本 | find, numbers, missing |
 | dvdcompress.ps1 | DVD压缩脚本 | dvd, compress, video |
