@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/pwsh-scripts/package/index.md", "reason": "脚本位于 scripts/pwsh/misc，需遵循该包的 Pre-Development Checklist、Git Pathspec Contract 与 Quality Check"}
+{"file": ".trellis/spec/pwsh-scripts/package/config-loading.md", "reason": "新增的本地 JSON 配置必须走 psutils Resolve-ConfigSources，不自写解析器"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "复用 gitconfig_company.ps1 既有的 fd 仓库发现逻辑与 psutils 既有能力，避免重复造轮子"}
