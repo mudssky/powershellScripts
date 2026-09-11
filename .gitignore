@@ -6,7 +6,6 @@ env.ps1
 apiKey
 enableProxy
 macEnableProxy.ps1
-gitconfig_company.ps1
 *.local.json
 *.local.yaml
 *.local.yml
