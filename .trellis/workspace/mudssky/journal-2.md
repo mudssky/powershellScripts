@@ -129,3 +129,26 @@ brainstorm 勘察确认 WSL 自启机制层已存在（windows/wsl AtStartup+S4U
 ### Status
 
 [OK] **Completed**
+
+
+## Session 75: Git 身份规则化：gitconfig 脚本按本地配置驱动
+
+**Date**: 2026-09-11
+**Task**: Git 身份规则化：gitconfig 脚本按本地配置驱动
+**Branch**: `feat/git-identity-rules`
+
+### Summary
+
+把 gitconfig_personal.ps1 从逐仓写入身份改为 profile 配置驱动：身份数据移到不提交的 config/git/gitconfig.local.json，带 hosts 的 profile 渲染成 includeIf 规则由 Git 按 remote 自动选身份。新增 -InstallRules/-ShowCurrent/-Recurse/-ClearLocal/-ProfileName，移除无参数即写全局个人身份的旧行为，删除根目录 gitconfig_company.ps1。固化两个踩到的坑：includeIf 的 ** 紧跟冒号时不跨 / 会让 scp 简写漏匹配，每个 host 必须渲染 :* 与 :*/** 四条模式；判断身份健康必须读 --show-origin 来源文件，否则仓库级硬编码覆盖会被误判成健康。新增 35 个 Pester 用例与 infra spec，WSL 与 Windows 两侧已实测安装并验证八种 remote 形态。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5b45c671` | (see git log) |
+| `bb8eae45` | (see git log) |
+| `576f9960` | (see git log) |
+
+### Status
+
+[OK] **Completed**
