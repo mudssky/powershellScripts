@@ -504,7 +504,14 @@ CI 中已提供独立工作流 `.github/workflows/qa-benchmark.yml`，
 
 #### `gitconfig_personal`
 
-**功能**: Git 个人配置设置
+**功能**: 按 profile 管理 Git 提交身份
+
+身份数据来自不提交的 `config/git/gitconfig.local.json`（照同目录 `gitconfig.local.example.json` 自建）。带 `hosts` 的 profile 可渲染成 `includeIf` 规则，让 Git 按 remote 地址自动选身份。
+
+- 默认（或 `-ShowCurrent`）：只读审计，报告期望 profile、实际生效身份及其来源文件；加 `-Recurse` 递归扫描
+- `-InstallRules`：把规则安装到当前平台的 `~/.gitconfig`（WSL 与 Windows 需各装一次），写入前自动备份
+- `-ClearLocal`：清掉当前仓库的仓库级 `[user]` 覆盖，把身份判定交还给规则
+- `-ProfileName <name> [-Local]`：兜底手工写入，用于规则覆盖不到的 remote（如 IP 形式地址）
 
 ### IDE 和编辑器
 
