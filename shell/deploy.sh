@@ -216,7 +216,10 @@ ensure_login_profile() {
     fi
 
     local managed_block
-    managed_block=$(cat <<'EOF'
+    local block_file
+    # macOS /bin/bash 3.2 无法解析 $() 内嵌 heredoc，先把块内容写入临时文件再读回。
+    block_file=$(mktemp "${TMPDIR:-/tmp}/powershell-scripts-login.XXXXXX") || return 1
+    cat > "$block_file" <<'EOF' || { rm -f "$block_file"; return 1; }
 # >>> powershell-scripts login env >>>
 # 登录 profile 受管块：为非交互登录 shell（bash -lc、ssh、cron）恢复 Homebrew 与 fnm。
 # 由 shell/deploy.sh 整段维护，请勿在 marker 之间手工修改。
@@ -257,7 +260,8 @@ if command -v fnm >/dev/null 2>&1; then
 fi
 # <<< powershell-scripts login env <<<
 EOF
-)
+    managed_block=$(cat "$block_file") || { rm -f "$block_file"; return 1; }
+    rm -f "$block_file"
 
     if [ "$DRY_RUN" = true ]; then
         if [ -f "$profile_file" ] && grep -Fq "$LOGIN_MARKER_START" "$profile_file"; then
