@@ -104,7 +104,7 @@ Describe "Set-Proxy 函数测试" -Tag 'Proxy' {
             $env:NO_PROXY | Should -Not -BeNullOrEmpty
         }
 
-        It "默认排除列表应该包含 Tailscale 和 macmini 地址" {
+        It "默认排除列表应该保留完整私网绕过合同" {
             Mock -ModuleName proxy New-Object {
                 $mockTcp = [PSCustomObject]@{}
                 $mockAsync = [PSCustomObject]@{
@@ -118,9 +118,15 @@ Describe "Set-Proxy 函数测试" -Tag 'Proxy' {
 
             Set-Proxy -Command "on" -Target "7890"
 
-            $env:no_proxy.Split(',') | Should -Contain "macmini"
-            $env:no_proxy.Split(',') | Should -Contain ".ts.net"
-            $env:no_proxy.Split(',') | Should -Contain "100.64.0.0/10"
+            $expectedEntries = @(
+                "localhost", "127.0.0.1", "::1",
+                "192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12",
+                "macmini", ".internal", ".ts.net", "100.64.0.0/10"
+            )
+            $actualEntries = $env:no_proxy.Split(',')
+            foreach ($entry in $expectedEntries) {
+                $actualEntries | Should -Contain $entry
+            }
             $env:NO_PROXY | Should -Be $env:no_proxy
         }
 

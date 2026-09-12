@@ -144,8 +144,8 @@ function Set-Proxy {
         # 配置常量
         $DefaultHost = if (-not [string]::IsNullOrWhiteSpace($env:PROXY_DEFAULT_HOST)) { $env:PROXY_DEFAULT_HOST } else { "127.0.0.1" }
         $DefaultPort = if (-not [string]::IsNullOrWhiteSpace($env:PROXY_DEFAULT_PORT)) { $env:PROXY_DEFAULT_PORT } else { "7890" }
-        # NO_PROXY 采用 curl 兼容写法：.ts.net 匹配 Tailscale MagicDNS 后缀，CIDR 仅匹配直接访问的 100.x IP。
-        $NoProxyList = "localhost,127.0.0.1,::1,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,macmini,.ts.net,100.64.0.0/10"
+        # NO_PROXY 采用 curl 兼容写法：.internal 与 .ts.net 按域名后缀绕过，CIDR 仅匹配直接访问的私网 IP。
+        $NoProxyList = "localhost,127.0.0.1,::1,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,macmini,.internal,.ts.net,100.64.0.0/10"
 
         function Test-ProxyAutoEnable {
             <#

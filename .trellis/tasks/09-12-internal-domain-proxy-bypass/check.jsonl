@@ -1,1 +1,4 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file":".trellis/spec/shell-shared/package/index.md","reason":"检查双 shell 兼容及手工 focused smoke 边界"}
+{"file":".trellis/spec/shell-shared/package/comment-conventions.md","reason":"检查 proxy.sh 相邻配置注释符合活跃脚本规范"}
+{"file":".trellis/spec/psutils/package/index.md","reason":"检查公开 Set-Proxy 行为测试与主会话验证命令"}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"检查 Shell 与 PowerShell 绕过列表语义一致"}
