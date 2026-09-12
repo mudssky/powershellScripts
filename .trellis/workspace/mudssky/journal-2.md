@@ -152,3 +152,25 @@ brainstorm 勘察确认 WSL 自启机制层已存在（windows/wsl AtStartup+S4U
 ### Status
 
 [OK] **Completed**
+
+
+## Session 76: 完成内网域名代理绕过
+
+**Date**: 2026-09-12
+**Task**: 完成内网域名代理绕过
+**Branch**: `master`
+
+### Summary
+
+统一 Bash/Zsh 与 PowerShell NO_PROXY 合同加入 .internal；完成隔离分流 smoke、Pester 6 focused、QA 与 Linux 全量验证，并归档独立任务。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `0a29bce` | (see git log) |
+| `55f05ef` | (see git log) |
+
+### Status
+
+[OK] **Completed**

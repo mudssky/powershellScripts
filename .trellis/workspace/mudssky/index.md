@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 75
-- **Last Active**: 2026-09-11
+- **Total Sessions**: 76
+- **Last Active**: 2026-09-12
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~154 | Active |
+| `journal-2.md` | ~176 | Active |
 | `journal-1.md` | ~1997 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -31,6 +31,7 @@
 
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 76 | 2026-09-12 | 完成内网域名代理绕过 | `0a29bce`, `55f05ef` | `master` |
 | 75 | 2026-09-11 | Git 身份规则化：gitconfig 脚本按本地配置驱动 | `5b45c671`, `bb8eae45`, `576f9960` | `feat/git-identity-rules` |
 | 74 | 2026-09-10 | browser-debug LAN 指南自动探测 Tailscale 地址 | `40138881` | `master` |
 | 73 | 2026-09-09 | Windows WSL 自启接入流水线与 SSHCopyID 安装 | `5a996894` | `master` |
