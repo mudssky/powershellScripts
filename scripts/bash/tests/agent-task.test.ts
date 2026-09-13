@@ -590,6 +590,12 @@ describe('shell/shared.d/ai.sh agent-task', () => {
         '两者 selector 都是 opencodego/go/deepseek-v4.1-flash:max（OpenCode Go 渠道）。',
       )
       expect(result.stdout).toContain('主模型覆盖只作用于当前进程，不写入持久配置')
+      expect(result.stdout).toContain(
+        'ultrafast 是唯一的“主模型 + worker”策略档位：不再为其它模型增加同类档位。',
+      )
+      expect(result.stdout).toContain(
+        '只换 worker 用 worker_ultrafast；只换主模型用宿主原生参数，或 -- 后转发 --model。',
+      )
       expect(result.stdout).toContain('ultra 是成本最高的 worker')
       expect(result.stdout).toContain('日常任务通常使用 worker_max 就已足够')
       expect(result.stdout).toContain('只有主模型能力大于或等于该 worker 时才可派发')

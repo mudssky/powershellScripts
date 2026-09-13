@@ -417,6 +417,8 @@ function agent-task() {
             '  ultrafast         同时替换主会话模型与 worker；OMP 与 Pi 均支持，Codex 不支持。' \
             '  两者 selector 都是 opencodego/go/deepseek-v4.1-flash:max（OpenCode Go 渠道）。' \
             '  主模型覆盖只作用于当前进程，不写入持久配置；用户显式参数仍可覆盖它。' \
+            '  ultrafast 是唯一的“主模型 + worker”策略档位：不再为其它模型增加同类档位。' \
+            '  只换 worker 用 worker_ultrafast；只换主模型用宿主原生参数，或 -- 后转发 --model。' \
             '' \
             'Ultra 选择：' \
             '  ultra 是成本最高的 worker；日常任务通常使用 worker_max 就已足够。' \
