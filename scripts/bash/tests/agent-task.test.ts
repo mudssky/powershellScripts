@@ -397,6 +397,116 @@ describe('shell/shared.d/ai.sh agent-task', () => {
       expect(readLog(workspace)).toBe('')
     })
 
+    it(`${shellName} OMP ultrafast 两档复用 task-ultrafast.yml 且只在会话档追加主模型`, async () => {
+      const workspace = createWorkspace()
+      writeFakeHost(workspace, 'omp')
+      const overlays = path.join(workspace.home, '.omp/overlays')
+      fs.mkdirSync(overlays, { recursive: true })
+      const overlay = path.join(overlays, 'task-ultrafast.yml')
+      fs.writeFileSync(overlay, 'modelRoles:\n  task: "@worker_ultrafast"\n')
+
+      const workerOnly = await runShell(
+        shell,
+        workspace,
+        `agent-task omp worker_ultrafast -- --flag ${shellQuote('two words')}`,
+      )
+      const sessionWide = await runShell(
+        shell,
+        workspace,
+        `agent-task omp ultrafast --dry-run -- --flag ${shellQuote('two words')}`,
+      )
+
+      expect(workerOnly.exitCode).toBe(0)
+      expect(workerOnly.stderr).toContain(`overlay=${overlay}`)
+      expect(workerOnly.stderr).not.toContain('main-model=')
+      expect(sessionWide.exitCode).toBe(0)
+      expect(sessionWide.stderr).toContain(
+        'main-model=opencodego/go/deepseek-v4.1-flash:max',
+      )
+      expect(sessionWide.stderr).toContain(
+        'agent-task command: omp --config "$HOME/.omp/overlays/task-ultrafast.yml" --model opencodego/go/deepseek-v4.1-flash:max (+2 user args)',
+      )
+      expect(readLog(workspace)).toBe(
+        formatFakeHostLog('omp', '', [
+          '--config',
+          overlay,
+          '--flag',
+          'two words',
+        ]),
+      )
+    })
+
+    it(`${shellName} Pi ultrafast 两档共用 worker profile 且主模型参数排在用户参数之前`, async () => {
+      const workspace = createWorkspace()
+      writeFakeHost(workspace, 'pi')
+
+      const workerOnly = await runShell(
+        shell,
+        workspace,
+        `agent-task pi worker_ultrafast; printf 'parent-profile=%s\\n' "\${PI_PROFILED_TASK_PROFILE-unset}"`,
+      )
+      const sessionWide = await runShell(
+        shell,
+        workspace,
+        `agent-task pi ultrafast -- --model ${shellQuote('local/example-model')}`,
+      )
+
+      expect(workerOnly.exitCode).toBe(0)
+      expect(workerOnly.stdout).toBe('parent-profile=unset')
+      expect(workerOnly.stderr).toContain('source-agent=worker_ultrafast')
+      expect(workerOnly.stderr).not.toContain('main-model=')
+      expect(sessionWide.exitCode).toBe(0)
+      expect(sessionWide.stderr).toContain(
+        'agent-task: host=pi profile=ultrafast source-agent=worker_ultrafast main-model=opencodego/go/deepseek-v4.1-flash:max (+2 user args)',
+      )
+      expect(readLog(workspace)).toBe(
+        formatFakeHostLog('pi', 'worker_ultrafast', []) +
+          formatFakeHostLog('pi', 'ultrafast', [
+            '--model',
+            'opencodego/go/deepseek-v4.1-flash:max',
+            '--model',
+            'local/example-model',
+          ]),
+      )
+    })
+
+    it(`${shellName} ultrafast 两档在 Codex 与缺失 overlay 的 OMP 启动前失败`, async () => {
+      const workspace = createWorkspace()
+      writeFakeHost(workspace, 'codex')
+      writeFakeHost(workspace, 'omp')
+
+      const codexSession = await runShell(
+        shell,
+        workspace,
+        'agent-task codex ultrafast',
+      )
+      const codexWorker = await runShell(
+        shell,
+        workspace,
+        'agent-task codex worker_ultrafast',
+      )
+      const ompSession = await runShell(
+        shell,
+        workspace,
+        'agent-task omp ultrafast',
+      )
+      const ompWorker = await runShell(
+        shell,
+        workspace,
+        'agent-task omp worker_ultrafast',
+      )
+
+      for (const result of [codexSession, codexWorker]) {
+        expect(result.exitCode).toBe(64)
+        expect(result.stderr).toContain('Codex 不支持 profile')
+      }
+      for (const result of [ompSession, ompWorker]) {
+        expect(result.exitCode).toBe(66)
+        expect(result.stderr).toContain('task-ultrafast.yml')
+      }
+      expect(readLog(workspace)).toBe('')
+    })
+
     for (const [profile, model, effort] of [
       ['fast', 'gpt-5.6-luna', 'high'],
       ['medium', 'gpt-5.6-luna', 'xhigh'],
@@ -460,13 +570,26 @@ describe('shell/shared.d/ai.sh agent-task', () => {
       expect(readLog(workspace)).toBe('')
     })
 
-    it(`${shellName} help 展示五档唯一入口与 Ultra 资格门禁`, async () => {
+    it(`${shellName} help 展示各宿主档位、Ultrafast 语义与 Ultra 资格门禁`, async () => {
       const workspace = createWorkspace()
 
       const result = await runShell(shell, workspace, 'agent-task --help')
 
       expect(result.exitCode).toBe(0)
       expect(result.stdout).toContain('pi    fast|medium|slow|max|ultra')
+      expect(result.stdout).toContain(
+        'pi    fast|medium|slow|max|ultra|worker_ultrafast|ultrafast',
+      )
+      expect(result.stdout).toContain(
+        'worker_ultrafast  只替换 worker（OMP modelRoles.task / Pi child profile），主模型不变。',
+      )
+      expect(result.stdout).toContain(
+        'ultrafast         同时替换主会话模型与 worker；OMP 与 Pi 均支持，Codex 不支持。',
+      )
+      expect(result.stdout).toContain(
+        '两者 selector 都是 opencodego/go/deepseek-v4.1-flash:max（OpenCode Go 渠道）。',
+      )
+      expect(result.stdout).toContain('主模型覆盖只作用于当前进程，不写入持久配置')
       expect(result.stdout).toContain('ultra 是成本最高的 worker')
       expect(result.stdout).toContain('日常任务通常使用 worker_max 就已足够')
       expect(result.stdout).toContain('只有主模型能力大于或等于该 worker 时才可派发')
