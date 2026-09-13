@@ -174,3 +174,24 @@ brainstorm 勘察确认 WSL 自启机制层已存在（windows/wsl AtStartup+S4U
 ### Status
 
 [OK] **Completed**
+
+
+## Session 77: mpv autoload 支持 MOV 修复续播失效
+
+**Date**: 2026-09-13
+**Task**: mpv autoload 支持 MOV 修复续播失效
+**Branch**: `master`
+
+### Summary
+
+定位 MOV 无法自动续播的根因：autoload.lua 的 EXTENSIONS_VIDEO 白名单缺少 mov，导致 MOV 被判为手动播放列表而不构建队列。在白名单加入 mov，播完自动切换与手动切换均恢复正常；luajit 语法校验与 pnpm qa 通过。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `6a33593c` | (see git log) |
+
+### Status
+
+[OK] **Completed**
