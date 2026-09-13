@@ -415,7 +415,8 @@ function agent-task() {
             'Ultrafast 档位：' \
             '  worker_ultrafast  只替换 worker（OMP modelRoles.task / Pi child profile），主模型不变。' \
             '  ultrafast         同时替换主会话模型与 worker；OMP 与 Pi 均支持，Codex 不支持。' \
-            '  两者 selector 都是 opencodego/go/deepseek-v4.1-flash:max（OpenCode Go 渠道）。' \
+            '  OMP 用 opencodego/go/deepseek-v4.1-flash:max；Pi 用 opencodego-openai/go/deepseek-v4.1-flash:max' \
+            '  （同一 OpenCode Go 渠道；两个宿主的 provider 键不同，selector 不可互换）。' \
             '  主模型覆盖只作用于当前进程，不写入持久配置；用户显式参数仍可覆盖它。' \
             '  ultrafast 是唯一的“主模型 + worker”策略档位：不再为其它模型增加同类档位。' \
             '  只换 worker 用 worker_ultrafast；只换主模型用宿主原生参数，或 -- 后转发 --model。' \
@@ -462,7 +463,8 @@ function agent-task() {
     local dry_run=0
     local overlay=''
     local overlay_profile=''
-    local ultrafast_model='opencodego/go/deepseek-v4.1-flash:max'
+    local ultrafast_model_omp='opencodego/go/deepseek-v4.1-flash:max'
+    local ultrafast_model_pi='opencodego-openai/go/deepseek-v4.1-flash:max'
     local pi_main_model=''
     local model_note=''
     local model_flag=''
@@ -531,9 +533,9 @@ function agent-task() {
             fi
             host_args=(--config "$overlay")
             if [ "$profile" = 'ultrafast' ]; then
-                host_args+=(--model "$ultrafast_model")
-                model_note=" main-model=$ultrafast_model"
-                model_flag=" --model $ultrafast_model"
+                host_args+=(--model "$ultrafast_model_omp")
+                model_note=" main-model=$ultrafast_model_omp"
+                model_flag=" --model $ultrafast_model_omp"
             fi
             if [ "$mode" = 'no-skill' ]; then
                 host_args+=(--no-skills)
@@ -615,7 +617,7 @@ function agent-task() {
                     ;;
             esac
             if [ "$profile" = 'ultrafast' ]; then
-                pi_main_model="$ultrafast_model"
+                pi_main_model="$ultrafast_model_pi"
             fi
             _pi_mode_run "$mode" "$profile" "$show_command" "$dry_run" "$pi_main_model" "${user_args[@]}"
             return $?
