@@ -3,6 +3,25 @@
 #
 # All values have sensible defaults. Only override what you need.
 
+# downstream: 030-integration-controls
+#-------------------------------------------------------------------------------
+# Project integration controls
+#-------------------------------------------------------------------------------
+# All switches default to true when omitted. The master switch masks every
+# platform without overwriting the saved skills/hooks preferences. Per-platform
+# values override the shared preferences but never bypass integration.enabled.
+# Changes are project-scoped and take effect in a new or reloaded host session.
+#
+# integration:
+#   enabled: true
+#   skills: true
+#   hooks: true
+#   platforms:
+#     codex:
+#       skills: false
+#     claude-code:
+#       hooks: false
+
 #-------------------------------------------------------------------------------
 # Session Recording
 #-------------------------------------------------------------------------------

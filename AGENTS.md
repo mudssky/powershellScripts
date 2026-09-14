@@ -24,5 +24,7 @@ If you're using Codex or another agent-capable tool, additional project-scoped h
 
 Managed by Trellis. Edits outside this block are preserved; edits inside may be overwritten by a future `trellis update`.
 
+Personal project maintenance uses `mtl` (init, update, configure, enable, disable, status, upgrade). Upstream `trellis`/`tl` instructions still resolve through PATH, not necessarily to this CLI; upstream update does not understand personal integration controls and is not guaranteed to preserve them.
+
 <!-- TRELLIS:END -->
 

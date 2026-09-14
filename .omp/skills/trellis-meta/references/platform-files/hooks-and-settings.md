@@ -28,8 +28,9 @@ Common files:
 | Factory Droid | `.factory/settings.json` |
 | Pi Agent | `.pi/settings.json`, `.pi/extensions/trellis/` |
 | Trae IDE | `.trae/hooks.json` |
+| ZCode | Required external `trellis-bridge` 0.2.0+ plugin; Trellis writes `.zcode/hooks/*.py` delegates only |
 
-Reasonix is a pull-based platform whose agent files contain prelude instructions to read context after startup. ZCode uses `.zcode/config.json` with shared hooks, including PreToolUse for sub-agent prompt injection. Kimi Code is likewise pull-based and has no project-level settings/hooks file Trellis writes (hooks live only in the user-level `~/.kimi-code/config.toml`), so its agent prompts ship as skills and `.kimi-code/agents/` sub-agent definitions with the same prelude.
+Reasonix is a pull-based platform whose agent files contain prelude instructions to read context after startup. Current ZCode ignores project `.zcode/config.json` hooks, so its only supported hook entry is the externally managed `trellis-bridge` 0.2.0+ plugin; Trellis supplies the four `.zcode/hooks/*.py` delegates the plugin invokes. Kimi Code is likewise pull-based and has no project-level settings/hooks file Trellis writes (hooks live only in the user-level `~/.kimi-code/config.toml`), so its agent prompts ship as skills and `.kimi-code/agents/` sub-agent definitions with the same prelude.
 
 Whether these files exist in a project depends on which `trellis init --<platform>` flags the user ran.
 
@@ -52,7 +53,7 @@ Not every platform has every hook. Do not copy files from another platform just 
 | Per-turn hint policy should change | `[workflow-state:STATUS]` block in `.trellis/workflow.md`. The hook parses workflow.md verbatim — no script edit required. |
 | Sub-agent cannot read PRD/spec | `inject-subagent-context` hook or agent prelude. |
 | `task.py current` in shell has no active task | Shell/session bridge hook or platform environment variable configuration. |
-| Disable an automatic injection | The corresponding hook registration in settings/config. |
+| Disable an automatic injection | Use the project integration hook toggle for owned delegates; external plugin lifecycle remains platform-managed. |
 
 ## Modification Principles
 
@@ -64,8 +65,7 @@ Not every platform has every hook. Do not copy files from another platform just 
 ## Troubleshooting Path
 
 If the user says "AI did not read Trellis state":
-
-1. Check whether the platform settings register the hook.
+1. Check whether the platform settings, plugin, or extension registers the hook.
 2. Check whether the hook file exists.
 3. Manually run the `.trellis/scripts/get_context.py` or `task.py current --source` command that the hook depends on.
 4. Check whether active task state exists in `.trellis/.runtime/sessions/`.

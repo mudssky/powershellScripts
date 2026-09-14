@@ -1,4 +1,10 @@
-import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
+import {
+  existsSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+  statSync,
+} from "node:fs";
 import { createHash, randomBytes } from "node:crypto";
 import {
   delimiter,
@@ -8,6 +14,7 @@ import {
   relative,
   resolve,
 } from "node:path";
+import { homedir } from "node:os";
 import { spawn, spawnSync } from "node:child_process";
 import { isUtf8 } from "node:buffer";
 
@@ -993,6 +1000,106 @@ function resolveRoot(ctx?: PiExtensionContext): string {
 function cacheKey(k: string | null, ctx?: PiExtensionContext): string {
   return `${k ?? "default"}::${resolveRoot(ctx)}`;
 }
+type RuntimeIntegrationPolicy = { enabled: boolean; hooks: boolean };
+
+function hooksDisabledByEnv(): boolean {
+  return process.env.TRELLIS_HOOKS === "0" || process.env.TRELLIS_DISABLE_HOOKS === "1";
+}
+
+function parseIntegrationBool(raw: string, key: string): boolean {
+  const value = stripInlineComment(raw).trim();
+  if (value === "true") return true;
+  if (value === "false") return false;
+  throw new Error(
+    `[trellis] Invalid integration boolean for ${key}: ${JSON.stringify(value)}`,
+  );
+}
+
+function readIntegrationPolicy(
+  root: string,
+  platform: "pi" | "omp",
+): RuntimeIntegrationPolicy {
+  let masterEnabled = true;
+  let sharedHooks = true;
+  let platformEnabled = true;
+  let platformHooks: boolean | undefined;
+  const configPath = join(root, ".trellis", "config.yaml");
+  if (!existsSync(configPath)) {
+    return { enabled: true, hooks: !hooksDisabledByEnv() };
+  }
+  let content: string;
+  try {
+    content = readText(configPath);
+  } catch {
+    return { enabled: true, hooks: !hooksDisabledByEnv() };
+  }
+  const stack: Array<{ indent: number; key: string }> = [];
+  const assign = (parents: string[], key: string, raw: string): void => {
+    const path = [...parents, key];
+    const parsed = parseIntegrationBool(raw, `integration.${path.slice(1).join(".")}`);
+    if (path.length === 2) {
+      if (key === "enabled") masterEnabled = parsed;
+      else if (key === "hooks") sharedHooks = parsed;
+      return;
+    }
+    if (path.length === 4 && path[1] === "platforms") {
+      if (path[2] !== platform) return;
+      if (key === "enabled") platformEnabled = parsed;
+      else if (key === "hooks") platformHooks = parsed;
+    }
+  };
+  for (const rawLine of content.split(/\r?\n/)) {
+    const line = rawLine.replace(/\r$/, "");
+    const uncommented = stripInlineComment(line);
+    const trimmed = uncommented.trim();
+    if (!trimmed) continue;
+    const colon = trimmed.indexOf(":");
+    if (colon <= 0) continue;
+    const key = trimmed.slice(0, colon).trim();
+    const rawValue = trimmed.slice(colon + 1).trim();
+    const indent = line.length - line.trimStart().length;
+    while (stack.length > 0 && stack[stack.length - 1]!.indent >= indent) stack.pop();
+    const parents = stack.map((entry) => entry.key);
+    if (parents[0] !== "integration") {
+      if (key === "integration" && rawValue) {
+        throw new Error(`[trellis] Unsupported integration mapping syntax: ${trimmed}`);
+      }
+      if (!rawValue) stack.push({ indent, key });
+      continue;
+    }
+    const integrationBoolKey =
+      (parents.length === 1 &&
+        (key === "enabled" || key === "hooks" || key === "skills")) ||
+      (parents.length === 3 &&
+        parents[1] === "platforms" &&
+        (key === "enabled" || key === "hooks" || key === "skills"));
+    const integrationMapping =
+      integrationBoolKey ||
+      (parents.length === 1 && key === "platforms") ||
+      (parents.length === 2 && parents[1] === "platforms");
+    if (!integrationMapping) {
+      throw new Error(`[trellis] Invalid integration entry: ${trimmed}`);
+    }
+    if (!rawValue) {
+      if (integrationBoolKey) assign(parents, key, rawValue);
+      stack.push({ indent, key });
+      continue;
+    }
+    if (integrationBoolKey) {
+      assign(parents, key, rawValue);
+      continue;
+    }
+    if (parents.length === 2 && parents[1] === "platforms") {
+      throw new Error(`[trellis] Invalid integration platform entry: ${trimmed}`);
+    }
+    throw new Error(`[trellis] Invalid integration entry: ${trimmed}`);
+  }
+  const enabled = masterEnabled && platformEnabled;
+  return {
+    enabled,
+    hooks: enabled && (platformHooks ?? sharedHooks) && !hooksDisabledByEnv(),
+  };
+}
 function splitFM(c: string) {
   const m = c.replace(/^\uFEFF/, "").match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
   return m
@@ -1271,16 +1378,16 @@ function buildPrompt(
   root: string,
   input: SubagentInput,
   key: string | null,
+  includeContext = true,
 ): string {
   const agent = normalizeAgent(input.agent);
   const raw = readText(join(root, ".pi", "agents", `${agent}.md`));
   const def = stripFM(raw);
-  const ctx = buildContext(root, agent, key);
+  const ctx = includeContext ? buildContext(root, agent, key) : "";
   return [
     "## Trellis Agent Definition",
     def || "(missing)",
-    "",
-    ctx,
+    ...(ctx ? ["", ctx] : []),
     "",
     "## Delegated Task",
     input.prompt ?? "",
@@ -1413,6 +1520,93 @@ function formatPiOutput(stdout: string, stderr: string): string {
   return ft || stdout || stderr;
 }
 
+// ── Permission-forwarding parent session (issue #610) ───────────
+// Headless `pi --mode json` children have no UI. `@gotgenes/pi-permission-system`
+// forwards `ask` to the parent only when the child env names the *serving*
+// parent session and is marked as a subagent. Three layers, all required:
+//   1. PI_SUBAGENT_PARENT_SESSION — out-of-process convention
+//   2. PI_SUBAGENT_CHILD=1 — stops pi-subagents overwriting that parent id
+//      with the child's own session id
+//   3. serving heartbeat id, not stale PI_SESSION_ID (compaction can fork
+//      the live id while the permission extension still listens on the
+//      activation-time id). Drop inherited PI_SESSION_ID so the child
+//      mints its own instead of colliding with the parent.
+let lastLiveSessionId: string | null = null;
+
+function currentSessionId(ctx?: PiExtensionContext): string | null {
+  const viaCtx = callStr(
+    ctx?.sessionManager?.getSessionId,
+    ctx?.sessionManager,
+  );
+  if (viaCtx) {
+    lastLiveSessionId = viaCtx;
+    return viaCtx;
+  }
+  return (
+    lastLiveSessionId ??
+    str(process.env.PI_SESSION_ID) ??
+    str(process.env.PI_SESSIONID)
+  );
+}
+
+function piSessionsRoot(): string {
+  const sessionDir = str(process.env.PI_CODING_AGENT_SESSION_DIR);
+  if (sessionDir) return sessionDir;
+  const agentDir = str(process.env.PI_CODING_AGENT_DIR);
+  if (agentDir) return join(agentDir, "sessions");
+  return join(homedir(), ".pi", "agent", "sessions");
+}
+
+function servingSessionId(): string | null {
+  try {
+    const dir = join(piSessionsRoot(), "permission-forwarding", "serving");
+    let best: { sessionId: string; updatedAt: number } | null = null;
+    for (const name of readdirSync(dir)) {
+      if (!name.endsWith(".json")) continue;
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(readFileSync(join(dir, name), "utf-8"));
+      } catch {
+        continue;
+      }
+      if (!isObj(parsed) || parsed.pid !== process.pid) continue;
+      const sessionId = str(parsed.sessionId);
+      const updatedAt =
+        typeof parsed.updatedAt === "number" && Number.isFinite(parsed.updatedAt)
+          ? parsed.updatedAt
+          : 0;
+      if (!sessionId) continue;
+      if (!best || updatedAt > best.updatedAt) best = { sessionId, updatedAt };
+    }
+    return best?.sessionId ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function parentSessionIdForChild(ctx?: PiExtensionContext): string | null {
+  return servingSessionId() ?? currentSessionId(ctx);
+}
+
+function buildChildEnv(
+  key?: string | null,
+  parentSessionId?: string | null,
+): NodeJS.ProcessEnv {
+  const childEnv: NodeJS.ProcessEnv = {
+    ...process.env,
+    TRELLIS_SUBAGENT_CHILD: "1",
+    // Stops pi-subagents from overwriting PI_SUBAGENT_PARENT_SESSION with the
+    // child's own session id, and lets the permission system treat this process
+    // as a subagent (ParentAuthorizer forwarding) even when no parent id is known.
+    PI_SUBAGENT_CHILD: "1",
+    ...(key ? { TRELLIS_CONTEXT_ID: key } : {}),
+    ...(parentSessionId ? { PI_SUBAGENT_PARENT_SESSION: parentSessionId } : {}),
+  };
+  delete childEnv.PI_SESSION_ID;
+  delete childEnv.PI_SESSIONID;
+  return childEnv;
+}
+
 // ── runPi: subprocess execution + event processing ───────────────────
 function runPi(
   root: string,
@@ -1422,6 +1616,7 @@ function runPi(
   emit: () => void,
   key?: string | null,
   signal?: AbortSignal,
+  parentSessionId?: string | null,
 ): Promise<{ output: string; failed: boolean }> {
   return new Promise((resolve) => {
     if (signal?.aborted) {
@@ -1433,11 +1628,7 @@ function runPi(
       return;
     }
     const inv = resolvePiCli();
-    const childEnv = {
-      ...process.env,
-      TRELLIS_SUBAGENT_CHILD: "1",
-      ...(key ? { TRELLIS_CONTEXT_ID: key } : {}),
-    };
+    const childEnv = buildChildEnv(key, parentSessionId);
     const cli = spawn(inv.command, [...inv.args, ...buildPiArgs(cfg)], {
       cwd: root,
       env: childEnv,
@@ -1538,7 +1729,10 @@ async function runSubagent(
   onUpdate?: (r: PiToolResult) => void,
   inheritedThinking?: string,
   inheritedModel?: string,
+  includeContext = true,
+  ctx?: PiExtensionContext,
 ): Promise<{ output: string; details: ProgressDetails; failed: boolean }> {
+  const parentSessionId = parentSessionIdForChild(ctx);
   const agentName = normalizeAgent(input.agent);
   const agentRaw = readText(join(root, ".pi", "agents", `${agentName}.md`));
   const agentCfg = parseAgentFM(agentRaw);
@@ -1600,12 +1794,13 @@ async function runSubagent(
         prompts.map((p, i) =>
           runPi(
             root,
-            buildPrompt(root, { ...input, prompt: p }, key),
+            buildPrompt(root, { ...input, prompt: p }, key, includeContext),
             runCfg,
             details.runs[i]!,
             emit,
             key,
             signal,
+            parentSessionId,
           ),
         ),
       );
@@ -1632,12 +1827,14 @@ async function runSubagent(
               prompt: prev ? `${p}\n\nPrevious output:\n${prev}` : p,
             },
             key,
+            includeContext,
           ),
           runCfg,
           rs,
           emit,
           key,
           signal,
+          parentSessionId,
         );
         prev = result.output;
         failed = failed || result.failed;
@@ -1651,12 +1848,13 @@ async function runSubagent(
     emit(true);
     const result = await runPi(
       root,
-      buildPrompt(root, input, key),
+      buildPrompt(root, input, key, includeContext),
       runCfg,
       rs,
       emit,
       key,
       signal,
+      parentSessionId,
     );
     return finish(result.output, result.failed);
   } catch (e) {
@@ -1691,6 +1889,10 @@ export default function trellisExtension(pi: {
   // Process-level fallback; call sites with a session context re-resolve via
   // resolveRoot(ctx) so the active project (session cwd) is used instead.
   const root = resolveRoot();
+  const startupPolicy = readIntegrationPolicy(root, "pi");
+  if (!startupPolicy.enabled) return;
+  const policyFor = (ctx?: PiExtensionContext): RuntimeIntegrationPolicy =>
+    readIntegrationPolicy(resolveRoot(ctx), "pi");
   const procKey = `pi_process_${hash([root, process.pid, Date.now(), randomBytes(8).toString("hex")].join(":"))}`;
   let curKey: string | null = null;
 
@@ -1702,7 +1904,7 @@ export default function trellisExtension(pi: {
 
   // Per-turn cache to avoid double-spawning python
   let turnCache: {
-    key: string;
+    key: string | null;
     ts: number;
     wf: string;
     ov: string;
@@ -1763,10 +1965,14 @@ export default function trellisExtension(pi: {
     card.invalidate();
   };
 
-  pi.registerShortcut?.("alt+o", {
-    description: "Toggle latest subagent card details",
-    handler: async (ctx: PiExtensionContext) => toggleDetail(ctx),
-  });
+  if (startupPolicy.hooks) {
+    pi.registerShortcut?.("alt+o", {
+      description: "Toggle latest subagent card details",
+      handler: async (ctx: PiExtensionContext) => {
+        if (policyFor(ctx).hooks) toggleDetail(ctx);
+      },
+    });
+  }
 
   // Tool registration
   pi.registerTool?.({
@@ -1817,9 +2023,16 @@ export default function trellisExtension(pi: {
       ctx?: PiExtensionContext,
     ) => {
       activeSubagentToolCallId = id;
-      const root = resolveRoot(ctx);
+      const activeRoot = resolveRoot(ctx);
+      const runtimePolicy = policyFor(ctx);
+      if (!runtimePolicy.enabled) {
+        return {
+          content: [{ type: "text", text: "Trellis integration is disabled for this project." }],
+          details: { error: "integration disabled" },
+        };
+      }
       const agentName = normalizeAgent(input.agent);
-      if (!isTrellisAgent(root, agentName)) {
+      if (!isTrellisAgent(activeRoot, agentName)) {
         return {
           content: [
             {
@@ -1864,18 +2077,23 @@ export default function trellisExtension(pi: {
         prompt,
         prompts: prompts?.length ? prompts : undefined,
       };
-      const key = getKey(cleanInput, ctx);
+      const key = runtimePolicy.hooks ? getKey(cleanInput, ctx) : null;
       const inheritedThinking = pi.getThinkingLevel?.();
       const inheritedModel = contextModelRef(ctx);
       const result = await runSubagent(
-        root,
+        activeRoot,
         cleanInput,
         key,
         signal,
         onUpdate,
         inheritedThinking,
         inheritedModel,
+        runtimePolicy.hooks,
+        ctx,
       );
+      // Pi marks thrown tool executions as errors; returned isError is ignored.
+      // With hooks enabled, tool_result preserves the structured progress details.
+      if (!runtimePolicy.hooks && result.failed) throw new Error(result.output);
       return {
         content: [{ type: "text", text: result.output }],
         details: result.details,
@@ -1927,19 +2145,23 @@ export default function trellisExtension(pi: {
     },
   });
 
-  // Events
+  if (startupPolicy.hooks) {
+    // Events
   pi.on?.("session_start", (event, ctx) => {
+    if (!policyFor(ctx).hooks) return;
     getKey(event, ctx);
     ctx?.ui?.notify?.(
       "Trellis project context is available. Use /trellis-start to bootstrap or /trellis-continue to resume.",
       "info",
     );
   });
-  pi.on?.("session_shutdown", () => {
+  pi.on?.("session_shutdown", (_event, ctx) => {
+    if (!policyFor(ctx).hooks) return;
     nativeCards.clear();
     activeSubagentToolCallId = null;
   });
   pi.on?.("tool_call", (event, ctx) => {
+    if (!policyFor(ctx).hooks) return;
     const k = getKey(event, ctx);
     const ev = event as { toolName?: string; input?: JsonObject };
     if (
@@ -1952,7 +2174,8 @@ export default function trellisExtension(pi: {
   });
   // Preserve progress details from execute(); mark failed subagent results through
   // the official tool_result patch hook instead of throwing away renderer details.
-  pi.on?.("tool_result", (event) => {
+  pi.on?.("tool_result", (event, ctx) => {
+    if (!policyFor(ctx).hooks) return;
     const ev = event as { toolName?: string; details?: unknown };
     if (
       ev.toolName === "trellis_subagent" &&
@@ -1967,15 +2190,16 @@ export default function trellisExtension(pi: {
     return undefined;
   });
   pi.on?.("before_agent_start", (event, ctx) => {
+    if (!policyFor(ctx).hooks) return;
     const k = getKey(event, ctx);
     const key = cacheKey(k, ctx);
     const cur = (event as { systemPrompt?: string }).systemPrompt ?? "";
-    const root = resolveRoot(ctx);
+    const currentRoot = resolveRoot(ctx);
     const turn = getTurnCtx(k, ctx);
     const startup = getStartupCtx(k, turn, ctx);
     // Task context is snapshotted into systemPrompt once; later on-disk
     // changes are delivered as persisted messages so the prefix stays stable.
-    const freshTaskCtx = buildContext(root, "trellis-implement", k);
+    const freshTaskCtx = buildContext(currentRoot, "trellis-implement", k);
     let taskCtx = taskCtxSnapshot.get(key);
     if (taskCtx === undefined) {
       taskCtx = freshTaskCtx;
@@ -1984,12 +2208,8 @@ export default function trellisExtension(pi: {
     }
     const updates: string[] = [];
     const runtimeContext = [turn.wf, turn.ov].filter(Boolean).join("\n\n");
-    // Re-assert the current root's context on project switches: when the
-    // session returns to an unchanged root, the root-scoped lastSent* maps
-    // alone would leave the previous project's persisted update as the most
-    // recent one in history.
-    const prevRoot = lastPersistedRoot.get(k ?? "default");
-    const switchedRoot = prevRoot !== undefined && prevRoot !== root;
+    const previousRoot = lastPersistedRoot.get(k ?? "default");
+    const switchedRoot = previousRoot !== undefined && previousRoot !== currentRoot;
     if (
       runtimeContext &&
       (runtimeContext !== lastSentRuntimeCtx.get(key) || switchedRoot)
@@ -1997,10 +2217,7 @@ export default function trellisExtension(pi: {
       lastSentRuntimeCtx.set(key, runtimeContext);
       updates.push(runtimeContext);
     }
-    if (
-      freshTaskCtx !== lastSentTaskCtx.get(key) ||
-      switchedRoot
-    ) {
+    if (freshTaskCtx !== lastSentTaskCtx.get(key) || switchedRoot) {
       lastSentTaskCtx.set(key, freshTaskCtx);
       updates.push(
         "<trellis-task-context-update>\nTask context changed on disk. This supersedes the Trellis Task Context in the system prompt.\n\n" +
@@ -2008,7 +2225,7 @@ export default function trellisExtension(pi: {
           "\n</trellis-task-context-update>",
       );
     }
-    if (updates.length > 0) lastPersistedRoot.set(k ?? "default", root);
+    if (updates.length > 0) lastPersistedRoot.set(k ?? "default", currentRoot);
     const content = updates.join("\n\n");
     return {
       message: content
@@ -2022,6 +2239,8 @@ export default function trellisExtension(pi: {
     };
   });
   pi.on?.("context", (event, ctx) => {
+    if (!policyFor(ctx).hooks) return;
     getKey(event, ctx);
   });
+  }
 }

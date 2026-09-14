@@ -237,3 +237,21 @@ def read_trellis_config(repo_root: Optional[Path] = None) -> dict:
     except Exception:
         return {}
     return parsed if isinstance(parsed, dict) else {}
+
+
+# downstream: 020-task-branch-strategy-trunk
+def task_branch_strategy(repo_root: Path) -> str:
+    """Return the configured task branch strategy, defaulting to PR workflow."""
+    config = read_trellis_config(repo_root)
+    task_config = config.get("task")
+    raw = task_config.get("branch_strategy") if isinstance(task_config, dict) else None
+    if raw is None:
+        return "pr"
+    if raw in ("pr", "trunk"):
+        return raw
+    print(
+        f"[WARN] Invalid task.branch_strategy {raw!r}; expected 'pr' or 'trunk'; "
+        "using 'pr'.",
+        file=sys.stderr,
+    )
+    return "pr"

@@ -48,6 +48,8 @@ from common.active_task import (
     set_active_task,
 )
 from common.git import current_branch_name
+# downstream: 020-task-branch-strategy-trunk
+from common.trellis_config import task_branch_strategy
 from common.io import (
     describe_json_read_failure,
     read_json_checked,
@@ -151,21 +153,29 @@ def _record_start_state(
         print(colored(line, Colors.GREEN))
 
     if base_branch_conflict:
-        # Recorded anyway — the value is true, it just cannot describe a PR.
-        # Archive refuses this shape, so say so now rather than at the gate.
-        print(
-            colored(
-                f"Warning: '{base_branch_conflict}' is also this task's base_branch; "
-                "a PR cannot target its own branch, and archive will refuse it.",
-                Colors.YELLOW,
-            ),
-            file=sys.stderr,
-        )
-        print(
-            f"Once you branch off, run: python {DIR_WORKFLOW}/scripts/task.py "
-            "set-branch <task> <feature-branch>",
-            file=sys.stderr,
-        )
+        # downstream: 020-task-branch-strategy-trunk
+        if task_branch_strategy(repo_root) == "trunk":
+            print(
+                f"Trunk workflow: task tracks '{base_branch_conflict}' directly; "
+                "archive will not require a feature branch.",
+                file=sys.stderr,
+            )
+        else:
+            # Recorded anyway — the value is true, it just cannot describe a PR.
+            # Archive refuses this shape, so say so now rather than at the gate.
+            print(
+                colored(
+                    f"Warning: '{base_branch_conflict}' is also this task's base_branch; "
+                    "a PR cannot target its own branch, and archive will refuse it.",
+                    Colors.YELLOW,
+                ),
+                file=sys.stderr,
+            )
+            print(
+                f"Once you branch off, run: python {DIR_WORKFLOW}/scripts/task.py "
+                "set-branch <task> <feature-branch>",
+                file=sys.stderr,
+            )
 
 
 def cmd_start(args: argparse.Namespace) -> int:
