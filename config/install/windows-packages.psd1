@@ -28,17 +28,7 @@
     Wsl           = @{
         DefaultDistribution = 'Ubuntu-24.04'
         Settings            = @(
-            @{ Section = 'wsl2'; Name = 'memory'; Value = '16GB'; MinimumBuild = 19045 }
-            @{ Section = 'wsl2'; Name = 'processors'; Value = '4'; MinimumBuild = 19045 }
-            @{ Section = 'wsl2'; Name = 'swap'; Value = '8GB'; MinimumBuild = 19045 }
-            @{ Section = 'wsl2'; Name = 'localhostForwarding'; Value = 'true'; MinimumBuild = 19045 }
-            @{ Section = 'wsl2'; Name = 'guiApplications'; Value = 'true'; MinimumBuild = 19045 }
-            @{ Section = 'wsl2'; Name = 'nestedVirtualization'; Value = 'true'; MinimumBuild = 22000 }
             @{ Section = 'wsl2'; Name = 'networkingMode'; Value = 'mirrored'; MinimumBuild = 22621 }
-            @{ Section = 'wsl2'; Name = 'dnsTunneling'; Value = 'true'; MinimumBuild = 22621 }
-            @{ Section = 'wsl2'; Name = 'firewall'; Value = 'true'; MinimumBuild = 22621 }
-            @{ Section = 'wsl2'; Name = 'autoProxy'; Value = 'true'; MinimumBuild = 22621 }
-            @{ Section = 'experimental'; Name = 'autoMemoryReclaim'; Value = 'gradual'; MinimumBuild = 22621 }
             @{ Section = 'experimental'; Name = 'sparseVhd'; Value = 'true'; MinimumBuild = 22621 }
             @{ Section = 'experimental'; Name = 'hostAddressLoopback'; Value = 'true'; MinimumBuild = 22621 }
         )

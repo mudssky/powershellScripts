@@ -2,7 +2,8 @@
 
 # ======================================================================
 # 文件：deploy.sh
-# 作用：同步 shared.d 与 shell 专属片段，并确保 bashrc/zshrc 加载器存在。
+# 作用：同步 shared.d 与 shell 专属片段，确保 bashrc/zshrc 加载器存在，
+#       并维护登录 profile 中的 brew/fnm 受管环境块。
 # 兼容性：Bash；支持 dry-run、shell 选择和文件排除。
 # ======================================================================
 set -euo pipefail
@@ -50,6 +51,8 @@ usage() {
     echo
     echo -e "自动同步 ${YELLOW}shell/shared.d/${NC} + shell 专属片段到 ${YELLOW}$CONFIG_DIR${NC}"
     echo -e "并确保 ${YELLOW}~/.bashrc${NC} 或 ${YELLOW}~/.zshrc${NC} 包含加载逻辑。"
+    echo -e "同时在登录 profile（bash: ${YELLOW}~/.profile${NC}，zsh: ${YELLOW}~/.zprofile${NC}）"
+    echo -e "维护 brew/fnm 受管环境块，供非交互登录 shell 使用。"
     echo
     echo -e "${BLUE}Options:${NC}"
     echo -e "  -h, --help              显示此帮助信息"
@@ -180,6 +183,151 @@ if [ -d "$HOME/.bashrc.d" ]; then
 fi
 EOF
     log_info "加载逻辑已添加至 $RC_FILE。"
+}
+
+# -- login profile ------------------------------------------------------
+# 受管块 marker：整段替换的边界，用户内容必须放在 marker 之外。
+LOGIN_MARKER_START='# >>> powershell-scripts login env >>>'
+LOGIN_MARKER_END='# <<< powershell-scripts login env <<<'
+
+# ----------------------------------------------------------------------
+# ensure_login_profile — 维护登录 profile 中的 powershell-scripts 受管环境块。
+#
+# 设计意图：
+#   非交互登录 shell（bash -lc、ssh 单命令、cron）不加载 ~/.bashrc.d 片段，
+#   因此在登录 profile 写入自包含的 brew + fnm 恢复块；fnm 依赖 brew 恢复的
+#   PATH，块内保持先 brew 后 fnm 的顺序。重复部署时 marker 之间的旧段整体
+#   废弃并原位替换，marker 之外的用户内容逐行保留。
+#
+# 参数：无。
+# 副作用：
+#   非 dry-run 时创建登录 profile（bash: ~/.profile，zsh: ~/.zprofile），
+#   原位替换 marker 之间的受管段，并在内容变化前生成时间戳 .bak 备份。
+# 返回码：
+#   0 — 已写入、已替换、已是最新或 dry-run。
+#   非 0 — 临时文件、备份或写入失败。
+# ----------------------------------------------------------------------
+ensure_login_profile() {
+    local profile_file
+    if [ "$SHELL_TYPE" = "zsh" ]; then
+        profile_file="$HOME/.zprofile"
+    else
+        profile_file="$HOME/.profile"
+    fi
+
+    local managed_block
+    local block_file
+    # macOS /bin/bash 3.2 无法解析 $() 内嵌 heredoc，先把块内容写入临时文件再读回。
+    block_file=$(mktemp "${TMPDIR:-/tmp}/powershell-scripts-login.XXXXXX") || return 1
+    cat > "$block_file" <<'EOF' || { rm -f "$block_file"; return 1; }
+# >>> powershell-scripts login env >>>
+# 登录 profile 受管块：为非交互登录 shell（bash -lc、ssh、cron）恢复 Homebrew 与 fnm。
+# 由 shell/deploy.sh 整段维护，请勿在 marker 之间手工修改。
+
+# -- Homebrew -----------------------------------------------------------
+# 候选顺序与 shell/shared.d/homebrew.sh 保持一致；PATH 去重保证重复加载幂等。
+_powershell_scripts_brew_prefix=''
+if [ -n "${POWERSHELL_SCRIPTS_HOMEBREW_PREFIX:-}" ] && [ -x "${POWERSHELL_SCRIPTS_HOMEBREW_PREFIX}/bin/brew" ]; then
+    _powershell_scripts_brew_prefix="$POWERSHELL_SCRIPTS_HOMEBREW_PREFIX"
+else
+    for _powershell_scripts_brew_candidate in \
+        /home/linuxbrew/.linuxbrew \
+        "$HOME/.linuxbrew" \
+        /opt/homebrew \
+        /usr/local; do
+        if [ -x "$_powershell_scripts_brew_candidate/bin/brew" ]; then
+            _powershell_scripts_brew_prefix="$_powershell_scripts_brew_candidate"
+            break
+        fi
+    done
+fi
+
+if [ -n "$_powershell_scripts_brew_prefix" ]; then
+    export HOMEBREW_PREFIX="$_powershell_scripts_brew_prefix"
+    export HOMEBREW_CELLAR="$_powershell_scripts_brew_prefix/Cellar"
+    export HOMEBREW_REPOSITORY="$_powershell_scripts_brew_prefix/Homebrew"
+    case ":$PATH:" in
+        *":$_powershell_scripts_brew_prefix/bin:"*) ;;
+        *) export PATH="$_powershell_scripts_brew_prefix/bin:$_powershell_scripts_brew_prefix/sbin:$PATH" ;;
+    esac
+fi
+unset _powershell_scripts_brew_candidate _powershell_scripts_brew_prefix
+
+# -- fnm ----------------------------------------------------------------
+# 依赖上方 Homebrew 恢复的 PATH；default alias 由 fnm env 解析，不启用 --use-on-cd。
+if command -v fnm >/dev/null 2>&1; then
+    eval "$(fnm env)"
+fi
+# <<< powershell-scripts login env <<<
+EOF
+    managed_block=$(cat "$block_file") || { rm -f "$block_file"; return 1; }
+    rm -f "$block_file"
+
+    if [ "$DRY_RUN" = true ]; then
+        if [ -f "$profile_file" ] && grep -Fq "$LOGIN_MARKER_START" "$profile_file"; then
+            log_dry "替换 $profile_file 中的受管登录环境块"
+        else
+            log_dry "向 $profile_file 写入受管登录环境块"
+        fi
+        return 0
+    fi
+
+    if [ ! -f "$profile_file" ]; then
+        printf '%s\n' "$managed_block" > "$profile_file" || return 1
+        log_info "已创建 $profile_file 并写入受管登录环境块。"
+        return 0
+    fi
+
+    # marker 之间的旧内容整体废弃，marker 之外的用户行原样保留；
+    # 只有 start marker 而缺失 end marker 时，按“替换到文件尾”修复。
+    local desired_file
+    desired_file="$(mktemp "${TMPDIR:-/tmp}/powershell-scripts-login.XXXXXX")" || return 1
+
+    POWERSHELL_SCRIPTS_LOGIN_BLOCK="$managed_block" \
+    awk '
+        $0 == "# >>> powershell-scripts login env >>>" {
+            in_block = 1
+            if (!replaced) {
+                printf "%s\n", ENVIRON["POWERSHELL_SCRIPTS_LOGIN_BLOCK"]
+                replaced = 1
+            }
+            next
+        }
+        in_block && $0 == "# <<< powershell-scripts login env <<<" {
+            in_block = 0
+            next
+        }
+        in_block { next }
+        {
+            print
+            printed = 1
+        }
+        END {
+            if (!replaced) {
+                if (printed) printf "\n"
+                printf "%s\n", ENVIRON["POWERSHELL_SCRIPTS_LOGIN_BLOCK"]
+            }
+        }
+    ' "$profile_file" > "$desired_file" || { rm -f "$desired_file"; return 1; }
+
+    # 内容已是最新时跳过，避免重复写入与多余备份。
+    if cmp -s "$desired_file" "$profile_file"; then
+        rm -f "$desired_file"
+        log_info "$profile_file 中的受管登录环境块已是最新。"
+        return 0
+    fi
+
+    if [ -s "$profile_file" ]; then
+        local timestamp backup_path
+        timestamp=$(date '+%Y-%m-%d_%H-%M-%S')
+        backup_path="${profile_file}.${timestamp}.bak"
+        cp -p "$profile_file" "$backup_path" || { rm -f "$desired_file"; return 1; }
+        log_info "已备份现有配置: $backup_path"
+    fi
+
+    cat "$desired_file" > "$profile_file" || { rm -f "$desired_file"; return 1; }
+    rm -f "$desired_file"
+    log_info "受管登录环境块已写入 $profile_file。"
 }
 
 # is_excluded — 判断文件名是否命中排除模式。
@@ -403,5 +551,7 @@ else
     # 保持 Zsh rc 在切换默认 shell 后仍可加载共享片段。
     ensure_loader "$HOME/.zshrc" false
 fi
+
+ensure_login_profile
 
 sync_snippets

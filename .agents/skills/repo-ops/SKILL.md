@@ -9,6 +9,7 @@ description: Use when 用户要求在本仓库增加、修改或审查 PowerShel
 
 1. 先确认请求是否匹配已有 reference；匹配时必须读取对应文档，没有匹配流程时按当前仓库 Trellis spec 执行，不预造空 reference。
 2. Shell Profile 与相关 CLI 安装请求读取 [Shell Profile 集成流程](references/shell-profile-integration.md)。
+3. 从 WSL 创建 Windows 端 debug 浏览器快捷方式、启动调试 Profile 或消费 CDP 的请求读取 [WSL ↔ Windows browser-debug 互操作流程](references/wsl-windows-interop.md)。
 3. 所有路径、包名、加载行为和验证命令以当前仓库代码、清单、spec 与测试为事实来源，不在 Skill 复制第二份产品实现。
 4. 非平凡改动必须执行目标路径 smoke、专项测试和仓库门禁；验证失败时修复源头，不放宽断言或隐藏错误。
 

@@ -2,17 +2,87 @@ Set-StrictMode -Version Latest
 
 <##
 .SYNOPSIS
-    验证当前平台支持 browser-debug 业务操作。
+    判定当前运行平台。
 .OUTPUTS
-    None
-    非 Windows 平台抛出明确错误。
+    System.String
+    返回 windows、macos 或 linux。
 #>
-function Assert-BrowserDebugWindowsPlatform {
+function Get-BrowserDebugPlatform {
     [CmdletBinding()]
     param()
-    if (-not ($IsWindows -or $env:OS -eq 'Windows_NT')) {
-        throw 'browser-debug 首版仅支持 Windows；帮助和 completion 可跨平台读取。'
-    }
+    if ($IsWindows -or $env:OS -eq 'Windows_NT') { return 'windows' }
+    if ($IsMacOS) { return 'macos' }
+    return 'linux'
+}
+
+<##
+.SYNOPSIS
+    返回当前平台的路径比较语义。
+.PARAMETER Platform
+    可选平台覆盖，默认取当前平台。
+.OUTPUTS
+    System.StringComparison
+    Linux 文件系统大小写敏感使用 Ordinal，其余平台使用 OrdinalIgnoreCase。
+#>
+function Get-BrowserDebugPathComparisonType {
+    [CmdletBinding()]
+    param([string]$Platform = (Get-BrowserDebugPlatform))
+    if ($Platform -eq 'linux') { return [System.StringComparison]::Ordinal }
+    return [System.StringComparison]::OrdinalIgnoreCase
+}
+
+<##
+.SYNOPSIS
+    按平台语义比较两个路径是否指向同一位置。
+.PARAMETER PathA
+    第一条路径。
+.PARAMETER PathB
+    第二条路径。
+.PARAMETER Platform
+    可选平台覆盖，默认取当前平台。
+.OUTPUTS
+    System.Boolean
+    规范化后按平台大小写语义返回是否相同。
+#>
+function Test-BrowserDebugSamePath {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$PathA,
+        [Parameter(Mandatory)][string]$PathB,
+        [string]$Platform = (Get-BrowserDebugPlatform)
+    )
+    $normalizedA = [System.IO.Path]::GetFullPath($PathA).TrimEnd('\', '/')
+    $normalizedB = [System.IO.Path]::GetFullPath($PathB).TrimEnd('\', '/')
+    return $normalizedA.Equals($normalizedB, (Get-BrowserDebugPathComparisonType -Platform $Platform))
+}
+
+<##
+.SYNOPSIS
+    校验当前平台是否支持要执行的命令能力。
+.PARAMETER Resource
+    命令资源：profile 或 ssh。
+.PARAMETER Action
+    命令动作；list/get 在全部平台放行。
+.PARAMETER Mode
+    启动或快捷方式模式；lan 仅 Windows 支持。
+.PARAMETER Platform
+    可选平台覆盖，默认取当前平台。
+.OUTPUTS
+    None
+    平台能力不足时抛出明确错误。
+#>
+function Assert-BrowserDebugCommandSupport {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidateSet('profile', 'ssh')][string]$Resource,
+        [string]$Action,
+        [string]$Mode,
+        [string]$Platform = (Get-BrowserDebugPlatform)
+    )
+    if ($Platform -eq 'windows') { return }
+    if ($Resource -eq 'ssh') { throw 'ssh 子命令当前仅支持 Windows；macOS/Linux 可直接使用本机 ssh 命令。' }
+    if ($Action -in 'list', 'get') { return }
+    if ($Mode -eq 'lan') { throw "profile $Action --mode lan 当前仅支持 Windows；macOS/Linux 暂只支持 local 模式。" }
 }
 
 <##
@@ -51,6 +121,37 @@ function Assert-BrowserDebugPort {
 
 <##
 .SYNOPSIS
+    返回 macOS/Linux 下浏览器的候选可执行文件绝对路径。
+.PARAMETER Browser
+    浏览器类型，支持 chrome 或 edge。
+.PARAMETER Platform
+    可选平台覆盖，默认取当前平台。
+.PARAMETER HomePath
+    用户主目录，便于测试注入。
+.OUTPUTS
+    System.String[]
+    返回按优先级排序的候选路径。
+#>
+function Get-BrowserDebugUnixExecutableCandidates {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidateSet('chrome', 'edge')][string]$Browser,
+        [Parameter(Mandatory)][string]$Platform,
+        [string]$HomePath = $HOME
+    )
+    if ($Platform -eq 'macos') {
+        $appName = if ($Browser -eq 'chrome') { 'Google Chrome' } else { 'Microsoft Edge' }
+        return @(
+            (Join-Path '/Applications' "$appName.app/Contents/MacOS/$appName"),
+            (Join-Path (Join-Path $HomePath 'Applications') "$appName.app/Contents/MacOS/$appName")
+        )
+    }
+    $commandNames = if ($Browser -eq 'chrome') { @('google-chrome', 'google-chrome-stable') } else { @('microsoft-edge', 'microsoft-edge-stable') }
+    return @($commandNames | ForEach-Object { Join-Path '/usr/bin' $_ })
+}
+
+<##
+.SYNOPSIS
     发现 Chrome 或 Edge 可执行文件。
 .PARAMETER Browser
     浏览器类型，支持 chrome 或 edge。
@@ -62,21 +163,72 @@ function Resolve-BrowserDebugExecutable {
     [CmdletBinding()]
     param([Parameter(Mandatory)][ValidateSet('chrome', 'edge')][string]$Browser)
 
-    $fileName = if ($Browser -eq 'chrome') { 'chrome.exe' } else { 'msedge.exe' }
-    $relativePaths = if ($Browser -eq 'chrome') {
-        @('Google\Chrome\Application\chrome.exe')
+    $platform = Get-BrowserDebugPlatform
+    if ($platform -eq 'windows') {
+        $fileName = if ($Browser -eq 'chrome') { 'chrome.exe' } else { 'msedge.exe' }
+        $relativePaths = if ($Browser -eq 'chrome') {
+            @('Google\Chrome\Application\chrome.exe')
+        }
+        else { @('Microsoft\Edge\Application\msedge.exe') }
+        $roots = @($env:ProgramFiles, ${env:ProgramFiles(x86)}, $env:LOCALAPPDATA) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+        foreach ($root in $roots) {
+            foreach ($relativePath in $relativePaths) {
+                $candidate = Join-Path $root $relativePath
+                if (Test-Path -LiteralPath $candidate -PathType Leaf) { return [System.IO.Path]::GetFullPath($candidate) }
+            }
+        }
+        $command = Get-Command $fileName -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($command) { return $command.Source }
+        throw "未找到 $Browser 浏览器。请先安装浏览器，或确认其位于常见 Windows 安装目录。"
     }
-    else { @('Microsoft\Edge\Application\msedge.exe') }
-    $roots = @($env:ProgramFiles, ${env:ProgramFiles(x86)}, $env:LOCALAPPDATA) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
-    foreach ($root in $roots) {
-        foreach ($relativePath in $relativePaths) {
-            $candidate = Join-Path $root $relativePath
+    if ($platform -eq 'macos') {
+        foreach ($candidate in (Get-BrowserDebugUnixExecutableCandidates -Browser $Browser -Platform $platform)) {
             if (Test-Path -LiteralPath $candidate -PathType Leaf) { return [System.IO.Path]::GetFullPath($candidate) }
         }
+        $appName = if ($Browser -eq 'chrome') { 'Google Chrome' } else { 'Microsoft Edge' }
+        throw "未找到 $Browser 浏览器。macOS 下请将 $appName.app 安装到 /Applications 或 ~/Applications。"
     }
-    $command = Get-Command $fileName -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($command) { return $command.Source }
-    throw "未找到 $Browser 浏览器。请先安装浏览器，或确认其位于常见 Windows 安装目录。"
+    $commandNames = if ($Browser -eq 'chrome') { @('google-chrome', 'google-chrome-stable') } else { @('microsoft-edge', 'microsoft-edge-stable') }
+    foreach ($commandName in $commandNames) {
+        $command = Get-Command $commandName -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($command) { return $command.Source }
+    }
+    foreach ($candidate in (Get-BrowserDebugUnixExecutableCandidates -Browser $Browser -Platform $platform)) {
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) { return [System.IO.Path]::GetFullPath($candidate) }
+    }
+    throw "未找到 $Browser 浏览器。Linux 下请先安装 google-chrome 或 microsoft-edge，并确认其在 PATH 中。"
+}
+
+<##
+.SYNOPSIS
+    返回 macOS/Linux 下所选浏览器默认 User Data 路径。
+.PARAMETER Browser
+    浏览器类型，支持 chrome 或 edge。
+.PARAMETER Platform
+    可选平台覆盖，默认取当前平台。
+.PARAMETER HomePath
+    用户主目录，便于测试注入。
+.PARAMETER ConfigRoot
+    Linux XDG 配置根目录；macOS 忽略。
+.OUTPUTS
+    System.String
+    返回默认 User Data 绝对路径。
+#>
+function Get-BrowserDebugUnixUserDataPath {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidateSet('chrome', 'edge')][string]$Browser,
+        [Parameter(Mandatory)][string]$Platform,
+        [string]$HomePath = $HOME,
+        [string]$ConfigRoot
+    )
+    if ($Platform -eq 'macos') {
+        $relativePath = if ($Browser -eq 'chrome') { 'Google/Chrome' } else { 'Microsoft Edge' }
+        return [System.IO.Path]::GetFullPath((Join-Path $HomePath "Library/Application Support/$relativePath"))
+    }
+    $configRoot = if (-not [string]::IsNullOrWhiteSpace($ConfigRoot)) { $ConfigRoot } else { Join-Path $HomePath '.config' }
+    $relativePath = if ($Browser -eq 'chrome') { 'google-chrome' } else { 'microsoft-edge' }
+    return [System.IO.Path]::GetFullPath((Join-Path $configRoot $relativePath))
 }
 
 <##
@@ -91,9 +243,14 @@ function Resolve-BrowserDebugExecutable {
 function Resolve-BrowserDebugDefaultUserDataPath {
     [CmdletBinding()]
     param([Parameter(Mandatory)][ValidateSet('chrome', 'edge')][string]$Browser)
-    if ([string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) { throw '无法解析 LOCALAPPDATA，必须使用 --source-user-data-path 显式指定来源。' }
-    $relativePath = if ($Browser -eq 'chrome') { 'Google\Chrome\User Data' } else { 'Microsoft\Edge\User Data' }
-    return [System.IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA $relativePath))
+    $platform = Get-BrowserDebugPlatform
+    if ($platform -eq 'windows') {
+        if ([string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) { throw '无法解析 LOCALAPPDATA，必须使用 --source-user-data-path 显式指定来源。' }
+        $relativePath = if ($Browser -eq 'chrome') { 'Google\Chrome\User Data' } else { 'Microsoft\Edge\User Data' }
+        return [System.IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA $relativePath))
+    }
+    if ($platform -eq 'macos') { return Get-BrowserDebugUnixUserDataPath -Browser $Browser -Platform $platform }
+    return Get-BrowserDebugUnixUserDataPath -Browser $Browser -Platform $platform -ConfigRoot $env:XDG_CONFIG_HOME
 }
 
 <##
@@ -109,11 +266,16 @@ function Resolve-BrowserDebugDefaultUserDataPath {
 #>
 function Test-BrowserDebugPathWithin {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$ParentPath)
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$ParentPath,
+        [string]$Platform = (Get-BrowserDebugPlatform)
+    )
     $candidate = [System.IO.Path]::GetFullPath($Path).TrimEnd('\', '/')
     $parent = [System.IO.Path]::GetFullPath($ParentPath).TrimEnd('\', '/')
-    if ($candidate.Equals($parent, [System.StringComparison]::OrdinalIgnoreCase)) { return $true }
-    return $candidate.StartsWith($parent + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)
+    $comparison = Get-BrowserDebugPathComparisonType -Platform $Platform
+    if ($candidate.Equals($parent, $comparison)) { return $true }
+    return $candidate.StartsWith($parent + [System.IO.Path]::DirectorySeparatorChar, $comparison)
 }
 
 <##
@@ -156,19 +318,16 @@ function Test-BrowserDebugSourceInUse {
         [Parameter(Mandatory)][string]$SourcePath,
         [Parameter(Mandatory)][string]$DefaultSourcePath
     )
-    $expectedExecutable = [System.IO.Path]::GetFullPath($BrowserPath)
     $source = [System.IO.Path]::GetFullPath($SourcePath)
     $defaultSource = [System.IO.Path]::GetFullPath($DefaultSourcePath)
     foreach ($process in @(Get-BrowserDebugChromiumProcesses)) {
-        if ([string]::IsNullOrWhiteSpace([string]$process.ExecutablePath)) { continue }
-        $actualExecutable = [System.IO.Path]::GetFullPath([string]$process.ExecutablePath)
-        if (-not $actualExecutable.Equals($expectedExecutable, [System.StringComparison]::OrdinalIgnoreCase)) { continue }
+        if (-not (Test-BrowserDebugProcessExecutableMatch -Process $process -ExecutablePath $BrowserPath)) { continue }
         $processUserDataPath = Get-BrowserDebugProcessUserDataPath -CommandLine ([string]$process.CommandLine)
         if ($processUserDataPath) {
             if ((Test-BrowserDebugPathWithin -Path $source -ParentPath $processUserDataPath) -or (Test-BrowserDebugPathWithin -Path $processUserDataPath -ParentPath $source)) { return $true }
             continue
         }
-        if ($source.Equals($defaultSource, [System.StringComparison]::OrdinalIgnoreCase)) { return $true }
+        if (Test-BrowserDebugSamePath -PathA $source -PathB $defaultSource) { return $true }
     }
     return $false
 }
@@ -224,6 +383,60 @@ function Invoke-BrowserDebugRobocopy {
 
 <##
 .SYNOPSIS
+    按平台执行 User Data 克隆。
+.PARAMETER SourcePath
+    来源 User Data 路径。
+.PARAMETER DestinationPath
+    临时目标路径。
+.PARAMETER ExcludedFiles
+    排除的锁文件和临时文件模式。
+.PARAMETER ExcludedDirectories
+    排除的运行时缓存与可选扩展目录名称。
+.PARAMETER Platform
+    可选平台覆盖，默认取当前平台。
+.OUTPUTS
+    System.Int32
+    返回平台克隆工具退出码；0 表示成功，Windows robocopy 0..7 均视为成功。
+#>
+function Invoke-BrowserDebugClone {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$SourcePath,
+        [Parameter(Mandatory)][string]$DestinationPath,
+        [string[]]$ExcludedFiles = @(),
+        [string[]]$ExcludedDirectories = @(),
+        [string]$Platform = (Get-BrowserDebugPlatform)
+    )
+    if ($Platform -eq 'windows') {
+        return Invoke-BrowserDebugRobocopy -SourcePath $SourcePath -DestinationPath $DestinationPath -ExcludedFiles $ExcludedFiles -ExcludedDirectories $ExcludedDirectories
+    }
+    # Unix 克隆工具没有复制期排除能力，先整体克隆再修剪，语义对齐 robocopy /XF /XD 的任意深度匹配。
+    if ($Platform -eq 'macos') {
+        & ditto $SourcePath $DestinationPath
+        $exitCode = $LASTEXITCODE
+        if ($exitCode -ne 0) { return $exitCode }
+    }
+    else {
+        New-Item -ItemType Directory -Path $DestinationPath -Force | Out-Null
+        & cp -a ($SourcePath.TrimEnd('/') + '/.') ($DestinationPath.TrimEnd('/') + '/')
+        $exitCode = $LASTEXITCODE
+        if ($exitCode -ne 0) { return $exitCode }
+    }
+    foreach ($directoryName in $ExcludedDirectories) {
+        Get-ChildItem -LiteralPath $DestinationPath -Recurse -Force -Directory -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -eq $directoryName } |
+            Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    foreach ($filePattern in $ExcludedFiles) {
+        Get-ChildItem -LiteralPath $DestinationPath -Recurse -Force -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -like $filePattern } |
+            Remove-Item -Force -ErrorAction SilentlyContinue
+    }
+    return 0
+}
+
+<##
+.SYNOPSIS
     将现有 Chromium User Data 安全克隆到独立调试 Profile。
 .PARAMETER BrowserPath
     所选浏览器可执行文件路径。
@@ -272,8 +485,9 @@ function Copy-BrowserDebugUserData {
         $excludedDirectories += @('Extensions', 'Extension State', 'Local Extension Settings', 'Sync Extension Settings', 'Managed Extension Settings', 'Extension Rules', 'Extension Scripts', 'extensions_crx_cache')
     }
     try {
-        $exitCode = Invoke-BrowserDebugRobocopy -SourcePath $source -DestinationPath $temporaryPath -ExcludedFiles $excludedFiles -ExcludedDirectories $excludedDirectories
-        if ($exitCode -lt 0 -or $exitCode -gt 7) { throw "robocopy 克隆失败，退出码: $exitCode" }
+        $exitCode = Invoke-BrowserDebugClone -SourcePath $source -DestinationPath $temporaryPath -ExcludedFiles $excludedFiles -ExcludedDirectories $excludedDirectories
+        $cloneSucceeded = if ((Get-BrowserDebugPlatform) -eq 'windows') { $exitCode -ge 0 -and $exitCode -le 7 } else { $exitCode -eq 0 }
+        if (-not $cloneSucceeded) { throw "克隆失败，退出码: $exitCode" }
         [System.IO.Directory]::Move($temporaryPath, $destination)
     }
     catch {
@@ -342,10 +556,45 @@ function Start-BrowserDebugDetachedProcess {
         [string[]]$Arguments = @()
     )
     $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
-    $startInfo.FileName = $FilePath
     $startInfo.UseShellExecute = $false
-    foreach ($argument in $Arguments) { $startInfo.ArgumentList.Add($argument) }
+    if ((Get-BrowserDebugPlatform) -eq 'windows') {
+        $startInfo.FileName = $FilePath
+        foreach ($argument in $Arguments) { $startInfo.ArgumentList.Add($argument) }
+        return [System.Diagnostics.Process]::Start($startInfo)
+    }
+    # Unix 子进程留在父进程组会随父进程退出收到 SIGHUP 并被级联关闭；
+    # 经 nohup 忽略 SIGHUP 且 stdio 全部脱离控制终端，exec 保持最终 PID 与浏览器一致。
+    $quotedArguments = @((ConvertTo-BrowserDebugShQuotedArgument -Value $FilePath)) + @($Arguments | ForEach-Object { ConvertTo-BrowserDebugShQuotedArgument -Value $_ })
+    $startInfo.FileName = '/bin/sh'
+    $startInfo.ArgumentList.Add('-c')
+    $startInfo.ArgumentList.Add('exec nohup ' + ($quotedArguments -join ' ') + ' </dev/null >/dev/null 2>&1')
     return [System.Diagnostics.Process]::Start($startInfo)
+}
+
+<##
+.SYNOPSIS
+    解析 Unix ps 输出为进程对象。
+.PARAMETER Lines
+    `ps -o pid=,args=` 的原始输出行。
+.OUTPUTS
+    System.Object[]
+    返回包含 PID 和命令行的进程对象；ExecutablePath 留空由所有权前缀匹配判定。
+#>
+function ConvertFrom-BrowserDebugPsProcesses {
+    [CmdletBinding()]
+    param([AllowEmptyCollection()][string[]]$Lines)
+    $processes = foreach ($line in @($Lines)) {
+        if ([string]::IsNullOrWhiteSpace($line)) { continue }
+        # 仅保留 Chromium 家族进程，行为对齐 Windows 侧按映像名过滤。
+        if ($line -notmatch '(?i)chrome|msedge|edge') { continue }
+        if ($line -notmatch '^\s*(?<pid>\d+)\s+(?<arguments>.+)$') { continue }
+        [pscustomobject]@{
+            ProcessId      = [int]$Matches.pid
+            ExecutablePath = $null
+            CommandLine    = $Matches.arguments.TrimEnd()
+        }
+    }
+    return @($processes)
 }
 
 <##
@@ -357,16 +606,53 @@ function Start-BrowserDebugDetachedProcess {
 #>
 function Get-BrowserDebugChromiumProcesses {
     [CmdletBinding()]
-    param()
-    if (-not ($IsWindows -or $env:OS -eq 'Windows_NT')) { return @() }
-    return @(Get-CimInstance Win32_Process -Filter "Name='chrome.exe' OR Name='msedge.exe'" -ErrorAction SilentlyContinue)
+    param([string]$Platform = (Get-BrowserDebugPlatform))
+    if ($Platform -eq 'windows') {
+        return @(Get-CimInstance Win32_Process -Filter "Name='chrome.exe' OR Name='msedge.exe'" -ErrorAction SilentlyContinue)
+    }
+    $psArguments = if ($Platform -eq 'macos') { @('-axo', 'pid=,args=') } else { @('-e', '-o', 'pid=,args=') }
+    [string[]]$output = @(& ps @psArguments 2>$null)
+    return @(ConvertFrom-BrowserDebugPsProcesses -Lines $output)
+}
+
+<##
+.SYNOPSIS
+    判断进程是否以指定浏览器可执行文件启动。
+.PARAMETER Process
+    进程对象；Unix 解析对象没有 ExecutablePath，按命令行前缀判定。
+.PARAMETER ExecutablePath
+    期望的浏览器可执行文件路径。
+.PARAMETER Platform
+    可选平台覆盖，默认取当前平台。
+.OUTPUTS
+    System.Boolean
+    返回进程可执行文件是否匹配。
+#>
+function Test-BrowserDebugProcessExecutableMatch {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][object]$Process,
+        [Parameter(Mandatory)][string]$ExecutablePath,
+        [string]$Platform = (Get-BrowserDebugPlatform)
+    )
+    $expected = [System.IO.Path]::GetFullPath($ExecutablePath)
+    $comparison = Get-BrowserDebugPathComparisonType -Platform $Platform
+    $executableProperty = $Process.PSObject.Properties['ExecutablePath']
+    if ($executableProperty -and -not [string]::IsNullOrWhiteSpace([string]$executableProperty.Value)) {
+        return [System.IO.Path]::GetFullPath([string]$executableProperty.Value).Equals($expected, $comparison)
+    }
+    # Unix ps 输出不拆分 argv[0]：应用包路径可含空格，改用整段前缀匹配判定。
+    $commandLine = ([string]$Process.CommandLine).TrimStart()
+    if (-not $commandLine.StartsWith($expected, $comparison)) { return $false }
+    $remainder = $commandLine.Substring($expected.Length)
+    return $remainder.Length -eq 0 -or $remainder[0] -eq ' ' -or $remainder[0] -eq "`t"
 }
 
 <##
 .SYNOPSIS
     判断 Chromium 进程是否明确拥有目标 Profile。
 .PARAMETER Process
-    Win32_Process 对象。
+    进程对象。
 .PARAMETER Profile
     Profile 注册对象。
 .OUTPUTS
@@ -376,12 +662,10 @@ function Get-BrowserDebugChromiumProcesses {
 function Test-BrowserDebugProcessOwnership {
     [CmdletBinding()]
     param([Parameter(Mandatory)][object]$Process, [Parameter(Mandatory)][object]$Profile)
-    $expectedExecutable = [System.IO.Path]::GetFullPath([string]$Profile.browserPath)
-    $actualExecutable = if ($Process.ExecutablePath) { [System.IO.Path]::GetFullPath([string]$Process.ExecutablePath) } else { '' }
-    if (-not $actualExecutable.Equals($expectedExecutable, [System.StringComparison]::OrdinalIgnoreCase)) { return $false }
-    $profilePath = [System.IO.Path]::GetFullPath([string]$Profile.profilePath).TrimEnd('\')
+    if (-not (Test-BrowserDebugProcessExecutableMatch -Process $Process -ExecutablePath ([string]$Profile.browserPath))) { return $false }
+    $profilePath = [System.IO.Path]::GetFullPath([string]$Profile.profilePath).TrimEnd('\', '/')
     $escaped = [regex]::Escape($profilePath)
-    return [string]$Process.CommandLine -match "(?:^|\s)--user-data-dir=(?:`"$escaped`"|$escaped)(?:\s|$)"
+    return [string]$Process.CommandLine -match "(?:^|\s)--user-data-dir=(?:[`"']?$escaped[`"']?)(?:\s|$)"
 }
 
 <##
@@ -569,6 +853,92 @@ function Stop-BrowserDebugProfileProcess {
 
 <##
 .SYNOPSIS
+    返回指定平台和模式的快捷方式文件名。
+.PARAMETER Name
+    Profile 名称。
+.PARAMETER Mode
+    快捷方式模式 local 或 lan。
+.PARAMETER Platform
+    可选平台覆盖，默认取当前平台。
+.OUTPUTS
+    System.String
+    返回带平台扩展名的文件名。
+#>
+function Get-BrowserDebugShortcutFileName {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][ValidateSet('local', 'lan')][string]$Mode,
+        [string]$Platform = (Get-BrowserDebugPlatform)
+    )
+    $extension = switch ($Platform) {
+        'windows' { '.lnk' }
+        'macos' { '.command' }
+        default { '.desktop' }
+    }
+    if ($Mode -eq 'lan') { return "$Name-LAN$extension" }
+    return "$Name$extension"
+}
+
+<##
+.SYNOPSIS
+    按 POSIX shell 单引号规则转义参数。
+.PARAMETER Value
+    原始参数值。
+.OUTPUTS
+    System.String
+    返回可安全嵌入 .command 脚本的引号参数。
+#>
+function ConvertTo-BrowserDebugShQuotedArgument {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Value)
+    return "'" + $Value.Replace("'", "'\''") + "'"
+}
+
+<##
+.SYNOPSIS
+    按 freedesktop Exec 规则转义单个参数。
+.PARAMETER Value
+    原始参数值。
+.OUTPUTS
+    System.String
+    返回可安全嵌入 .desktop Exec 行的参数。
+#>
+function ConvertTo-BrowserDebugDesktopExecArgument {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Value)
+    if ($Value -match '^[a-zA-Z0-9_./:@+=-]+$') { return $Value }
+    return '"' + $Value.Replace('\', '\\').Replace('"', '\"').Replace('$', '\$').Replace('`', '\`') + '"'
+}
+
+<##
+.SYNOPSIS
+    探测可独立运行的 pwsh 启动器路径。
+.OUTPUTS
+    System.String
+    返回脱离当前 shell 环境仍能启动的 pwsh 绝对路径。
+#>
+function Get-BrowserDebugRunnablePwshPath {
+    [CmdletBinding()]
+    param()
+    $candidates = @(Get-Command pwsh -CommandType Application -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source -Unique)
+    foreach ($candidate in $candidates) {
+        try {
+            # 父 pwsh 会向子进程注入 DOTNET_ROOT，令裸 apphost 在探测时"假可用"；
+            # 用 env -i 只保留 PATH/HOME/TMPDIR，模拟桌面双击的干净环境。
+            $probeOutput = @(
+                & env '-i' "PATH=$env:PATH" "HOME=$env:HOME" "TMPDIR=$env:TMPDIR" `
+                    $candidate -NoProfile -Command 'Write-Output BROWSER_DEBUG_PWSH_PROBE_OK' 2>$null
+            )
+            if ($LASTEXITCODE -eq 0 -and $probeOutput -contains 'BROWSER_DEBUG_PWSH_PROBE_OK') { return $candidate }
+        }
+        catch { continue }
+    }
+    throw '未找到可独立运行的 pwsh 启动器；请确认 PATH 中的 pwsh 可用后再生成快捷方式。'
+}
+
+<##
+.SYNOPSIS
     创建 Profile 桌面快捷方式。
 .PARAMETER Profile
     Profile 注册对象。
@@ -579,7 +949,7 @@ function Stop-BrowserDebugProfileProcess {
 .PARAMETER Mode
     快捷方式启动模式，支持 local 或 lan。
 .PARAMETER ShortcutPath
-    可选的精确输出路径，事务层使用临时 `.lnk` 时传入。
+    可选的精确输出路径，事务层使用临时文件时传入。
 .OUTPUTS
     System.String
     返回快捷方式路径。
@@ -594,17 +964,58 @@ function New-BrowserDebugShortcut {
         [string]$ShortcutPath
     )
     New-Item -ItemType Directory -Path $ShortcutDirectory -Force | Out-Null
-    $modulePath = Join-Path $RepoRoot 'psutils/modules/win.psm1'
-    Import-Module $modulePath -Force -ErrorAction Stop
-    $pwshPath = (Get-Command pwsh.exe -ErrorAction Stop).Source
+    $platform = Get-BrowserDebugPlatform
     $entryPath = Join-Path $RepoRoot 'bin/browser-debug.ps1'
     if (-not (Test-Path -LiteralPath $entryPath -PathType Leaf)) { $entryPath = Join-Path $RepoRoot 'scripts/pwsh/devops/browser-debug/main.ps1' }
     if ([string]::IsNullOrWhiteSpace($ShortcutPath)) {
-        $shortcutName = if ($Mode -eq 'lan') { "$($Profile.name)-LAN.lnk" } else { "$($Profile.name).lnk" }
-        $ShortcutPath = Join-Path $ShortcutDirectory $shortcutName
+        $ShortcutPath = Join-Path $ShortcutDirectory (Get-BrowserDebugShortcutFileName -Name $Profile.name -Mode $Mode -Platform $platform)
     }
-    $arguments = "-NoProfile -File `"$entryPath`" profile start `"$($Profile.name)`" --mode $Mode --open-guide --yes"
-    New-Shortcut -TargetPath $pwshPath -ShortcutPath $ShortcutPath -Arguments $arguments -WorkingDirectory $RepoRoot -IconLocation $Profile.browserPath
+    if ($platform -eq 'windows') {
+        $modulePath = Join-Path $RepoRoot 'psutils/modules/win.psm1'
+        Import-Module $modulePath -Force -ErrorAction Stop
+        $pwshPath = (Get-Command pwsh.exe -ErrorAction Stop).Source
+        # 入口位于 UNC（仓库在 WSL 文件系统）时受 RemoteSigned 执行策略拦截，快捷方式必须自带 Bypass 才能双击运行。
+        $executionPolicyArgument = if ($entryPath.StartsWith('\\', [System.StringComparison]::Ordinal)) { '-ExecutionPolicy Bypass ' } else { '' }
+        $arguments = "-NoProfile ${executionPolicyArgument}-File `"$entryPath`" profile start `"$($Profile.name)`" --mode $Mode --open-guide --yes"
+        New-Shortcut -TargetPath $pwshPath -ShortcutPath $ShortcutPath -Arguments $arguments -WorkingDirectory $RepoRoot -IconLocation $Profile.browserPath
+        return $ShortcutPath
+    }
+    $pwshPath = Get-BrowserDebugRunnablePwshPath
+    if ($platform -eq 'macos') {
+        $startArguments = "profile start $(ConvertTo-BrowserDebugShQuotedArgument -Value $Profile.name) --mode $Mode --open-guide --yes"
+        $content = "#!/bin/sh`n# browser-debug 双击启动入口: $($Profile.name) ($Mode)`nexec $(ConvertTo-BrowserDebugShQuotedArgument -Value $pwshPath) -NoProfile -File $(ConvertTo-BrowserDebugShQuotedArgument -Value $entryPath) $startArguments`n"
+        Set-Content -LiteralPath $ShortcutPath -Value $content -Encoding utf8NoBOM
+        & chmod +x $ShortcutPath
+        if ($LASTEXITCODE -ne 0) { throw "快捷方式添加执行权限失败: $ShortcutPath" }
+        return $ShortcutPath
+    }
+    $execArguments = @(
+        (ConvertTo-BrowserDebugDesktopExecArgument -Value $pwshPath),
+        '-NoProfile',
+        '-File',
+        (ConvertTo-BrowserDebugDesktopExecArgument -Value $entryPath),
+        'profile',
+        'start',
+        (ConvertTo-BrowserDebugDesktopExecArgument -Value ([string]$Profile.name)),
+        '--mode',
+        $Mode,
+        '--open-guide',
+        '--yes'
+    )
+    $browserProperty = $Profile.PSObject.Properties['browser']
+    $iconName = if ($browserProperty -and [string]$browserProperty.Value -eq 'edge') { 'microsoft-edge' } else { 'google-chrome' }
+    $content = @"
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=$($Profile.name) browser-debug
+Comment=browser-debug $Mode 启动入口
+Exec=$($execArguments -join ' ')
+Terminal=false
+Icon=$iconName
+Categories=Development;
+"@
+    Set-Content -LiteralPath $ShortcutPath -Value $content -Encoding utf8NoBOM
     return $ShortcutPath
 }
 
@@ -659,14 +1070,26 @@ function Test-BrowserDebugShortcutCurrent {
     )
     if (-not (Test-Path -LiteralPath $ShortcutPath -PathType Leaf)) { return $false }
     try {
-        $shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut($ShortcutPath)
-        $arguments = [string]$shortcut.Arguments
+        # 不能命名为 $isWindows：与只读自动变量 $IsWindows 冲突，赋值会抛异常并被 catch 吞掉。
+        $onWindows = (Get-BrowserDebugPlatform) -eq 'windows'
+        if ($onWindows) {
+            $arguments = [string](New-Object -ComObject WScript.Shell).CreateShortcut($ShortcutPath).Arguments
+        }
+        else {
+            $arguments = [string](Get-Content -LiteralPath $ShortcutPath -Raw)
+        }
         $profilePattern = [regex]::Escape([string]$Profile.name)
         $modePattern = [regex]::Escape($Mode)
-        return $arguments -match ('profile start\s+"?' + $profilePattern + '"?(?:\s|$)') -and
+        $baseContract = $arguments -match ('profile start\s+["'']?' + $profilePattern + '["'']?(?:\s|$)') -and
             $arguments -match ('--mode\s+' + $modePattern + '(?:\s|$)') -and
             $arguments -match '(?:^|\s)--open-guide(?:\s|$)' -and
             $arguments -match '(?:^|\s)--yes(?:\s|$)'
+        if (-not $baseContract) { return $false }
+        if (-not $onWindows) { return $true }
+        # UNC 入口受 RemoteSigned 拦截；连续两个反斜杠只会出现在 UNC 路径中（Profile 名禁止 `\`），兼容带 FileSystem:: 前缀的旧路径。
+        $referencesUncEntry = $arguments.Contains('\\')
+        $hasBypass = $arguments -match '(?:^|\s)-ExecutionPolicy Bypass(?:\s|$)'
+        return -not $referencesUncEntry -or $hasBypass
     }
     catch { return $false }
 }
@@ -698,11 +1121,11 @@ function Add-BrowserDebugProfileShortcut {
         [Parameter(Mandatory)][scriptblock]$PersistScriptBlock
     )
     $directory = [System.IO.Path]::GetFullPath($ShortcutDirectory)
-    $fileName = if ($Mode -eq 'lan') { "$($Profile.name)-LAN.lnk" } else { "$($Profile.name).lnk" }
+    $fileName = Get-BrowserDebugShortcutFileName -Name $Profile.name -Mode $Mode
     $finalPath = Join-Path $directory $fileName
     $registeredPath = Get-BrowserDebugRegisteredShortcutPath -Profile $Profile -Mode $Mode
     $registeredMatches = -not [string]::IsNullOrWhiteSpace($registeredPath) -and
-        [System.IO.Path]::GetFullPath($registeredPath).Equals($finalPath, [System.StringComparison]::OrdinalIgnoreCase)
+        (Test-BrowserDebugSamePath -PathA $registeredPath -PathB $finalPath)
     $shortcutPathsProperty = $Profile.PSObject.Properties['shortcutPaths']
     $hasStructuredRegistration = $false
     if ($shortcutPathsProperty -and $null -ne $shortcutPathsProperty.Value) {
@@ -746,6 +1169,116 @@ function Add-BrowserDebugProfileShortcut {
 
 <##
 .SYNOPSIS
+    判断 IPv4 字符串是否落在 Tailscale CGNAT 网段。
+.PARAMETER Value
+    待校验的 IPv4 字符串。
+.OUTPUTS
+    System.Boolean
+    返回该地址是否属于 100.64.0.0/10（100.64.0.0-100.127.255.255）。
+#>
+function Test-BrowserDebugCgnatIpv4 {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Value)
+    if ($Value -notmatch '^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$') { return $false }
+    foreach ($octetText in @($Matches[1], $Matches[2], $Matches[3], $Matches[4])) {
+        if ([int]$octetText -gt 255) { return $false }
+    }
+    $secondOctet = [int]$Matches[2]
+    return ([int]$Matches[1] -eq 100) -and ($secondOctet -ge 64) -and ($secondOctet -le 127)
+}
+
+<##
+.SYNOPSIS
+    运行 tailscale status --json 并返回标准输出。
+.PARAMETER ExecutablePath
+    tailscale 可执行文件绝对路径。
+.OUTPUTS
+    System.String
+    返回 JSON 文本；不可执行、非零退出或 3 秒超时返回 $null。
+#>
+function Invoke-BrowserDebugTailscaleStatus {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$ExecutablePath)
+    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = $ExecutablePath
+    $startInfo.Arguments = 'status --json'
+    $startInfo.UseShellExecute = $false
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    $startInfo.CreateNoWindow = $true
+    $process = [System.Diagnostics.Process]::Start($startInfo)
+    if (-not $process) { return $null }
+    # 先异步读满 stdout，避免管道缓冲写满导致子进程阻塞到超时。
+    $outputTask = $process.StandardOutput.ReadToEndAsync()
+    if (-not $process.WaitForExit(3000)) {
+        $process.Kill()
+        return $null
+    }
+    if ($process.ExitCode -ne 0) { return $null }
+    return $outputTask.GetAwaiter().GetResult()
+}
+
+<##
+.SYNOPSIS
+    只读探测本机 Tailscale 地址信息。
+.PARAMETER StatusInvoker
+    测试注入点：接收返回 `tailscale status --json` JSON 文本的脚本块；提供后跳过可执行文件定位与进程执行。
+.OUTPUTS
+    System.Management.Automation.PSCustomObject
+    返回 ipv4、magicDnsName、hostName；tailscale 缺失、未登录、超时或解析失败返回 $null。
+#>
+function Resolve-BrowserDebugTailscaleAddress {
+    [CmdletBinding()]
+    param([scriptblock]$StatusInvoker)
+
+    try {
+        $statusJson = $null
+        if ($StatusInvoker) {
+            # 脚本块可能按行输出，合并为单字符串后再解析。
+            $statusJson = @(& $StatusInvoker) -join "`n"
+        }
+        else {
+            $command = Get-Command tailscale.exe, tailscale -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+            if (-not $command) { return $null }
+            $statusJson = Invoke-BrowserDebugTailscaleStatus -ExecutablePath $command.Source
+        }
+        if ([string]::IsNullOrWhiteSpace([string]$statusJson)) { return $null }
+        $parsed = ([string]$statusJson) | ConvertFrom-Json
+        $selfProperty = $parsed.PSObject.Properties['Self']
+        if (-not $selfProperty) { return $null }
+        $self = $selfProperty.Value
+        $ipv4 = $null
+        $ipsProperty = $self.PSObject.Properties['TailscaleIPs']
+        if ($ipsProperty) {
+            foreach ($candidate in @($ipsProperty.Value)) {
+                if (Test-BrowserDebugCgnatIpv4 -Value ([string]$candidate)) { $ipv4 = [string]$candidate; break }
+            }
+        }
+        if (-not $ipv4) { return $null }
+        $magicDnsName = $null
+        $dnsNameProperty = $self.PSObject.Properties['DNSName']
+        if ($dnsNameProperty) {
+            $candidate = ([string]$dnsNameProperty.Value).Trim().TrimEnd('.')
+            if ($candidate) { $magicDnsName = $candidate }
+        }
+        $hostName = $null
+        $hostNameProperty = $self.PSObject.Properties['HostName']
+        if ($hostNameProperty) { $hostName = ([string]$hostNameProperty.Value).Trim() }
+        if (-not $hostName -and $magicDnsName) { $hostName = $magicDnsName.Split('.')[0] }
+        if ($hostName -and $hostName -notmatch '^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?$') { $hostName = $null }
+        return [pscustomobject]@{
+            ipv4         = $ipv4
+            magicDnsName = $magicDnsName
+            hostName     = if ($hostName) { $hostName } else { $null }
+        }
+    }
+    catch {
+        return $null
+    }
+}
+
+<##
+.SYNOPSIS
     构造启动帮助页使用的不可变快照。
 .PARAMETER Profile
     Profile 注册对象。
@@ -778,12 +1311,17 @@ function New-BrowserDebugGuideSnapshot {
     $tailscale = $null
     $sshLocalForward = $null
     if ([string]$StartResult.mode -eq 'lan') {
-        $tailscaleEndpoint = "http://<本机 MagicDNS 或 Tailscale IP>:$actualPort"
+        $tailscaleAddress = Resolve-BrowserDebugTailscaleAddress
+        $tailscaleHost = if ($tailscaleAddress) { $tailscaleAddress.ipv4 } else { '<本机 MagicDNS 或 Tailscale IP>' }
+        $tailscaleEndpoint = "http://${tailscaleHost}:$actualPort"
         $tailscale = [pscustomobject]@{
             enableCommand     = "tailscale serve --bg --yes --tcp=$actualPort tcp://127.0.0.1:$actualPort"
             statusCommand     = 'tailscale serve status'
             disableCommand    = "tailscale serve --tcp=$actualPort off"
             endpoint          = $tailscaleEndpoint
+            hostnameEndpoint  = if ($tailscaleAddress -and $tailscaleAddress.hostName) { "http://$($tailscaleAddress.hostName):$actualPort" } else { $null }
+            aliasEndpoint     = if ($tailscaleAddress -and $tailscaleAddress.magicDnsName) { "http://$($tailscaleAddress.magicDnsName):$actualPort" } else { $null }
+            detected          = [bool]$tailscaleAddress
             probeUrl          = "$tailscaleEndpoint/json/version"
             playwrightCommand = "playwright-cli attach --cdp=$tailscaleEndpoint"
             agentPrompt       = "请通过 Tailnet 连接现有浏览器，不要创建新的浏览器实例。先确认 $tailscaleEndpoint/json/version 可访问，然后执行 ``playwright-cli attach --cdp=$tailscaleEndpoint``；访问权限受 Tailscale ACL/Grants 控制。"
@@ -869,7 +1407,18 @@ function ConvertTo-BrowserDebugGuideHtml {
     $metadataSection = "<aside class=`"tool-panel metadata-panel`"><div class=`"panel-heading`"><div><span class=`"section-kicker`">运行上下文</span><h2>Profile metadata</h2></div></div><dl class=`"metadata-grid`"><div class=`"meta-row`"><dt class=`"meta-label`">Profile 路径</dt><dd class=`"meta-value`">$(& $encode $Snapshot.profilePath)</dd></div><div class=`"meta-row`"><dt class=`"meta-label`">浏览器</dt><dd class=`"meta-value`">$(& $encode $Snapshot.browser)</dd></div><div class=`"meta-row`"><dt class=`"meta-label`">请求监听地址</dt><dd class=`"meta-value`">$(& $encode $Snapshot.listenAddress)</dd></div><div class=`"meta-row`"><dt class=`"meta-label`">请求模式</dt><dd class=`"meta-value`">$(& $encode $Snapshot.mode)</dd></div></dl></aside>"
     $remoteGuidance = ''
     if ([string]$Snapshot.mode -eq 'lan') {
-        $remoteGuidance = "<aside class=`"risk-notice unavailable`" role=`"note`"><div class=`"risk-icon`" aria-hidden=`"true`">!</div><div><strong>远程 CDP 直连当前不生效</strong><p>当前 Windows Chrome/Edge 实际只监听 127.0.0.1；LAN 模式与请求监听地址不代表存在真实 LAN listener。请选择 Tailscale Serve 或 ssh -L。</p></div></aside><div class=`"scenario-stack`"><section class=`"scenario-section lan-section`"><div class=`"section-heading`"><div><span class=`"section-kicker`">推荐 · 多设备共享</span><h2>Tailscale Serve</h2></div><span class=`"semantic-tag tag-lan`">Tailnet</span></div><p class=`"connection-note`">只在 Tailnet 内提供访问，权限仍受 Tailscale ACL/Grants 控制；关闭示例只关闭当前 CDP TCP 端口。</p>$(& $copyField '启用 TCP forwarder' ([string]$Snapshot.tailscale.enableCommand) 'ssh')$(& $copyField '查看 Serve 状态' ([string]$Snapshot.tailscale.statusCommand))$(& $copyField '关闭当前 CDP 端口' ([string]$Snapshot.tailscale.disableCommand))$(& $copyField 'Tailnet endpoint' ([string]$Snapshot.tailscale.endpoint) 'connect')$(& $copyField '探测地址' ([string]$Snapshot.tailscale.probeUrl))$(& $copyField 'Playwright attach' ([string]$Snapshot.tailscale.playwrightCommand))</section><section class=`"scenario-section ssh-section`"><div class=`"section-heading`"><div><span class=`"section-kicker`">单设备 · 临时连接</span><h2>SSH local forward</h2></div><span class=`"semantic-tag tag-ssh`">远端执行</span></div>$(& $copyField 'ssh -L 命令' ([string]$Snapshot.sshLocalForward.sshCommand) 'ssh')$(& $copyField '远端本地 endpoint' ([string]$Snapshot.sshLocalForward.endpoint) 'connect')$(& $copyField '探测地址' ([string]$Snapshot.sshLocalForward.probeUrl))$(& $copyField 'Playwright attach' ([string]$Snapshot.sshLocalForward.playwrightCommand))</section></div>"
+        $tailscaleDetectedProperty = $Snapshot.tailscale.PSObject.Properties['detected']
+        $tailscaleDetected = $tailscaleDetectedProperty -and [bool]$tailscaleDetectedProperty.Value
+        $tailscaleAliasFields = ''
+        foreach ($aliasField in @(@('hostnameEndpoint', '主机名别名 endpoint'), @('aliasEndpoint', 'MagicDNS 别名 endpoint'))) {
+            $aliasProperty = $Snapshot.tailscale.PSObject.Properties[$aliasField[0]]
+            if ($aliasProperty -and -not [string]::IsNullOrWhiteSpace([string]$aliasProperty.Value)) {
+                $tailscaleAliasFields += $(& $copyField $aliasField[1] ([string]$aliasProperty.Value) 'connect')
+            }
+        }
+        $lanNote = '只在 Tailnet 内提供访问，权限仍受 Tailscale ACL/Grants 控制；关闭示例只关闭当前 CDP TCP 端口。'
+        if (-not $tailscaleDetected) { $lanNote += '未在本机检测到可用的 Tailscale（未安装或未登录），endpoint 为占位符，请自行替换。' }
+        $remoteGuidance = "<aside class=`"risk-notice unavailable`" role=`"note`"><div class=`"risk-icon`" aria-hidden=`"true`">!</div><div><strong>远程 CDP 直连当前不生效</strong><p>当前 Windows Chrome/Edge 实际只监听 127.0.0.1；LAN 模式与请求监听地址不代表存在真实 LAN listener。请选择 Tailscale Serve 或 ssh -L。</p></div></aside><div class=`"scenario-stack`"><section class=`"scenario-section lan-section`"><div class=`"section-heading`"><div><span class=`"section-kicker`">推荐 · 多设备共享</span><h2>Tailscale Serve</h2></div><span class=`"semantic-tag tag-lan`">Tailnet</span></div><p class=`"connection-note`">$lanNote</p>$(& $copyField '启用 TCP forwarder' ([string]$Snapshot.tailscale.enableCommand) 'ssh')$(& $copyField '查看 Serve 状态' ([string]$Snapshot.tailscale.statusCommand))$(& $copyField '关闭当前 CDP 端口' ([string]$Snapshot.tailscale.disableCommand))$(& $copyField 'Tailnet endpoint' ([string]$Snapshot.tailscale.endpoint) 'connect')$tailscaleAliasFields$(& $copyField '探测地址' ([string]$Snapshot.tailscale.probeUrl))$(& $copyField 'Playwright attach' ([string]$Snapshot.tailscale.playwrightCommand))</section><section class=`"scenario-section ssh-section`"><div class=`"section-heading`"><div><span class=`"section-kicker`">单设备 · 临时连接</span><h2>SSH local forward</h2></div><span class=`"semantic-tag tag-ssh`">远端执行</span></div>$(& $copyField 'ssh -L 命令' ([string]$Snapshot.sshLocalForward.sshCommand) 'ssh')$(& $copyField '远端本地 endpoint' ([string]$Snapshot.sshLocalForward.endpoint) 'connect')$(& $copyField '探测地址' ([string]$Snapshot.sshLocalForward.probeUrl))$(& $copyField 'Playwright attach' ([string]$Snapshot.sshLocalForward.playwrightCommand))</section></div>"
     }
     $registeredSshSection = if ($sshRows.Count -gt 0) { "<section class=`"scenario-section registered-ssh-section`"><div class=`"section-heading`"><div><span class=`"section-kicker`">已登记高级配置</span><h2>SSH configurations</h2></div><span class=`"section-count`">$($sshRows.Count) 个配置</span></div><div class=`"connection-list`">$($sshRows -join [Environment]::NewLine)</div></section>" } else { '' }
     $agentSection = "<section class=`"scenario-section agent-section`"><div class=`"section-heading`"><div><span class=`"section-kicker`">Agent 交接</span><h2>Agent Prompts</h2></div></div><div class=`"connection-list`">$($promptRows -join [Environment]::NewLine)</div></section>"

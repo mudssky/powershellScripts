@@ -115,7 +115,13 @@ function Get-RepositoryRoot {
     param()
 
     $root = Resolve-Path -Path (Join-Path $PSScriptRoot '..\..\..')
-    return $root.Path
+    $resolvedPath = $root.Path
+    # WSL UNC 路径经 Resolve-Path 会带 FileSystem:: 前缀且不折叠 ..，cargo 等原生工具无法识别，必须归一化。
+    $providerPrefix = 'Microsoft.PowerShell.Core\FileSystem::'
+    if ($resolvedPath.StartsWith($providerPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+        $resolvedPath = $resolvedPath.Substring($providerPrefix.Length)
+    }
+    return [System.IO.Path]::GetFullPath($resolvedPath)
 }
 
 function Test-IsExcludedPowerShellPath {

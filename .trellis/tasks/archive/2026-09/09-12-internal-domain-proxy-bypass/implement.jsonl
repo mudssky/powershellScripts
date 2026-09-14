@@ -1,0 +1,4 @@
+{"file":".trellis/spec/shell-shared/package/index.md","reason":"Bash/Zsh shared.d 双 shell 兼容与验证边界"}
+{"file":".trellis/spec/shell-shared/package/comment-conventions.md","reason":"proxy.sh 相邻配置注释规范"}
+{"file":".trellis/spec/psutils/package/index.md","reason":"PowerShell 模块与 Pester focused 验证约定"}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"同步维护两处等价 NO_PROXY 常量，避免跨 shell 漂移"}

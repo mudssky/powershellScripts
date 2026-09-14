@@ -19,7 +19,7 @@
         }
         @{
             Path   = 'config/install/windows-packages.psd1'
-            Sha256 = 'be8c14a9b7a9fd20c93320a4c8a1fb39189f7db8ffc5bd84ec70b4ee15b273b8'
+            Sha256 = 'c55e7a0be798618c8bfeeba397834d00e66ec67975f1a27d6e7f494e3d26411d'
         }
     )
 }

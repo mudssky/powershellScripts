@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/infra/index.md", "reason": "定位 Windows 基础设施规范入口"}
+{"file": ".trellis/spec/infra/windows-install-pipeline.md", "reason": "遵循 WSL 配置生成、build 过滤、备份与验证合同"}

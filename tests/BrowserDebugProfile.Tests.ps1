@@ -1,5 +1,8 @@
 Set-StrictMode -Version Latest
 
+# 平台判定必须在 Discovery 阶段可用的文件作用域完成，供 -Skip 守卫使用。
+$script:BrowserDebugPlatform = if ($IsWindows) { 'windows' } elseif ($IsMacOS) { 'macos' } else { 'linux' }
+
 BeforeAll {
     $script:RepoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
     $script:ToolRoot = Join-Path $script:RepoRoot 'scripts/pwsh/devops/browser-debug'
@@ -493,10 +496,11 @@ Describe 'browser-debug User Data 克隆' {
         New-Item -ItemType Directory -Path $script:SourceUserData -Force | Out-Null
         Set-Content -LiteralPath (Join-Path $script:SourceUserData 'Local State') -Value '{}'
         Mock Get-BrowserDebugChromiumProcesses { @() }
-        Mock Invoke-BrowserDebugRobocopy {
+        Mock Invoke-BrowserDebugClone {
             New-Item -ItemType Directory -Path $DestinationPath -Force | Out-Null
             Copy-Item -LiteralPath (Join-Path $SourcePath 'Local State') -Destination $DestinationPath
-            1
+            # Windows robocopy 语义 1 仍为成功；Unix 克隆工具 0 才是成功。
+            if ($IsWindows) { 1 } else { 0 }
         }
     }
 
@@ -504,7 +508,7 @@ Describe 'browser-debug User Data 克隆' {
         $result = Copy-BrowserDebugUserData -BrowserPath $script:BrowserPath -SourcePath $script:SourceUserData -DestinationPath $script:CloneTarget -DefaultSourcePath $script:SourceUserData
         $result.extensionsCopied | Should -BeTrue
         Test-Path -LiteralPath (Join-Path $script:CloneTarget 'Local State') | Should -BeTrue
-        Should -Invoke Invoke-BrowserDebugRobocopy -ParameterFilter {
+        Should -Invoke Invoke-BrowserDebugClone -ParameterFilter {
             $ExcludedFiles -contains 'SingletonLock' -and
             $ExcludedFiles -contains 'LOCK' -and
             $ExcludedDirectories -notcontains 'Extensions'
@@ -514,7 +518,7 @@ Describe 'browser-debug User Data 克隆' {
     It 'without-extensions 排除扩展本体和扩展状态目录' {
         $result = Copy-BrowserDebugUserData -BrowserPath $script:BrowserPath -SourcePath $script:SourceUserData -DestinationPath $script:CloneTarget -DefaultSourcePath $script:SourceUserData -WithoutExtensions
         $result.extensionsCopied | Should -BeFalse
-        Should -Invoke Invoke-BrowserDebugRobocopy -ParameterFilter {
+        Should -Invoke Invoke-BrowserDebugClone -ParameterFilter {
             $ExcludedDirectories -contains 'Extensions' -and
             $ExcludedDirectories -contains 'Local Extension Settings' -and
             $ExcludedDirectories -contains 'Sync Extension Settings'
@@ -526,7 +530,7 @@ Describe 'browser-debug User Data 克隆' {
             @([pscustomobject]@{ ExecutablePath = $script:BrowserPath; CommandLine = 'browser.exe' })
         }
         { Copy-BrowserDebugUserData -BrowserPath $script:BrowserPath -SourcePath $script:SourceUserData -DestinationPath $script:CloneTarget -DefaultSourcePath $script:SourceUserData } | Should -Throw '*完全关闭浏览器后重试*'
-        Should -Invoke Invoke-BrowserDebugRobocopy -Times 0
+        Should -Invoke Invoke-BrowserDebugClone -Times 0
     }
 
     It '自定义来源只拒绝实际引用该 user-data-dir 的进程' {
@@ -549,11 +553,11 @@ Describe 'browser-debug User Data 克隆' {
         Set-Content -LiteralPath (Join-Path $script:SourceUserData 'SingletonLock') -Value 'locked'
         { Copy-BrowserDebugUserData -BrowserPath $script:BrowserPath -SourcePath $script:SourceUserData -DestinationPath $script:CloneTarget -DefaultSourcePath $script:SourceUserData } | Should -Throw '*锁文件*完全关闭浏览器后重试*'
         Test-Path -LiteralPath $script:CloneTarget | Should -BeFalse
-        Should -Invoke Invoke-BrowserDebugRobocopy -Times 0
+        Should -Invoke Invoke-BrowserDebugClone -Times 0
     }
 
-    It 'robocopy 失败时不留下最终 Profile 或临时克隆目录' {
-        Mock Invoke-BrowserDebugRobocopy {
+    It '克隆失败时不留下最终 Profile 或临时克隆目录' {
+        Mock Invoke-BrowserDebugClone {
             New-Item -ItemType Directory -Path $DestinationPath -Force | Out-Null
             8
         }
@@ -591,6 +595,59 @@ Describe 'browser-debug 快捷方式' -Tag 'windowsOnly' {
         $lanShortcut.WorkingDirectory | Should -Be $shortcut.WorkingDirectory
         $lanShortcut.IconLocation | Should -Be $shortcut.IconLocation
         $lanShortcut.Arguments.Replace('--mode lan', '--mode local') | Should -Be $shortcut.Arguments
+    }
+
+    It 'UNC 入口快捷方式自带 ExecutionPolicy Bypass，本地入口保持原参数' {
+        $pwshPath = (Get-Command pwsh.exe -ErrorAction Stop).Source
+        $profile = [pscustomobject]@{ name = 'wsl-demo'; browserPath = $pwshPath; cdpPort = 9333 }
+        $script:capturedShortcutArguments = @()
+        Mock Import-Module { }
+        Mock New-Shortcut {
+            $script:capturedShortcutArguments += $Arguments
+            $ShortcutPath
+        }
+        $uncRoot = '\\wsl.localhost\FakeDistro\repo'
+        New-BrowserDebugShortcut -Profile $profile -ShortcutDirectory (Join-Path $TestDrive 'unc-desktop') -RepoRoot $uncRoot | Out-Null
+        # 显式构造本地根，不依赖运行环境（经 UNC 执行测试时 $script:RepoRoot 本身就是 UNC）。
+        $localRoot = Join-Path $env:SystemDrive 'fake-local-repo'
+        New-BrowserDebugShortcut -Profile $profile -ShortcutDirectory (Join-Path $TestDrive 'local-desktop') -RepoRoot $localRoot | Out-Null
+        $uncArguments = $script:capturedShortcutArguments[0]
+        $localArguments = $script:capturedShortcutArguments[1]
+        $uncArguments | Should -Match '-ExecutionPolicy Bypass '
+        $uncArguments | Should -Match '--mode local --open-guide --yes'
+        $uncArguments | Should -Match ([regex]::Escape($uncRoot))
+        $localArguments | Should -Not -Match 'ExecutionPolicy'
+        $localArguments | Should -Match '--mode local --open-guide --yes'
+        $localArguments | Should -Match ([regex]::Escape($localRoot))
+    }
+
+    It '幂等检查要求 UNC 入口快捷方式携带 Bypass，本地入口不受影响' {
+        $directory = Join-Path $TestDrive 'currency'
+        New-Item -ItemType Directory -Path $directory -Force | Out-Null
+        $profile = [pscustomobject]@{ name = 'demo' }
+        $shell = New-Object -ComObject WScript.Shell
+
+        $newUncPath = Join-Path $directory 'new-unc.lnk'
+        $newUncShortcut = $shell.CreateShortcut($newUncPath)
+        $newUncShortcut.TargetPath = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
+        $newUncShortcut.Arguments = '-NoProfile -ExecutionPolicy Bypass -File "\\wsl.localhost\D\repo\bin\browser-debug.ps1" profile start "demo" --mode local --open-guide --yes'
+        $newUncShortcut.Save()
+
+        $staleUncPath = Join-Path $directory 'stale-unc.lnk'
+        $staleUncShortcut = $shell.CreateShortcut($staleUncPath)
+        $staleUncShortcut.TargetPath = $newUncShortcut.TargetPath
+        $staleUncShortcut.Arguments = '-NoProfile -File "\\wsl.localhost\D\repo\bin\browser-debug.ps1" profile start "demo" --mode local --open-guide --yes'
+        $staleUncShortcut.Save()
+
+        $localPath = Join-Path $directory 'local.lnk'
+        $localShortcut = $shell.CreateShortcut($localPath)
+        $localShortcut.TargetPath = $newUncShortcut.TargetPath
+        $localShortcut.Arguments = '-NoProfile -File "C:\repo\bin\browser-debug.ps1" profile start "demo" --mode local --open-guide --yes'
+        $localShortcut.Save()
+
+        Test-BrowserDebugShortcutCurrent -ShortcutPath $newUncPath -Profile $profile -Mode local | Should -BeTrue
+        Test-BrowserDebugShortcutCurrent -ShortcutPath $staleUncPath -Profile $profile -Mode local | Should -BeFalse
+        Test-BrowserDebugShortcutCurrent -ShortcutPath $localPath -Profile $profile -Mode local | Should -BeTrue
     }
 
     It '同目录同模式幂等，未知同名文件拒绝覆盖' {
@@ -652,8 +709,48 @@ Describe 'browser-debug 快捷方式' -Tag 'windowsOnly' {
     }
 }
 
+Describe 'browser-debug Tailscale 地址探测' {
+    It 'CGNAT 网段判定只放行 100.64.0.0/10' {
+        Test-BrowserDebugCgnatIpv4 -Value '100.64.0.1' | Should -BeTrue
+        Test-BrowserDebugCgnatIpv4 -Value '100.127.255.254' | Should -BeTrue
+        Test-BrowserDebugCgnatIpv4 -Value '100.63.255.254' | Should -BeFalse
+        Test-BrowserDebugCgnatIpv4 -Value '100.128.0.1' | Should -BeFalse
+        Test-BrowserDebugCgnatIpv4 -Value '192.168.1.1' | Should -BeFalse
+        Test-BrowserDebugCgnatIpv4 -Value '100.101.7.256' | Should -BeFalse
+        Test-BrowserDebugCgnatIpv4 -Value 'not-an-ip' | Should -BeFalse
+    }
+
+    It '从 status --json 解析 CGNAT IPv4、MagicDNS 域名与主机名' {
+        $json = '{"Self":{"HostName":"ser6pro","DNSName":"ser6pro.tail9c3f.ts.net.","TailscaleIPs":["fd7a:115c:a1e0:ab12:4843:cd96:626d:2c9f","100.101.7.31"]}}'
+        $address = Resolve-BrowserDebugTailscaleAddress -StatusInvoker { $json }
+        $address.ipv4 | Should -Be '100.101.7.31'
+        $address.magicDnsName | Should -Be 'ser6pro.tail9c3f.ts.net'
+        $address.hostName | Should -Be 'ser6pro'
+    }
+
+    It 'HostName 缺失时回退 MagicDNS 首段且过滤非法主机名字符' {
+        $derived = Resolve-BrowserDebugTailscaleAddress -StatusInvoker { '{"Self":{"DNSName":"macmini.tail9c3f.ts.net.","TailscaleIPs":["100.64.0.1"]}}' }
+        $derived.hostName | Should -Be 'macmini'
+        $sanitized = Resolve-BrowserDebugTailscaleAddress -StatusInvoker { '{"Self":{"HostName":"bad_host!","TailscaleIPs":["100.64.0.1"]}}' }
+        $sanitized.ipv4 | Should -Be '100.64.0.1'
+        $sanitized.hostName | Should -BeNullOrEmpty
+        $sanitized.magicDnsName | Should -BeNullOrEmpty
+    }
+
+    It '无 CGNAT IPv4、空输出、垃圾 JSON、invoker 异常与缺少可执行文件均返回空' {
+        Resolve-BrowserDebugTailscaleAddress -StatusInvoker { '{"Self":{"TailscaleIPs":["fd7a:115c:a1e0:ab12:4843:cd96:626d:2c9f","100.63.0.1"]}}' } | Should -BeNullOrEmpty
+        Resolve-BrowserDebugTailscaleAddress -StatusInvoker { '   ' } | Should -BeNullOrEmpty
+        Resolve-BrowserDebugTailscaleAddress -StatusInvoker { 'not-json' } | Should -BeNullOrEmpty
+        Resolve-BrowserDebugTailscaleAddress -StatusInvoker { throw 'tailscale down' } | Should -BeNullOrEmpty
+        Resolve-BrowserDebugTailscaleAddress -StatusInvoker { '{"NoSelfHere":1}' } | Should -BeNullOrEmpty
+        Mock Get-Command { $null } -ParameterFilter { $Name -like 'tailscale*' }
+        Resolve-BrowserDebugTailscaleAddress | Should -BeNullOrEmpty
+    }
+}
+
 Describe 'browser-debug 启动帮助页' {
     It 'LAN 快照只将实际回环端口标为原生 Ready 并生成两种远程方案' {
+        Mock Resolve-BrowserDebugTailscaleAddress { $null }
         $profile = [pscustomobject]@{ name = 'demo'; browser = 'edge'; profilePath = 'C:\Profiles\demo'; cdpPort = 9222 }
         $registry = [pscustomobject]@{ sshConfigurations = @([pscustomobject]@{ name = 'remote'; profile = 'demo'; direction = 'local-forward'; target = 'windows-host'; agentPort = 9555; sshConfigPath = $null; verboseLogging = $false }) }
         $startResult = [pscustomobject]@{ mode = 'lan'; listenAddress = '0.0.0.0'; cdpPort = 9444; cdpVersion = [pscustomobject]@{ Browser = 'Edge/1' } }
@@ -664,10 +761,29 @@ Describe 'browser-debug 启动帮助页' {
         $snapshot.tailscale.enableCommand | Should -Be 'tailscale serve --bg --yes --tcp=9444 tcp://127.0.0.1:9444'
         $snapshot.tailscale.statusCommand | Should -Be 'tailscale serve status'
         $snapshot.tailscale.disableCommand | Should -Be 'tailscale serve --tcp=9444 off'
+        $snapshot.tailscale.endpoint | Should -Be 'http://<本机 MagicDNS 或 Tailscale IP>:9444'
+        $snapshot.tailscale.hostnameEndpoint | Should -BeNullOrEmpty
+        $snapshot.tailscale.aliasEndpoint | Should -BeNullOrEmpty
+        $snapshot.tailscale.detected | Should -BeFalse
         $snapshot.sshLocalForward.sshCommand | Should -Be 'ssh -N -o ExitOnForwardFailure=yes -L 9444:127.0.0.1:9444 <windows-user>@<windows-host>'
         $snapshot.sshLocalForward.probeUrl | Should -Be 'http://127.0.0.1:9444/json/version'
         $snapshot.sshLocalForward.playwrightCommand | Should -Be 'playwright-cli attach --cdp=http://127.0.0.1:9444'
         $snapshot.sshConfigurations[0].sshCommand | Should -Match '127\.0\.0\.1:9444'
+    }
+
+    It 'LAN 快照检测到 Tailscale 时以 CGNAT IPv4 生成 endpoint 并携带主机名与 MagicDNS 别名' {
+        Mock Resolve-BrowserDebugTailscaleAddress { [pscustomobject]@{ ipv4 = '100.101.7.31'; magicDnsName = 'ser6pro.tail9c3f.ts.net'; hostName = 'ser6pro' } }
+        $snapshot = New-BrowserDebugGuideSnapshot -Profile ([pscustomobject]@{ name = 'demo'; browser = 'edge'; profilePath = 'C:\Profiles\demo'; cdpPort = 9222 }) -StartResult ([pscustomobject]@{ mode = 'lan'; listenAddress = '0.0.0.0'; cdpPort = 9444; cdpVersion = $null }) -Registry ([pscustomobject]@{ sshConfigurations = @() })
+        $snapshot.tailscale.detected | Should -BeTrue
+        $snapshot.tailscale.endpoint | Should -Be 'http://100.101.7.31:9444'
+        $snapshot.tailscale.probeUrl | Should -Be 'http://100.101.7.31:9444/json/version'
+        $snapshot.tailscale.playwrightCommand | Should -Be 'playwright-cli attach --cdp=http://100.101.7.31:9444'
+        $snapshot.tailscale.agentPrompt | Should -Match '100\.101\.7\.31:9444'
+        $snapshot.tailscale.hostnameEndpoint | Should -Be 'http://ser6pro:9444'
+        $snapshot.tailscale.aliasEndpoint | Should -Be 'http://ser6pro.tail9c3f.ts.net:9444'
+        $snapshot.tailscale.enableCommand | Should -Be 'tailscale serve --bg --yes --tcp=9444 tcp://127.0.0.1:9444'
+        $snapshot.endpoint | Should -Be 'http://127.0.0.1:9444'
+        $snapshot.sshLocalForward.endpoint | Should -Be 'http://127.0.0.1:9444'
     }
 
     It 'Local 快照不生成通用远程方案且保留已登记 SSH' {
@@ -689,17 +805,17 @@ Describe 'browser-debug 启动帮助页' {
             cdpPort = 9333; mode = 'lan'; listenAddress = '0.0.0.0'; nativeLanReachable = $false; endpoint = 'http://127.0.0.1:9333/" onfocus="alert(2)'
             probeUrl = 'http://127.0.0.1:9333/json/version'; playwrightCommand = 'playwright-cli attach --cdp=http://127.0.0.1:9333'
             cdpVersion = 'Edge/<1>'; agentPrompt = '连接 </script><script>alert(3)</script><现有> 浏览器'
-            tailscale = [pscustomobject]@{ enableCommand = 'tailscale serve --bg --yes --tcp=9333 tcp://127.0.0.1:9333'; statusCommand = 'tailscale serve status'; disableCommand = 'tailscale serve --tcp=9333 off'; endpoint = 'http://<tailscale-host>:9333'; probeUrl = 'http://<tailscale-host>:9333/json/version'; playwrightCommand = 'playwright-cli attach --cdp=http://<tailscale-host>:9333'; agentPrompt = 'Tailnet <prompt>' }
+            tailscale = [pscustomobject]@{ enableCommand = 'tailscale serve --bg --yes --tcp=9333 tcp://127.0.0.1:9333'; statusCommand = 'tailscale serve status'; disableCommand = 'tailscale serve --tcp=9333 off'; endpoint = 'http://<tailscale-host>:9333'; hostnameEndpoint = 'http://<macmini>:9333'; aliasEndpoint = 'http://<macmini>.tail9c3f.ts.net:9333'; detected = $true; probeUrl = 'http://<tailscale-host>:9333/json/version'; playwrightCommand = 'playwright-cli attach --cdp=http://<tailscale-host>:9333'; agentPrompt = 'Tailnet <prompt>' }
             sshLocalForward = [pscustomobject]@{ sshCommand = 'ssh -N -L 9333:127.0.0.1:9333 <user>@<host>'; endpoint = 'http://127.0.0.1:9333'; probeUrl = 'http://127.0.0.1:9333/json/version'; playwrightCommand = 'playwright-cli attach --cdp=http://127.0.0.1:9333'; agentPrompt = 'SSH <prompt>' }
             sshConfigurations = @([pscustomobject]@{ name = '"><ssh>'; sshCommand = 'ssh host'; agentPrompt = '不要创建 <new>' })
             Cookie = 'cookie-secret'; password = 'password-secret'; token = 'token-secret'; history = 'history-secret'; tabTitle = 'tab-secret'
         }
         $html = ConvertTo-BrowserDebugGuideHtml -Snapshot $snapshot
-        $html | Should -Match '&lt;demo&gt;|&lt;tailscale-host&gt;'
+        $html | Should -Match '&lt;demo&gt;|&lt;tailscale-host&gt;|&lt;macmini&gt;'
         $html | Should -Match 'data-copy='
         $html | Should -Match "execCommand\('copy'\)"
         $html | Should -Match '远程 CDP 直连当前不生效'
-        $html | Should -Not -Match '<demo>|<现有>|<ssh>|<new>|<tailscale-host>'
+        $html | Should -Not -Match '<demo>|<现有>|<ssh>|<new>|<tailscale-host>|<macmini>'
         $html | Should -Not -Match '<script>alert|onfocus="alert'
         ([regex]::Matches($html, '<script>')).Count | Should -Be 1
         $html | Should -Not -Match 'cookie-secret|password-secret|token-secret|history-secret|tab-secret'
@@ -736,6 +852,7 @@ Describe 'browser-debug 启动帮助页' {
     }
 
     It '渲染专业运维布局、语义状态与无外部依赖的可访问复制控件' {
+        Mock Resolve-BrowserDebugTailscaleAddress { $null }
         $profile = [pscustomobject]@{ name = 'edge-debug'; browser = 'edge'; profilePath = 'D:\browser-debug-profiles\edge-debug'; cdpPort = 21229 }
         $snapshot = New-BrowserDebugGuideSnapshot -Profile $profile -StartResult ([pscustomobject]@{ mode = 'lan'; listenAddress = '0.0.0.0'; cdpPort = 21229; cdpVersion = [pscustomobject]@{ Browser = 'Edg/140.0' } }) -Registry ([pscustomobject]@{ sshConfigurations = @() })
         $html = ConvertTo-BrowserDebugGuideHtml -Snapshot $snapshot
@@ -745,7 +862,29 @@ Describe 'browser-debug 启动帮助页' {
         $html | Should -Match ':focus-visible|prefers-reduced-motion:reduce|@media\(max-width:720px\)|overflow-wrap:anywhere'
         $html | Should -Not -Match 'gradient|@import|<(?:link|script)[^>]+(?:href|src)='
         $html | Should -Match 'window\.isSecureContext|execCommand\(''copy''\)'
-        $html | Should -Not -Match 'http://(?:100\.|172\.|192\.168\.)[^< ]*:21229'
+        # 原生直连只允许回环；私网网段与 CGNAT 之外的 100.x 不得作为 endpoint，Tailnet CGNAT 段仅属于 Tailscale Serve 方案。
+        $html | Should -Not -Match 'http://(?:172\.|192\.168\.|10\.|100\.(?:[0-9]|[1-5][0-9]|6[0-3])\.)[^< ]*:21229'
+    }
+
+    It 'LAN 页面渲染探测到的主机名与 MagicDNS 别名并在未检测到时提示' {
+        $profile = [pscustomobject]@{ name = 'demo'; browser = 'edge'; profilePath = 'C:\Profiles\demo'; cdpPort = 9444 }
+        Mock Resolve-BrowserDebugTailscaleAddress { [pscustomobject]@{ ipv4 = '100.101.7.31'; magicDnsName = 'ser6pro.tail9c3f.ts.net'; hostName = 'ser6pro' } }
+        $detectedSnapshot = New-BrowserDebugGuideSnapshot -Profile $profile -StartResult ([pscustomobject]@{ mode = 'lan'; listenAddress = '0.0.0.0'; cdpPort = 9444; cdpVersion = $null }) -Registry ([pscustomobject]@{ sshConfigurations = @() })
+        $detectedHtml = ConvertTo-BrowserDebugGuideHtml -Snapshot $detectedSnapshot
+        $detectedHtml | Should -Match 'data-copy="http://100\.101\.7\.31:9444"'
+        $detectedHtml | Should -Match 'data-copy="http://ser6pro:9444"'
+        $detectedHtml | Should -Match 'data-copy="http://ser6pro\.tail9c3f\.ts\.net:9444"'
+        $detectedHtml | Should -Not -Match '未在本机检测到可用的 Tailscale'
+        $detectedHtml.IndexOf('Tailnet endpoint') | Should -BeGreaterThan -1
+        $detectedHtml.IndexOf('主机名别名 endpoint') | Should -BeGreaterThan $detectedHtml.IndexOf('Tailnet endpoint')
+        $detectedHtml.IndexOf('MagicDNS 别名 endpoint') | Should -BeGreaterThan $detectedHtml.IndexOf('主机名别名 endpoint')
+
+        Mock Resolve-BrowserDebugTailscaleAddress { $null }
+        $fallbackSnapshot = New-BrowserDebugGuideSnapshot -Profile $profile -StartResult ([pscustomobject]@{ mode = 'lan'; listenAddress = '0.0.0.0'; cdpPort = 9444; cdpVersion = $null }) -Registry ([pscustomobject]@{ sshConfigurations = @() })
+        $fallbackHtml = ConvertTo-BrowserDebugGuideHtml -Snapshot $fallbackSnapshot
+        $fallbackHtml | Should -Match '未在本机检测到可用的 Tailscale（未安装或未登录）'
+        $fallbackHtml | Should -Not -Match '主机名别名 endpoint|MagicDNS 别名 endpoint'
+        $fallbackHtml | Should -Match '&lt;本机 MagicDNS 或 Tailscale IP&gt;'
     }
 
     It '将模板渲染结果原子写入 registry 同级 guides 目录' {
@@ -851,5 +990,216 @@ Describe 'browser-debug SSH 交接与生命周期' {
         Test-BrowserDebugSshProcessOwnership -Process ([pscustomobject]@{ CommandLine = $ownedCommandLine }) -Info $info | Should -BeTrue
         Test-BrowserDebugSshProcessOwnership -Process ([pscustomobject]@{ CommandLine = $ownedCommandLine.Replace('-N ', '') }) -Info $info | Should -BeFalse
         Test-BrowserDebugSshProcessOwnership -Process ([pscustomobject]@{ CommandLine = $ownedCommandLine.Replace('agent-host', 'other-host') }) -Info $info | Should -BeFalse
+    }
+}
+
+Describe 'browser-debug 平台能力' {
+    It '平台判定与当前操作系统一致' {
+        $expected = if ($IsWindows) { 'windows' } elseif ($IsMacOS) { 'macos' } else { 'linux' }
+        Get-BrowserDebugPlatform | Should -Be $expected
+    }
+
+    It '能力门禁放行全平台 local 并在非 Windows 拒绝 lan 与 ssh' {
+        Assert-BrowserDebugCommandSupport -Resource profile -Action create -Platform windows
+        Assert-BrowserDebugCommandSupport -Resource ssh -Action list -Platform windows
+        Assert-BrowserDebugCommandSupport -Resource profile -Action list -Platform linux
+        Assert-BrowserDebugCommandSupport -Resource profile -Action get -Platform macos
+        Assert-BrowserDebugCommandSupport -Resource profile -Action start -Mode local -Platform macos
+        { Assert-BrowserDebugCommandSupport -Resource profile -Action start -Mode lan -Platform macos } | Should -Throw '*lan*仅支持 Windows*'
+        { Assert-BrowserDebugCommandSupport -Resource profile -Action shortcut -Mode lan -Platform linux } | Should -Throw '*lan*仅支持 Windows*'
+        { Assert-BrowserDebugCommandSupport -Resource ssh -Action info -Platform linux } | Should -Throw '*ssh*仅支持 Windows*'
+    }
+
+    It '快捷方式文件名按平台取扩展名' {
+        Get-BrowserDebugShortcutFileName -Name demo -Mode local -Platform windows | Should -Be 'demo.lnk'
+        Get-BrowserDebugShortcutFileName -Name demo -Mode lan -Platform windows | Should -Be 'demo-LAN.lnk'
+        Get-BrowserDebugShortcutFileName -Name demo -Mode local -Platform macos | Should -Be 'demo.command'
+        Get-BrowserDebugShortcutFileName -Name demo -Mode lan -Platform macos | Should -Be 'demo-LAN.command'
+        Get-BrowserDebugShortcutFileName -Name demo -Mode local -Platform linux | Should -Be 'demo.desktop'
+    }
+
+    It '路径比较语义按平台区分大小写' {
+        Test-BrowserDebugSamePath -PathA '/tmp/Demo' -PathB '/tmp/demo' -Platform macos | Should -BeTrue
+        Test-BrowserDebugSamePath -PathA '/tmp/Demo' -PathB '/tmp/demo' -Platform linux | Should -BeFalse
+    }
+
+    It '缺少 ExecutablePath 时按命令行前缀判定可执行匹配' -Skip:($script:BrowserDebugPlatform -eq 'windows') {
+        # 测试用 Unix 风格合成路径；Windows 上 GetFullPath 会补盘符导致语义漂移，该分支仅 Unix 生产路径可达。
+        $chromePath = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+        $matchProcess = [pscustomobject]@{ ProcessId = 1; ExecutablePath = $null; CommandLine = "$chromePath --user-data-dir=/tmp/demo" }
+        Test-BrowserDebugProcessExecutableMatch -Process $matchProcess -ExecutablePath $chromePath -Platform macos | Should -BeTrue
+        Test-BrowserDebugProcessExecutableMatch -Process $matchProcess -ExecutablePath '/usr/bin/google-chrome' -Platform macos | Should -BeFalse
+        $helperProcess = [pscustomobject]@{ ProcessId = 2; ExecutablePath = $null; CommandLine = "${chromePath}Helper (Renderer) --flag" }
+        Test-BrowserDebugProcessExecutableMatch -Process $helperProcess -ExecutablePath $chromePath -Platform macos | Should -BeFalse
+    }
+
+    It 'Unix 形状进程通过前缀匹配确认 Profile 所有权' -Skip:($script:BrowserDebugPlatform -eq 'windows') {
+        $profile = [pscustomobject]@{ name = 'demo'; browserPath = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'; profilePath = '/tmp/profiles/demo' }
+        $owned = [pscustomobject]@{ ProcessId = 10; ExecutablePath = $null; CommandLine = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --user-data-dir=/tmp/profiles/demo --remote-debugging-port=9333' }
+        $foreign = [pscustomobject]@{ ProcessId = 11; ExecutablePath = $null; CommandLine = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --user-data-dir=/tmp/profiles/other --remote-debugging-port=9333' }
+        Test-BrowserDebugProcessOwnership -Process $owned -Profile $profile | Should -BeTrue
+        Test-BrowserDebugProcessOwnership -Process $foreign -Profile $profile | Should -BeFalse
+    }
+}
+
+Describe 'browser-debug Unix 浏览器定位' {
+    It 'macOS 可执行候选指向应用包' -Skip:($script:BrowserDebugPlatform -eq 'windows') {
+        $candidates = Get-BrowserDebugUnixExecutableCandidates -Browser chrome -Platform macos -HomePath '/Users/demo'
+        $candidates[0] | Should -Be '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+        $candidates[1] | Should -Be '/Users/demo/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+        (Get-BrowserDebugUnixExecutableCandidates -Browser edge -Platform macos)[0] | Should -Be '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge'
+    }
+
+    It 'Linux 可执行候选包含 stable 变体' -Skip:($script:BrowserDebugPlatform -eq 'windows') {
+        Get-BrowserDebugUnixExecutableCandidates -Browser chrome -Platform linux | Should -Be @('/usr/bin/google-chrome', '/usr/bin/google-chrome-stable')
+        Get-BrowserDebugUnixExecutableCandidates -Browser edge -Platform linux | Should -Be @('/usr/bin/microsoft-edge', '/usr/bin/microsoft-edge-stable')
+    }
+
+    It 'macOS User Data 位于 Application Support' -Skip:($script:BrowserDebugPlatform -eq 'windows') {
+        Get-BrowserDebugUnixUserDataPath -Browser chrome -Platform macos -HomePath '/Users/demo' | Should -Be '/Users/demo/Library/Application Support/Google/Chrome'
+        Get-BrowserDebugUnixUserDataPath -Browser edge -Platform macos -HomePath '/Users/demo' | Should -Be '/Users/demo/Library/Application Support/Microsoft Edge'
+    }
+
+    It 'Linux User Data 遵循 XDG 配置根' -Skip:($script:BrowserDebugPlatform -eq 'windows') {
+        Get-BrowserDebugUnixUserDataPath -Browser chrome -Platform linux -HomePath '/home/demo' | Should -Be '/home/demo/.config/google-chrome'
+        Get-BrowserDebugUnixUserDataPath -Browser edge -Platform linux -HomePath '/home/demo' -ConfigRoot '/xdg' | Should -Be '/xdg/microsoft-edge'
+    }
+
+    It 'Unix 默认注册表路径位于用户数据目录' -Skip:($script:BrowserDebugPlatform -eq 'windows') {
+        $saved = $env:BROWSER_DEBUG_REGISTRY_PATH
+        $env:BROWSER_DEBUG_REGISTRY_PATH = $null
+        try {
+            $path = Resolve-BrowserDebugRegistryPath
+            $path | Should -Match '[/\\]browser-debug-profiles[/\\]registry\.json$'
+        }
+        finally { $env:BROWSER_DEBUG_REGISTRY_PATH = $saved }
+    }
+
+    It 'Windows 默认注册表路径保持 D 盘约定' -Skip:($script:BrowserDebugPlatform -ne 'windows') {
+        $saved = $env:BROWSER_DEBUG_REGISTRY_PATH
+        $env:BROWSER_DEBUG_REGISTRY_PATH = $null
+        try { Resolve-BrowserDebugRegistryPath | Should -Be 'D:\browser-debug-profiles\registry.json' }
+        finally { $env:BROWSER_DEBUG_REGISTRY_PATH = $saved }
+    }
+}
+
+Describe 'browser-debug Unix 进程解析' {
+    It '解析 ps 输出并过滤非 Chromium 进程' {
+        $lines = @(
+            '    1 /sbin/launchd',
+            '  1234 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --type=renderer --user-data-dir=/tmp/p',
+            '  2345 /usr/bin/google-chrome --user-data-dir=/tmp/p --remote-debugging-port=9333',
+            '   34 /Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge --flag',
+            'junk-line'
+        )
+        $processes = ConvertFrom-BrowserDebugPsProcesses -Lines $lines
+        $processes.Count | Should -Be 3
+        $processes[0].ProcessId | Should -Be 1234
+        $processes[0].ExecutablePath | Should -BeNullOrEmpty
+        $processes[0].CommandLine | Should -Be '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --type=renderer --user-data-dir=/tmp/p'
+        $processes[1].ProcessId | Should -Be 2345
+        $processes[2].CommandLine | Should -Match 'Microsoft Edge'
+    }
+
+    It '空输入返回空数组' {
+        ConvertFrom-BrowserDebugPsProcesses -Lines @() | Should -Be @()
+    }
+}
+
+Describe 'browser-debug Unix 快捷方式' -Skip:($script:BrowserDebugPlatform -eq 'windows') {
+    It '生成可执行 .command 且合同校验通过' -Skip:($script:BrowserDebugPlatform -ne 'macos') {
+        $directory = Join-Path $TestDrive 'mac-shortcuts'
+        $profile = [pscustomobject]@{ name = 'demo'; browser = 'chrome'; browserPath = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' }
+        $shortcutPath = New-BrowserDebugShortcut -Profile $profile -ShortcutDirectory $directory -RepoRoot $script:RepoRoot
+        $shortcutPath | Should -Match 'demo\.command$'
+        $content = Get-Content -LiteralPath $shortcutPath -Raw
+        $content | Should -Match '^#!/bin/sh'
+        $content | Should -Match 'profile start .demo. --mode local --open-guide --yes'
+        $content | Should -Match '-NoProfile -File'
+        $content | Should -Not -Match '9333'
+        ((Get-Item -LiteralPath $shortcutPath).UnixFileMode -band [System.IO.UnixFileMode]::UserExecute) -ne 0 | Should -BeTrue
+        $checker = [pscustomobject]@{ name = 'demo' }
+        Test-BrowserDebugShortcutCurrent -ShortcutPath $shortcutPath -Profile $checker -Mode local | Should -BeTrue
+        Set-Content -LiteralPath $shortcutPath -Value $content.Replace('--yes', '--no') -Encoding utf8NoBOM
+        Test-BrowserDebugShortcutCurrent -ShortcutPath $shortcutPath -Profile $checker -Mode local | Should -BeFalse
+    }
+
+    It '生成 .desktop 且 Exec 行携带合同参数' -Skip:($script:BrowserDebugPlatform -ne 'linux') {
+        $directory = Join-Path $TestDrive 'linux-shortcuts'
+        $profile = [pscustomobject]@{ name = 'demo'; browser = 'edge'; browserPath = '/usr/bin/microsoft-edge' }
+        $shortcutPath = New-BrowserDebugShortcut -Profile $profile -ShortcutDirectory $directory -RepoRoot $script:RepoRoot
+        $shortcutPath | Should -Match 'demo\.desktop$'
+        $content = Get-Content -LiteralPath $shortcutPath -Raw
+        $content | Should -Match '^\[Desktop Entry\]'
+        $content | Should -Match 'Type=Application'
+        $content | Should -Match 'Terminal=false'
+        $content | Should -Match 'Icon=microsoft-edge'
+        $execLine = ($content -split "`n" | Where-Object { $_ -like 'Exec=*' }) -join ''
+        $execLine | Should -Match 'profile start demo --mode local --open-guide --yes$'
+        $execLine | Should -Match '-NoProfile -File'
+        $checker = [pscustomobject]@{ name = 'demo' }
+        Test-BrowserDebugShortcutCurrent -ShortcutPath $shortcutPath -Profile $checker -Mode local | Should -BeTrue
+    }
+
+    It '事务幂等：登记后不重建，未登记的未知同名文件拒绝覆盖' {
+        $directory = Join-Path $TestDrive 'unix-shortcut-tx'
+        $profile = [pscustomobject]@{ name = 'demo'; browser = 'chrome'; browserPath = '/x/chrome'; shortcutPath = $null; shortcutPaths = [pscustomobject]@{ local = $null; lan = $null } }
+        $path = Add-BrowserDebugProfileShortcut -Profile $profile -Mode local -ShortcutDirectory $directory -RepoRoot $script:RepoRoot -PersistScriptBlock {
+            param($shortcutPath)
+            $profile.shortcutPaths.local = $shortcutPath
+            $profile.shortcutPath = $shortcutPath
+        }
+        $path | Should -Match 'demo\.(command|desktop)$'
+        $secondPath = Add-BrowserDebugProfileShortcut -Profile $profile -Mode local -ShortcutDirectory $directory -RepoRoot $script:RepoRoot -PersistScriptBlock { throw '不应重复持久化' }
+        $secondPath | Should -Be $path
+        $unknownProfile = [pscustomobject]@{ name = 'demo'; browser = 'chrome'; browserPath = '/x/chrome'; shortcutPath = $null; shortcutPaths = [pscustomobject]@{ local = $null; lan = $null } }
+        { Add-BrowserDebugProfileShortcut -Profile $unknownProfile -Mode local -ShortcutDirectory $directory -RepoRoot $script:RepoRoot -PersistScriptBlock {} } | Should -Throw '*未由该 Profile 登记*'
+    }
+}
+
+Describe 'browser-debug Unix 克隆修剪' -Skip:($script:BrowserDebugPlatform -eq 'windows') {
+    It '整体克隆后修剪排除目录与排除文件' {
+        $source = Join-Path $TestDrive 'unix-source'
+        $destination = Join-Path $TestDrive 'unix-dest'
+        New-Item -ItemType Directory -Path (Join-Path $source 'Default/Extensions') -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $source 'Local State') -Value '{}'
+        Set-Content -LiteralPath (Join-Path $source 'Default/Extensions/manifest.json') -Value '{}'
+        Set-Content -LiteralPath (Join-Path $source 'scratch.tmp') -Value 'tmp'
+        $exitCode = Invoke-BrowserDebugClone -SourcePath $source -DestinationPath $destination -ExcludedFiles @('*.tmp') -ExcludedDirectories @('Extensions')
+        $exitCode | Should -Be 0
+        Test-Path -LiteralPath (Join-Path $destination 'Local State') | Should -BeTrue
+        Test-Path -LiteralPath (Join-Path $destination 'Default/Extensions') | Should -BeFalse
+        Test-Path -LiteralPath (Join-Path $destination 'scratch.tmp') | Should -BeFalse
+    }
+}
+
+Describe 'browser-debug Windows 克隆与注册表回退' -Tag 'windowsOnly' {
+    It 'Windows 平台把克隆参数转发给 robocopy' {
+        Mock Invoke-BrowserDebugRobocopy { 3 }
+        Invoke-BrowserDebugClone -SourcePath 'C:\src' -DestinationPath 'C:\dst' -ExcludedFiles @('LOCK') -ExcludedDirectories @('Crashpad') | Should -Be 3
+        Should -Invoke Invoke-BrowserDebugRobocopy -ParameterFilter { $SourcePath -eq 'C:\src' -and $ExcludedFiles -contains 'LOCK' -and $ExcludedDirectories -contains 'Crashpad' }
+    }
+
+    It '默认注册表路径保持 D 盘约定' {
+        Get-BrowserDebugDefaultRegistryPath | Should -Be 'D:\browser-debug-profiles\registry.json'
+    }
+}
+
+Describe 'browser-debug CLI 平台门禁集成' -Skip:($script:BrowserDebugPlatform -eq 'windows') {
+    It '非 Windows CLI 拒绝 ssh 与 lan 并放行 profile list' {
+        $savedSkip = $env:PWSH_TEST_SKIP_BROWSER_DEBUG_MAIN
+        Remove-Item Env:\PWSH_TEST_SKIP_BROWSER_DEBUG_MAIN -ErrorAction SilentlyContinue
+        try {
+            $sshResult = Invoke-BrowserDebugCli -Arguments @('ssh', 'list', '--json')
+            $sshResult.ExitCode | Should -Be 1
+            ($sshResult.Output | ConvertFrom-Json).error.message | Should -Match 'ssh 子命令当前仅支持 Windows'
+            $lanResult = Invoke-BrowserDebugCli -Arguments @('profile', 'start', 'demo', '--mode', 'lan', '--json')
+            $lanResult.ExitCode | Should -Be 1
+            ($lanResult.Output | ConvertFrom-Json).error.message | Should -Match '仅支持 Windows'
+            $listResult = Invoke-BrowserDebugCli -Arguments @('profile', 'list', '--registry-path', (Join-Path $TestDrive 'empty.json'), '--json')
+            $listResult.ExitCode | Should -Be 0
+            ($listResult.Output | ConvertFrom-Json).data.Count | Should -Be 0
+        }
+        finally { $env:PWSH_TEST_SKIP_BROWSER_DEBUG_MAIN = $savedSkip }
     }
 }

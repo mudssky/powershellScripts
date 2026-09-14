@@ -13,7 +13,9 @@ services:
       - .:/workspace
       - pester-results:/workspace-output
     tmpfs:
-      - /tmp
+      # Docker tmpfs 默认 noexec；Pester $TestDrive 落在 /tmp，
+      # 测试内构造的 scoop shim 等可执行脚本必须保留 exec 位才能被子进程启动。
+      - /tmp:exec
     working_dir: /workspace
     environment:
       - PWSH_TEST_MODE=fast
@@ -29,7 +31,9 @@ services:
       - .:/workspace
       - pester-results:/workspace-output
     tmpfs:
-      - /tmp
+      # Docker tmpfs 默认 noexec；Pester $TestDrive 落在 /tmp，
+      # 测试内构造的 scoop shim 等可执行脚本必须保留 exec 位才能被子进程启动。
+      - /tmp:exec
     working_dir: /workspace
     environment:
       - PWSH_TEST_MODE=full

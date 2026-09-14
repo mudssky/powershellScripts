@@ -1,0 +1,4 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/infra/linux-install-pipeline.md", "reason": "步骤注册/退出码约定与文档一致性检查基准"}
+{"file": "tests/WindowsInstallPipeline.Tests.ps1", "reason": "Windows 流水线 Pester 既有 mock/WhatIf 模式，新用例须跟随"}
+{"file": "tests/WslSshAccess.Tests.ps1", "reason": "机制层既有测试，pms1 改动约束的回归门"}

@@ -122,7 +122,7 @@ renameLegal.ps1 -reverse
 | losslessToAdaptiveAudio.ps1 | 无损音频转码脚本（qaac 不存在时回退 libopus） | audio, aac, opus, lossless, qaac, ffmpeg |
 | lrc-maker.ps1 | 歌词文件制作脚本 | lrc, lyrics, maker |
 | jupyconvert.ps1 | Jupyter转换脚本 | jupyter, convert, notebook |
-| gitconfig_personal.ps1 | 个人Git配置脚本 | git, config, personal |
+| gitconfig_personal.ps1 | 按 profile 管理 Git 提交身份：安装 includeIf 规则、审计生效身份、清理仓库级覆盖 | git, config, identity, includeif |
 | get-SnippetsBody.ps1 | 获取代码片段内容脚本 | snippets, code, extract |
 | findLostNum.ps1 | 查找丢失数字脚本 | find, numbers, missing |
 | dvdcompress.ps1 | DVD压缩脚本 | dvd, compress, video |
@@ -164,7 +164,7 @@ browser-debug completion powershell
 browser-debug help
 ```
 
-Profile 默认登记到 `D:\browser-debug-profiles\registry.json`，数据目录为 `D:\browser-debug-profiles\<name>`。`create` 默认从所选浏览器当前用户的标准 User Data 目录克隆登录状态、Profile 数据和扩展，再创建注册记录与 `<name>.lnk` Local 桌面快捷方式，但不启动浏览器。可用 `profile shortcut` 追加 `<name>-LAN.lnk`，两种模式互不替换；快捷方式启动成功后会在同一浏览器 Profile 中打开静态连接指南。停止后可持久修改端口，快捷方式和 SSH 配置会在使用时解析新端口：
+Profile 默认登记到平台数据目录（Windows `D:\browser-debug-profiles\registry.json`，macOS/Linux 用户本地数据目录下 `browser-debug-profiles\registry.json`），数据目录为 Profile root 下的 `<name>`。`create` 默认从所选浏览器当前用户的标准 User Data 目录克隆登录状态、Profile 数据和扩展，再创建注册记录与桌面快捷方式（Windows `<name>.lnk`、macOS `<name>.command`、Linux `<name>.desktop`），但不启动浏览器。`local` 模式全链路支持 Windows/macOS/Linux；LAN 快捷方式（`<name>-LAN.lnk`）、`--mode lan` 与 `ssh` 交接仅支持 Windows，两种模式互不替换；快捷方式启动成功后会在同一浏览器 Profile 中打开静态连接指南。停止后可持久修改端口，快捷方式和 SSH 配置会在使用时解析新端口：
 
 ```powershell
 browser-debug profile create work --browser chrome --cdp-port 9333
@@ -182,7 +182,9 @@ browser-debug profile stop work
 
 `local` 仅监听 `127.0.0.1`。`lan` 必须每次显式指定，会警告 CDP 没有认证且可完全控制浏览器；工具不会自动修改防火墙。同一模式快捷方式再次运行时会复用已拥有的浏览器进程并刷新指南；不同模式不会静默复用，必须先执行 `profile stop`。
 
-指南写入 registry 同级的 `guides/` 目录，包含本次实际监听模式、CDP endpoint、`/json/version`、`playwright-cli attach`、当前 LAN IPv4、关联 SSH 配置和中文 Agent Prompt。`0.0.0.0` 通配监听会为每个候选 LAN IPv4 分别列出 endpoint、探测、attach 和 Prompt，不把 Tailscale、虚拟网卡或排序首项当成唯一地址；显式 `--listen-address` 则只突出该接口。页面中的动态文本全部经过 HTML 编码，不读取 Cookie、密码、Token、浏览历史或页面标题；指南生成或打开失败只返回 warning，不改变浏览器已启动成功的结果。
+WSL 内可交互调用：`shell/shared.d/browser-debug.sh` 经 `shell/deploy.sh` 部署后提供 `browser-debug` 函数，通过 Windows pwsh 直调 UNC 入口（自动携带 `-ExecutionPolicy Bypass` 与 UTF-8 输出编码，`/mnt/c/...` 形态参数自动转 Windows 路径），命令树与 Windows 侧一致；WSL 侧经 mirrored 网络 `localhost:<cdpPort>` 直连 CDP。AI agent 非交互直调契约见 `.agents/skills/repo-ops/references/wsl-windows-interop.md`。
+
+指南写入 registry 同级的 `guides/` 目录，包含本次实际监听模式、本机 CDP endpoint、`/json/version`、`playwright-cli attach`、关联 SSH 配置和中文 Agent Prompt。LAN 页面把实际可探测的 `127.0.0.1:<cdpPort>` 标为唯一 Ready endpoint，注明 Windows 原生 LAN 直连当前不可用，并提供 Tailscale Serve 与远端 `ssh -L` 两种不自动执行的远程方案：生成指南时以只读 `tailscale status --json` 探测本机 Tailnet IPv4 与主机名/MagicDNS 域名，生成可直接复制的 Tailnet endpoint 及别名（未安装或未登录时 endpoint 保持占位符并显示提示）。页面中的动态文本全部经过 HTML 编码，不读取 Cookie、密码、Token、浏览历史或页面标题；指南生成或打开失败只返回 warning，不改变浏览器已启动成功的结果。
 
 Edge 的 Windows launcher 可能在把 Profile 交给子进程后正常退出 0。`profile start` 不把 launcher 退出视为浏览器失败，而是等待命令行明确拥有目标 Profile 的 Edge 进程与 CDP endpoint 同时就绪；非零退出且没有接管证据时仍会立即返回诊断错误。
 

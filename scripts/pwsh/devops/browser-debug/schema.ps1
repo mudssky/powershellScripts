@@ -143,7 +143,8 @@ function Get-BrowserDebugHelpText {
     $schema = Get-BrowserDebugCommandSchema
     if ([string]::IsNullOrWhiteSpace($Resource)) {
         return @'
-browser-debug - 管理 Windows Chromium 独立 CDP 调试 Profile
+browser-debug - 管理独立 Chromium CDP 调试 Profile
+local 模式支持 Windows/macOS/Linux；lan 模式与 ssh 交接仅支持 Windows。
 
 用法:
   browser-debug profile <action> [arguments]

@@ -1996,3 +1996,24 @@ Implemented a cross-platform PowerShell GitHub Release CLI downloader and instal
 ### Status
 
 [OK] **Completed**
+
+
+## Session 69: 优化 WSL 全局配置
+
+**Date**: 2026-09-05
+**Task**: 优化 WSL 全局配置
+**Branch**: `master`
+
+### Summary
+
+移除 WSL 固定资源限制和重复默认项，保留 mirrored、sparseVhd 与 hostAddressLoopback；新增默认值说明并解耦配置生成测试。用户 .wslconfig 已备份部署并执行 shutdown，运行态确认新 CPU/内存默认值生效。定向测试 28/28 通过；完整门禁的 Cargo/Pester/Linux scoop shim 环境限制已记录在归档任务。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ecbd04e0` | (see git log) |
+
+### Status
+
+[OK] **Completed**

@@ -114,9 +114,10 @@ China/Auto 的 winget 修改要求管理员子进程可使用 `Microsoft.WinGet.
 | 07 | `windows/07installProfileTools.ps1` | Profile、Node/pnpm、bin、构建与用户 PATH |
 | 08 | `windows/08installFullApps.ps1` | Full terminal extras |
 | 09 | `windows/09deployAutoHotkey.ps1` | AutoHotkey v2、聚合脚本与用户 Startup |
+| 10 | `windows/10deployWslAutostart.ps1` | WSL SSH 开机自启（AtStartup task、firewall rule、TCP relay） |
 | 99 | `windows/99verifyInstall.ps1` | Core/Full 只读 Text/JSON 验证 |
 
-04、10、11 由步骤注册表标记为 Windows 不支持，不创建空脚本。所有写入入口支持 `-WhatIf`。退出码为：成功/已满足/预览 0、执行失败 1、参数错误 2、Blocked 或需要重启 10。
+04、11 由步骤注册表标记为 Windows 不支持，不创建空脚本。所有写入入口支持 `-WhatIf`。退出码为：成功/已满足/预览 0、执行失败 1、参数错误 2、Blocked 或需要重启 10。
 
 ## WSL 宿主
 
@@ -135,7 +136,7 @@ Windows 10 只生成满足 build/capability 门槛的设置；Windows 11 22H2+ �
 
 ### WSL 独立 SSH 入口
 
-`-IncludeWsl` 不会自动开放 WSL SSH。需要把现有 Ubuntu/Debian WSL2 作为长期 Linux 服务宿主时，使用独立入口；Windows OpenSSH `22/tcp` 继续作为 Windows 管理和恢复通道，WSL 使用另一个端口，例如 `2222/tcp`：
+`-IncludeWsl` 不会自动开放 WSL SSH。需要把现有 Ubuntu/Debian WSL2 作为长期 Linux 服务宿主时，可由流水线 Full 预设的步骤 `10 login-items` 完成：该步骤执行 `windows/10deployWslAutostart.ps1`，自动推断发行版（`wsl -l -q` 首个）、当前用户与控制器公钥（`~\.ssh\id_ed25519.pub` 等），并等价调用下方的 `Initialize-WslSshAccess.ps1 -Apply`；WSL 未就绪时返回 Blocked/10，不阻断其他独立步骤。以下手动命令保留为等价入口，用于显式覆盖参数或执行 `-Verify`/`-Rollback`：
 
 ```powershell
 # Preview，不创建 task、TCP relay 或 firewall rule
@@ -178,6 +179,7 @@ pwsh .\windows\99verifyInstall.ps1 -Preset Core
 pwsh .\windows\99verifyInstall.ps1 -Preset Full -OutputFormat Json
 pwsh .\windows\99verifyInstall.ps1 -Preset Core -Step sources
 pwsh .\windows\99verifyInstall.ps1 -Preset Core -IncludeWsl
+pwsh .\windows\99verifyInstall.ps1 -Preset Full -Step login-items
 ```
 
 JSON stdout 只有一个文档。验证不安装软件、不请求 UAC、不写字体、Startup 或 WSL 配置。

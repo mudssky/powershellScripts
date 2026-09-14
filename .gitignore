@@ -6,7 +6,6 @@ env.ps1
 apiKey
 enableProxy
 macEnableProxy.ps1
-gitconfig_company.ps1
 *.local.json
 *.local.yaml
 *.local.yml
@@ -38,6 +37,7 @@ node_modules/
 .vs/
 profile/fonts/*
 fstab
+windows/wsl/.wslconfig.*.bak
 
 # 生成目录与本地脚本映射
 bin/

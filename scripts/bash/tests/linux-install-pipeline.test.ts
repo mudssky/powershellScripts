@@ -77,6 +77,35 @@ function linuxEnv(
   }
 }
 
+/**
+ * 在临时 HOME 下创建响应 shellenv 与 --prefix 的伪 brew 可执行文件。
+ *
+ * @param workspace 临时平台夹具。
+ * @returns 伪 brew 的安装前缀目录。
+ */
+function createFakeBrew(workspace: Workspace): string {
+  const prefix = path.join(workspace.home, '.linuxbrew')
+  writeText(
+    path.join(prefix, 'bin/brew'),
+    [
+      '#!/usr/bin/env bash',
+      `prefix='${prefix}'`,
+      'case "$1" in',
+      '  shellenv)',
+      '    printf \'export HOMEBREW_PREFIX="%s"\\n\' "$prefix"',
+      '    printf \'export PATH="%s/bin:%s/sbin:$PATH"\\n\' "$prefix" "$prefix"',
+      '    ;;',
+      '  --prefix)',
+      '    printf \'%s\\n\' "$prefix"',
+      '    ;;',
+      'esac',
+      '',
+    ].join('\n'),
+  )
+  fs.chmodSync(path.join(prefix, 'bin/brew'), 0o755)
+  return prefix
+}
+
 afterEach(() => {
   while (workspaces.length > 0) {
     const workspace = workspaces.pop()
@@ -273,6 +302,23 @@ describe('Linux Stage 0 pipeline', () => {
   })
 })
 
+describe('Linux Stage 0 login profile boundary', () => {
+  it('no longer writes login profiles and delegates persistence to the shell layer', async () => {
+    const workspace = createWorkspace()
+    const prefix = createFakeBrew(workspace)
+
+    // 前置伪 brew，避免宿主机预装的 /home/linuxbrew 干扰隔离 fixture。
+    const result = await execa('bash', [path.join(repoRoot, 'linux/01installHomeBrew.sh')], {
+      env: linuxEnv(workspace, { PATH: `${prefix}/bin:${process.env.PATH ?? ''}` }),
+      reject: false,
+    })
+
+    expect(result.exitCode).toBe(0)
+    expect(fs.existsSync(path.join(workspace.home, '.profile'))).toBe(false)
+    expect(fs.existsSync(path.join(workspace.home, '.zprofile'))).toBe(false)
+  })
+})
+
 describe('Linux Stage 1 shell wrappers', () => {
   it('passes the distro and transaction to the PowerShell source helper', async () => {
     const workspace = createWorkspace('debian')
@@ -338,6 +384,67 @@ describe('Linux Stage 1 shell wrappers', () => {
     expect(result.stderr).toContain('检测到目标 shell: bash')
     expect(fs.existsSync(path.join(workspace.home, '.bashrc'))).toBe(false)
     expect(fs.existsSync(path.join(workspace.home, '.bashrc.d'))).toBe(false)
+  })
+
+  it('restores brew and fnm for non-interactive login shells after 04 deploys', async () => {
+    const workspace = createWorkspace()
+    // 伪 fnm 放进伪 brew prefix 的 bin，模拟 brew 安装的 fnm；
+    // 伪 node/pnpm 只能经伪 fnm env 输出的 PATH 进入，验证受管块
+    // “先 brew 后 fnm”的顺序与 eval "$(fnm env)" 真实执行。
+    const brewPrefix = path.join(workspace.home, '.linuxbrew')
+    const brewBin = path.join(brewPrefix, 'bin')
+    const nodeBin = path.join(workspace.root, 'node-bin')
+    writeText(path.join(brewBin, 'brew'), '#!/usr/bin/env bash\nexit 0\n')
+    writeText(path.join(brewBin, 'fnm'), [
+      '#!/usr/bin/env bash',
+      `printf 'export PATH="%s:$PATH"\\n' '${nodeBin}'`,
+      '',
+    ].join('\n'))
+    for (const file of ['brew', 'fnm']) {
+      fs.chmodSync(path.join(brewBin, file), 0o755)
+    }
+    writeText(path.join(nodeBin, 'node'), '#!/usr/bin/env bash\nexit 0\n')
+    writeText(path.join(nodeBin, 'pnpm'), '#!/usr/bin/env bash\nexit 0\n')
+    for (const file of ['node', 'pnpm']) {
+      fs.chmodSync(path.join(nodeBin, file), 0o755)
+    }
+
+    const deploy = await execa(
+      'bash',
+      [
+        path.join(repoRoot, 'linux/04deployShellConfig.sh'),
+        '--preset',
+        'Core',
+        '--shell',
+        'bash',
+      ],
+      { env: linuxEnv(workspace), reject: false },
+    )
+    expect(deploy.exitCode).toBe(0)
+    expect(fs.existsSync(path.join(workspace.home, '.profile'))).toBe(true)
+
+    // 空 HOME fixture 的登录非交互 shell：PATH 只给系统目录，显式 prefix 隔离
+    // 宿主机 /home/linuxbrew；brew/fnm/node/pnpm 必须全部由受管块自身恢复。
+    const login = await execa(
+      'bash',
+      ['-lc', 'command -v brew; command -v node; command -v pnpm'],
+      {
+        env: {
+          HOME: workspace.home,
+          PATH: '/usr/local/bin:/usr/bin:/bin',
+          POWERSHELL_SCRIPTS_HOMEBREW_PREFIX: brewPrefix,
+        },
+        extendEnv: false,
+        reject: false,
+      },
+    )
+
+    expect(login.exitCode).toBe(0)
+    expect(login.stdout.split('\n')).toEqual([
+      path.join(brewBin, 'brew'),
+      path.join(nodeBin, 'node'),
+      path.join(nodeBin, 'pnpm'),
+    ])
   })
 
   it('loads Linuxbrew from the managed shell fragment without eval output', async () => {

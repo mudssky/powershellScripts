@@ -401,6 +401,89 @@ Describe 'WSL guest config and Docker plan' -Tag 'Wsl', 'Unit' {
     }
 }
 
+Describe 'Profile Tools Linux brew environment' -Tag 'Unit' {
+    BeforeAll {
+        Import-Module (Join-Path $script:ProjectRoot 'scripts/pwsh/install/ProfileTools.psm1') -Force
+    }
+
+    It 'Linux 平台判定前委托 LinuxInstall 初始化 brew 环境' {
+        InModuleScope ProfileTools {
+            Mock Initialize-LinuxBrewEnvironment { '/home/linuxbrew/.linuxbrew/bin/brew' }
+
+            $result = Initialize-ProfileToolBrewEnvironment -Platform Linux
+
+            $result | Should -Be '/home/linuxbrew/.linuxbrew/bin/brew'
+            Should -Invoke Initialize-LinuxBrewEnvironment -Times 1 -Exactly
+        }
+    }
+
+    It 'Linux 平台 brew 缺失时返回空且不修改 PATH，保持 Blocked 语义' {
+        InModuleScope ProfileTools {
+            Mock Initialize-LinuxBrewEnvironment { '' }
+            $originalPath = $env:PATH
+            try {
+                Initialize-ProfileToolBrewEnvironment -Platform Linux | Should -Be ''
+                $env:PATH | Should -Be $originalPath
+            }
+            finally {
+                $env:PATH = $originalPath
+            }
+        }
+    }
+
+    It '非 Linux 平台不初始化 brew 环境' {
+        InModuleScope ProfileTools {
+            Mock Initialize-LinuxBrewEnvironment { throw '非 Linux 平台不应初始化 brew 环境' }
+
+            Initialize-ProfileToolBrewEnvironment -Platform Windows | Should -Be ''
+            Initialize-ProfileToolBrewEnvironment -Platform macOS | Should -Be ''
+            Should -Invoke Initialize-LinuxBrewEnvironment -Times 0 -Exactly
+        }
+    }
+
+    It 'LinuxInstall 未加载时按 POWERSHELL_SCRIPTS_HOMEBREW_PREFIX 兜底探测并恢复环境' {
+        $prefix = Join-Path $TestDrive 'linuxbrew-prefix'
+        New-Item -ItemType Directory -Path (Join-Path $prefix 'bin') -Force | Out-Null
+        New-Item -ItemType Directory -Path (Join-Path $prefix 'sbin') -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $prefix 'bin/brew') -Value '#!/usr/bin/env bash' -Encoding utf8NoBOM
+
+        $originalPath = $env:PATH
+        $originalPrefix = $env:POWERSHELL_SCRIPTS_HOMEBREW_PREFIX
+        $originalHomebrewPrefix = [System.Environment]::GetEnvironmentVariable('HOMEBREW_PREFIX', 'Process')
+        try {
+            $env:POWERSHELL_SCRIPTS_HOMEBREW_PREFIX = $prefix
+            InModuleScope ProfileTools -Parameters @{ ExpectedPrefix = $prefix } {
+                param($ExpectedPrefix)
+                # 模拟 LinuxInstall.psm1 未加载的直接调用场景。
+                Mock Get-Command { $null } -ParameterFilter { $Name -eq 'Initialize-LinuxBrewEnvironment' }
+
+                $result = Initialize-ProfileToolBrewEnvironment -Platform Linux
+
+                $result | Should -Be (Join-Path $ExpectedPrefix 'bin/brew')
+                $pathEntries = @($env:PATH -split [System.IO.Path]::PathSeparator)
+                $pathEntries | Should -Contain (Join-Path $ExpectedPrefix 'bin')
+                $pathEntries | Should -Contain (Join-Path $ExpectedPrefix 'sbin')
+                $env:HOMEBREW_PREFIX | Should -Be $ExpectedPrefix
+            }
+        }
+        finally {
+            $env:PATH = $originalPath
+            if ($null -eq $originalPrefix) {
+                Remove-Item Env:\POWERSHELL_SCRIPTS_HOMEBREW_PREFIX -ErrorAction SilentlyContinue
+            }
+            else {
+                $env:POWERSHELL_SCRIPTS_HOMEBREW_PREFIX = $originalPrefix
+            }
+            if ($null -eq $originalHomebrewPrefix) {
+                Remove-Item Env:\HOMEBREW_PREFIX -ErrorAction SilentlyContinue
+            }
+            else {
+                $env:HOMEBREW_PREFIX = $originalHomebrewPrefix
+            }
+        }
+    }
+}
+
 Describe 'Linux read-only verification' -Tag 'Verify' {
     BeforeEach {
         $script:VerifyFixture = New-LinuxEnvironmentFixture `

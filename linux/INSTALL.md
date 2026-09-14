@@ -79,10 +79,10 @@ pwsh ./install.ps1 -Preset Core -FromStep profile-tools
 | 编号 | 入口 | 职责 |
 |---|---|---|
 | 00 | `linux/00quickstart.sh` | Stage 0、shallow clone 与 Stage 1 移交 |
-| 01 | `linux/01installHomeBrew.sh` | Linuxbrew |
+| 01 | `linux/01installHomeBrew.sh` | Linuxbrew 安装与检测；不写登录 profile |
 | 02 | `linux/02installPowerShell.sh` | amd64 PowerShell 7 |
 | 03 | `linux/03configureSources.sh` | package source 事务 |
-| 04 | `linux/04deployShellConfig.sh` | bash/zsh 配置 |
+| 04 | `linux/04deployShellConfig.sh` | bash/zsh 配置；登录 profile 受管块（bash: `~/.profile`，zsh: `~/.zprofile`）恢复 brew/fnm 环境，幂等、写前带时间戳 `.bak` 备份 |
 | 05 | `linux/05installCoreCli.ps1` | Core CLI |
 | 06 | `linux/06installFonts.ps1` | Auto/Desktop/Server 字体策略 |
 | 07 | `linux/07installProfileTools.ps1` | Profile、仓库工具、Docker 与 WSL 客体配置 |

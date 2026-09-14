@@ -168,6 +168,77 @@ function Initialize-ProfileToolFnmEnvironment {
     }
 }
 
+function Initialize-ProfileToolBrewEnvironment {
+    <#
+    .SYNOPSIS
+        Linux 平台在工具判定前恢复 Homebrew 进程环境。
+
+    .DESCRIPTION
+        编排器以 pwsh -NoProfile 子进程调用叶子，不能假设父进程 PATH 已包含
+        Homebrew。优先复用 LinuxInstall.psm1 的 Initialize-LinuxBrewEnvironment
+        与 05 core-cli 对齐；该模块未加载时按 shell/shared.d/homebrew.sh 相同的
+        已知 prefix 约定兜底探测。仅修改当前进程环境。
+
+    .PARAMETER Platform
+        Windows、macOS 或 Linux；非 Linux 平台保持原行为，不做任何探测。
+
+    .OUTPUTS
+        System.String。找到时返回 brew 路径，未找到返回空字符串。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateSet('Windows', 'macOS', 'Linux')]
+        [string]$Platform
+    )
+
+    if ($Platform -ne 'Linux') {
+        return ''
+    }
+
+    if (Get-Command Initialize-LinuxBrewEnvironment -ErrorAction SilentlyContinue) {
+        return [string](Initialize-LinuxBrewEnvironment)
+    }
+
+    # 兜底探测：POWERSHELL_SCRIPTS_HOMEBREW_PREFIX 与 shell/shared.d/homebrew.sh
+    # 约定一致，供测试或沙盒显式指定 prefix 跳过其它路径探测。
+    $brewPath = ''
+    $explicitPrefix = [string]$env:POWERSHELL_SCRIPTS_HOMEBREW_PREFIX
+    if (-not [string]::IsNullOrWhiteSpace($explicitPrefix) -and
+        (Test-Path -LiteralPath (Join-Path $explicitPrefix 'bin/brew') -PathType Leaf)) {
+        $brewPath = Join-Path $explicitPrefix 'bin/brew'
+    }
+    else {
+        foreach ($candidate in @(
+                '/home/linuxbrew/.linuxbrew/bin/brew',
+                (Join-Path $HOME '.linuxbrew/bin/brew')
+            )) {
+            if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+                $brewPath = $candidate
+                break
+            }
+        }
+    }
+    if ([string]::IsNullOrWhiteSpace($brewPath)) {
+        return ''
+    }
+
+    # 环境恢复逻辑与 LinuxInstall.psm1 的 Initialize-LinuxBrewEnvironment 保持一致。
+    $prefix = Split-Path -Parent (Split-Path -Parent $brewPath)
+    $paths = [object[]]@((Join-Path $prefix 'bin'), (Join-Path $prefix 'sbin'))
+    [array]::Reverse($paths)
+    $currentPaths = @($env:PATH -split [System.IO.Path]::PathSeparator)
+    foreach ($path in $paths) {
+        if ($path -notin $currentPaths) {
+            $env:PATH = $path + [System.IO.Path]::PathSeparator + $env:PATH
+        }
+    }
+    $env:HOMEBREW_PREFIX = $prefix
+    $env:HOMEBREW_CELLAR = Join-Path $prefix 'Cellar'
+    $env:HOMEBREW_REPOSITORY = Join-Path $prefix 'Homebrew'
+    return $brewPath
+}
+
 function Invoke-ProfileToolsInstall {
     <#
     .SYNOPSIS
@@ -198,6 +269,11 @@ function Invoke-ProfileToolsInstall {
         -not (Get-Command Install-RequiredModule -ErrorAction SilentlyContinue)) {
         Import-Module (Join-Path $resolvedRepoRoot 'psutils') -Force
     }
+
+    # 编排器子进程的 PATH 继承自父进程，fnm/uv/corepack 等 brew 工具可能不可见；
+    # 与 05 core-cli 对齐，在组件判定前主动恢复 brew 环境。brew 缺失时返回空，
+    # 各组件维持原有 Blocked 语义降级。
+    $null = Initialize-ProfileToolBrewEnvironment -Platform $Platform
 
     try {
         $moduleResults = @(& (Join-Path $resolvedRepoRoot 'profile/installer/installModules.ps1') `

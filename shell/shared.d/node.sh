@@ -19,6 +19,20 @@ fi
 export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
 
+# -- npm global bin -----------------------------------------------------
+# npm 的全局命令目录随当前 Node 前缀变化，不能假设始终位于 ~/.local/bin。
+if command -v npm >/dev/null 2>&1; then
+  _node_npm_prefix="$(npm prefix -g 2>/dev/null)"
+  _node_npm_global_bin="$_node_npm_prefix/bin"
+  if [ -n "$_node_npm_prefix" ] && [ -d "$_node_npm_global_bin" ]; then
+    case ":$PATH:" in
+      *":$_node_npm_global_bin:"*) ;;
+      *) export PATH="$_node_npm_global_bin:$PATH" ;;
+    esac
+  fi
+  unset _node_npm_prefix _node_npm_global_bin
+fi
+
 # -- pnpm ---------------------------------------------------------------
 # 保留显式配置；仅为支持的系统补齐 pnpm 用户目录。
 if [ -z "${PNPM_HOME+x}" ]; then

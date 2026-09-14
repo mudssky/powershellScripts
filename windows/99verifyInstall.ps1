@@ -49,7 +49,7 @@ if ($Unattended -and $NonInteractive) {
 $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $helperPath = Join-Path $repoRoot 'windows/pwsh/Test-InstallState.ps1'
 $coreSteps = @('platform', 'repo', 'package-manager', 'pwsh', 'sources', 'core-cli', 'fonts', 'profile-tools')
-$fullSteps = @('full-apps', 'platform-automation')
+$fullSteps = @('full-apps', 'platform-automation', 'login-items')
 $validSteps = $coreSteps + $fullSteps + @('wsl-host')
 $selectedSteps = @($Step | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
 if ($selectedSteps.Count -eq 0) {
@@ -62,7 +62,7 @@ if ($unknownSteps.Count -gt 0) {
     exit 2
 }
 if ($Preset -eq 'Core' -and @($selectedSteps | Where-Object { $_ -in $fullSteps }).Count -gt 0) {
-    [Console]::Error.WriteLine('full-apps/platform-automation 不属于 Core 预设')
+    [Console]::Error.WriteLine('full-apps/platform-automation/login-items 不属于 Core 预设')
     exit 2
 }
 $effectiveIncludeWsl = $IncludeWsl -or 'wsl-host' -in $selectedSteps

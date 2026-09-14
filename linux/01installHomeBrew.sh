@@ -18,6 +18,9 @@ usage() {
     cat <<'EOF'
 Usage: 01installHomeBrew.sh [options]
 
+登录 profile（bash: ~/.profile，zsh: ~/.zprofile）的 brew/fnm 环境
+由 shell/deploy.sh 的受管块负责，本步骤不写 profile。
+
 Options:
   --network-mode Direct|China|Auto  Stage 0 网络模式，默认 Direct
   --unattended                     允许开头一次 sudo 认证

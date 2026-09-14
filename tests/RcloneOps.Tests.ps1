@@ -282,14 +282,23 @@ Describe 'rclone-ops.ps1 JSON 配置生成逻辑' {
     }
 
     It '停止 WebUI 时会清理过期 PID 文件' {
-        $runtimeDirectory = Join-Path (Split-Path -Parent $script:RcloneOpsScriptPath) '.runtime'
-        $pidFile = Join-Path $runtimeDirectory 'webui.pid'
-        New-Item -ItemType Directory -Path $runtimeDirectory -Force | Out-Null
-        Set-Content -LiteralPath $pidFile -Value '999999' -Encoding utf8NoBOM
+        # 被测函数硬编码读取 dot-source 时写入本测试脚本作用域的 $script:DefaultRuntimeDir，
+        # 此处将其重定向到 $TestDrive，避免向仓库真实路径写 webui.pid：
+        # docker lane 以 root 运行后该目录属主会变为 root，host lane 随后将无法写入。
+        $originalRuntimeDir = $script:DefaultRuntimeDir
+        $script:DefaultRuntimeDir = Join-Path $TestDrive '.runtime'
+        try {
+            $pidFile = Join-Path $script:DefaultRuntimeDir 'webui.pid'
+            New-Item -ItemType Directory -Path $script:DefaultRuntimeDir -Force | Out-Null
+            Set-Content -LiteralPath $pidFile -Value '999999' -Encoding utf8NoBOM
 
-        Stop-RcloneOpsWebUi
+            Stop-RcloneOpsWebUi
 
-        Test-Path -LiteralPath $pidFile | Should -BeFalse
+            Test-Path -LiteralPath $pidFile | Should -BeFalse
+        }
+        finally {
+            $script:DefaultRuntimeDir = $originalRuntimeDir
+        }
     }
 
     It 'up 会强制刷新生成 rclone.conf' {
