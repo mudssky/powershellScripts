@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/profile/package/index.md", "reason": "校验 Profile 与平台安装流水线要求"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "检查旧值与旧调用是否完整迁移"}

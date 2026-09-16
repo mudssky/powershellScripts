@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/profile/package/index.md", "reason": "统一应用清单与 Profile 安装脚本规范"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "修改共享配置前全局检索并保持单一真源"}
