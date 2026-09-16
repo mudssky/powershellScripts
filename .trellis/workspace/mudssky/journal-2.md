@@ -201,3 +201,25 @@ brainstorm 勘察确认 WSL 自启机制层已存在（windows/wsl AtStartup+S4U
 ### Status
 
 [OK] **Completed**
+
+
+## Session 79: 统一 Go 跨平台安装方式
+<!-- trellis-session: v=2 fp=43f0a70873ff390a -->
+
+**Date**: 2026-09-16
+**Task**: 统一 Go 跨平台安装方式
+**Branch**: `master`
+
+### Summary
+
+Windows 改用 Scoop 安装 Go，Linux 与 macOS 改用 Homebrew；移除 voidint/g 安装逻辑并补齐三平台测试与文档。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c0576c9` | feat(installer): 统一 Go 跨平台安装方式 |
+
+### Status
+
+[OK] **Completed**

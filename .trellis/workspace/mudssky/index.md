@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 78
-- **Last Active**: 2026-09-13
+- **Total Sessions**: 79
+- **Last Active**: 2026-09-16
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~203 | Active |
+| `journal-2.md` | ~225 | Active |
 | `journal-1.md` | ~2019 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -31,6 +31,7 @@
 
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 79 | 2026-09-16 | 统一 Go 跨平台安装方式 | `c0576c9` | `master` |
 | 78 | 2026-09-13 | mpv autoload 支持 MOV 修复续播失效 | `6a33593c` | `master` |
 | 77 | 2026-09-12 | 完成内网域名代理绕过 | `0a29bce`, `55f05ef` | `master` |
 | 76 | 2026-09-11 | Git 身份规则化：gitconfig 脚本按本地配置驱动 | `5b45c671`, `bb8eae45`, `576f9960` | `feat/git-identity-rules` |
