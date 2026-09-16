@@ -398,9 +398,9 @@ Describe "Test-PackageManagerAppCatalog 函数测试" {
 
         Test-PackageManagerAppCatalog -ConfigObject $config | Should -BeTrue
         @((Select-PackageManagerApps -Apps $homebrew -TargetOS macOS -RequiredTag @('core', 'cli')).name) |
-            Should -Be @('fnm', 'jq', 'fd', 'eza', 'ripgrep', 'fzf', 'zoxide', 'starship', 'bat', 'dust', 'uv', 'carapace', 'atuin', 'zsh-autosuggestions', 'zsh-syntax-highlighting', 'git-delta', 'tealdeer')
+            Should -Be @('fnm', 'go', 'jq', 'fd', 'eza', 'ripgrep', 'fzf', 'zoxide', 'starship', 'bat', 'dust', 'uv', 'carapace', 'atuin', 'zsh-autosuggestions', 'zsh-syntax-highlighting', 'git-delta', 'tealdeer')
         @((Select-PackageManagerApps -Apps $scoop -TargetOS Windows -RequiredTag @('core', 'cli')).name) |
-            Should -Be @('delta', 'zoxide', 'fnm', 'starship', 'fzf', 'ripgrep', 'jq', 'uv', 'bat', 'fd', 'eza', 'carapace-bin', 'atuin')
+            Should -Be @('delta', 'zoxide', 'fnm', 'go', 'starship', 'fzf', 'ripgrep', 'jq', 'uv', 'bat', 'fd', 'eza', 'carapace-bin', 'atuin')
         @((Select-PackageManagerApps -Apps $scoop -TargetOS Windows -RequiredTag @('core', 'cli')).name) |
             Should -Not -Contain 'tldr'
         @((Select-PackageManagerApps -Apps $homebrew -TargetOS Linux -RequiredTag @('core', 'cli')).name) |

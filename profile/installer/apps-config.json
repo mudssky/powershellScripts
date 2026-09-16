@@ -153,6 +153,14 @@
         "tag": ["core", "cli"]
       },
       {
+        "name": "go",
+        "cliName": "go",
+        "description": "Go 编程语言",
+        "command": "scoop install go",
+        "supportOs": ["Windows"],
+        "tag": ["core", "cli"]
+      },
+      {
         "name": "bun",
         "cliName": "bun",
         "description": "node的替代，跨平台node版本管理",
@@ -640,13 +648,16 @@
       {
         "name": "go",
         "cliName": "go",
-        "description": "golang",
+        "description": "Go 编程语言",
         "command": "brew install go",
         "supportOs": [
           "macOS",
           "linux"
         ],
-        "skipInstall": true
+        "tag": [
+          "core",
+          "cli"
+        ]
       },
       {
         "name": "dockdoor",

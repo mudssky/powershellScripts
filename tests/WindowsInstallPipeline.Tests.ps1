@@ -197,9 +197,10 @@ Describe 'Windows 声明式 package catalog' {
         $script:PackageManagers = ConvertTo-ConfigHashtable -InputObject $script:AppsConfig.packageManagers
     }
 
-    It 'Core 只包含确认的 13 个 Scoop CLI' {
+    It 'Core 只包含确认的 14 个 Scoop CLI' {
         $core = @(Select-PackageManagerApps -Apps @($script:PackageManagers.scoop) -TargetOS Windows -RequiredTag @('core', 'cli'))
-        @($core.name) | Should -Be @('delta', 'zoxide', 'fnm', 'starship', 'fzf', 'ripgrep', 'jq', 'uv', 'bat', 'fd', 'eza', 'carapace-bin', 'atuin')
+        @($core.name) | Should -Be @('delta', 'zoxide', 'fnm', 'go', 'starship', 'fzf', 'ripgrep', 'jq', 'uv', 'bat', 'fd', 'eza', 'carapace-bin', 'atuin')
+        ($core | Where-Object name -eq 'go').command | Should -Be 'scoop install go'
         @($core.name) | Should -Not -Contain 'tldr'
         @($core | Where-Object name -eq 'carapace-bin').bucket | Should -Be @('extras')
     }

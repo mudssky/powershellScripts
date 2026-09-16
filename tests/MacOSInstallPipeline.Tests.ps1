@@ -17,6 +17,8 @@ Describe 'macOS PowerShell 安装叶子' {
 
         @($core.name) | Should -Contain 'ripgrep'
         @($core.name) | Should -Contain 'uv'
+        @($core.name) | Should -Contain 'go'
+        ($core | Where-Object name -eq 'go').command | Should -Be 'brew install go'
         @($core.name) | Should -Contain 'carapace'
         @($core.name) | Should -Contain 'atuin'
         @($core.name) | Should -Contain 'zsh-autosuggestions'
@@ -83,6 +85,7 @@ Describe 'macOS PowerShell 安装叶子' {
 
         @($core.name) | Should -Contain 'ripgrep'
         @($core.name) | Should -Contain 'uv'
+        @($core.name) | Should -Contain 'go'
         @($fonts.name) | Should -Contain 'font-jetbrains-mono-nerd-font'
         @($full.name) | Should -Contain 'hammerspoon'
         @($full.name) | Should -Contain 'blueutil'

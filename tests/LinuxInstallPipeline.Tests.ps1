@@ -251,6 +251,8 @@ Describe 'Linux PowerShell install leaves' -Tag 'Leaves' {
 
         @($core.Name) | Should -Contain 'ripgrep'
         @($core.Name) | Should -Contain 'uv'
+        @($core.Name) | Should -Contain 'go'
+        ($core | Where-Object name -eq 'go').command | Should -Be 'brew install go'
         @($core.Name) | Should -Not -Contain 'lazygit'
         @($core.Name) | Should -Not -Contain 'carapace'
         @($full.Name) | Should -Contain 'lazygit'
@@ -523,6 +525,7 @@ Describe 'Linux read-only verification' -Tag 'Verify' {
 
         $names | Should -Contain 'ripgrep'
         $names | Should -Contain 'uv'
+        $names | Should -Contain 'go'
         $names | Should -Not -Contain 'hammerspoon'
     }
 

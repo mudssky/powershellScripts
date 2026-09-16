@@ -47,13 +47,6 @@ function Initialize-PackageManagers() {
         }
     }
 	
-    # 检查并安装 Go 版本管理器 g
-    if (-not (Test-EXEProgram g)) {
-        if ($PSCmdlet.ShouldProcess('g', '安装Go版本管理器')) {
-            Write-Host '正在安装 Go 版本管理器 g...' -ForegroundColor Yellow
-            Invoke-WebRequest https://raw.githubusercontent.com/voidint/g/master/install.ps1 -useb | Invoke-Expression
-        }
-    }
 	
     # 添加 scoop extras bucket
     if (Test-EXEProgram scoop) {
