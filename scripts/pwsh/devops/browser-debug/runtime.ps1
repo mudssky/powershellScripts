@@ -921,13 +921,36 @@ function ConvertTo-BrowserDebugDesktopExecArgument {
 function Get-BrowserDebugRunnablePwshPath {
     [CmdletBinding()]
     param()
-    $candidates = @(Get-Command pwsh -CommandType Application -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source -Unique)
+
+    $envCommand = $null
+    $envCandidates = @(
+        Get-Command env -CommandType Application -All -ErrorAction SilentlyContinue |
+            Select-Object -ExpandProperty Source -Unique
+    )
+    foreach ($envCandidate in $envCandidates) {
+        try {
+            $null = & $envCandidate '-i' 2>$null
+            if ($LASTEXITCODE -eq 0) {
+                $envCommand = $envCandidate
+                break
+            }
+        }
+        catch { continue }
+    }
+    if (-not $envCommand) {
+        throw '未找到可用的 env 启动器，无法验证 pwsh 是否可脱离当前 shell 环境运行。'
+    }
+
+    $candidates = @(
+        Get-Command pwsh -CommandType Application -All -ErrorAction SilentlyContinue |
+            Select-Object -ExpandProperty Source -Unique
+    )
     foreach ($candidate in $candidates) {
         try {
-            # 父 pwsh 会向子进程注入 DOTNET_ROOT，令裸 apphost 在探测时"假可用"；
+            # 父 pwsh 会向子进程注入 DOTNET_ROOT，令裸 apphost 在探测时“假可用”；
             # 用 env -i 只保留 PATH/HOME/TMPDIR，模拟桌面双击的干净环境。
             $probeOutput = @(
-                & env '-i' "PATH=$env:PATH" "HOME=$env:HOME" "TMPDIR=$env:TMPDIR" `
+                & $envCommand '-i' "PATH=$env:PATH" "HOME=$env:HOME" "TMPDIR=$env:TMPDIR" `
                     $candidate -NoProfile -Command 'Write-Output BROWSER_DEBUG_PWSH_PROBE_OK' 2>$null
             )
             if ($LASTEXITCODE -eq 0 -and $probeOutput -contains 'BROWSER_DEBUG_PWSH_PROBE_OK') { return $candidate }

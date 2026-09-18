@@ -18,8 +18,8 @@ usage() {
     cat <<'EOF'
 Usage: 01installHomeBrew.sh [options]
 
-登录 profile（bash: ~/.profile，zsh: ~/.zprofile）的 brew/fnm 环境
-由 shell/deploy.sh 的受管块负责，本步骤不写 profile。
+Homebrew、fnm 与 Node 基础环境由 shell/deploy.sh 同步到 ~/.profile.d，
+并由有效 login profile 与 interactive rc 的受管 loader 加载；本步骤不写 profile。
 
 Options:
   --network-mode Direct|China|Auto  Stage 0 网络模式，默认 Direct
@@ -124,3 +124,4 @@ bash "$bootstrap_helper" --mode "$NETWORK_MODE" --target brew -- "${install_comm
 brew_path="$(find_linuxbrew)" || linux_install_fail 'Homebrew 安装完成后仍找不到 brew'
 load_linuxbrew_environment "$brew_path"
 printf 'Linuxbrew 安装完成: %s\n' "$(brew --prefix)"
+printf 'Shell 环境由 04deployShellConfig.sh 同步到 ~/.profile.d 后加载。\n'

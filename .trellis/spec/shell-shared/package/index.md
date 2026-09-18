@@ -1,22 +1,23 @@
-# Shell shared.d Package Guidelines
+# Shell Startup Package Guidelines
 
-> 适用于 `shell/shared.d/*.sh` 下的 bash/zsh 双 shell 配置片段。
-> 这些片段经 `deploy.sh` 软链接到 `~/.bashrc.d/`，bash 与 zsh 都会 source。
+> 适用于 `shell/profile.d/*.sh` 基础环境层、`shell/shared.d/*.sh` 共享交互层、
+> `shell/{bash,zsh}.d/` 专属交互层及 `shell/deploy.sh` 受管加载器。
 
 ## Scope
 
-- 包路径：`shell/shared.d`
-- shell 专属片段（`zle`/`bind -x` 等）属于 `shell/{bash,zsh}.d/`，不在本包
-- 部署机制：`shell/deploy.sh`（glob `*.sh` 软链 + rc 加载器）
+- 包路径：`shell/`
+- 基础环境片段属于 `profile.d`；共享与专属交互行为分别属于 `shared.d`、`bash.d`、`zsh.d`
+- 部署机制：`shell/deploy.sh`（双目录同步、login/interactive marker 与目标迁移）
 
 ## Pre-Development Checklist
+- [ ] **启动层归属**：先阅读 [Shell 启动层级规范](./startup-layers.md)，确认片段属于基础环境还是交互层，并遵守 loader、幂等与副作用合同。
 
 - [ ] **双 shell 兼容**：禁用 `zle`/`bind -x`/`mapfile`/zsh-only 数组语法；只用 `[[ ]]`/`local`/`case`/`$(...)` 等两者都支持的特性。
 - [ ] **条件式守护**：工具替换用 `command -v X >/dev/null 2>&1`，无 `else` 即回退系统原命令（需求："没安装时回退"）。
 - [ ] **不破坏性 alias**：语法不兼容的工具（`find→fd`、`grep→rg`）**不做 alias**，当独立命令用——alias 会炸掉依赖原语法的脚本/命令。只有行为兼容的（`bat→cat`，管道自动退化）才 alias。
 - [ ] **加载顺序无关**：函数体内引用其它文件的函数时，确认函数定义为惰性（source 时只定义、调用时才解析），不依赖 `*.sh` glob 顺序。若必须保证顺序，用文件名前缀数字而非隐式依赖。
 - [ ] **解析 CLI 输出前先找机器可读选项**：优先使用 `--json`、`--porcelain`、`--format`/`-F`、`--short`、`--no-formatting` 等无样式/结构化输出；展示列可以丰富，但真实参数必须从稳定字段解析，避免 ANSI 颜色或展示文案混入真实参数。
-- [ ] **package source env**：修改 `package-sources.sh` 前阅读 [Package Source Transactions](../../infra/package-sources.md)，只加载明确白名单的 HTTPS 变量。
+- [ ] **package source env**：修改 `profile.d/05-package-sources.sh` 前阅读 [Package Source Transactions](../../infra/package-sources.md)，只加载明确白名单的 HTTPS 变量。
 - [ ] **加任何 init 前，先全局 grep**：`eval "$(zoxide init ...)"`、`eval "$(starship init ...)"` 等初始化代码极易跨文件重复。新增前先 `grep -r "<tool>" shell/` 确认未被别处初始化（见下方 Anti-pattern）。
 - [ ] **注释规范**：按 [活跃脚本注释规范](./comment-conventions.md) 组织文件头、配置章节、函数契约与局部说明。
 
@@ -62,7 +63,7 @@
 
 ### 1. Scope / Trigger
 
-- 在 `shell/shared.d` 新增或重命名环境变量模板时适用；目标是阻止占位值被部署并 source。
+- 在 `shell/shared.d` 新增或重命名交互式环境变量模板时适用；目标是阻止占位值被部署并 source。
 
 ### 2. Signatures
 
@@ -72,7 +73,7 @@
 
 ### 3. Contracts
 
-- `sync_dir "$SHARED_DIR" "sh" false` 只部署活动 `*.sh` 文件。
+- `sync_dir "$SHARED_DIR" "$INTERACTIVE_CONFIG_DIR" "sh" false` 只部署活动 `*.sh` 文件。
 - `*.example.sh` 与 `*.sample.sh` 即使误以 `.sh` 结尾，也必须被显式跳过。
 - 模板不得包含真实 secret；真实 `*.local.sh` 必须保持 gitignore。
 
@@ -133,5 +134,4 @@ Correct: env.local.sh.example  # 仅作为模板，不参与部署
 
 ## Out of Scope
 
-- `bash.d`/`zsh.d` 的 widget/快捷键（zle/readline 专属）。
 - `scripts/bash/`（独立包，有自己的 vitest 测试规范，见 `bash-scripts` spec）。

@@ -176,8 +176,8 @@ function Initialize-ProfileToolBrewEnvironment {
     .DESCRIPTION
         编排器以 pwsh -NoProfile 子进程调用叶子，不能假设父进程 PATH 已包含
         Homebrew。优先复用 LinuxInstall.psm1 的 Initialize-LinuxBrewEnvironment
-        与 05 core-cli 对齐；该模块未加载时按 shell/shared.d/homebrew.sh 相同的
-        已知 prefix 约定兜底探测。仅修改当前进程环境。
+        与 05 core-cli 对齐；该模块未加载时按 shell/profile.d/10-homebrew.sh
+        相同的已知 prefix 约定兜底探测。仅修改当前进程环境。
 
     .PARAMETER Platform
         Windows、macOS 或 Linux；非 Linux 平台保持原行为，不做任何探测。
@@ -200,8 +200,8 @@ function Initialize-ProfileToolBrewEnvironment {
         return [string](Initialize-LinuxBrewEnvironment)
     }
 
-    # 兜底探测：POWERSHELL_SCRIPTS_HOMEBREW_PREFIX 与 shell/shared.d/homebrew.sh
-    # 约定一致，供测试或沙盒显式指定 prefix 跳过其它路径探测。
+    # 兜底探测：POWERSHELL_SCRIPTS_HOMEBREW_PREFIX 与
+    # shell/profile.d/10-homebrew.sh 约定一致，供测试或沙盒显式指定 prefix。
     $brewPath = ''
     $explicitPrefix = [string]$env:POWERSHELL_SCRIPTS_HOMEBREW_PREFIX
     if (-not [string]::IsNullOrWhiteSpace($explicitPrefix) -and

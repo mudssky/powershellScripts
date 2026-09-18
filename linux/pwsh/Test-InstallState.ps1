@@ -273,14 +273,27 @@ foreach ($stepId in $selectedSteps) {
                 -Message "distribution=$($platform.SourceTarget) brew-linux=$brewSupportsLinux"
         }
         'shell' {
-            $snippetDirectory = Join-Path $HOME '.bashrc.d'
-            $loaderFiles = @((Join-Path $HOME '.bashrc'), (Join-Path $HOME '.zshrc'))
-            $hasLoader = @($loaderFiles | Where-Object {
+            $profileSnippetDirectory = Join-Path $HOME '.profile.d'
+            $interactiveSnippetDirectory = Join-Path $HOME '.bashrc.d'
+            $rcFiles = @((Join-Path $HOME '.bashrc'), (Join-Path $HOME '.zshrc'))
+            $loginFiles = @(
+                (Join-Path $HOME '.bash_profile'),
+                (Join-Path $HOME '.bash_login'),
+                (Join-Path $HOME '.profile'),
+                (Join-Path $HOME '.zprofile')
+            )
+            $hasInteractiveLoader = @($rcFiles | Where-Object {
                     (Test-Path -LiteralPath $_ -PathType Leaf) -and
-                    (Select-String -LiteralPath $_ -Pattern 'Load modular configuration files from ~/.bashrc.d' -SimpleMatch -Quiet)
+                    (Select-String -LiteralPath $_ -Pattern '# >>> powershell-scripts interactive env >>>' -SimpleMatch -Quiet)
                 }).Count -gt 0
-            Add-LinuxInstallCheck -Step shell -Name snippets -Status $(if (Test-Path -LiteralPath $snippetDirectory -PathType Container) { 'Pass' } else { 'Fail' }) -Message $snippetDirectory
-            Add-LinuxInstallCheck -Step shell -Name loader -Status $(if ($hasLoader) { 'Pass' } else { 'Fail' }) -Message 'bashrc/zshrc modular loader'
+            $hasLoginLoader = @($loginFiles | Where-Object {
+                    (Test-Path -LiteralPath $_ -PathType Leaf) -and
+                    (Select-String -LiteralPath $_ -Pattern '# >>> powershell-scripts login env >>>' -SimpleMatch -Quiet)
+                }).Count -gt 0
+            Add-LinuxInstallCheck -Step shell -Name profile-snippets -Status $(if (Test-Path -LiteralPath $profileSnippetDirectory -PathType Container) { 'Pass' } else { 'Fail' }) -Message $profileSnippetDirectory
+            Add-LinuxInstallCheck -Step shell -Name interactive-snippets -Status $(if (Test-Path -LiteralPath $interactiveSnippetDirectory -PathType Container) { 'Pass' } else { 'Fail' }) -Message $interactiveSnippetDirectory
+            Add-LinuxInstallCheck -Step shell -Name login-loader -Status $(if ($hasLoginLoader) { 'Pass' } else { 'Fail' }) -Message 'login profile loader'
+            Add-LinuxInstallCheck -Step shell -Name interactive-loader -Status $(if ($hasInteractiveLoader) { 'Pass' } else { 'Fail' }) -Message 'bashrc/zshrc interactive loader'
         }
         'core-cli' {
             Add-LinuxCatalogChecks -Step core-cli -RequiredTag @('core', 'cli')

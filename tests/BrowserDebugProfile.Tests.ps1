@@ -1107,6 +1107,27 @@ Describe 'browser-debug Unix 进程解析' {
 }
 
 Describe 'browser-debug Unix 快捷方式' -Skip:($script:BrowserDebugPlatform -eq 'windows') {
+    It '首个 env 候选不可执行时继续使用后续可用候选' {
+        $badEnvDirectory = Join-Path $TestDrive 'bad-env'
+        $badEnvPath = Join-Path $badEnvDirectory 'env'
+        $realEnvPath = '/usr/bin/env'
+        $realPwshDirectory = Split-Path -Parent (Get-Process -Id $PID).Path
+        $savedPath = $env:PATH
+        New-Item -ItemType Directory -Path $badEnvDirectory -Force | Out-Null
+        Set-Content -LiteralPath $badEnvPath -Value 'not executable' -Encoding ascii
+
+        try {
+            $env:PATH = @($badEnvDirectory, (Split-Path -Parent $realEnvPath), $realPwshDirectory) -join [System.IO.Path]::PathSeparator
+            $envCandidates = @(Get-Command env -CommandType Application -All -ErrorAction Stop)
+            $envCandidates[0].Source | Should -Be $badEnvPath
+
+            Get-BrowserDebugRunnablePwshPath | Should -Not -BeNullOrEmpty
+        }
+        finally {
+            $env:PATH = $savedPath
+        }
+    }
+
     It '生成可执行 .command 且合同校验通过' -Skip:($script:BrowserDebugPlatform -ne 'macos') {
         $directory = Join-Path $TestDrive 'mac-shortcuts'
         $profile = [pscustomobject]@{ name = 'demo'; browser = 'chrome'; browserPath = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' }

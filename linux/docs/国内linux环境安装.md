@@ -40,18 +40,18 @@ rm -rf brew-install
 
 ## 3.node环境安装
 
-使用homebrew 安装fnm
+使用 Homebrew 安装 fnm 后，由仓库部署脚本统一维护 login 与 interactive loader，
+不要再把 `fnm env` 手工追加到 `~/.bashrc`。
 
-```text
+```bash
 brew install fnm
-# 安装后需要peizhishell
-# 在 ~/.bashrc中添加下面这行
-# eval "$(fnm env --use-on-cd --shell bash)"
-# 之后 source ~/.bashrc
+bash linux/04deployShellConfig.sh --preset Core --shell bash
 fnm install 22
 fnm use 22
-
 ```
+
+非交互 login 通过 `~/.profile.d` 执行 `fnm env`；交互 shell 使用
+`fnm env --use-on-cd`，并继续支持项目 `.nvmrc` 自动切换。
 
 ## 4. docker安装
 

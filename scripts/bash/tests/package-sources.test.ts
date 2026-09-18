@@ -13,7 +13,7 @@ type Workspace = {
 
 const workspaces: Workspace[] = []
 const repoRoot = path.resolve(__dirname, '../../..')
-const sourceScript = path.join(repoRoot, 'shell/shared.d/package-sources.sh')
+const sourceScript = path.join(repoRoot, 'shell/profile.d/05-package-sources.sh')
 
 /**
  * 创建 package source shell 测试工作区。
@@ -29,7 +29,7 @@ function createWorkspace(): Workspace {
 }
 
 /**
- * 返回当前环境可执行的共享 shell。
+ * 返回当前环境可执行的 profile shell。
  *
  * @returns 至少包含 bash；本机存在时追加 zsh。
  */
@@ -64,7 +64,7 @@ function buildTestEnv(workspace: Workspace): NodeJS.ProcessEnv {
 }
 
 /**
- * 在指定 shell 中 source package source snippet。
+ * 在指定 shell 中 source package source profile snippet。
  *
  * @param shell shell 可执行文件。
  * @param workspace 隔离工作区。
@@ -93,7 +93,7 @@ afterEach(() => {
   }
 })
 
-describe('shell/shared.d/package-sources.sh', () => {
+describe('shell/profile.d/05-package-sources.sh', () => {
   for (const shell of getAvailableShells()) {
     it(`loads only strict HTTPS exports in ${path.basename(shell)}`, async () => {
       const workspace = createWorkspace()
@@ -122,7 +122,7 @@ describe('shell/shared.d/package-sources.sh', () => {
       const result = await runShell(
         shell,
         workspace,
-        `printf "%s\n%s\ninvalid=%s\nunrelated=%s\n" "$HOMEBREW_BOTTLE_DOMAIN" "$RUSTUP_DIST_SERVER" "\${INVALID_HTTP-}" "\${UNRELATED_SOURCE-}"`,
+        `printf "%s\n%s\ninvalid=%s\nunrelated=%s\nhelper=%s\n" "$HOMEBREW_BOTTLE_DOMAIN" "$RUSTUP_DIST_SERVER" "\${INVALID_HTTP-}" "\${UNRELATED_SOURCE-}" "$(type -t _load_package_sources_env || true)"`,
       )
 
       expect(result.exitCode).toBe(0)
@@ -131,6 +131,7 @@ describe('shell/shared.d/package-sources.sh', () => {
         'https://mirror.example/rustup',
         'invalid=',
         'unrelated=',
+        'helper=',
       ])
       expect(fs.existsSync(maliciousPath)).toBe(false)
     })
@@ -143,10 +144,10 @@ describe('shell/shared.d/package-sources.sh', () => {
     const result = await runShell(
       'bash',
       workspace,
-      `printf "%s" "\${HOMEBREW_BOTTLE_DOMAIN-}"`,
+      `printf "%s:%s" "\${HOMEBREW_BOTTLE_DOMAIN-}" "$(type -t _load_package_sources_env || true)"`,
     )
 
     expect(result.exitCode).toBe(0)
-    expect(result.stdout).toBe('')
+    expect(result.stdout).toBe(':')
   })
 })

@@ -5,6 +5,7 @@
 本规范适用于以下仍在维护的 Shell 文件：
 
 - `shell/deploy.sh`
+- `shell/profile.d/*.sh`
 - `shell/shared.d/*.sh`
 - `shell/bash.d/*.sh`
 - `shell/zsh.d/*.zsh`
@@ -20,8 +21,8 @@ shebang 保持原样且位于第一行；无 shebang 时从首行开始使用等
 ```sh
 #!/bin/bash
 # ======================================================================
-# 文件：node.sh
-# 作用：初始化 Node.js 工具链与 package.json 脚本选择命令。
+# 文件：20-node.sh
+# 作用：为 login 与 interactive shell 初始化 Node.js 基础环境。
 # 兼容性：Bash / Zsh。
 # ======================================================================
 ```
@@ -122,5 +123,5 @@ sessions=$(zellij list-sessions --no-formatting)
 - [ ] 复杂函数才使用完整分隔块，并按需补充输出、副作用、设计意图。
 - [ ] 字段、条目、中文标点符合统一合同。
 - [ ] 局部说明解释原因或约束，不复述语法或记录临时步骤。
-- [ ] `node.sh` 的两个 pnpm 条件块位于同一 `pnpm` 标题下。
+- [ ] `profile.d/20-node.sh` 的 Bun、fnm 与 pnpm 环境块职责清晰，临时变量均已清理。
 - [ ] 目标范围外文件没有变更。
