@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "避免 Homebrew、fnm、PATH 初始化再次形成双事实来源"}
+{"file": ".trellis/spec/bash-scripts/package/index.md", "reason": "遵循 Bash 脚本测试包与验证入口合同"}
