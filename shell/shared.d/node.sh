@@ -20,18 +20,14 @@ export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
 
 # -- npm global bin -----------------------------------------------------
-# npm 的全局命令目录随当前 Node 前缀变化，不能假设始终位于 ~/.local/bin。
-if command -v npm >/dev/null 2>&1; then
-  _node_npm_prefix="$(npm prefix -g 2>/dev/null)"
-  _node_npm_global_bin="$_node_npm_prefix/bin"
-  if [ -n "$_node_npm_prefix" ] && [ -d "$_node_npm_global_bin" ]; then
-    case ":$PATH:" in
-      *":$_node_npm_global_bin:"*) ;;
-      *) export PATH="$_node_npm_global_bin:$PATH" ;;
-    esac
-  fi
-  unset _node_npm_prefix _node_npm_global_bin
-fi
+# 不需要手动把 npm 全局 bin 加进 PATH：
+#   - fnm / nvm / 系统包管理器装的 node，`npm prefix -g` 指向的目录里就放着 node
+#     本体，能敲 node 就说明它已在 PATH 中，全局命令自然可用；
+#   - 只有手动 `npm config set prefix <独立目录>` 才需要额外加 PATH，而那是主动
+#     配置的结果，届时连同 PATH 一起设置即可。
+# 曾经这里调用 `npm prefix -g` 探测（约 145ms/次，且在 fnm 下会把当前版本目录
+# 前置到 multishell 之前、导致 fnm use 失效），已移除。
+
 
 # -- pnpm ---------------------------------------------------------------
 # 保留显式配置；仅为支持的系统补齐 pnpm 用户目录。
