@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 79
-- **Last Active**: 2026-09-16
+- **Total Sessions**: 80
+- **Last Active**: 2026-09-18
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~225 | Active |
+| `journal-2.md` | ~247 | Active |
 | `journal-1.md` | ~2019 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -31,6 +31,7 @@
 
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 80 | 2026-09-18 | 完成 Shell 启动层级与 Profile 治理 | `68046ec9` | `master` |
 | 79 | 2026-09-16 | 统一 Go 跨平台安装方式 | `c0576c9` | `master` |
 | 78 | 2026-09-13 | mpv autoload 支持 MOV 修复续播失效 | `6a33593c` | `master` |
 | 77 | 2026-09-12 | 完成内网域名代理绕过 | `0a29bce`, `55f05ef` | `master` |

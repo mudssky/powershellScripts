@@ -223,3 +223,25 @@ Windows 改用 Scoop 安装 Go，Linux 与 macOS 改用 Homebrew；移除 voidin
 ### Status
 
 [OK] **Completed**
+
+
+## Session 80: 完成 Shell 启动层级与 Profile 治理
+<!-- trellis-session: v=2 fp=afd56db24f3bcf0a -->
+
+**Date**: 2026-09-18
+**Task**: 完成 Shell 启动层级与 Profile 治理
+**Branch**: `master`
+
+### Summary
+
+建立 profile.d 基础环境层，重构 Bash/Zsh login 与 interactive loader，完成双环境测试、质量门禁和真实 Shell 冒烟。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `68046ec9` | refactor(shell): 建立 login 与交互启动分层 |
+
+### Status
+
+[OK] **Completed**
