@@ -421,10 +421,10 @@ describe('shell/shared.d/ai.sh agent-task', () => {
       expect(workerOnly.stderr).not.toContain('main-model=')
       expect(sessionWide.exitCode).toBe(0)
       expect(sessionWide.stderr).toContain(
-        'main-model=opencodego/go/deepseek-v4.1-flash:max',
+        'main-model=opencodego/go/deepseek-flash:max',
       )
       expect(sessionWide.stderr).toContain(
-        'agent-task command: omp --config "$HOME/.omp/overlays/task-ultrafast.yml" --model opencodego/go/deepseek-v4.1-flash:max (+2 user args)',
+        'agent-task command: omp --config "$HOME/.omp/overlays/task-ultrafast.yml" --model opencodego/go/deepseek-flash:max (+2 user args)',
       )
       expect(readLog(workspace)).toBe(
         formatFakeHostLog('omp', '', [
@@ -457,13 +457,13 @@ describe('shell/shared.d/ai.sh agent-task', () => {
       expect(workerOnly.stderr).not.toContain('main-model=')
       expect(sessionWide.exitCode).toBe(0)
       expect(sessionWide.stderr).toContain(
-        'agent-task: host=pi profile=ultrafast source-agent=worker_ultrafast main-model=opencodego-openai/go/deepseek-v4.1-flash:max (+2 user args)',
+        'agent-task: host=pi profile=ultrafast source-agent=worker_ultrafast main-model=opencodego-openai/go/deepseek-flash:max (+2 user args)',
       )
       expect(readLog(workspace)).toBe(
         formatFakeHostLog('pi', 'worker_ultrafast', []) +
           formatFakeHostLog('pi', 'ultrafast', [
             '--model',
-            'opencodego-openai/go/deepseek-v4.1-flash:max',
+            'opencodego-openai/go/deepseek-flash:max',
             '--model',
             'local/example-model',
           ]),
@@ -587,7 +587,7 @@ describe('shell/shared.d/ai.sh agent-task', () => {
         'ultrafast         同时替换主会话模型与 worker；OMP 与 Pi 均支持，Codex 不支持。',
       )
       expect(result.stdout).toContain(
-        'OMP 用 opencodego/go/deepseek-v4.1-flash:max；Pi 用 opencodego-openai/go/deepseek-v4.1-flash:max',
+        'OMP 用 opencodego/go/deepseek-flash:max；Pi 用 opencodego-openai/go/deepseek-flash:max',
       )
       expect(result.stdout).toContain('两个宿主的 provider 键不同，selector 不可互换')
       expect(result.stdout).toContain('主模型覆盖只作用于当前进程，不写入持久配置')

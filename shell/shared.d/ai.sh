@@ -415,7 +415,7 @@ function agent-task() {
             'Ultrafast 档位：' \
             '  worker_ultrafast  只替换 worker（OMP modelRoles.task / Pi child profile），主模型不变。' \
             '  ultrafast         同时替换主会话模型与 worker；OMP 与 Pi 均支持，Codex 不支持。' \
-            '  OMP 用 opencodego/go/deepseek-v4.1-flash:max；Pi 用 opencodego-openai/go/deepseek-v4.1-flash:max' \
+            '  OMP 用 opencodego/go/deepseek-flash:max；Pi 用 opencodego-openai/go/deepseek-flash:max' \
             '  （同一 OpenCode Go 渠道；两个宿主的 provider 键不同，selector 不可互换）。' \
             '  主模型覆盖只作用于当前进程，不写入持久配置；用户显式参数仍可覆盖它。' \
             '  ultrafast 是唯一的“主模型 + worker”策略档位：不再为其它模型增加同类档位。' \
@@ -463,8 +463,8 @@ function agent-task() {
     local dry_run=0
     local overlay=''
     local overlay_profile=''
-    local ultrafast_model_omp='opencodego/go/deepseek-v4.1-flash:max'
-    local ultrafast_model_pi='opencodego-openai/go/deepseek-v4.1-flash:max'
+    local ultrafast_model_omp='opencodego/go/deepseek-flash:max'
+    local ultrafast_model_pi='opencodego-openai/go/deepseek-flash:max'
     local pi_main_model=''
     local model_note=''
     local model_flag=''
