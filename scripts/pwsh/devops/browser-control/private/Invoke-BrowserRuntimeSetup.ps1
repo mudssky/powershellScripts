@@ -5,11 +5,11 @@
 function Resolve-BrowserRuntimeSetupSourceRoot {
     [CmdletBinding()]
     param([string]$SourceRoot, [string]$EnvironmentSourceRoot = $env:SELFHOSTED_COMPOSE_ROOT, [string]$StartDirectory = (Get-Location).Path)
-    $relativeSetup = 'native-services/browser-runtime/windows/setup-browser-runtime.ps1'
+    $relativeSetup = 'native-services/automation/browser-runtime/windows/setup-browser-runtime.ps1'
     $testRoot = {
         param($Candidate)
         return (Test-Path -LiteralPath (Join-Path $Candidate 'package.json') -PathType Leaf) -and
-            (Test-Path -LiteralPath (Join-Path $Candidate 'native-services/browser-runtime/service.config.ts') -PathType Leaf) -and
+            (Test-Path -LiteralPath (Join-Path $Candidate 'native-services/automation/browser-runtime/service.config.ts') -PathType Leaf) -and
             (Test-Path -LiteralPath (Join-Path $Candidate $relativeSetup) -PathType Leaf)
     }
     if (-not [string]::IsNullOrWhiteSpace($SourceRoot)) {
@@ -35,7 +35,7 @@ function Invoke-BrowserRuntimeSetup {
     param([Parameter(Mandatory)][string]$Runtime, [string]$SourceRoot, [string]$RuntimeRoot, [string]$ProfileRoot)
     if ($Runtime -ne 'windows') { throw 'setup target must be windows' }
     $resolvedSourceRoot = Resolve-BrowserRuntimeSetupSourceRoot -SourceRoot $SourceRoot
-    $setupScript = Join-Path $resolvedSourceRoot 'native-services/browser-runtime/windows/setup-browser-runtime.ps1'
+    $setupScript = Join-Path $resolvedSourceRoot 'native-services/automation/browser-runtime/windows/setup-browser-runtime.ps1'
     $arguments = @('-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', $setupScript, '-SourceRoot', $resolvedSourceRoot)
     if (-not [string]::IsNullOrWhiteSpace($RuntimeRoot)) { $arguments += @('-RuntimeRoot', $RuntimeRoot) }
     if (-not [string]::IsNullOrWhiteSpace($ProfileRoot)) { $arguments += @('-ProfileRoot', $ProfileRoot) }
