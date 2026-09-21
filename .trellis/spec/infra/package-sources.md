@@ -6,7 +6,7 @@
 
 ### 1. Scope / Trigger
 
-- Trigger: 修改 `config/network/package-sources*`、`scripts/pwsh/misc/Switch-Mirrors.ps1`、`scripts/pwsh/misc/package-sources/**`、`Invoke-PackageSourceBootstrap.ps1`、`scripts/bash/package-source-bootstrap.sh` 或 `shell/shared.d/package-sources.sh`。
+- Trigger: 修改 `config/network/package-sources*`、`scripts/pwsh/misc/Switch-Mirrors.ps1`、`scripts/pwsh/misc/package-sources/**`、`Invoke-PackageSourceBootstrap.ps1`、`scripts/bash/package-source-bootstrap.sh` 或 `shell/profile.d/05-package-sources.sh`。
 - Scope: macOS、Windows、Linux/WSL 安装链的 source 计划、应用、补应用、状态与恢复；字体、CLI、Profile 等叶子安装脚本不拥有镜像 URL。
 - Design intent: 官方网络正常时零写入；需要国内镜像时集中应用，并且只恢复本仓库实际修改的资源。
 
@@ -60,14 +60,14 @@ powershell.exe -NoProfile -File ./scripts/pwsh/misc/Invoke-PackageSourceBootstra
 - `npm`、`pnpm`、`pip`、`go` 使用 chsrc command adapter；`debian`、`ubuntu`、`arch` 使用系统文件 snapshot；Docker 使用仓库自有 JSON adapter。
 - `nix` 使用 system adapter（`NixAdapter.psm1`）事务化修改 `/etc/nix/nix.conf` 的 `substituters`/`trusted-public-keys`（USTC → cache.nixos.org），并重启 nix-daemon；测试根用 `POWERSHELL_SCRIPTS_SYSTEM_SOURCE_ROOT`。`winget` Stage 1、`uv`、Cargo 在可靠结构化恢复实现前仍返回 Unsupported。
 - Windows Stage 0 只使用 `Microsoft.WinGet.Client` 结构化 cmdlets，首次 snapshot 不得被 China 重跑覆盖，成功 Restore 后删除 snapshot。
-- `shell/shared.d/package-sources.sh` 只允许 Homebrew/rustup 已知变量和 HTTPS 值，不能 `eval`、`source` 或导出任意变量名。
+- `shell/profile.d/05-package-sources.sh` 只允许 Homebrew/rustup 已知变量和 HTTPS 值，不能 `eval`、`source` 或导出任意变量名；加载结束后不得遗留辅助函数。
 - 新机顺序固定为：package manager -> PowerShell 7/chsrc bootstrap -> Stage 1 sources -> CLI/fonts/profile。macOS 物理编号为 `02 pwsh`、`03 sources`，避免 source 引擎依赖自身尚未安装的运行时。
 - 未实现 Linux 原生 Stage 0 系统源 adapter 时，PowerShell 7/chsrc 前的 China/Auto 必须返回 Blocked，不能静默回退 Direct。
 - 默认 QA 仅使用临时 HOME、伪命令和 fixture；真实 China/Auto Apply 必须获得单独明确批准。
 - PackageSources Pester 只保留参数、JSON/退出码、`-WhatIf` 和 legacy Docker 的少量 CLI 子进程合同；事务、drift、orphan、Auto 和 adapter 行为直接调用 `Invoke-PackageSourceAction`。
 - Stage 1 根安装编排器只能依赖稳定的 `Results[*].Rollback`；source 叶子可选提供顶层 `Rollback`，缺失时不得在严格模式下直接取属性或把成功步骤误报为 JSON 解析失败。
 - 进程内测试默认将 `PackageSources`/`DockerAdapter` 内的 `Invoke-WebRequest` Mock 为失败；需要探活的用例必须显式覆盖并断言调用。
-- Linux Pester 容器的 `/tmp` 为 `noexec`；Bash 伪命令必须放到仓库内 `tests/.tmp-executables/` 的唯一临时目录，并在 `AfterAll` 清理。状态、HOME 和配置 fixture 仍放在 `$TestDrive`。
+- Pester 的状态、HOME、配置与可执行 fixture 统一使用 `$TestDrive` 隔离；不得在仓库内创建共享临时可执行目录，避免宿主与容器以不同用户写入后产生权限冲突。Linux 容器验证必须实际执行伪命令，确保测试临时文件系统允许执行。
 - 统一 Pester 配置只将 `Remove-Item:ProgressAction` 默认为 `SilentlyContinue`，避免 PowerShell 7.5 的 `Removed x of y files` TestDrive 清理进度干扰断言查看；不得全局禁用 `$ProgressPreference` 或丢弃 stdout。
 
 ### 4. Validation & Error Matrix

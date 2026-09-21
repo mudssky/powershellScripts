@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "检查重复初始化与迁移遗漏"}
+{"file": ".trellis/spec/bash-scripts/package/index.md", "reason": "检查 Bash 测试范围与质量门禁"}

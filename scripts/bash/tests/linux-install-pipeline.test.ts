@@ -381,25 +381,28 @@ describe('Linux Stage 1 shell wrappers', () => {
     )
 
     expect(result.exitCode).toBe(0)
-    expect(result.stderr).toContain('检测到目标 shell: bash')
+    expect(result.stderr).toContain('目标 shell: bash')
     expect(fs.existsSync(path.join(workspace.home, '.bashrc'))).toBe(false)
+    expect(fs.existsSync(path.join(workspace.home, '.profile.d'))).toBe(false)
     expect(fs.existsSync(path.join(workspace.home, '.bashrc.d'))).toBe(false)
   })
 
-  it('restores brew and fnm for non-interactive login shells after 04 deploys', async () => {
+  it('restores the toolchain through real login and interactive loaders with mode-specific fnm arguments', async () => {
     const workspace = createWorkspace()
-    // 伪 fnm 放进伪 brew prefix 的 bin，模拟 brew 安装的 fnm；
-    // 伪 node/pnpm 只能经伪 fnm env 输出的 PATH 进入，验证受管块
-    // “先 brew 后 fnm”的顺序与 eval "$(fnm env)" 真实执行。
     const brewPrefix = path.join(workspace.home, '.linuxbrew')
     const brewBin = path.join(brewPrefix, 'bin')
     const nodeBin = path.join(workspace.root, 'node-bin')
+    const fnmLog = path.join(workspace.root, 'fnm-args.log')
     writeText(path.join(brewBin, 'brew'), '#!/usr/bin/env bash\nexit 0\n')
-    writeText(path.join(brewBin, 'fnm'), [
-      '#!/usr/bin/env bash',
-      `printf 'export PATH="%s:$PATH"\\n' '${nodeBin}'`,
-      '',
-    ].join('\n'))
+    writeText(
+      path.join(brewBin, 'fnm'),
+      [
+        '#!/usr/bin/env bash',
+        'printf \'%s\\n\' "$*" >> "$FNM_ARGS_LOG"',
+        `printf 'export PATH="%s:$PATH"\\n' '${nodeBin}'`,
+        '',
+      ].join('\n'),
+    )
     for (const file of ['brew', 'fnm']) {
       fs.chmodSync(path.join(brewBin, file), 0o755)
     }
@@ -417,26 +420,26 @@ describe('Linux Stage 1 shell wrappers', () => {
         'Core',
         '--shell',
         'bash',
+        '--exclude',
+        'env.local.sh',
       ],
       { env: linuxEnv(workspace), reject: false },
     )
     expect(deploy.exitCode).toBe(0)
-    expect(fs.existsSync(path.join(workspace.home, '.profile'))).toBe(true)
 
-    // 空 HOME fixture 的登录非交互 shell：PATH 只给系统目录，显式 prefix 隔离
-    // 宿主机 /home/linuxbrew；brew/fnm/node/pnpm 必须全部由受管块自身恢复。
+    const startupEnv = {
+      HOME: workspace.home,
+      PATH: '/usr/local/bin:/usr/bin:/bin',
+      POWERSHELL_SCRIPTS_HOMEBREW_PREFIX: brewPrefix,
+      FNM_ARGS_LOG: fnmLog,
+    }
     const login = await execa(
       'bash',
-      ['-lc', 'command -v brew; command -v node; command -v pnpm'],
-      {
-        env: {
-          HOME: workspace.home,
-          PATH: '/usr/local/bin:/usr/bin:/bin',
-          POWERSHELL_SCRIPTS_HOMEBREW_PREFIX: brewPrefix,
-        },
-        extendEnv: false,
-        reject: false,
-      },
+      [
+        '-lc',
+        'command -v brew; command -v node; command -v pnpm; alias pscripts >/dev/null 2>&1 && printf polluted || printf clean',
+      ],
+      { env: startupEnv, extendEnv: false, reject: false },
     )
 
     expect(login.exitCode).toBe(0)
@@ -444,10 +447,35 @@ describe('Linux Stage 1 shell wrappers', () => {
       path.join(brewBin, 'brew'),
       path.join(nodeBin, 'node'),
       path.join(nodeBin, 'pnpm'),
+      'clean',
+    ])
+    expect(fs.readFileSync(fnmLog, 'utf8').trim().split('\n')).toEqual(['env'])
+
+    const interactive = await execa(
+      'bash',
+      [
+        '--noprofile',
+        '--rcfile',
+        path.join(workspace.home, '.bashrc'),
+        '-ic',
+        'command -v node; alias pscripts >/dev/null 2>&1 && printf interactive',
+      ],
+      { env: startupEnv, extendEnv: false, reject: false },
+    )
+
+    expect(interactive.exitCode).toBe(0)
+    const interactiveLines = interactive.stdout.trim().split('\n')
+    expect(interactiveLines.slice(-2)).toEqual([
+      path.join(nodeBin, 'node'),
+      'interactive',
+    ])
+    expect(fs.readFileSync(fnmLog, 'utf8').trim().split('\n')).toEqual([
+      'env',
+      'env --use-on-cd',
     ])
   })
 
-  it('loads Linuxbrew from the managed shell fragment without eval output', async () => {
+  it('loads Linuxbrew from the managed profile fragment without eval output', async () => {
     const workspace = createWorkspace()
     const prefix = path.join(workspace.home, '.linuxbrew')
     writeText(path.join(prefix, 'bin/brew'), '#!/usr/bin/env bash\nexit 0\n')
@@ -457,7 +485,7 @@ describe('Linux Stage 1 shell wrappers', () => {
       'bash',
       [
         '-c',
-        `source "${path.join(repoRoot, 'shell/shared.d/homebrew.sh')}"; printf '%s\\n%s' "$HOMEBREW_PREFIX" "$PATH"`,
+        `source "${path.join(repoRoot, 'shell/profile.d/10-homebrew.sh')}"; printf '%s\\n%s' "$HOMEBREW_PREFIX" "$PATH"`,
       ],
       {
         // 显式指定 prefix，跳过路径探测，避免 CI 预装的系统级 Linuxbrew 干扰隔离 fixture。

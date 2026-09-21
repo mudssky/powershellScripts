@@ -59,8 +59,8 @@ yay 安装器使用临时构建目录，并要求以普通用户运行。fcitx5 
 Core 执行 `03`～`07` 与 `99`：
 
 - 发行版、Linuxbrew 和语言生态 source
-- bash/zsh 受管配置片段
-- Linuxbrew Core CLI
+- bash/zsh 基础环境与交互配置双层受管片段
+- `~/.profile.d` 为 login 与 interactive 共用层，`~/.bashrc.d` 只承载交互行为
 - 字体环境判断；Arch Desktop 使用 pacman 字体包
 - PowerShell Profile、模块、Node/pnpm、仓库工具与 Docker
 - 只读验证
@@ -82,7 +82,7 @@ pwsh ./install.ps1 -Preset Core -FromStep profile-tools
 | 01 | `linux/01installHomeBrew.sh` | Linuxbrew 安装与检测；不写登录 profile |
 | 02 | `linux/02installPowerShell.sh` | amd64 PowerShell 7 |
 | 03 | `linux/03configureSources.sh` | package source 事务 |
-| 04 | `linux/04deployShellConfig.sh` | bash/zsh 配置；登录 profile 受管块（bash: `~/.profile`，zsh: `~/.zprofile`）恢复 brew/fnm 环境，幂等、写前带时间戳 `.bak` 备份 |
+| 04 | `linux/04deployShellConfig.sh` | 同步 `~/.profile.d` 与 `~/.bashrc.d`；Bash 按 `.bash_profile`、`.bash_login`、`.profile` 选择有效 login target，Zsh 使用 `.zprofile`，并维护可迁移、幂等、写前备份的 login/interactive loader |
 | 05 | `linux/05installCoreCli.ps1` | Core CLI |
 | 06 | `linux/06installFonts.ps1` | Auto/Desktop/Server 字体策略 |
 | 07 | `linux/07installProfileTools.ps1` | Profile、仓库工具、Docker 与 WSL 客体配置 |
@@ -90,6 +90,8 @@ pwsh ./install.ps1 -Preset Core -FromStep profile-tools
 | 99 | `linux/99verifyInstall.ps1` | 只读验证 |
 
 所有写入叶子支持 `--dry-run` 或 `-WhatIf`。退出码为：成功/已满足/内部跳过 0、失败 1、参数错误 2、外部前置 Blocked 10。
+
+部署后的启动边界：login profile 只加载 `~/.profile.d/*.sh`；交互 rc 先加载同一基础环境，再加载 `~/.bashrc.d/*.sh`。因此非交互 login 可恢复 Homebrew、fnm、Node 与 pnpm，但不会注册 alias、补全、prompt 或代理探测。普通 cron 与不读取 profile 的 SSH 远程命令不在该保证范围内。
 
 `linux/03deployShellConfig.sh` 与 `linux/04installApps.ps1` 只保留弃用转发，不再拥有安装逻辑。
 

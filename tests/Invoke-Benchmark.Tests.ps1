@@ -69,14 +69,9 @@ Describe 'Invoke-Benchmark.ps1' {
         $script:BenchmarksRoot = Join-Path $script:TestRoot 'benchmarks'
         $script:MarkerPath = Join-Path $script:TestRoot 'marker.txt'
         $env:PWSH_TEST_IN_PROCESS_BENCHMARK = '1'
-        # Linux/macOS 的 TestDrive 通常位于 /tmp；某些容器挂载会让这里的文件不适合作为外部可执行程序。
-        # 因此 Unix 下把 fake fzf 放到仓库内的临时目录，保证 PowerShell 能正常拉起它。
-        $script:ToolsPath = if ($IsWindows) {
-            Join-Path $script:TestRoot 'tools'
-        }
-        else {
-            Join-Path $PSScriptRoot '.tmp-executables' ([Guid]::NewGuid().ToString())
-        }
+        # fake fzf 由当前用例独占，避免仓库内共享临时目录被其他用户或容器占有。
+        # Pester 会在用例结束后清理 TestDrive；AfterEach 仍显式删除以保持单测隔离。
+        $script:ToolsPath = Join-Path $script:TestRoot 'tools'
         $script:OriginalPath = $env:PATH
         $script:OriginalFakeFzfMarker = [Environment]::GetEnvironmentVariable('FAKE_FZF_MARKER', 'Process')
 

@@ -1,9 +1,10 @@
 #!/usr/bin/env sh
 # ======================================================================
-# 文件：package-sources.sh
+# 文件：05-package-sources.sh
 # 作用：从受管 package source env 文件加载严格白名单内的 HTTPS 变量。
-# 兼容性：POSIX sh；仅导入明确允许的变量。
+# 兼容性：Bash / Zsh；仅导入明确允许的变量。
 # ======================================================================
+
 # ----------------------------------------------------------------------
 # _load_package_sources_env — 读取并导出受管 package source 环境变量。
 #
@@ -65,16 +66,11 @@ _load_package_sources_env() {
                 ;;
         esac
         case "$value" in
-            https://*)
-                ;;
-            *)
-                continue
-                ;;
+            https://*) ;;
+            *) continue ;;
         esac
         case "$value" in
-            *[[:space:]]*|*\"*)
-                continue
-                ;;
+            *[[:space:]]*|*\"*) continue ;;
         esac
 
         export "$name=$value"
@@ -84,3 +80,4 @@ _load_package_sources_env() {
 }
 
 _load_package_sources_env
+unset -f _load_package_sources_env

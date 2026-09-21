@@ -1,55 +1,8 @@
 # ======================================================================
-# 文件：node.sh
-# 作用：初始化 Node.js 工具链与 package.json 脚本选择命令。
-# 兼容性：Bash / Zsh。
+# 文件：package-scripts.sh
+# 作用：提供 package.json 脚本选择与执行命令。
+# 兼容性：Bash / Zsh；仅在交互层加载。
 # ======================================================================
-
-# -- fnm ----------------------------------------------------------------
-if command -v fnm &> /dev/null; then
-  eval "$(fnm env --use-on-cd)"
-fi
-
-# -- bun completions ----------------------------------------------------
-# Bun 生成的是 zsh completion；共享片段在 Bash 下也会 source，因此只在 Zsh 加载。
-if [ -n "${ZSH_VERSION:-}" ] && [ -s "$HOME/.bun/_bun" ]; then
-  source "$HOME/.bun/_bun"
-fi
-
-# -- bun ----------------------------------------------------------------
-export BUN_INSTALL="$HOME/.bun"
-export PATH="$BUN_INSTALL/bin:$PATH"
-
-# -- npm global bin -----------------------------------------------------
-# npm 的全局命令目录随当前 Node 前缀变化，不能假设始终位于 ~/.local/bin。
-if command -v npm >/dev/null 2>&1; then
-  _node_npm_prefix="$(npm prefix -g 2>/dev/null)"
-  _node_npm_global_bin="$_node_npm_prefix/bin"
-  if [ -n "$_node_npm_prefix" ] && [ -d "$_node_npm_global_bin" ]; then
-    case ":$PATH:" in
-      *":$_node_npm_global_bin:"*) ;;
-      *) export PATH="$_node_npm_global_bin:$PATH" ;;
-    esac
-  fi
-  unset _node_npm_prefix _node_npm_global_bin
-fi
-
-# -- pnpm ---------------------------------------------------------------
-# 保留显式配置；仅为支持的系统补齐 pnpm 用户目录。
-if [ -z "${PNPM_HOME+x}" ]; then
-  case "$(uname -s)" in
-    Darwin) PNPM_HOME="$HOME/Library/pnpm" ;;
-    Linux) PNPM_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/pnpm" ;;
-  esac
-fi
-
-# 只在全局 bin 目录存在且 PATH 尚未包含时追加，保证重复加载幂等。
-if [ -n "${PNPM_HOME:-}" ] && [ -d "$PNPM_HOME/bin" ]; then
-  export PNPM_HOME
-  case ":$PATH:" in
-    *":$PNPM_HOME/bin:"*) ;;
-    *) export PATH="$PNPM_HOME/bin:$PATH" ;;
-  esac
-fi
 
 # ----------------------------------------------------------------------
 # _pkg_find_root — 从当前目录向上查找最近的 package.json 所在目录。
@@ -209,7 +162,6 @@ EOF
 }
 
 # -- aliases ------------------------------------------------------------
-# 高频场景快捷调用，仅在主函数已定义时建立别名。
 if command -v package-scripts >/dev/null 2>&1; then
   alias pscripts='package-scripts'
 fi

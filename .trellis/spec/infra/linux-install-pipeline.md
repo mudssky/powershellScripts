@@ -42,7 +42,7 @@ pwsh linux/99verifyInstall.ps1 -Preset Core|Full [-Step <id[]>] [-OutputFormat T
 - `config/install/linux-packages.psd1` 是 apt/pacman 系统包真源；`apps-config.json` 是 Linuxbrew CLI 真源。
 - pacman 需要刷新索引时使用单次 `-Syu --needed` 完成同步升级与安装，不允许 `-Sy` 后分离执行 `-S` 形成部分升级。
 - 03 组合发行版、brew、npm、pnpm、pip、go target，事务与 Auto Restore 由共享引擎和根编排器负责。
-- 04 只调用 `shell/deploy.sh`；交互式 shell 的 Linuxbrew PATH 由 `~/.bashrc.d/` 下 `homebrew.sh` 片段从已知 prefix 恢复，不直接追加 rc。登录 profile（bash `~/.profile`、zsh `~/.zprofile`）的 brew+fnm 环境由 04/shell deploy 的受管块负责（marker 包裹、幂等原位整段替换、写前时间戳 `.bak`、支持 dry-run，块内先 brew 后 fnm），01 不写 profile；流水线子进程由 `Initialize-LinuxBrewEnvironment` 与 ProfileTools 在组件判定前主动恢复。三层分别覆盖交互、登录与非交互场景。
+- 04 只调用 `shell/deploy.sh`；`~/.profile.d` 承载 login 与 interactive 共用的 Homebrew、package source、fnm、Node、Bun 与 pnpm 基础环境，login profile 与 rc 只维护受管 loader。Bash login target 按 `.bash_profile`、`.bash_login`、`.profile` 优先级选择，Zsh 使用 `.zprofile`；rc 仅在交互会话继续加载 `~/.bashrc.d`。所有 marker 块支持目标迁移、幂等替换、写前时间戳 `.bak` 和 dry-run；01 不写 profile。流水线子进程由 `Initialize-LinuxBrewEnvironment` 与 ProfileTools 在组件判定前主动恢复环境。
 - 05 选择 `Linux + core + cli`；08 选择 `Linux + cli + terminal-extras`，不安装 GUI。Delta 与 Tealdeer 只属于 Full `terminal-extras`，Core 明确排除。
 - 06 Auto 在 WSL 和无桌面环境选择 Server，并以内部 Skipped 退出 0；Desktop 使用发行版字体包和 `fc-cache`。
 - 07 复用共享 `ProfileTools.psm1`，Linux 只追加系统包、Docker 和 WSL 客体配置。
@@ -78,7 +78,7 @@ pwsh linux/99verifyInstall.ps1 -Preset Core|Full [-Step <id[]>] [-OutputFormat T
 
 ### 6. Tests Required
 
-- Vitest：Stage 0 shallow clone、China/Auto Blocked、01/02 dry-run、01 不写 login profile、03 参数透传、04 临时 HOME、04 登录非交互 shell（`bash -lc`）brew/fnm/node/pnpm 可见、Homebrew shell fragment、deploy.sh 登录 profile 受管块（写入/幂等整段替换/时间戳备份/dry-run/bash-zsh 分派/marker 外内容保留）。
+- Vitest：Stage 0 shallow clone、China/Auto Blocked、01/02 dry-run、01 不写 login profile、03 参数透传、04 临时 HOME、04 login/interactive loader 经 `profile.d` 恢复 brew/fnm/node/pnpm、Bash profile 优先级与迁移、双目录同步、legacy rc loader、损坏 marker、备份/dry-run/幂等及 marker 外内容保留。
 - Pester：Ubuntu/Debian/WSL/Arch/ARM 平台模型，apt/pacman 分派，05/08 标签边界（Core 排除、Full 包含 Delta/Tealdeer），06 环境选择，07 WhatIf，WSL config 幂等/备份，Docker Preview。
 - Pester：99 单文档 JSON、精确步骤、未知步骤、清单名称来源、ARM Blocked 与 WSL systemd 状态。
 - 回归：macOS 07 公共 Profile Tools 抽取后保持原测试通过。

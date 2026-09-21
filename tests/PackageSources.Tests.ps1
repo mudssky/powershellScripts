@@ -9,7 +9,7 @@ BeforeAll {
         $null
     }
     else {
-        Join-Path $script:RepoRoot 'tests/.tmp-executables' ("package-sources-{0}" -f [Guid]::NewGuid())
+        Join-Path $TestDrive ("package-sources-{0}" -f [Guid]::NewGuid())
     }
     if ($script:ExecutableFixtureRoot) {
         New-Item -ItemType Directory -Path $script:ExecutableFixtureRoot -Force | Out-Null
@@ -198,8 +198,7 @@ BeforeAll {
         )
 
         if (-not $IsWindows) {
-            # Linux Pester 容器将 /tmp 挂载为 noexec，因此可执行 fixture
-            # 必须放在仓库挂载目录；状态与用户文件仍保持在 TestDrive。
+            # 可执行 fixture 由 Pester TestDrive 隔离，避免仓库共享目录被宿主与容器以不同用户占有。
             $path = Join-Path $script:ExecutableFixtureRoot 'fake-chsrc.sh'
             $scriptContent = @'
 #!/usr/bin/env bash
