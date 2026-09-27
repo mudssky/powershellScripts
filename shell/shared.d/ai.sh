@@ -585,8 +585,8 @@ function agent-task() {
                     effort='max'
                     ;;
                 max)
-                    model='gpt-5.6-sol'
-                    effort='medium'
+                    model='gpt-6-sol'
+                    effort='high'
                     ;;
                 ultra)
                     model='gpt-6-astra'
