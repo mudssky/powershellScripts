@@ -511,7 +511,7 @@ describe('shell/shared.d/ai.sh agent-task', () => {
       ['fast', 'gpt-5.6-luna', 'high'],
       ['medium', 'gpt-5.6-luna', 'xhigh'],
       ['slow', 'gpt-5.6-luna', 'max'],
-      ['max', 'gpt-6-sol', 'high'],
+      ['max', 'gpt-6.1-sol', 'high'],
       ['ultra', 'gpt-6-astra', 'low'],
     ] as const) {
       it(`${shellName} 保持 Codex ${profile} 覆盖参数和转发语义`, async () => {
