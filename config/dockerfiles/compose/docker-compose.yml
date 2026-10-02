@@ -34,7 +34,7 @@ services:
     profiles: ["postgre"]
 
   minio:
-    image: bitnami/minio:latest
+    image: soldevelo/minio:latest
     restart: ${RESTART_POLICY:-unless-stopped}
     environment:
       MINIO_ROOT_USER: ${DEFAULT_USER:-root}
