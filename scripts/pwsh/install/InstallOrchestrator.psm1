@@ -696,6 +696,86 @@ function ConvertFrom-InstallOutputBytes {
     }
 }
 
+function Read-InstallLeafStreamChunk {
+    <#
+    .SYNOPSIS
+        消费一个已完成的叶子输出读取块，写入捕获缓冲并按需实时转发控制台。
+
+    .DESCRIPTION
+        捕获缓冲保持原始字节，退出后仍走整体严格解码，保证返回结果逐字节保真；
+        实时转发使用带回退的 UTF-8 解码器（跨块维护多字节序列状态），
+        解码异常只影响实时显示，不影响捕获结果。
+
+    .PARAMETER State
+        流状态哈希表：ReadTask 当前读取任务，Eof 是否已读到流末尾。
+
+    .PARAMETER Stream
+        叶子 stdout 或 stderr 基础流。
+
+    .PARAMETER Buffer
+        复用的读取字节缓冲。
+
+    .PARAMETER Decoder
+        复用的 UTF-8 解码器（带回退）。
+
+    .PARAMETER Chars
+        复用的解码字符缓冲。
+
+    .PARAMETER Capture
+        捕获原始字节的 MemoryStream。
+
+    .PARAMETER Writer
+        转发目标的 TextWriter；为空时不转发。
+
+    .PARAMETER ForwardToConsole
+        是否启用实时转发。
+
+    .OUTPUTS
+        None。状态哈希表就地更新 ReadTask 与 Eof。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [hashtable]$State,
+
+        [Parameter(Mandatory)]
+        [System.IO.Stream]$Stream,
+
+        [Parameter(Mandatory)]
+        [byte[]]$Buffer,
+
+        [Parameter(Mandatory)]
+        [System.Text.Decoder]$Decoder,
+
+        [Parameter(Mandatory)]
+        [char[]]$Chars,
+
+        [Parameter(Mandatory)]
+        [System.IO.MemoryStream]$Capture,
+
+        [AllowNull()]
+        [System.IO.TextWriter]$Writer,
+
+        [bool]$ForwardToConsole
+    )
+
+    $read = $State.ReadTask.GetAwaiter().GetResult()
+    $State.ReadTask = $null
+    if ($read -le 0) {
+        $State.Eof = $true
+        return
+    }
+    $null = $Capture.Write($Buffer, 0, $read)
+    if ($ForwardToConsole -and $null -ne $Writer) {
+        $charCount = $Decoder.GetChars($Buffer, 0, $read, $Chars, 0)
+        if ($charCount -gt 0) {
+            $Writer.Write($Chars, 0, $charCount)
+            $Writer.Flush()
+        }
+    }
+    $State.ReadTask = $Stream.ReadAsync($Buffer, 0, $Buffer.Length)
+}
+
 function Invoke-InstallLeafProcess {
     <#
     .SYNOPSIS
@@ -711,7 +791,7 @@ function Invoke-InstallLeafProcess {
         透传给叶子的参数数组。
 
     .PARAMETER ShowProgress
-        是否向 stderr 写入一次受控的步骤启动信息。
+        是否向 stderr 写入一次受控的步骤启动信息，并把叶子 stdout/stderr 实时镜像到当前控制台。
 
     .PARAMETER StepNumber
         用于进度输出的稳定步骤编号。
@@ -810,8 +890,7 @@ exit $LASTEXITCODE
     $processStarted = $false
     $stdoutBuffer = [System.IO.MemoryStream]::new()
     $stderrBuffer = [System.IO.MemoryStream]::new()
-    $stdoutCopyTask = $null
-    $stderrCopyTask = $null
+    $streamStates = @()
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     try {
         if (-not $process.Start()) {
@@ -821,17 +900,72 @@ exit $LASTEXITCODE
         if ($ShowProgress) {
             [Console]::Error.WriteLine(("[Running] {0} {1}: {2}" -f $StepNumber, $StepId, $command))
         }
-        # 同时复制两个原始字节流，避免长输出填满任一管道，并把解码边界统一放到进程退出之后。
-        $stdoutCopyTask = $process.StandardOutput.BaseStream.CopyToAsync($stdoutBuffer)
-        $stderrCopyTask = $process.StandardError.BaseStream.CopyToAsync($stderrBuffer)
-        while (-not $process.WaitForExit($script:InstallProcessPollMilliseconds)) {
+        # 双流泵：主线程用 WhenAny 交错等待 stdout/stderr 读取与进程退出轮询。
+        # 两个原始字节流始终完整捕获（避免长输出填满任一管道，解码边界统一放在进程退出后）；
+        # ShowProgress（Text 模式）下每个数据块同时实时镜像到当前控制台。
+        $forwardToConsole = [bool]$ShowProgress
+        $readBufferLength = 4096
+        $streamStates = @(
+            @{
+                Stream   = $process.StandardOutput.BaseStream
+                IsError  = $false
+                Buffer   = [byte[]]::new($readBufferLength)
+                Decoder  = [System.Text.UTF8Encoding]::new($false).GetDecoder()
+                Chars    = [char[]]::new($readBufferLength)
+                Capture  = $stdoutBuffer
+                ReadTask = $null
+                Eof      = $false
+            }
+            @{
+                Stream   = $process.StandardError.BaseStream
+                IsError  = $true
+                Buffer   = [byte[]]::new($readBufferLength)
+                Decoder  = [System.Text.UTF8Encoding]::new($false).GetDecoder()
+                Chars    = [char[]]::new($readBufferLength)
+                Capture  = $stderrBuffer
+                ReadTask = $null
+                Eof      = $false
+            }
+        )
+        foreach ($streamState in $streamStates) {
+            $streamState.ReadTask = $streamState.Stream.ReadAsync($streamState.Buffer, 0, $streamState.Buffer.Length)
+        }
+        $exitPollTask = [System.Threading.Tasks.Task]::Delay($script:InstallProcessPollMilliseconds)
+        while ($true) {
             if ($PSCmdlet.Stopping) {
                 throw [System.Management.Automation.PipelineStoppedException]::new()
             }
+            $pendingTasks = [System.Collections.Generic.List[System.Threading.Tasks.Task]]::new()
+            foreach ($streamState in $streamStates) {
+                if (-not $streamState.Eof) {
+                    $pendingTasks.Add($streamState.ReadTask)
+                }
+            }
+            if ($pendingTasks.Count -eq 0) {
+                break
+            }
+            $pendingTasks.Add($exitPollTask)
+            $completedTask = [System.Threading.Tasks.Task]::WhenAny($pendingTasks.ToArray()).GetAwaiter().GetResult()
+            if ($completedTask -eq $exitPollTask) {
+                $exitPollTask = [System.Threading.Tasks.Task]::Delay($script:InstallProcessPollMilliseconds)
+                continue
+            }
+            foreach ($streamState in $streamStates) {
+                if (-not $streamState.Eof -and $completedTask -eq $streamState.ReadTask) {
+                    $writer = if ($streamState.IsError) { [Console]::Error } else { [Console]::Out }
+                    Read-InstallLeafStreamChunk `
+                        -State $streamState `
+                        -Stream $streamState.Stream `
+                        -Buffer $streamState.Buffer `
+                        -Decoder $streamState.Decoder `
+                        -Chars $streamState.Chars `
+                        -Capture $streamState.Capture `
+                        -Writer $writer `
+                        -ForwardToConsole $forwardToConsole
+                }
+            }
         }
-        $process.WaitForExit()
-        $null = $stdoutCopyTask.GetAwaiter().GetResult()
-        $null = $stderrCopyTask.GetAwaiter().GetResult()
+        $null = $process.WaitForExit()
         $stdout = ConvertFrom-InstallOutputBytes -Bytes ([byte[]]$stdoutBuffer.ToArray())
         $stderr = ConvertFrom-InstallOutputBytes -Bytes ([byte[]]$stderrBuffer.ToArray())
         $stopwatch.Stop()
@@ -851,12 +985,17 @@ exit $LASTEXITCODE
             Stop-InstallProcessTree -Process $process
         }
         if ($processStarted) {
-            $pendingCopyTasks = @(@($stdoutCopyTask, $stderrCopyTask) |
-                    Where-Object { $null -ne $_ -and -not $_.IsCompleted })
-            if ($pendingCopyTasks.Count -gt 0) {
+            $pendingReadTasks = @(
+                foreach ($streamState in $streamStates) {
+                    if ($null -ne $streamState.ReadTask -and -not $streamState.Eof) {
+                        $streamState.ReadTask
+                    }
+                }
+            )
+            if ($pendingReadTasks.Count -gt 0) {
                 try {
                     $null = [System.Threading.Tasks.Task]::WaitAll(
-                        [System.Threading.Tasks.Task[]]$pendingCopyTasks,
+                        [System.Threading.Tasks.Task[]]$pendingReadTasks,
                         5000)
                 }
                 catch {

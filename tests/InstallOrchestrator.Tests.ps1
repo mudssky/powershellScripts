@@ -825,4 +825,132 @@ param(
         $text | Should -Match '\[Succeeded\] source-restore \(3ms\)'
         $text | Should -Match 'Result: status=Succeeded exitCode=0'
     }
+
+    It 'streams leaf stdout and stderr to the console in Text mode while preserving capture' {
+        $fixturePath = Join-Path $script:FixtureRoot 'stream-output.ps1'
+        Set-Content -LiteralPath $fixturePath -Encoding utf8NoBOM -Value @'
+[Console]::Out.WriteLine('stdout-流式-第一行')
+[Console]::Error.WriteLine('stderr-流式-第一行')
+[Console]::Out.WriteLine('stdout-流式-第二行')
+'@
+        $module = Get-Module InstallOrchestrator
+        $originalOut = [Console]::Out
+        $originalError = [Console]::Error
+        $outWriter = [System.IO.StringWriter]::new()
+        $errorWriter = [System.IO.StringWriter]::new()
+        try {
+            [Console]::SetOut($outWriter)
+            [Console]::SetError($errorWriter)
+            $result = & $module {
+                param($Path)
+                Invoke-InstallLeafProcess -Runner pwsh -ScriptPath $Path -ShowProgress -StepNumber '07' -StepId 'profile-tools'
+            } $fixturePath
+            $streamedOut = $outWriter.ToString()
+            $streamedError = $errorWriter.ToString()
+        }
+        finally {
+            [Console]::SetOut($originalOut)
+            [Console]::SetError($originalError)
+            $outWriter.Dispose()
+            $errorWriter.Dispose()
+        }
+
+        $result.ExitCode | Should -Be 0
+        $streamedOut | Should -Match 'stdout-流式-第一行'
+        $streamedOut | Should -Match 'stdout-流式-第二行'
+        $streamedError | Should -Match 'stderr-流式-第一行'
+        $streamedOut | Should -Not -Match ([char]0xfffd)
+        $result.Stdout | Should -Match 'stdout-流式-第一行'
+        $result.Stdout | Should -Match 'stdout-流式-第二行'
+        $result.Stderr | Should -Match 'stderr-流式-第一行'
+    }
+
+    It 'keeps leaf output unforwarded when progress is disabled' {
+        $fixturePath = Join-Path $script:FixtureRoot 'silent-output.ps1'
+        Set-Content -LiteralPath $fixturePath -Encoding utf8NoBOM -Value @'
+[Console]::Out.WriteLine('silent-stdout')
+[Console]::Error.WriteLine('silent-stderr')
+'@
+        $module = Get-Module InstallOrchestrator
+        $originalOut = [Console]::Out
+        $originalError = [Console]::Error
+        $outWriter = [System.IO.StringWriter]::new()
+        $errorWriter = [System.IO.StringWriter]::new()
+        try {
+            [Console]::SetOut($outWriter)
+            [Console]::SetError($errorWriter)
+            $result = & $module {
+                param($Path)
+                Invoke-InstallLeafProcess -Runner pwsh -ScriptPath $Path
+            } $fixturePath
+            $streamedOut = $outWriter.ToString()
+            $streamedError = $errorWriter.ToString()
+        }
+        finally {
+            [Console]::SetOut($originalOut)
+            [Console]::SetError($originalError)
+            $outWriter.Dispose()
+            $errorWriter.Dispose()
+        }
+
+        $result.ExitCode | Should -Be 0
+        $streamedOut | Should -BeNullOrEmpty
+        $streamedError | Should -BeNullOrEmpty
+        $result.Stdout | Should -Match 'silent-stdout'
+        $result.Stderr | Should -Match 'silent-stderr'
+    }
+
+    It 'makes streamed output visible before the leaf process exits' {
+        $fixturePath = Join-Path $script:FixtureRoot 'delayed-stream.ps1'
+        Set-Content -LiteralPath $fixturePath -Encoding utf8NoBOM -Value @'
+[Console]::Out.WriteLine('early-可见输出')
+[Console]::Out.Flush()
+Start-Sleep -Milliseconds 3000
+[Console]::Out.WriteLine('late-可见输出')
+'@
+        $module = Get-Module InstallOrchestrator
+        $originalOut = [Console]::Out
+        $outWriter = [System.IO.StringWriter]::new()
+        $powerShell = [powershell]::Create()
+        $asyncResult = $null
+        try {
+            [Console]::SetOut($outWriter)
+            $null = $powerShell.AddScript({
+                    param($ModulePath, $Path)
+                    Import-Module $ModulePath -Force
+                    & (Get-Module InstallOrchestrator) {
+                        param($LeafPath)
+                        Invoke-InstallLeafProcess -Runner pwsh -ScriptPath $LeafPath -ShowProgress -StepNumber '07' -StepId 'profile-tools'
+                    } $Path
+                }).AddArgument($script:ModulePath).AddArgument($fixturePath)
+            $asyncResult = $powerShell.BeginInvoke()
+
+            foreach ($attempt in 1..120) {
+                if ($outWriter.ToString() -match 'early-可见输出') {
+                    break
+                }
+                Start-Sleep -Milliseconds 25
+            }
+            # 叶子写出 late 行前会睡弖3秒，此时能看见 early 就证明转发先于进程退出。
+            $visibleBeforeExit = $outWriter.ToString()
+            $output = $powerShell.EndInvoke($asyncResult)
+            $asyncResult = $null
+            $leafResult = @($output)[-1]
+            $fullText = $outWriter.ToString()
+        }
+        finally {
+            if ($null -ne $asyncResult -and -not $asyncResult.IsCompleted) {
+                $powerShell.Stop()
+                try { $null = $powerShell.EndInvoke($asyncResult) } catch {}
+            }
+            $powerShell.Dispose()
+            [Console]::SetOut($originalOut)
+            $outWriter.Dispose()
+        }
+
+        $visibleBeforeExit | Should -Match 'early-可见输出'
+        $visibleBeforeExit | Should -Not -Match 'late-可见输出'
+        $leafResult.ExitCode | Should -Be 0
+        $fullText | Should -Match 'late-可见输出'
+    }
 }

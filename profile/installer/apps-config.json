@@ -728,7 +728,7 @@
       },
       {
         "name": "sevenzip",
-        "cliName": "sevenzip",
+        "cliName": "7zz",
         "description": "7zip压缩工具",
         "command": "brew install sevenzip",
         "supportOs": [
