@@ -245,3 +245,25 @@ Windows 改用 Scoop 安装 Go，Linux 与 macOS 改用 Homebrew；移除 voidin
 ### Status
 
 [OK] **Completed**
+
+
+## Session 81: 安装编排器实时输出转发与 sevenzip 校验修复
+<!-- trellis-session: v=2 fp=319c808caa6e153c -->
+
+**Date**: 2026-10-17
+**Task**: 安装编排器实时输出转发与 sevenzip 校验修复
+**Branch**: `master`
+
+### Summary
+
+定位 install.ps1 -Preset 全程静默的根因：编排器叶子子进程 stdout/stderr 全量缓冲仅失败时截取。改为 Text 模式实时流式转发（主线程双流泵 WhenAny 交错等待，捕获原始字节退出后统一严格 UTF-8 解码），Json 模式保持静默；修复 apps-config.json homebrew sevenzip cliName 应为 7zz 导致 verify 误报。新增 3 个 Pester 用例；test:pwsh:qa 253 通过、test:pwsh:all Linux 987 通过（host 仅 BrowserDebugProfile 本机桌面环境存量失败）、pnpm qa 通过。本机补装 rustup minimal 工具链以支持 pwshfmt-rs 格式化。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `3e7eca92` | feat(install): 编排器 Text 模式实时转发叶子输出并修复 sevenzip 校验 |
+
+### Status
+
+[OK] **Completed**
