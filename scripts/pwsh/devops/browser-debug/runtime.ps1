@@ -918,6 +918,40 @@ function ConvertTo-BrowserDebugDesktopExecArgument {
     System.String
     返回脱离当前 shell 环境仍能启动的 pwsh 绝对路径。
 #>
+function Test-BrowserDebugUnixExecutable {
+    <#
+    .SYNOPSIS
+        判断候选可执行文件存在且带可执行位（仅 Unix 平台检查执行位）。
+
+    .DESCRIPTION
+        Get-Command 会把 PATH 上不可执行的文件也列为 Application 候选；
+        而原生命令启动失败时 $LASTEXITCODE 不更新、stderr 重定向下 $? 也可能被吞没，
+        所以在探测调用前先用文件系统事实做预检。
+
+    .PARAMETER Path
+        候选文件绝对路径。
+
+    .OUTPUTS
+        System.Boolean。可执行返回 $true。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $false }
+    if ($IsWindows) { return $true }
+    $item = Get-Item -LiteralPath $Path -Force
+    $modeProperty = $item.PSObject.Properties['UnixFileMode']
+    if (-not $modeProperty) { return $true }
+    $unixMode = $modeProperty.Value
+    $executeMask = [int]([System.IO.UnixFileMode]::UserExecute -bor
+        [System.IO.UnixFileMode]::GroupExecute -bor
+        [System.IO.UnixFileMode]::OtherExecute)
+    return 0 -ne ([int]$unixMode -band $executeMask)
+}
+
 function Get-BrowserDebugRunnablePwshPath {
     [CmdletBinding()]
     param()
@@ -928,9 +962,13 @@ function Get-BrowserDebugRunnablePwshPath {
             Select-Object -ExpandProperty Source -Unique
     )
     foreach ($envCandidate in $envCandidates) {
+        if (-not (Test-BrowserDebugUnixExecutable -Path $envCandidate)) { continue }
         try {
-            $null = & $envCandidate '-i' 2>$null
-            if ($LASTEXITCODE -eq 0) {
+            # 成败只看 stdout 哨兵：$LASTEXITCODE 在启动失败时不更新，$? 可能被重定向吞没。
+            $envProbe = @(
+                & $envCandidate '-i' 'sh' '-c' 'echo BROWSER_DEBUG_ENV_PROBE_OK' 2>&1
+            )
+            if ($envProbe -contains 'BROWSER_DEBUG_ENV_PROBE_OK') {
                 $envCommand = $envCandidate
                 break
             }
@@ -946,14 +984,17 @@ function Get-BrowserDebugRunnablePwshPath {
             Select-Object -ExpandProperty Source -Unique
     )
     foreach ($candidate in $candidates) {
+        if (-not (Test-BrowserDebugUnixExecutable -Path $candidate)) { continue }
         try {
             # 父 pwsh 会向子进程注入 DOTNET_ROOT，令裸 apphost 在探测时“假可用”；
             # 用 env -i 只保留 PATH/HOME/TMPDIR，模拟桌面双击的干净环境。
+            # stderr 井入捕获以免丢弃诊断；成败只看 stdout 哨兵，
+            # $LASTEXITCODE 在启动失败时不更新、$? 可能被重定向吞没，都不作判断依据。
             $probeOutput = @(
                 & $envCommand '-i' "PATH=$env:PATH" "HOME=$env:HOME" "TMPDIR=$env:TMPDIR" `
-                    $candidate -NoProfile -Command 'Write-Output BROWSER_DEBUG_PWSH_PROBE_OK' 2>$null
+                    $candidate -NoProfile -Command 'Write-Output BROWSER_DEBUG_PWSH_PROBE_OK' 2>&1
             )
-            if ($LASTEXITCODE -eq 0 -and $probeOutput -contains 'BROWSER_DEBUG_PWSH_PROBE_OK') { return $candidate }
+            if ($probeOutput -contains 'BROWSER_DEBUG_PWSH_PROBE_OK') { return $candidate }
         }
         catch { continue }
     }
