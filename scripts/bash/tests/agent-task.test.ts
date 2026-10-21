@@ -253,7 +253,7 @@ pathlib.Path(os.environ["HOME"], "profile").write_text(sys.argv[2])
 describe('shell/shared.d/ai.sh agent-task', () => {
   for (const shell of getAvailableShells()) {
     const shellName = path.basename(shell)
-    for (const profile of ['default', 'sol']) {
+    for (const profile of ['default', 'custom']) {
       for (const host of ['pi', 'omp'] as const) {
         for (const mode of host === 'pi'
           ? ['full', 'project', 'no-skill']
@@ -332,23 +332,24 @@ describe('shell/shared.d/ai.sh agent-task', () => {
       expect(missing.exitCode).not.toBe(0)
       expect(readLog(workspace)).toBe('')
       writeProfileHelper(workspace, agentDir)
-      const failed = await runShell(shell, workspace, 'agent-task pi sol', {
+      const failed = await runShell(shell, workspace, 'agent-task pi custom', {
         PI_CODING_AGENT_DIR: agentDir,
         PROFILE_FAIL: '1',
       })
       expect(failed.exitCode).toBe(37)
       expect(readLog(workspace)).toBe('')
-      const result = await runShell(shell, workspace, 'agent-task pi sol', {
+      const result = await runShell(shell, workspace, 'agent-task pi custom', {
         PI_CODING_AGENT_DIR: agentDir,
       })
       expect(result.exitCode).toBe(0)
-      expect(readLog(workspace)).toBe(formatFakeHostLog('pi', 'sol', []))
+      expect(readLog(workspace)).toBe(formatFakeHostLog('pi', 'custom', []))
     })
     it(`${shellName} 废弃档位和不兼容mode均在写配置前失败`, async () => {
       const workspace = createWorkspace()
       writeProfileHelper(workspace)
-      for (const host of ['pi', 'omp']) {
+      for (const host of ['pi', 'omp', 'codex']) {
         for (const profile of [
+          'sol',
           'fast',
           'medium',
           'slow',
@@ -368,10 +369,9 @@ describe('shell/shared.d/ai.sh agent-task', () => {
       }
       for (const invocation of [
         'pi default --mode core',
-        'pi sol --mode chat',
-        'omp sol --mode project',
-        'codex default',
-        'codex max --mode no-skill',
+        'pi custom --mode chat',
+        'omp custom --mode project',
+        'codex custom --mode no-skill',
         'pi default --mode',
       ]) {
         const result = await runShell(
@@ -387,44 +387,60 @@ describe('shell/shared.d/ai.sh agent-task', () => {
     it(`${shellName} OMP overlay缺失时失败`, async () => {
       const workspace = createWorkspace()
       expect(
-        (await runShell(shell, workspace, 'agent-task omp sol')).exitCode,
+        (await runShell(shell, workspace, 'agent-task omp custom')).exitCode,
       ).toBe(66)
     })
-    it(`${shellName} Codex 保留五档既有模型、参数与退出码`, async () => {
-      const workspace = createWorkspace()
-      writeFakeHost(workspace, 'codex')
-      for (const [profile, model, effort] of [
-        ['fast', 'gpt-5.6-luna', 'high'],
-        ['medium', 'gpt-5.6-luna', 'xhigh'],
-        ['slow', 'gpt-5.6-luna', 'max'],
-        ['max', 'gpt-6.1-sol', 'high'],
-        ['ultra', 'gpt-6-astra', 'low'],
-      ]) {
-        fs.rmSync(workspace.log, { force: true })
+    for (const profile of ['default', 'custom']) {
+      it(`${shellName} Codex ${profile} 仅切换worker配置并透传参数与退出码`, async () => {
+        const workspace = createWorkspace()
+        writeFakeHost(workspace, 'codex')
+        const codexHome = path.join(workspace.root, 'custom codex')
+        const configDir = path.join(codexHome, 'config/subagents/custom')
+        fs.mkdirSync(configDir, { recursive: true })
+        for (const role of ['worker', 'worker_fast']) {
+          fs.writeFileSync(path.join(configDir, `${role}.toml`), '')
+        }
         const result = await runShell(
           shell,
           workspace,
-          `agent-task codex ${profile} -- --flag 'two words'`,
-          { AGENT_TASK_TEST_EXIT_CODE: '19' },
+          `agent-task codex ${profile} --show-command -- --flag 'two words' ''`,
+          { CODEX_HOME: codexHome, AGENT_TASK_TEST_EXIT_CODE: '19' },
         )
         expect(result.exitCode).toBe(19)
+        expect(result.stderr).not.toContain('two words')
         expect(readLog(workspace)).toBe(
           formatFakeHostLog('codex', '', [
-            '-c',
-            `agents.default_subagent_model="${model}"`,
-            '-c',
-            `agents.default_subagent_reasoning_effort="${effort}"`,
+            ...(profile === 'custom'
+              ? [
+                  '-c',
+                  `agents.worker.config_file="${configDir}/worker.toml"`,
+                  '-c',
+                  `agents.worker_fast.config_file="${configDir}/worker_fast.toml"`,
+                ]
+              : []),
             '--flag',
             'two words',
+            '',
           ]),
         )
-      }
+      })
+    }
+    it(`${shellName} Codex custom 缺少配置时失败，default不依赖custom`, async () => {
+      const workspace = createWorkspace()
+      writeFakeHost(workspace, 'codex')
+      expect(
+        (await runShell(shell, workspace, 'agent-task codex custom')).exitCode,
+      ).toBe(66)
+      expect(readLog(workspace)).toBe('')
+      expect(
+        (await runShell(shell, workspace, 'agent-task codex default')).exitCode,
+      ).toBe(0)
     })
     it(`${shellName} help 明确持久化行为和dry-run无写入`, async () => {
       const workspace = createWorkspace()
       const result = await runShell(shell, workspace, 'agent-task --help')
       expect(result.exitCode).toBe(0)
-      expect(result.stdout).toContain('default|sol')
+      expect(result.stdout).toContain('default|custom')
       expect(result.stdout).toContain('持久化切换 profile')
       expect(result.stdout).toContain('不写入 profile')
     })

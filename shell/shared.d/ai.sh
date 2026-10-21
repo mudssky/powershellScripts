@@ -374,10 +374,10 @@ function omp-mode() {
 # agent-task — 以宿主 profile 与可兼容父会话 mode 启动 AI 宿主。
 #
 # 参数：$1 — 宿主（omp、codex 或 pi）；$2 — profile
-#       OMP/Pi 为 default、sol；Codex 为 fast、medium、slow、max、ultra；
+#       各宿主均为 default、custom；
 #       后续可选 --mode、--show-command、--dry-run、--，其余参数完整转发给宿主。
 # 副作用：向 stderr 输出不含用户参数内容的路由摘要；除 --dry-run 外启动宿主进程。
-# 返回码：帮助与 dry-run 返回 0；参数或组合错误返回 64；OMP overlay 错误返回 66；
+# 返回码：帮助与 dry-run 返回 0；参数或组合错误返回 64；OMP/Codex 配置资源错误返回 66；
 #         Pi mode 资源错误返回 69；否则原样返回宿主退出码。
 # ----------------------------------------------------------------------
 function agent-task() {
@@ -386,11 +386,11 @@ function agent-task() {
             '用法：agent-task <host> <profile> [--mode <mode>] [--show-command|--dry-run] [--] [args...]' \
             '' \
             'Profile 支持：' \
-            '  omp   default|sol  使用 $HOME/.omp/overlays/task-<profile>.yml，主模型不变' \
-            '  pi    default|sol  使用原生 subagent profile，主模型不变' \
-            '  default：worker 继承父模型；sol：两个 worker 使用 gpt-6.1-sol low。' \
+            '  omp   default|custom  使用 $HOME/.omp/overlays/task-<profile>.yml，主模型不变' \
+            '  pi    default|custom  使用原生 subagent profile，主模型不变' \
+            '  default：worker 继承父模型；custom：使用可切换的自定义子代理配置。' \
             '  Pi 启动前持久化切换 profile（等同 /subagents-load-profile），后续会话沿用。' \
-            '  codex fast|medium|slow|max|ultra  仅覆盖当前进程的默认 subagent 模型与推理强度' \
+            '  codex default|custom  默认继承，或仅覆盖当前进程两个 worker 的配置文件' \
             '' \
             'Mode 支持：' \
             '  pi    full|project|no-skill' \
@@ -411,9 +411,9 @@ function agent-task() {
             '  agent-task pi default --mode project' \
             '  agent-task pi default --mode no-skill' \
             '  agent-task omp default --mode no-skill --dry-run' \
-            '  agent-task omp sol --show-command' \
-            '  agent-task pi sol' \
-            '  agent-task codex max --show-command -- --help'
+            '  agent-task omp custom --show-command' \
+            '  agent-task pi custom' \
+            '  agent-task codex custom --show-command -- --help'
         return 0
     fi
 
@@ -428,8 +428,9 @@ function agent-task() {
     local show_command=0
     local dry_run=0
     local overlay=''
-    local model=''
-    local effort=''
+    local codex_home=''
+    local worker_config=''
+    local fast_config=''
     local argument_count
     local -a host_args
     local -a user_args
@@ -466,7 +467,7 @@ function agent-task() {
     argument_count="${#user_args[@]}"
 
     case "$host:$profile" in
-        omp:default|omp:sol|pi:default|pi:sol|codex:fast|codex:medium|codex:slow|codex:max|codex:ultra) ;;
+        omp:default|omp:custom|pi:default|pi:custom|codex:default|codex:custom) ;;
         omp:*|pi:*|codex:*)
             printf 'agent-task: %s 不支持 profile：%s；请运行 agent-task --help。\n' "$host" "$profile" >&2
             return 64
@@ -516,41 +517,32 @@ function agent-task() {
                 printf 'agent-task: Codex 只支持 full mode，收到：%s。\n' "$mode" >&2
                 return 64
             fi
-            case "$profile" in
-                fast)
-                    model='gpt-5.6-luna'
-                    effort='high'
-                    ;;
-                medium)
-                    model='gpt-5.6-luna'
-                    effort='xhigh'
-                    ;;
-                slow)
-                    model='gpt-5.6-luna'
-                    effort='max'
-                    ;;
-                max)
-                    model='gpt-6.1-sol'
-                    effort='high'
-                    ;;
-                ultra)
-                    model='gpt-6-astra'
-                    effort='low'
-                    ;;
-            esac
-            printf 'agent-task: host=%s profile=%s model=%s:%s (+%s user args)\n' \
-                "$host" "$profile" "$model" "$effort" "$argument_count" >&2
+            host_args=()
+            if [ "$profile" = 'custom' ]; then
+                codex_home="${CODEX_HOME:-$HOME/.codex}"
+                worker_config="$codex_home/config/subagents/custom/worker.toml"
+                fast_config="$codex_home/config/subagents/custom/worker_fast.toml"
+                if [ ! -r "$worker_config" ] || [ ! -r "$fast_config" ]; then
+                    printf '%s\n' 'agent-task: Codex custom worker 配置不存在或不可读。' >&2
+                    return 66
+                fi
+                host_args=(-c "agents.worker.config_file=\"$worker_config\""
+                    -c "agents.worker_fast.config_file=\"$fast_config\"")
+            fi
+            printf 'agent-task: host=%s profile=%s (+%s user args)\n' \
+                "$host" "$profile" "$argument_count" >&2
             if [ "$show_command" -eq 1 ] || [ "$dry_run" -eq 1 ]; then
-                printf 'agent-task command: codex -c agents.default_subagent_model="%s" -c agents.default_subagent_reasoning_effort="%s" (+%s user args)\n' \
-                    "$model" "$effort" "$argument_count" >&2
+                if [ "$profile" = 'custom' ]; then
+                    printf 'agent-task command: codex -c agents.worker.config_file="<CODEX_HOME>/config/subagents/custom/worker.toml" -c agents.worker_fast.config_file="<CODEX_HOME>/config/subagents/custom/worker_fast.toml" (+%s user args)\n' \
+                        "$argument_count" >&2
+                else
+                    printf 'agent-task command: codex (+%s user args)\n' "$argument_count" >&2
+                fi
             fi
             if [ "$dry_run" -eq 1 ]; then
                 return 0
             fi
-            command codex \
-                -c "agents.default_subagent_model=\"$model\"" \
-                -c "agents.default_subagent_reasoning_effort=\"$effort\"" \
-                "${user_args[@]}"
+            command codex "${host_args[@]}" "${user_args[@]}"
             return $?
             ;;
         pi)
