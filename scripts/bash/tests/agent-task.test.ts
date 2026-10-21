@@ -61,7 +61,7 @@ function writeFakeHost(
       '#!/bin/sh',
       '{',
       '  printf "command=%s\\n" "$(basename "$0")"',
-      '  printf "profile=%s\\n" "${PI_PROFILED_TASK_PROFILE-}"',
+      '  printf "profile=%s\\n" "$(cat "$HOME/profile" 2>/dev/null)"',
       '  printf "argc=%s\\n" "$#"',
       '  index=0',
       '  for argument in "$@"; do',
@@ -98,7 +98,7 @@ function writeWebExtension(
  * 格式化 fake host 应写入的稳定调用日志。
  *
  * @param command 宿主命令名。
- * @param profile Pi 进程级 profile；其它宿主传空字符串。
+ * @param profile Pi 持久化 profile；其它宿主传空字符串。
  * @param args 预期收到的 argv。
  * @returns 与 fake host 输出一致的日志文本。
  */
@@ -232,423 +232,202 @@ afterEach(() => {
   }
 })
 
+/** 创建模拟原生 profile 切换的 helper，失败时禁止启动宿主。 */
+function writeProfileHelper(
+  workspace: Workspace,
+  agentDir = path.join(workspace.home, '.pi/agent'),
+) {
+  const file = path.join(agentDir, 'scripts/sync_config.py')
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.writeFileSync(
+    file,
+    `import os, pathlib, sys
+assert sys.argv[1] == "profile"
+if os.environ.get("PROFILE_FAIL"):
+    sys.exit(37)
+pathlib.Path(os.environ["HOME"], "profile").write_text(sys.argv[2])
+`,
+  )
+}
+
 describe('shell/shared.d/ai.sh agent-task', () => {
   for (const shell of getAvailableShells()) {
     const shellName = path.basename(shell)
-
-    it(`${shellName} 可解析共享脚本语法`, async () => {
-      const workspace = createWorkspace()
-      const args =
-        shellName === 'zsh'
-          ? ['-f', '-n', sourceScript]
-          : ['--noprofile', '--norc', '-n', sourceScript]
-      const result = await execa(shell, args, {
-        cwd: workspace.root,
-        env: {
-          HOME: workspace.home,
-          PATH: `${workspace.bin}:/usr/bin:/bin`,
-        },
-        extendEnv: false,
-        reject: false,
-      })
-
-      expect(result.exitCode).toBe(0)
-      expect(result.stderr).toBe('')
-    })
-
-    it(`${shellName} dry-run 不执行 Pi 且不泄漏参数值`, async () => {
+    for (const profile of ['default', 'sol']) {
+      for (const host of ['pi', 'omp'] as const) {
+        for (const mode of host === 'pi'
+          ? ['full', 'project', 'no-skill']
+          : ['full', 'no-skill']) {
+          it(`${shellName} ${host} ${profile}/${mode} 切换子任务预设并保留主模型和参数边界`, async () => {
+            const workspace = createWorkspace()
+            writeFakeHost(workspace, host)
+            writeProfileHelper(workspace)
+            const overlay = path.join(
+              workspace.home,
+              `.omp/overlays/task-${profile}.yml`,
+            )
+            fs.mkdirSync(path.dirname(overlay), { recursive: true })
+            fs.writeFileSync(overlay, 'modelRoles: {}')
+            let prefix = ''
+            let modeArgs = mode === 'no-skill' ? ['--no-skills'] : []
+            if (mode === 'project') {
+              const project = await createProjectSkillTree(workspace)
+              prefix = `cd ${shellQuote(project.cwd)}; `
+              modeArgs = project.fixedArgs
+            }
+            const result = await runShell(
+              shell,
+              workspace,
+              `${prefix}agent-task ${host} ${profile} --mode ${mode} --show-command -- --model 'parent model' 'secret text' ''`,
+              { AGENT_TASK_TEST_EXIT_CODE: '23' },
+            )
+            expect(result.exitCode).toBe(23)
+            expect(result.stderr).not.toContain('secret text')
+            expect(readLog(workspace)).toBe(
+              formatFakeHostLog(host, host === 'pi' ? profile : '', [
+                ...(host === 'omp' ? ['--config', overlay] : []),
+                ...modeArgs,
+                '--model',
+                'parent model',
+                'secret text',
+                '',
+              ]),
+            )
+          })
+        }
+        it(`${shellName} ${host} ${profile} dry-run 无写入、无宿主执行`, async () => {
+          const workspace = createWorkspace()
+          writeFakeHost(workspace, host)
+          writeProfileHelper(workspace)
+          const overlay = path.join(
+            workspace.home,
+            `.omp/overlays/task-${profile}.yml`,
+          )
+          fs.mkdirSync(path.dirname(overlay), { recursive: true })
+          fs.writeFileSync(overlay, '')
+          const result = await runShell(
+            shell,
+            workspace,
+            `agent-task ${host} ${profile} --dry-run -- 'sensitive prompt'`,
+          )
+          expect(result.exitCode).toBe(0)
+          expect(result.stderr).not.toContain('sensitive prompt')
+          expect(readLog(workspace)).toBe('')
+          expect(fs.existsSync(path.join(workspace.home, 'profile'))).toBe(
+            false,
+          )
+        })
+      }
+    }
+    it(`${shellName} Pi helper 失败或缺失时不启动，支持自定义 agentDir`, async () => {
       const workspace = createWorkspace()
       writeFakeHost(workspace, 'pi')
-
-      const result = await runShell(
+      const agentDir = path.join(workspace.root, 'custom agent')
+      const missing = await runShell(
         shell,
         workspace,
-        `agent-task pi fast --dry-run -- --token ${shellQuote('secret prompt value')}`,
+        'agent-task pi default',
+        { PI_CODING_AGENT_DIR: agentDir },
       )
-
-      expect(result.exitCode).toBe(0)
+      expect(missing.exitCode).not.toBe(0)
       expect(readLog(workspace)).toBe('')
-      expect(result.stderr).toBe(
-        [
-          'agent-task: host=pi profile=fast source-agent=worker_fast (+2 user args)',
-          'agent-task command: PI_PROFILED_TASK_PROFILE=fast pi (+2 user args)',
-        ].join('\n'),
-      )
-      expect(result.stderr).not.toContain('--token')
-      expect(result.stderr).not.toContain('secret prompt value')
-    })
-
-    it(`${shellName} show-command 只显示固定命令形态并继续执行 Pi`, async () => {
-      const workspace = createWorkspace()
-      writeFakeHost(workspace, 'pi')
-
-      const result = await runShell(
-        shell,
-        workspace,
-        `agent-task pi max --show-command -- --message ${shellQuote('private task text')}`,
-      )
-
+      writeProfileHelper(workspace, agentDir)
+      const failed = await runShell(shell, workspace, 'agent-task pi sol', {
+        PI_CODING_AGENT_DIR: agentDir,
+        PROFILE_FAIL: '1',
+      })
+      expect(failed.exitCode).toBe(37)
+      expect(readLog(workspace)).toBe('')
+      const result = await runShell(shell, workspace, 'agent-task pi sol', {
+        PI_CODING_AGENT_DIR: agentDir,
+      })
       expect(result.exitCode).toBe(0)
-      expect(result.stderr).toBe(
-        [
-          'agent-task: host=pi profile=max source-agent=worker_max (+2 user args)',
-          'agent-task command: PI_PROFILED_TASK_PROFILE=max pi (+2 user args)',
-        ].join('\n'),
-      )
-      expect(result.stderr).not.toContain('--message')
-      expect(result.stderr).not.toContain('private task text')
-      expect(readLog(workspace)).toBe(
-        [
-          'command=pi',
-          'profile=max',
-          'argc=2',
-          'arg[0]=<--message>',
-          'arg[1]=<private task text>',
-          '',
-        ].join('\n'),
-      )
+      expect(readLog(workspace)).toBe(formatFakeHostLog('pi', 'sol', []))
     })
-
-    for (const profile of ['fast', 'medium', 'slow', 'max', 'ultra'] as const) {
-      it(`${shellName} 为 Pi ${profile} 设置进程级 profile`, async () => {
-        const workspace = createWorkspace()
-        writeFakeHost(workspace, 'pi')
-
+    it(`${shellName} 废弃档位和不兼容mode均在写配置前失败`, async () => {
+      const workspace = createWorkspace()
+      writeProfileHelper(workspace)
+      for (const host of ['pi', 'omp']) {
+        for (const profile of [
+          'fast',
+          'medium',
+          'slow',
+          'max',
+          'ultra',
+          'ultrafast',
+          'worker_ultrafast',
+          'unknown',
+        ]) {
+          const result = await runShell(
+            shell,
+            workspace,
+            `agent-task ${host} ${profile}`,
+          )
+          expect(result.exitCode).toBe(64)
+        }
+      }
+      for (const invocation of [
+        'pi default --mode core',
+        'pi sol --mode chat',
+        'omp sol --mode project',
+        'codex default',
+        'codex max --mode no-skill',
+        'pi default --mode',
+      ]) {
         const result = await runShell(
           shell,
           workspace,
-          `agent-task pi ${profile}; printf 'parent-profile=%s\\n' "\${PI_PROFILED_TASK_PROFILE-unset}"`,
+          `agent-task ${invocation}`,
         )
-
-        expect(result.exitCode).toBe(0)
-        expect(result.stdout).toBe('parent-profile=unset')
-        expect(readLog(workspace)).toContain(`profile=${profile}\n`)
-        expect(result.stderr).toContain(`source-agent=worker_${profile}`)
-      })
-    }
-
-    it(`${shellName} 保留空白参数、-- 后参数和 Pi 非零退出码`, async () => {
-      const workspace = createWorkspace()
-      writeFakeHost(workspace, 'pi')
-
-      const result = await runShell(
-        shell,
-        workspace,
-        `agent-task pi slow -- --dry-run ${shellQuote('two words')} ''`,
-        { AGENT_TASK_TEST_EXIT_CODE: '23' },
-      )
-
-      expect(result.exitCode).toBe(23)
-      expect(readLog(workspace)).toBe(
-        [
-          'command=pi',
-          'profile=slow',
-          'argc=3',
-          'arg[0]=<--dry-run>',
-          'arg[1]=<two words>',
-          'arg[2]=<>',
-          '',
-        ].join('\n'),
-      )
-    })
-
-    for (const profile of ['fast', 'medium', 'slow', 'max', 'ultra'] as const) {
-      it(`${shellName} 保持 OMP ${profile} 参数形态和转发语义`, async () => {
-        const workspace = createWorkspace()
-        writeFakeHost(workspace, 'omp')
-        const overlays = path.join(workspace.home, '.omp/overlays')
-        fs.mkdirSync(overlays, { recursive: true })
-        fs.writeFileSync(
-          path.join(overlays, `task-${profile}.yml`),
-          `modelRoles:\n  task: "@worker_${profile}"\n`,
-        )
-
-        const result = await runShell(
-          shell,
-          workspace,
-          `agent-task omp ${profile} -- --flag ${shellQuote('two words')}`,
-        )
-
-        expect(result.exitCode).toBe(0)
-        expect(readLog(workspace)).toBe(
-          [
-            'command=omp',
-            'profile=',
-            'argc=4',
-            'arg[0]=<--config>',
-            `arg[1]=<${path.join(workspace.home, `.omp/overlays/task-${profile}.yml`)}>`,
-            'arg[2]=<--flag>',
-            'arg[3]=<two words>',
-            '',
-          ].join('\n'),
-        )
-      })
-    }
-
-    it(`${shellName} 在 OMP overlay 缺失时不启动宿主`, async () => {
-      const workspace = createWorkspace()
-      writeFakeHost(workspace, 'omp')
-
-      const result = await runShell(shell, workspace, 'agent-task omp medium')
-
-      expect(result.exitCode).toBe(66)
-      expect(result.stderr).toContain('OMP overlay 不存在或不可读')
-      expect(result.stderr).toContain('task-medium.yml')
-      expect(readLog(workspace)).toBe('')
-    })
-
-    it(`${shellName} OMP ultrafast 两档复用 task-ultrafast.yml 且只在会话档追加主模型`, async () => {
-      const workspace = createWorkspace()
-      writeFakeHost(workspace, 'omp')
-      const overlays = path.join(workspace.home, '.omp/overlays')
-      fs.mkdirSync(overlays, { recursive: true })
-      const overlay = path.join(overlays, 'task-ultrafast.yml')
-      fs.writeFileSync(overlay, 'modelRoles:\n  task: "@worker_ultrafast"\n')
-
-      const workerOnly = await runShell(
-        shell,
-        workspace,
-        `agent-task omp worker_ultrafast -- --flag ${shellQuote('two words')}`,
-      )
-      const sessionWide = await runShell(
-        shell,
-        workspace,
-        `agent-task omp ultrafast --dry-run -- --flag ${shellQuote('two words')}`,
-      )
-
-      expect(workerOnly.exitCode).toBe(0)
-      expect(workerOnly.stderr).toContain(`overlay=${overlay}`)
-      expect(workerOnly.stderr).not.toContain('main-model=')
-      expect(sessionWide.exitCode).toBe(0)
-      expect(sessionWide.stderr).toContain(
-        'main-model=opencodego/go/deepseek-flash:max',
-      )
-      expect(sessionWide.stderr).toContain(
-        'agent-task command: omp --config "$HOME/.omp/overlays/task-ultrafast.yml" --model opencodego/go/deepseek-flash:max (+2 user args)',
-      )
-      expect(readLog(workspace)).toBe(
-        formatFakeHostLog('omp', '', [
-          '--config',
-          overlay,
-          '--flag',
-          'two words',
-        ]),
-      )
-    })
-
-    it(`${shellName} Pi ultrafast 两档共用 worker profile 且主模型参数排在用户参数之前`, async () => {
-      const workspace = createWorkspace()
-      writeFakeHost(workspace, 'pi')
-
-      const workerOnly = await runShell(
-        shell,
-        workspace,
-        `agent-task pi worker_ultrafast; printf 'parent-profile=%s\\n' "\${PI_PROFILED_TASK_PROFILE-unset}"`,
-      )
-      const sessionWide = await runShell(
-        shell,
-        workspace,
-        `agent-task pi ultrafast -- --model ${shellQuote('local/example-model')}`,
-      )
-
-      expect(workerOnly.exitCode).toBe(0)
-      expect(workerOnly.stdout).toBe('parent-profile=unset')
-      expect(workerOnly.stderr).toContain('source-agent=worker_ultrafast')
-      expect(workerOnly.stderr).not.toContain('main-model=')
-      expect(sessionWide.exitCode).toBe(0)
-      expect(sessionWide.stderr).toContain(
-        'agent-task: host=pi profile=ultrafast source-agent=worker_ultrafast main-model=opencodego-openai/go/deepseek-flash:max (+2 user args)',
-      )
-      expect(readLog(workspace)).toBe(
-        formatFakeHostLog('pi', 'worker_ultrafast', []) +
-          formatFakeHostLog('pi', 'ultrafast', [
-            '--model',
-            'opencodego-openai/go/deepseek-flash:max',
-            '--model',
-            'local/example-model',
-          ]),
-      )
-    })
-
-    it(`${shellName} ultrafast 两档在 Codex 与缺失 overlay 的 OMP 启动前失败`, async () => {
-      const workspace = createWorkspace()
-      writeFakeHost(workspace, 'codex')
-      writeFakeHost(workspace, 'omp')
-
-      const codexSession = await runShell(
-        shell,
-        workspace,
-        'agent-task codex ultrafast',
-      )
-      const codexWorker = await runShell(
-        shell,
-        workspace,
-        'agent-task codex worker_ultrafast',
-      )
-      const ompSession = await runShell(
-        shell,
-        workspace,
-        'agent-task omp ultrafast',
-      )
-      const ompWorker = await runShell(
-        shell,
-        workspace,
-        'agent-task omp worker_ultrafast',
-      )
-
-      for (const result of [codexSession, codexWorker]) {
         expect(result.exitCode).toBe(64)
-        expect(result.stderr).toContain('Codex 不支持 profile')
-      }
-      for (const result of [ompSession, ompWorker]) {
-        expect(result.exitCode).toBe(66)
-        expect(result.stderr).toContain('task-ultrafast.yml')
       }
       expect(readLog(workspace)).toBe('')
+      expect(fs.existsSync(path.join(workspace.home, 'profile'))).toBe(false)
     })
-
-    for (const [profile, model, effort] of [
-      ['fast', 'gpt-5.6-luna', 'high'],
-      ['medium', 'gpt-5.6-luna', 'xhigh'],
-      ['slow', 'gpt-5.6-luna', 'max'],
-      ['max', 'gpt-6.1-sol', 'high'],
-      ['ultra', 'gpt-6-astra', 'low'],
-    ] as const) {
-      it(`${shellName} 保持 Codex ${profile} 覆盖参数和转发语义`, async () => {
-        const workspace = createWorkspace()
-        writeFakeHost(workspace, 'codex')
-
+    it(`${shellName} OMP overlay缺失时失败`, async () => {
+      const workspace = createWorkspace()
+      expect(
+        (await runShell(shell, workspace, 'agent-task omp sol')).exitCode,
+      ).toBe(66)
+    })
+    it(`${shellName} Codex 保留五档既有模型、参数与退出码`, async () => {
+      const workspace = createWorkspace()
+      writeFakeHost(workspace, 'codex')
+      for (const [profile, model, effort] of [
+        ['fast', 'gpt-5.6-luna', 'high'],
+        ['medium', 'gpt-5.6-luna', 'xhigh'],
+        ['slow', 'gpt-5.6-luna', 'max'],
+        ['max', 'gpt-6.1-sol', 'high'],
+        ['ultra', 'gpt-6-astra', 'low'],
+      ]) {
+        fs.rmSync(workspace.log, { force: true })
         const result = await runShell(
           shell,
           workspace,
-          `agent-task codex ${profile} -- --flag ${shellQuote('two words')}`,
+          `agent-task codex ${profile} -- --flag 'two words'`,
+          { AGENT_TASK_TEST_EXIT_CODE: '19' },
         )
-
-        expect(result.exitCode).toBe(0)
+        expect(result.exitCode).toBe(19)
         expect(readLog(workspace)).toBe(
-          [
-            'command=codex',
-            'profile=',
-            'argc=6',
-            'arg[0]=<-c>',
-            `arg[1]=<agents.default_subagent_model="${model}">`,
-            'arg[2]=<-c>',
-            `arg[3]=<agents.default_subagent_reasoning_effort="${effort}">`,
-            'arg[4]=<--flag>',
-            'arg[5]=<two words>',
-            '',
-          ].join('\n'),
-        )
-      })
-    }
-
-    it(`${shellName} 对未知 host、未知 profile 和 Claude 保持启动前失败`, async () => {
-      const workspace = createWorkspace()
-      writeFakeHost(workspace, 'pi')
-
-      const missingArguments = await runShell(shell, workspace, 'agent-task')
-      const unknownHost = await runShell(
-        shell,
-        workspace,
-        'agent-task other fast',
-      )
-      const unknownProfile = await runShell(
-        shell,
-        workspace,
-        'agent-task pi turbo',
-      )
-      const claude = await runShell(shell, workspace, 'agent-task claude fast')
-
-      expect(missingArguments.exitCode).toBe(64)
-      expect(missingArguments.stderr).toContain('需要 host 和 profile')
-      expect(unknownHost.exitCode).toBe(64)
-      expect(unknownHost.stderr).toContain('未知 host')
-      expect(unknownProfile.exitCode).toBe(64)
-      expect(unknownProfile.stderr).toContain('未知 profile')
-      expect(claude.exitCode).toBe(64)
-      expect(claude.stderr).toContain('claude 仅支持持久化 Agent')
-      expect(readLog(workspace)).toBe('')
-    })
-
-    it(`${shellName} help 展示各宿主档位、Ultrafast 语义与 Ultra 资格门禁`, async () => {
-      const workspace = createWorkspace()
-
-      const result = await runShell(shell, workspace, 'agent-task --help')
-
-      expect(result.exitCode).toBe(0)
-      expect(result.stdout).toContain('pi    fast|medium|slow|max|ultra')
-      expect(result.stdout).toContain(
-        'pi    fast|medium|slow|max|ultra|worker_ultrafast|ultrafast',
-      )
-      expect(result.stdout).toContain(
-        'worker_ultrafast  只替换 worker（OMP modelRoles.task / Pi child profile），主模型不变。',
-      )
-      expect(result.stdout).toContain(
-        'ultrafast         同时替换主会话模型与 worker；OMP 与 Pi 均支持，Codex 不支持。',
-      )
-      expect(result.stdout).toContain(
-        'OMP 用 opencodego/go/deepseek-flash:max；Pi 用 opencodego-openai/go/deepseek-flash:max',
-      )
-      expect(result.stdout).toContain('两个宿主的 provider 键不同，selector 不可互换')
-      expect(result.stdout).toContain('主模型覆盖只作用于当前进程，不写入持久配置')
-      expect(result.stdout).toContain(
-        'ultrafast 是唯一的“主模型 + worker”策略档位：不再为其它模型增加同类档位。',
-      )
-      expect(result.stdout).toContain(
-        '只换 worker 用 worker_ultrafast；只换主模型用宿主原生参数，或 -- 后转发 --model。',
-      )
-      expect(result.stdout).toContain('ultra 是成本最高的 worker')
-      expect(result.stdout).toContain('日常任务通常使用 worker_max 就已足够')
-      expect(result.stdout).toContain('只有主模型能力大于或等于该 worker 时才可派发')
-      expect(result.stdout).toContain('主模型与 worker 同档是常见且允许的用法')
-      expect(result.stdout).not.toContain('快捷命令')
-      expect(result.stdout).toContain(
-        'claude                     仅支持持久化 worker-fast',
-      )
-    })
-
-    it(`${shellName} 显式 full mode 保持三个宿主的旧参数与日志`, async () => {
-      const workspace = createWorkspace()
-      writeFakeHost(workspace, 'pi')
-      writeFakeHost(workspace, 'omp')
-      writeFakeHost(workspace, 'codex')
-      const overlay = path.join(workspace.home, '.omp/overlays/task-fast.yml')
-      fs.mkdirSync(path.dirname(overlay), { recursive: true })
-      fs.writeFileSync(overlay, 'modelRoles:\n  task: "@worker_fast"\n')
-
-      const piResult = await runShell(
-        shell,
-        workspace,
-        'agent-task pi fast --mode full -- --flag',
-      )
-      const ompResult = await runShell(
-        shell,
-        workspace,
-        'agent-task omp fast --mode full -- --flag',
-      )
-      const codexResult = await runShell(
-        shell,
-        workspace,
-        'agent-task codex fast --mode full -- --flag',
-      )
-
-      for (const result of [piResult, ompResult, codexResult]) {
-        expect(result.exitCode).toBe(0)
-        expect(result.stderr).not.toContain('mode=full')
-      }
-      expect(readLog(workspace)).toBe(
-        formatFakeHostLog('pi', 'fast', ['--flag']) +
-          formatFakeHostLog('omp', '', ['--config', overlay, '--flag']) +
           formatFakeHostLog('codex', '', [
             '-c',
-            'agents.default_subagent_model="gpt-5.6-luna"',
+            `agents.default_subagent_model="${model}"`,
             '-c',
-            'agents.default_subagent_reasoning_effort="high"',
+            `agents.default_subagent_reasoning_effort="${effort}"`,
             '--flag',
+            'two words',
           ]),
-      )
+        )
+      }
     })
-
+    it(`${shellName} help 明确持久化行为和dry-run无写入`, async () => {
+      const workspace = createWorkspace()
+      const result = await runShell(shell, workspace, 'agent-task --help')
+      expect(result.exitCode).toBe(0)
+      expect(result.stdout).toContain('default|sol')
+      expect(result.stdout).toContain('持久化切换 profile')
+      expect(result.stdout).toContain('不写入 profile')
+    })
     for (const mode of [
       'full',
       'no-skill',
@@ -679,12 +458,7 @@ describe('shell/shared.d/ai.sh agent-task', () => {
           full: [],
           'no-skill': ['--no-skills'],
           core: ['--no-skills', '--no-extensions'],
-          'core-search': [
-            '--no-skills',
-            '--no-extensions',
-            '-e',
-            webExtension,
-          ],
+          'core-search': ['--no-skills', '--no-extensions', '-e', webExtension],
           read: [
             '--no-skills',
             '--no-extensions',
@@ -954,185 +728,6 @@ describe('shell/shared.d/ai.sh agent-task', () => {
         formatFakeHostLog('pi', '', ['--no-skills', '--flag']) +
           formatFakeHostLog('omp', '', ['--no-skills', '--flag']),
       )
-    })
-
-    for (const profile of ['fast', 'medium', 'slow', 'max', 'ultra'] as const) {
-      for (const mode of ['project', 'no-skill'] as const) {
-        it(`${shellName} 组合 Pi ${profile} profile 与 ${mode} mode`, async () => {
-          const workspace = createWorkspace()
-          writeFakeHost(workspace, 'pi')
-          const project = await createProjectSkillTree(workspace)
-          const cwdPrefix =
-            mode === 'project' ? `cd ${shellQuote(project.cwd)} && ` : ''
-          const fixedArgs =
-            mode === 'project' ? project.fixedArgs : ['--no-skills']
-
-          const result = await runShell(
-            shell,
-            workspace,
-            `${cwdPrefix}agent-task pi ${profile} --mode ${mode} -- --flag ${shellQuote('two words')}`,
-          )
-
-          expect(result.exitCode).toBe(0)
-          expect(result.stderr).toContain(`mode=${mode}`)
-          expect(readLog(workspace)).toBe(
-            formatFakeHostLog('pi', profile, [
-              ...fixedArgs,
-              '--flag',
-              'two words',
-            ]),
-          )
-        })
-      }
-    }
-
-    for (const profile of ['fast', 'medium', 'slow', 'max', 'ultra'] as const) {
-      it(`${shellName} 组合 OMP ${profile} profile 与 no-skill mode`, async () => {
-        const workspace = createWorkspace()
-        writeFakeHost(workspace, 'omp')
-        const overlay = path.join(
-          workspace.home,
-          `.omp/overlays/task-${profile}.yml`,
-        )
-        fs.mkdirSync(path.dirname(overlay), { recursive: true })
-        fs.writeFileSync(overlay, `modelRoles:\n  task: "@worker_${profile}"\n`)
-
-        const result = await runShell(
-          shell,
-          workspace,
-          `agent-task omp ${profile} --mode no-skill -- --flag`,
-        )
-
-        expect(result.exitCode).toBe(0)
-        expect(result.stderr).toContain('mode=no-skill')
-        expect(readLog(workspace)).toBe(
-          formatFakeHostLog('omp', '', [
-            '--config',
-            overlay,
-            '--no-skills',
-            '--flag',
-          ]),
-        )
-      })
-    }
-
-    it(`${shellName} agent-task 拒绝无效 mode 组合与缺值`, async () => {
-      const workspace = createWorkspace()
-      writeFakeHost(workspace, 'pi')
-      writeFakeHost(workspace, 'omp')
-      writeFakeHost(workspace, 'codex')
-      const overlay = path.join(workspace.home, '.omp/overlays/task-fast.yml')
-      fs.mkdirSync(path.dirname(overlay), { recursive: true })
-      fs.writeFileSync(overlay, 'modelRoles:\n  task: "@worker_fast"\n')
-
-      const piCore = await runShell(
-        shell,
-        workspace,
-        'agent-task pi fast --mode core',
-      )
-      const ompProject = await runShell(
-        shell,
-        workspace,
-        'agent-task omp fast --mode project',
-      )
-      const codexNoSkill = await runShell(
-        shell,
-        workspace,
-        'agent-task codex fast --mode no-skill',
-      )
-      const missingMode = await runShell(
-        shell,
-        workspace,
-        'agent-task pi fast --mode',
-      )
-
-      for (const result of [piCore, ompProject, codexNoSkill, missingMode]) {
-        expect(result.exitCode).toBe(64)
-      }
-      expect(piCore.stderr).toContain('不支持 mode')
-      expect(ompProject.stderr).toContain('不支持 mode')
-      expect(codexNoSkill.stderr).toContain('只支持 full mode')
-      expect(missingMode.stderr).toContain('--mode 需要值')
-      expect(readLog(workspace)).toBe('')
-    })
-
-    it(`${shellName} agent-task mode 最后值生效且 delimiter 后不再解析`, async () => {
-      const workspace = createWorkspace()
-      writeFakeHost(workspace, 'pi')
-
-      const repeated = await runShell(
-        shell,
-        workspace,
-        'agent-task pi fast --mode project --mode no-skill -- --flag',
-      )
-      const delimited = await runShell(
-        shell,
-        workspace,
-        'agent-task pi slow -- --mode no-skill',
-      )
-
-      expect(repeated.exitCode).toBe(0)
-      expect(delimited.exitCode).toBe(0)
-      expect(readLog(workspace)).toBe(
-        formatFakeHostLog('pi', 'fast', ['--no-skills', '--flag']) +
-          formatFakeHostLog('pi', 'slow', ['--mode', 'no-skill']),
-      )
-    })
-
-    it(`${shellName} 非 full dry-run 不执行宿主且不泄漏参数`, async () => {
-      const workspace = createWorkspace()
-      writeFakeHost(workspace, 'pi')
-
-      const result = await runShell(
-        shell,
-        workspace,
-        `agent-task pi fast --mode no-skill --dry-run -- --token ${shellQuote('secret value')}`,
-      )
-
-      expect(result.exitCode).toBe(0)
-      expect(result.stderr).toContain('mode=no-skill')
-      expect(result.stderr).toContain('(+2 user args)')
-      expect(result.stderr).not.toContain('--token')
-      expect(result.stderr).not.toContain('secret value')
-      expect(readLog(workspace)).toBe('')
-    })
-
-    it(`${shellName} 非 full show-command 保持父环境并透传退出码`, async () => {
-      const workspace = createWorkspace()
-      writeFakeHost(workspace, 'pi')
-
-      const result = await runShell(
-        shell,
-        workspace,
-        `agent-task pi slow --mode no-skill --show-command -- --message ${shellQuote('private mode text')}; host_status=$?; printf 'parent-profile=%s\\n' "\${PI_PROFILED_TASK_PROFILE-unset}"; exit "$host_status"`,
-        { AGENT_TASK_TEST_EXIT_CODE: '31' },
-      )
-
-      expect(result.exitCode).toBe(31)
-      expect(result.stdout).toBe('parent-profile=unset')
-      expect(result.stderr).toContain('mode=no-skill')
-      expect(result.stderr).toContain('(+2 user args)')
-      expect(result.stderr).not.toContain('--message')
-      expect(result.stderr).not.toContain('private mode text')
-      expect(readLog(workspace)).toBe(
-        formatFakeHostLog('pi', 'slow', [
-          '--no-skills',
-          '--message',
-          'private mode text',
-        ]),
-      )
-    })
-
-    it(`${shellName} agent-task help 展示 profile 与 mode 支持矩阵`, async () => {
-      const workspace = createWorkspace()
-
-      const result = await runShell(shell, workspace, 'agent-task --help')
-
-      expect(result.exitCode).toBe(0)
-      expect(result.stdout).toContain('[--mode <mode>]')
-      expect(result.stdout).toContain('pi    full|project|no-skill')
-      expect(result.stdout).toContain('omp   full|no-skill')
-      expect(result.stdout).toContain('codex full')
     })
   }
 })

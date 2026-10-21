@@ -78,7 +78,7 @@ function invoke_bell(){
 # `Math.ceil(chars / 4)` 标为估算 tokens；这不是模型 tokenizer 的精确结果。
 # `/4` 更接近英文文本，中文常见约 1–2 个汉字/token，中文较多时会明显低估。
 #
-# 当前完整插件组：
+# 当时的完整插件组（历史测量；profiled-task-dispatcher 现已移除）：
 #   package — pi-web-access、pi-statusline、rpiv-todo、pi-subagents、
 #             supi-context、rpiv-ask-user-question、pi-permission-system。
 #   local   — output-style、orca-agent-status、orca-prefill、
@@ -183,9 +183,9 @@ EOF
 #
 # 参数：$1 — mode；$2 — 可选 task profile，空字符串表示普通启动；
 #       $3 — 是否显示安全命令摘要；$4 — 是否 dry-run；
-#       $5 — 可选主模型 selector（仅 ultrafast 档传入，空字符串表示不改主模型）；其余为 Pi 原生参数。
+#       其余为 Pi 原生参数。
 # 输出：stderr — profile 启动摘要、mode 错误或搜索扩展资源错误；普通 pi-mode 启动不输出摘要。
-# 副作用：除 dry-run 外启动 Pi；profile 仅注入被启动进程，不修改父 Shell。
+# 副作用：除 dry-run 外先持久化原生 subagent profile，再启动 Pi；主模型不变。
 # 返回码：0 — dry-run/宿主成功；64 — mode 非法；69 — *-search Web 扩展不可读；
 #         其它 — 原样透传 Pi 退出码。
 # ----------------------------------------------------------------------
@@ -194,7 +194,6 @@ function _pi_mode_run() {
     local profile="$2"
     local show_command="$3"
     local dry_run="$4"
-    local main_model="$5"
     local current
     local parent
     local git_root=''
@@ -206,7 +205,7 @@ function _pi_mode_run() {
     local argument_count
     local -a fixed_args
     local -a user_args
-    shift 5
+    shift 4
     user_args=("$@")
     argument_count="${#user_args[@]}"
     fixed_args=()
@@ -297,37 +296,17 @@ function _pi_mode_run() {
     esac
 
     if [ -n "$profile" ]; then
-        local source_agent="$profile"
-        local model_note=''
-        local model_flag=''
-        case "$profile" in
-            fast|medium|slow|max|ultra) source_agent="worker_$profile" ;;
-            ultrafast|worker_ultrafast) source_agent='worker_ultrafast' ;;
-        esac
-        if [ -n "$main_model" ]; then
-            fixed_args+=(--model "$main_model")
-            model_note=" main-model=$main_model"
-            model_flag=" --model $main_model"
-        fi
-        if [ "$mode" = 'full' ]; then
-            printf 'agent-task: host=pi profile=%s source-agent=%s%s (+%s user args)\n' \
-                "$profile" "$source_agent" "$model_note" "$argument_count" >&2
-            if [ "$show_command" -eq 1 ] || [ "$dry_run" -eq 1 ]; then
-                printf 'agent-task command: PI_PROFILED_TASK_PROFILE=%s pi%s (+%s user args)\n' \
-                    "$profile" "$model_flag" "$argument_count" >&2
-            fi
-        else
-            printf 'agent-task: host=pi profile=%s mode=%s source-agent=%s%s (+%s user args)\n' \
-                "$profile" "$mode" "$source_agent" "$model_note" "$argument_count" >&2
-            if [ "$show_command" -eq 1 ] || [ "$dry_run" -eq 1 ]; then
-                printf 'agent-task command: PI_PROFILED_TASK_PROFILE=%s pi mode=%s%s (+%s user args)\n' \
-                    "$profile" "$mode" "$model_flag" "$argument_count" >&2
-            fi
+        printf 'agent-task: host=pi profile=%s mode=%s (+%s user args)\n' \
+            "$profile" "$mode" "$argument_count" >&2
+        if [ "$show_command" -eq 1 ] || [ "$dry_run" -eq 1 ]; then
+            printf 'agent-task command: sync_config.py profile %s; pi mode=%s (+%s user args)\n' \
+                "$profile" "$mode" "$argument_count" >&2
         fi
         if [ "$dry_run" -eq 1 ]; then
             return 0
         fi
-        PI_PROFILED_TASK_PROFILE="$profile" command pi "${fixed_args[@]}" "${user_args[@]}"
+        command python3 "${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/scripts/sync_config.py" profile "$profile" || return $?
+        command pi "${fixed_args[@]}" "${user_args[@]}"
         return $?
     fi
 
@@ -358,7 +337,7 @@ function pi-mode() {
             ;;
     esac
 
-    _pi_mode_run "$mode" '' 0 0 '' "$@"
+    _pi_mode_run "$mode" '' 0 0 "$@"
 }
 
 # ----------------------------------------------------------------------
@@ -392,10 +371,10 @@ function omp-mode() {
 }
 
 # ----------------------------------------------------------------------
-# agent-task — 以进程级 profile 与可兼容父会话 mode 启动 AI 宿主。
+# agent-task — 以宿主 profile 与可兼容父会话 mode 启动 AI 宿主。
 #
 # 参数：$1 — 宿主（omp、codex 或 pi）；$2 — profile
-#       （fast、medium、slow、max、ultra、worker_ultrafast 或 ultrafast）；
+#       OMP/Pi 为 default、sol；Codex 为 fast、medium、slow、max、ultra；
 #       后续可选 --mode、--show-command、--dry-run、--，其余参数完整转发给宿主。
 # 副作用：向 stderr 输出不含用户参数内容的路由摘要；除 --dry-run 外启动宿主进程。
 # 返回码：帮助与 dry-run 返回 0；参数或组合错误返回 64；OMP overlay 错误返回 66；
@@ -407,24 +386,11 @@ function agent-task() {
             '用法：agent-task <host> <profile> [--mode <mode>] [--show-command|--dry-run] [--] [args...]' \
             '' \
             'Profile 支持：' \
-            '  omp   fast|medium|slow|max|ultra|worker_ultrafast|ultrafast  使用 $HOME/.omp/overlays/task-<档位>.yml' \
+            '  omp   default|sol  使用 $HOME/.omp/overlays/task-<profile>.yml，主模型不变' \
+            '  pi    default|sol  使用原生 subagent profile，主模型不变' \
+            '  default：worker 继承父模型；sol：两个 worker 使用 gpt-6.1-sol low。' \
+            '  Pi 启动前持久化切换 profile（等同 /subagents-load-profile），后续会话沿用。' \
             '  codex fast|medium|slow|max|ultra  仅覆盖当前进程的默认 subagent 模型与推理强度' \
-            '  pi    fast|medium|slow|max|ultra|worker_ultrafast|ultrafast  设置当前进程的 PI_PROFILED_TASK_PROFILE' \
-            '  claude                     仅支持持久化 worker-fast' \
-            '' \
-            'Ultrafast 档位：' \
-            '  worker_ultrafast  只替换 worker（OMP modelRoles.task / Pi child profile），主模型不变。' \
-            '  ultrafast         同时替换主会话模型与 worker；OMP 与 Pi 均支持，Codex 不支持。' \
-            '  OMP 用 opencodego/go/deepseek-flash:max；Pi 用 opencodego-openai/go/deepseek-flash:max' \
-            '  （同一 OpenCode Go 渠道；两个宿主的 provider 键不同，selector 不可互换）。' \
-            '  主模型覆盖只作用于当前进程，不写入持久配置；用户显式参数仍可覆盖它。' \
-            '  ultrafast 是唯一的“主模型 + worker”策略档位：不再为其它模型增加同类档位。' \
-            '  只换 worker 用 worker_ultrafast；只换主模型用宿主原生参数，或 -- 后转发 --model。' \
-            '' \
-            'Ultra 选择：' \
-            '  ultra 是成本最高的 worker；日常任务通常使用 worker_max 就已足够。' \
-            '  只有主模型能力大于或等于该 worker 时才可派发；主模型与 worker 同档是常见且允许的用法。' \
-            '  这是派发策略，不实现运行时模型排名。' \
             '' \
             'Mode 支持：' \
             '  pi    full|project|no-skill' \
@@ -439,14 +405,14 @@ function agent-task() {
             '' \
             '命令显示：' \
             '  --show-command  打印安全的固定命令前缀，然后正常启动宿主。' \
-            '  --dry-run       打印相同信息并返回 0，不启动宿主；与前者并用时优先。' \
+            '  --dry-run       打印相同信息并返回 0，不写入 profile、不启动宿主；与前者并用时优先。' \
             '' \
             '示例：' \
-            '  agent-task pi fast --mode project' \
-            '  agent-task pi fast --mode no-skill' \
-            '  agent-task omp fast --mode no-skill --dry-run' \
-            '  agent-task omp ultrafast --show-command' \
-            '  agent-task pi worker_ultrafast' \
+            '  agent-task pi default --mode project' \
+            '  agent-task pi default --mode no-skill' \
+            '  agent-task omp default --mode no-skill --dry-run' \
+            '  agent-task omp sol --show-command' \
+            '  agent-task pi sol' \
             '  agent-task codex max --show-command -- --help'
         return 0
     fi
@@ -462,12 +428,6 @@ function agent-task() {
     local show_command=0
     local dry_run=0
     local overlay=''
-    local overlay_profile=''
-    local ultrafast_model_omp='opencodego/go/deepseek-flash:max'
-    local ultrafast_model_pi='opencodego-openai/go/deepseek-flash:max'
-    local pi_main_model=''
-    local model_note=''
-    local model_flag=''
     local model=''
     local effort=''
     local argument_count
@@ -505,10 +465,10 @@ function agent-task() {
     user_args=("$@")
     argument_count="${#user_args[@]}"
 
-    case "$profile" in
-        fast|medium|slow|max|ultra|ultrafast|worker_ultrafast) ;;
-        *)
-            printf 'agent-task: 未知 profile：%s（支持 fast、medium、slow、max、ultra、ultrafast、worker_ultrafast）；请运行 agent-task --help。\n' "$profile" >&2
+    case "$host:$profile" in
+        omp:default|omp:sol|pi:default|pi:sol|codex:fast|codex:medium|codex:slow|codex:max|codex:ultra) ;;
+        omp:*|pi:*|codex:*)
+            printf 'agent-task: %s 不支持 profile：%s；请运行 agent-task --help。\n' "$host" "$profile" >&2
             return 64
             ;;
     esac
@@ -522,36 +482,27 @@ function agent-task() {
                     return 64
                     ;;
             esac
-            case "$profile" in
-                ultrafast|worker_ultrafast) overlay_profile='ultrafast' ;;
-                *) overlay_profile="$profile" ;;
-            esac
-            overlay="$HOME/.omp/overlays/task-$overlay_profile.yml"
+            overlay="$HOME/.omp/overlays/task-$profile.yml"
             if [ ! -f "$overlay" ] || [ ! -r "$overlay" ]; then
                 printf 'agent-task: OMP overlay 不存在或不可读：%s\n' "$overlay" >&2
                 return 66
             fi
             host_args=(--config "$overlay")
-            if [ "$profile" = 'ultrafast' ]; then
-                host_args+=(--model "$ultrafast_model_omp")
-                model_note=" main-model=$ultrafast_model_omp"
-                model_flag=" --model $ultrafast_model_omp"
-            fi
             if [ "$mode" = 'no-skill' ]; then
                 host_args+=(--no-skills)
-                printf 'agent-task: host=%s profile=%s mode=%s overlay=%s%s (+%s user args)\n' \
-                    "$host" "$profile" "$mode" "$overlay" "$model_note" "$argument_count" >&2
+                printf 'agent-task: host=%s profile=%s mode=%s overlay=%s (+%s user args)\n' \
+                    "$host" "$profile" "$mode" "$overlay" "$argument_count" >&2
             else
-                printf 'agent-task: host=%s profile=%s overlay=%s%s (+%s user args)\n' \
-                    "$host" "$profile" "$overlay" "$model_note" "$argument_count" >&2
+                printf 'agent-task: host=%s profile=%s overlay=%s (+%s user args)\n' \
+                    "$host" "$profile" "$overlay" "$argument_count" >&2
             fi
             if [ "$show_command" -eq 1 ] || [ "$dry_run" -eq 1 ]; then
                 if [ "$mode" = 'no-skill' ]; then
-                    printf 'agent-task command: omp --config "$HOME/.omp/overlays/task-%s.yml"%s mode=no-skill (+%s user args)\n' \
-                        "$overlay_profile" "$model_flag" "$argument_count" >&2
+                    printf 'agent-task command: omp --config "$HOME/.omp/overlays/task-%s.yml" mode=no-skill (+%s user args)\n' \
+                        "$profile" "$argument_count" >&2
                 else
-                    printf 'agent-task command: omp --config "$HOME/.omp/overlays/task-%s.yml"%s (+%s user args)\n' \
-                        "$overlay_profile" "$model_flag" "$argument_count" >&2
+                    printf 'agent-task command: omp --config "$HOME/.omp/overlays/task-%s.yml" (+%s user args)\n' \
+                        "$profile" "$argument_count" >&2
                 fi
             fi
             if [ "$dry_run" -eq 1 ]; then
@@ -565,12 +516,6 @@ function agent-task() {
                 printf 'agent-task: Codex 只支持 full mode，收到：%s。\n' "$mode" >&2
                 return 64
             fi
-            case "$profile" in
-                ultrafast|worker_ultrafast)
-                    printf 'agent-task: Codex 不支持 profile：%s（仅 fast、medium、slow、max、ultra）；Opencode Go 档位只在 OMP 与 Pi 提供。\n' "$profile" >&2
-                    return 64
-                    ;;
-            esac
             case "$profile" in
                 fast)
                     model='gpt-5.6-luna'
@@ -616,10 +561,7 @@ function agent-task() {
                     return 64
                     ;;
             esac
-            if [ "$profile" = 'ultrafast' ]; then
-                pi_main_model="$ultrafast_model_pi"
-            fi
-            _pi_mode_run "$mode" "$profile" "$show_command" "$dry_run" "$pi_main_model" "${user_args[@]}"
+            _pi_mode_run "$mode" "$profile" "$show_command" "$dry_run" "${user_args[@]}"
             return $?
             ;;
         claude)
