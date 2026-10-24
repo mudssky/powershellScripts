@@ -267,3 +267,25 @@ Windows 改用 Scoop 安装 Go，Linux 与 macOS 改用 Homebrew；移除 voidin
 ### Status
 
 [OK] **Completed**
+
+
+## Session 82: SSHCopyID 从 Full 预设移入 Core 预设
+<!-- trellis-session: v=2 fp=5e85fd8dad98e37b -->
+
+**Date**: 2026-10-24
+**Task**: SSHCopyID 从 Full 预设移入 Core 预设
+**Branch**: `master`
+
+### Summary
+
+把 winget 段 sshcopyid 条目 tag 由 full+platform 改为 core+platform：05installCoreCli 新增 winget core+platform catalog 消费使 provision:core 自动安装 ssh-copy-id（05 同时服务 Core/Full，Full 不回退）；Test-InstallState 的 Add-WindowsCatalogChecks 增加 -PackageManager 参数，99 verify core-cli 步骤覆盖 winget core 条目并移除 login-items 定制 sshcopyid 检查；同步 WindowsInstallPipeline/Entrypoint 测试与 infra spec 契约（顺带修正 Core Scoop 项数 13→14 漂移）。pnpm qa 全绿；test:pwsh:all Linux lane 988/0 全绿，host lane 11 个失败经 stash 验证为 HEAD 存量问题（cache/Set-TailscaleDerp/Sync-PathFromBash 的 WhatIf 相关），与本改动无关。另：本机完成 axeprpr.SSHCopyID winget 安装并升级 rust stable 1.79→1.99.1（pwshfmt-rs edition2024 需要）、安装 Pester 6.1.0。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `8d37e61` | feat(install): SSHCopyID 移入 Core 预设 |
+
+### Status
+
+[OK] **Completed**

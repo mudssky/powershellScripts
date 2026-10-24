@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 81
-- **Last Active**: 2026-10-17
+- **Total Sessions**: 82
+- **Last Active**: 2026-10-24
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~269 | Active |
+| `journal-2.md` | ~291 | Active |
 | `journal-1.md` | ~2019 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -31,6 +31,7 @@
 
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 82 | 2026-10-24 | SSHCopyID 从 Full 预设移入 Core 预设 | `8d37e61` | `master` |
 | 81 | 2026-10-17 | 安装编排器实时输出转发与 sevenzip 校验修复 | `3e7eca92` | `master` |
 | 80 | 2026-09-18 | 完成 Shell 启动层级与 Profile 治理 | `68046ec9` | `master` |
 | 79 | 2026-09-16 | 统一 Go 跨平台安装方式 | `c0576c9` | `master` |
