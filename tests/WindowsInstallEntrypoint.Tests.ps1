@@ -47,7 +47,7 @@ BeforeAll {
 }
 
 Describe 'Windows 安装入口 smoke' {
-    It 'Core 预览先声明 Extras bucket 再包含 Shell 工具与 Delta' {
+    It 'Core 预览先声明 Extras bucket 再包含 Shell 工具与 Delta，并覆盖 winget 平台工具' {
         $result = Invoke-WindowsEntrypointProcess `
             -ScriptPath (Join-Path $script:RepoRoot 'windows/05installCoreCli.ps1') `
             -ArgumentList @('-WhatIf')
@@ -58,13 +58,17 @@ Describe 'Windows 安装入口 smoke' {
         $deltaMatch = [regex]::Match($text, '(?m)^\[(?:Preview|AlreadyPresent)\] delta: ')
         $carapaceMatch = [regex]::Match($text, '(?m)^\[(?:Preview|AlreadyPresent)\] carapace-bin: ')
         $atuinMatch = [regex]::Match($text, '(?m)^\[(?:Preview|AlreadyPresent)\] atuin: ')
+        $sshCopyIdMatch = [regex]::Match($text, '(?m)^\[(?:Preview|AlreadyPresent)\] sshcopyid: ')
         $bucketMatch.Success | Should -BeTrue
         $deltaMatch.Success | Should -BeTrue
         $carapaceMatch.Success | Should -BeTrue
         $atuinMatch.Success | Should -BeTrue
+        $sshCopyIdMatch.Success | Should -BeTrue
         $bucketMatch.Index | Should -BeLessThan $deltaMatch.Index
         $bucketMatch.Index | Should -BeLessThan $carapaceMatch.Index
         $bucketMatch.Index | Should -BeLessThan $atuinMatch.Index
+        # winget 平台工具计划位于 Scoop 段之后。
+        $atuinMatch.Index | Should -BeLessThan $sshCopyIdMatch.Index
     }
 
     It '03 WhatIf 输出单个可解析 JSON document' {

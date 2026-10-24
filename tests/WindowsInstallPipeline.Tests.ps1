@@ -212,9 +212,11 @@ Describe 'Windows 声明式 package catalog' {
         @($extras.tag | ForEach-Object { $_ }) | Should -Not -Contain 'gui'
     }
 
-    It '默认 Full 平台 winget 条目为 AutoHotkey 与 SSHCopyID' {
-        $platformApps = @(Select-PackageManagerApps -Apps @($script:PackageManagers.winget) -TargetOS Windows -RequiredTag @('full', 'platform'))
-        @($platformApps.name) | Should -Be @('autohotkey', 'sshcopyid')
+    It 'winget 平台条目按预设划分：Core 为 SSHCopyID，Full 为 AutoHotkey' {
+        $corePlatformApps = @(Select-PackageManagerApps -Apps @($script:PackageManagers.winget) -TargetOS Windows -RequiredTag @('core', 'platform'))
+        @($corePlatformApps.name) | Should -Be @('sshcopyid')
+        $fullPlatformApps = @(Select-PackageManagerApps -Apps @($script:PackageManagers.winget) -TargetOS Windows -RequiredTag @('full', 'platform'))
+        @($fullPlatformApps.name) | Should -Be @('autohotkey')
     }
 
     It '应用清单通过统一 catalog 校验且 SSHCopyID 满足 winget 条目契约' {
@@ -282,25 +284,31 @@ Describe 'Windows 声明式 package catalog' {
         }
     }
 
-    It 'winget 包装 Preview 按 full/platform 产出安装计划并透传 WhatIf' {
-        $result = @(Invoke-WindowsWingetCatalogInstall `
+    It 'winget 包装 Preview 按预设标签产出安装计划并透传 WhatIf' {
+        $fullResult = @(Invoke-WindowsWingetCatalogInstall `
                 -RepoRoot $script:RepoRoot `
                 -RequiredTag @('full', 'platform') `
                 -Preview)
+        $autoHotkey = @($fullResult | Where-Object Name -eq 'autohotkey')
+        $autoHotkey[0].PackageManager | Should -Be 'winget'
+        $autoHotkey[0].Command | Should -Be 'winget install --id AutoHotkey.AutoHotkey --exact'
+        @($fullResult | Where-Object Name -eq 'sshcopyid').Count | Should -Be 0
 
-        $sshCopyId = @($result | Where-Object Name -eq 'sshcopyid')
+        $coreResult = @(Invoke-WindowsWingetCatalogInstall `
+                -RepoRoot $script:RepoRoot `
+                -RequiredTag @('core', 'platform') `
+                -Preview)
+        $sshCopyId = @($coreResult | Where-Object Name -eq 'sshcopyid')
         $sshCopyId.Count | Should -Be 1
         $sshCopyId[0].PackageManager | Should -Be 'winget'
         $sshCopyId[0].Command | Should -Be 'winget install --id axeprpr.SSHCopyID -e --accept-package-agreements --accept-source-agreements'
-        $autoHotkey = @($result | Where-Object Name -eq 'autohotkey')
-        $autoHotkey[0].Command | Should -Be 'winget install --id AutoHotkey.AutoHotkey --exact'
 
         # skipInstall 且无标签的 eartrumpet 不进入统一安装结果。
-        @($result | Where-Object Name -eq 'eartrumpet').Count | Should -Be 0
+        @($coreResult | Where-Object Name -eq 'eartrumpet').Count | Should -Be 0
 
         # Preview 透传后最多产出 Preview/AlreadyPresent，不产生真实安装或失败。
-        @($result | Where-Object { $_.Status -in @('Installed', 'Failed', 'Blocked') }).Count | Should -Be 0
-        @($result | Where-Object Name -in @('autohotkey', 'sshcopyid') | Where-Object Status -notin @('Preview', 'AlreadyPresent')).Count | Should -Be 0
+        @($fullResult + $coreResult | Where-Object { $_.Status -in @('Installed', 'Failed', 'Blocked') }).Count | Should -Be 0
+        @($fullResult + $coreResult | Where-Object Name -in @('autohotkey', 'sshcopyid') | Where-Object Status -notin @('Preview', 'AlreadyPresent')).Count | Should -Be 0
     }
 
     It 'winget 包装按 RequiredTag 过滤且无匹配条目时返回 Failed' {
@@ -617,13 +625,18 @@ Describe 'Windows 步骤 10 login-items 接线' {
         $document = $result.Stdout | ConvertFrom-Json
         $document.SchemaVersion | Should -Be 1
         $loginResults = @($document.Results | Where-Object Step -eq 'login-items')
-        $loginResults.Count | Should -BeGreaterOrEqual 2
-        @($loginResults.Name) | Should -Contain 'sshcopyid'
-        $sshCopyIdResult = @($loginResults | Where-Object Name -eq 'sshcopyid')[0]
-        $sshCopyIdResult.Status | Should -BeIn @('Pass', 'Warn')
+        $loginResults.Count | Should -BeGreaterOrEqual 1
+        # sshcopyid 检查已随 core+platform 移入 core-cli，不再出现在 login-items。
+        @($loginResults.Name) | Should -Not -Contain 'sshcopyid'
         $wslTaskResults = @($loginResults | Where-Object { $_.Name -like 'wsl-ssh-task*' })
         $wslTaskResults.Count | Should -Be 1
         $wslTaskResults[0].Status | Should -BeIn @('Pass', 'Skipped')
+    }
+
+    It '99 的 core-cli 检查覆盖 winget core 平台条目且不再保留 login-items 定制检查' {
+        $stateSource = Get-Content -LiteralPath (Join-Path $script:RepoRoot 'windows/pwsh/Test-InstallState.ps1') -Raw
+        $stateSource | Should -Match ([regex]::Escape("Add-WindowsCatalogChecks -StepName core-cli -RequiredTag @('core', 'platform') -PackageManager winget"))
+        $stateSource | Should -Not -Match 'sshcopyid'
     }
 }
 
@@ -685,12 +698,12 @@ Describe 'Windows Stage 0 与叶子入口' {
             -ArgumentList @('-WhatIf')
 
         $result.ExitCode | Should -Be 0 -Because $result.Stderr
-        # Scoop terminal-extras 计划仍在，且追加的 winget 段覆盖 sshcopyid。
+        # Scoop terminal-extras 计划仍在；sshcopyid 已随 core+platform 移入 05，不在 08 输出。
         $result.Stdout | Should -Match 'ast-grep'
-        $result.Stdout | Should -Match 'sshcopyid'
-        # winget 段两行：autohotkey/sshcopyid 为 Preview（宿主已装则 AlreadyPresent）；eartrumpet 被标签过滤排除。
+        $result.Stdout | Should -Not -Match 'sshcopyid'
+        # winget 段仅 autohotkey 一行（宿主已装则 AlreadyPresent）；eartrumpet 被标签过滤排除。
         $wingetLines = @($result.Stdout -split "`n" | Where-Object { $_ -match '^\[[A-Za-z]+\] (autohotkey|eartrumpet|sshcopyid)' })
-        $wingetLines.Count | Should -Be 2
-        @($wingetLines | Where-Object { $_ -match '^\[(Preview|AlreadyPresent)\] (autohotkey|sshcopyid)' }).Count | Should -Be 2
+        $wingetLines.Count | Should -Be 1
+        @($wingetLines | Where-Object { $_ -match '^\[(Preview|AlreadyPresent)\] autohotkey' }).Count | Should -Be 1
     }
 }

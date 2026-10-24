@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    安装 Windows Core 预设的 Scoop CLI。
+    安装 Windows Core 预设的 Scoop CLI 与 WinGet 平台工具。
 
 .PARAMETER Preset
     Core 或 Full；两者都包含 Core CLI。
@@ -42,6 +42,12 @@ $results = @(Invoke-WindowsScoopCatalogInstall `
         -RepoRoot $repoRoot `
         -RequiredTag @('core', 'cli') `
         -Preview:$WhatIfPreference)
+# Core 预设的 winget 平台工具（当前为 SSHCopyID，配合 WSL SSH 链路）跟随 Core 一起安装。
+$wingetResults = @(Invoke-WindowsWingetCatalogInstall `
+        -RepoRoot $repoRoot `
+        -RequiredTag @('core', 'platform') `
+        -Preview:$WhatIfPreference)
+$results = @($results) + @($wingetResults)
 foreach ($result in $results) {
     Write-Output ('[{0}] {1}: {2}' -f $result.Status, $result.Name, $result.Message)
 }

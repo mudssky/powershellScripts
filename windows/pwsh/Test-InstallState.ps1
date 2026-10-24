@@ -104,13 +104,16 @@ function Add-WindowsInstallCheck {
 function Add-WindowsCatalogChecks {
     <#
     .SYNOPSIS
-        从统一应用清单添加 Scoop 应用检查。
+        从统一应用清单按标签添加应用安装状态检查。
 
     .PARAMETER StepName
         逻辑步骤 ID。
 
     .PARAMETER RequiredTag
         必须全部命中的标签。
+
+    .PARAMETER PackageManager
+        应用清单中的包管理器段，默认 Scoop。
 
     .OUTPUTS
         None。结果添加到当前检查集合。
@@ -121,14 +124,17 @@ function Add-WindowsCatalogChecks {
         [string]$StepName,
 
         [Parameter(Mandatory)]
-        [string[]]$RequiredTag
+        [string[]]$RequiredTag,
+
+        [ValidateSet('scoop', 'winget')]
+        [string]$PackageManager = 'scoop'
     )
 
     $appsConfig = (Resolve-ConfigSources -Sources @(
             @{ Type = 'JsonFile'; Name = 'AppsConfig'; Path = (Join-Path $repoRoot 'profile/installer/apps-config.json') }
         ) -BasePath $repoRoot -ErrorOnMissing).Values
     $packageManagers = ConvertTo-ConfigHashtable -InputObject $appsConfig.packageManagers
-    $selected = @(Select-PackageManagerApps -Apps @($packageManagers.scoop) -TargetOS Windows -RequiredTag $RequiredTag -IncludeSkipped)
+    $selected = @(Select-PackageManagerApps -Apps @($packageManagers.$PackageManager) -TargetOS Windows -RequiredTag $RequiredTag -IncludeSkipped)
     if ($selected.Count -eq 0) {
         Add-WindowsInstallCheck -StepName $StepName -Name catalog -Status Fail -Message '应用清单没有匹配项'
         return
@@ -168,7 +174,10 @@ foreach ($stepName in $Step) {
             $targetsReady = @(@('npm', 'pnpm', 'pip', 'go', 'winget') | Where-Object { $sourceTargets.ContainsKey($_) }).Count -eq 5
             Add-WindowsInstallCheck -StepName sources -Name catalog -Status $(if ($targetsReady) { 'Pass' } else { 'Fail' }) -Message 'npm,pnpm,pip,go,winget'
         }
-        'core-cli' { Add-WindowsCatalogChecks -StepName core-cli -RequiredTag @('core', 'cli') }
+        'core-cli' {
+            Add-WindowsCatalogChecks -StepName core-cli -RequiredTag @('core', 'cli')
+            Add-WindowsCatalogChecks -StepName core-cli -RequiredTag @('core', 'platform') -PackageManager winget
+        }
         'fonts' {
             $installedScoopItems = if ($platform.HasScoop) { @(& scoop list 2>$null 6>$null) } else { @() }
             foreach ($font in @($packageCatalog.Scoop.Fonts)) {
@@ -212,15 +221,6 @@ foreach ($stepName in $Step) {
                 Add-WindowsInstallCheck -StepName login-items -Name preset -Status Skipped -Message 'Core 不包含 login-items'
                 break
             }
-            $sshCopyIdInstalled = Test-ApplicationInstalled -AppName 'ssh-copy-id'
-            Add-WindowsInstallCheck -StepName login-items -Name sshcopyid `
-                -Status $(if ($sshCopyIdInstalled) { 'Pass' } else { 'Warn' }) `
-                -Message $(if ($sshCopyIdInstalled) {
-                    '已安装'
-                }
-                else {
-                    '未检测到 ssh-copy-id；可执行 winget install --id axeprpr.SSHCopyID -e --accept-package-agreements --accept-source-agreements'
-                })
             if (-not $platform.HasWsl) {
                 Add-WindowsInstallCheck -StepName login-items -Name wsl-ssh-task -Status Skipped -Message 'WSL 未安装，跳过 WSL SSH 自启检查'
                 break

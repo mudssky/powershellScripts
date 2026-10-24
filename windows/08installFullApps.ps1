@@ -42,8 +42,8 @@ $results = @(Invoke-WindowsScoopCatalogInstall `
         -RepoRoot $repoRoot `
         -RequiredTag @('cli', 'terminal-extras') `
         -Preview:$WhatIfPreference)
-# Full 预设还包含 WinGet 段应用（AutoHotkey 与 SSHCopyID）；AutoHotkey 与 09 的
-# 安装通过已安装检测天然幂等，eartrumpet（skipInstall、无标签）不进入安装选择。
+# Full 预设的 winget 段只含 AutoHotkey（SSHCopyID 已随 core+platform 移入 05）；
+# AutoHotkey 与 09 的安装通过已安装检测天然幂等，eartrumpet（skipInstall、无标签）不进入安装选择。
 $wingetResults = @(Invoke-WindowsWingetCatalogInstall `
         -RepoRoot $repoRoot `
         -RequiredTag @('full', 'platform') `
