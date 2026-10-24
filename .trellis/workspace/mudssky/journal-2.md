@@ -289,3 +289,25 @@ Windows 改用 Scoop 安装 Go，Linux 与 macOS 改用 Homebrew；移除 voidin
 ### Status
 
 [OK] **Completed**
+
+
+## Session 83: 新增 mpv:install pnpm 入口
+<!-- trellis-session: v=2 fp=74530eee97cf22ae -->
+
+**Date**: 2026-10-24
+**Task**: 新增 mpv:install pnpm 入口
+**Branch**: `master`
+
+### Summary
+
+根 package.json 新增 mpv:install 脚本包装 config/software/mpv/install.ps1（-NoProfile），pnpm 参数透传经 -Check 实测正常（本机返回 True：mpv 已装、配置 Junction 与注册正确）；pnpm qa 通过。mpv 配置确认不在 Core/Full 预设流水线内，此入口为其唯一 pnpm 安装通道。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ea5320c` | chore(scripts): 新增 mpv:install pnpm 入口 |
+
+### Status
+
+[OK] **Completed**
