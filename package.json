@@ -25,6 +25,7 @@
     "provision:full:preview": "pwsh -NoProfile -File ./install.ps1 -Preset Full -WhatIf",
     "provision:core": "pwsh -NoProfile -File ./install.ps1 -Preset Core",
     "provision:full": "pwsh -NoProfile -File ./install.ps1 -Preset Full",
+    "mpv:install": "pwsh -NoProfile -File ./config/software/mpv/install.ps1",
     "pwsh:install": "pwsh -File ./install.ps1",
     "pester:install": "pwsh -NoProfile -File ./scripts/pwsh/devops/Install-Pester.ps1",
     "pester:install:pester5": "pwsh -NoProfile -File ./scripts/pwsh/devops/Install-Pester.ps1 -Version 5.7.1",
